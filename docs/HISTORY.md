@@ -208,6 +208,15 @@
   battery cover, screws, glossy bezel, D-pad in its well, A and B in rings, Start and Select with their pads,
   speaker slots, and a slot open at the top and back so an inserted cartridge's back shows. Cartridge: chamfered
   top corners, the bottom tab with 32 gold contacts in its opening, recessed label, raised top band, back screws.
+- Second pass, after the user's review ("floating screws, the shape isn't right, molded out of play-doh"): rebuilt
+  by comparing renders side by side with the user's photos. The purple face now has the big diagonal cuts at its
+  top corners with the gray shoulder buttons stepped back behind them; crisp front edges with a seam between the
+  shell halves; screws sunk into holes with cross heads; D-pad in a cross-shaped opening; round Start and Select
+  with their slanted pads; A and B in shallow dishes; an enclosed cartridge slot; the battery door with its latch.
+  The cartridge got its wider grip at the top, a sunk grip band, a label recess at the real 43 × 21 mm size and
+  contacts tucked inside the opening.
+- Lessons: compare against the photos at every step, not from memory; the "puffy" look came from big bevels on
+  every edge, and real plastic shells have crisp front edges and softer backs.
 - Lessons: Blender's default ambient occlusion distance (1 unit = 100 mm here) blacks everything out; use about
   8 mm. Smoothed normals next to rounded edges streak across big flat faces; the exporter uses each large
   face's own flat direction. `r2.js` opens the script tag, so generated data has to come after it.

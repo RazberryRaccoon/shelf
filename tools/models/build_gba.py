@@ -1,93 +1,133 @@
-"""Game Boy Advance console and cartridge, modeled from reference photos. Real outline and proportions, stylized
-details, no logos or printed text. Writes prototype-source/models/gba_console.json and gba_cart.json."""
+"""Game Boy Advance console and cartridge, modeled from reference photos (front, back, cartridge front and back).
+The outline was traced from the back photo; sizes are the real ones (144.5 x 82 x 24.5 mm, cartridge 57.5 x 33.5 x
+8 mm). Details are stylized, with no logos or printed text.
+Writes prototype-source/models/gba_console.json and gba_cart.json. With --preview, also renders comparison images."""
 import os, sys
 sys.path.insert(0, os.path.dirname(__file__))
 from shelf_blender import *
 
 OUT = os.path.join(os.path.dirname(__file__), '..', '..', 'prototype-source', 'models')
+PREVIEW = '--preview' in sys.argv
 
-# ---------------- the console: 144.5 x 82 x 24.5 mm ----------------
+# The outline seen from the front: top corners rounded where the shoulder buttons wrap them, the ends swelling out
+# a little below the middle, and softer bottom corners.
+W2, H2 = .7225, .41
+OUTLINE = rounded([(-.69, -H2, .17), (.69, -H2, .17), (W2, -.15, .6), (.69, H2, .27), (-.69, H2, .27), (-W2, -.15, .6)], 14)
+# The purple face has big diagonal cuts at its top corners; the gray shoulder buttons fill them, stepped back.
+FACE = rounded([(-.69, -H2, .17), (.69, -H2, .17), (W2, -.15, .6), (.703, .16, .07), (.455, H2, .06), (-.455, H2, .06), (-.703, .16, .07), (-W2, -.15, .6)], 14)
+
 def console():
     reset()
-    BODY = mat('body', '#5048b0', .35, .15, {'grain': 1})
-    GRAY = mat('gray', '#c8c8d0', .3, .1, {'grain': 1})
-    BEZEL = mat('bezel', '#2a2a30', .5, .45)
-    SCREEN = mat('screen', '#767a76', .2, .5, {'screen': True})
-    HOLE = mat('hole', '#141419', .05)
-    METAL = mat('metal', '#9a9ca4', .9, .3)
+    FACE_M = mat('face', '#5a4eb6', .35, .2, {'grain': .25})
+    BACK = mat('back', '#4b40a0', .3, .15, {'grain': .25})
+    GRAY = mat('gray', '#c6c6cc', .3, .15, {'grain': .2})
+    KEY = mat('key', '#cfcfd4', .4, .25)
+    BEZEL = mat('bezel', '#28282c', .6, .55)
+    LCD = mat('lcd', '#7c7e7a', .15, .35, {'screen': True})
+    BORDER = mat('border', '#1a1b1c', .3, .4)
+    HOLE = mat('hole', '#121216', .05)
+    METAL = mat('metal', '#a2a4ab', .9, .35)
+    LED = mat('led', '#2f3a30', .4, .2, {'led': True})
 
-    W, H = 1.445, .82
-    outline = rounded([(-W / 2, -H / 2, .27), (W / 2, -H / 2, .27), (W / 2, H / 2, .15), (-W / 2, H / 2, .15)], 12)
-    zf, zb = .1, -.085                        # the front face, and the back of the thin middle
-    body = solid('body', outline, zb, zf, .035, BODY)
-    # the grips: the back swells out under each hand
+    zf, zb = .1225, -.1225
+    # two shell halves with a seam between them; the back edge is softer than the front
+    front = solid('front', FACE, .002, zf, [.008, .002], FACE_M)
+    back = solid('back', FACE, zb, -.002, [.002, .024], BACK)
     for s in (-1, 1):
-        g = soften(clip(offset(outline, -.006), s, 0, .42), .07)
-        body2 = solid('grip', g, -.145, zb + .04, .04, BODY)
-    # the battery cover on the back, with a small latch
-    solid('battery', rrect(.5, .27, .03, 6, 0, -.19), -.098, -.08, .006, BODY)
-    box('latch', .09, .03, -.104, -.09, 0, -.045, BODY, .01, .003)
-    for x, y in ((-.4, .3), (.4, .3), (-.55, -.2), (.55, -.2), (-.28, .08), (.28, .08)):   # screws
-        cylinder('screw', .016, -.094 if abs(x) < .3 else -.15, -.084 if abs(x) < .3 else -.14, x, y, METAL)
-    # the gray shoulder buttons wrap the top corners, at the back
-    for s in (-1, 1):
-        sh = soften(clip(clip(offset(outline, .008), 0, 1, .25), s, 0, .42), .03)
-        solid('shoulder', sh, -.13, -.015, .014, GRAY)
-    # the cartridge slot: open at the top and the back, so an inserted cartridge's back shows, as on the real one
-    cut(body, box('slot', .6, .4, -.25, -.006, 0, .27, HOLE, .01, .002))
-    # front: the screen in its glossy bezel
-    bez = rounded([(-.43, -.27, .1), (.43, -.27, .1), (.43, .33, .05), (-.43, .33, .05)], 8)
-    solid('bezel', bez, zf - .006, zf + .006, .004, BEZEL)
-    flat('screen', rrect(.6, .41, .006, 4, 0, .085), zf + .0065, SCREEN)
-    # the D-pad sits in a round well
-    cut(body, cylinder('dwell', .125, zf - .012, zf + .02, -.535, .13, HOLE))
-    cross = rounded([(-.105, -.035, .012), (-.035, -.035, .004), (-.035, -.105, .012), (.035, -.105, .012), (.035, -.035, .004), (.105, -.035, .012),
-                     (.105, .035, .012), (.035, .035, .004), (.035, .105, .012), (-.035, .105, .012), (-.035, .035, .004), (-.105, .035, .012)], 4)
-    d = solid('dpad', cross, zf - .01, zf + .014, .008, GRAY)
-    d.location = (-.535, 0, .13); bpy.context.view_layer.objects.active = d; bpy.ops.object.transform_apply(location=True)
-    # A and B, each in a shallow ring
-    for x, y in ((.44, -.02), (.6, .02)):
-        cut(body, cylinder('ring', .066, zf - .008, zf + .02, x, y, HOLE))
-        cylinder('button', .053, zf - .006, zf + .016, x, y, GRAY, bevel=.012)
-    # Start and Select, each with a small recessed pad beside it
-    for x, y in ((-.45, -.11), (-.49, -.2)):
-        cut(body, box('pad', .1, .035, zf - .004, zf + .02, x - .07, y, HOLE, .017, .002))
-        cylinder('small', .023, zf - .004, zf + .01, x, y, GRAY, bevel=.008)
-    # the speaker slots and the power light
+        # the shoulder button fills the cut corner, a step behind the face, following the round outline outside it
+        sh = soften(clip(clip(offset(OUTLINE, .002), 0, 1, .1), s, 0, .36), .02)
+        solid('shoulder', sh, -.105, .062, [.012, .01], GRAY)
+        # below it, a gray band runs down the end, on the back half
+        solid('side', band(OUTLINE, .003, .028, lambda x, y: s * x > .55 and y < .09), -.108, -.006, .007, GRAY)
+    # ---- the front ----
+    bez = rounded([(-.405, -.3, .13), (.405, -.3, .13), (.405, .345, .055), (-.405, .345, .055)], 10)
+    bezel = solid('bezel', bez, zf - .004, zf + .004, .0025, BEZEL)
+    cut(bezel, box('window', .61, .412, zf - .001, zf + .02, 0, .09, BORDER, .012, .001))
+    flat('border', rrect(.612, .414, .012, 4, 0, .09), zf + .0008, BORDER)
+    flat('lcd', rrect(.58, .39, .004, 4, 0, .09), zf + .0016, LCD)
+    # the D-pad in a cross-shaped opening, with a dimple in the middle
+    cx, cy = -.535, .125
+    arm, aw = .105, .034
+    cross = lambda g: rounded([(-arm - g, -aw - g, .012), (-aw - g, -aw - g, .006), (-aw - g, -arm - g, .012), (aw + g, -arm - g, .012), (aw + g, -aw - g, .006),
+                               (arm + g, -aw - g, .012), (arm + g, aw + g, .012), (aw + g, aw + g, .006), (aw + g, arm + g, .012), (-aw - g, arm + g, .012),
+                               (-aw - g, aw + g, .006), (-arm - g, aw + g, .012)], 4)
+    cut(front, move(solid('dpadhole', cross(.007), zf - .014, zf + .02, .002, HOLE), cx, cy))
+    dpad = move(solid('dpad', cross(0), zf - .012, zf + .016, .008, KEY), cx, cy)
+    cut(dpad, move(cylinder('dimple', .022, zf + .012, zf + .03, 0, 0, KEY, bevel=.004), cx, cy))
+    # A and B, each sitting in a shallow round dish
+    for x, y in ((.455, -.04), (.6, .005)):
+        cut(front, cylinder('dish', .07, zf - .006, zf + .02, x, y, FACE_M, bevel=.003))
+        cylinder('ab', .057, zf - .006, zf + .017, x, y, KEY, bevel=.016)
+    # Start and Select, each with a recessed pad beside it
+    for x, y in ((-.455, -.105), (-.495, -.195)):
+        pad = rotated(rrect(.115, .044, .022, 6, x - .06, y + .012), 20, x - .06, y + .012)
+        cut(front, solid('pad', pad, zf - .004, zf + .02, .002, FACE_M))
+        cylinder('ss', .022, zf - .004, zf + .011, x, y, KEY, bevel=.008)
+    # the power light
+    cut(front, cylinder('ledhole', .012, zf - .004, zf + .02, .555, .195, HOLE, bevel=.001))
+    cylinder('led', .009, zf - .004, zf - .0005, .555, .195, LED, bevel=.002)
+    # six speaker slots, their right ends following the rounded corner
     for i in range(6):
-        cut(body, box('grille', .17 - i * .005, .011, zf - .008, zf + .02, .55 + i * .0025, -.19 - i * .028, HOLE, .005, .001))
-    cylinder('led', .009, zf - .002, zf + .004, .55, .2, mat('led', '#3a3f3a', .4, 0, {'led': True}))
-    finish('gba_console', OUT)
+        y = -.165 - i * .029; L = .19 - max(0, i - 2) * .025
+        cut(front, box('slot', L, .012, zf - .012, zf + .02, .405 + L / 2 - i * .005, y, HOLE, .006, .001))
 
-# ---------------- the cartridge: 57.5 x 35 x 8 mm ----------------
+    # ---- the edges: cartridge slot on top, headphones, volume and power on the bottom ----
+    cut(back, box('cartslot', .6, .4, -.104, -.014, 0, H2 + .1 - .35 + .2 - .01, HOLE, .01, .002))
+    jack = rotate(cylinder('jack', .024, -.04, .04, 0, 0, HOLE), rx=90); cut(front, move(jack, .17, -H2, .05))
+    cut(front, move(box('volslot', .07, .1, .02, .07, 0, 0, HOLE, .004), .33, -H2))
+    wheel = rotate(cylinder('wheel', .03, -.012, .012, 0, 0, GRAY, bevel=.004), ry=90); move(wheel, .33, -H2 + .012, .045)
+    cut(back, move(box('pwrslot', .1, .1, -.08, -.03, 0, 0, HOLE, .004), -.42, -H2))
+    move(box('pwr', .04, .03, -.07, -.04, 0, 0, GRAY, .006, .003), -.44, -H2 - .006)
+
+    # ---- the back: screws in their holes, the battery door, and a recess for the sticker ----
+    for x, y in ((-.36, .3), (.36, .3), (-.49, .17), (.49, .17), (-.63, -.27), (.63, -.27)):
+        cut(back, cylinder('screwhole', .024, zb - .02, zb + .012, x, y, HOLE, bevel=.002))
+        screw = cylinder('screw', .017, zb + .004, zb + .009, x, y, METAL, bevel=.002)
+        for ang in (0, 90):   # a cross in the screw head
+            cut(screw, move(rotate(box('cross', .022, .0045, zb + .001, zb + .0055, 0, 0, HOLE, .001, .0005), rz=ang), x, y))
+    cut(back, solid('doorgap', rrect(.652, .372, .034, 8, 0, -.212), zb - .02, zb + .006, .001, HOLE))
+    door = solid('door', rrect(.64, .36, .028, 8, 0, -.212), zb + .0005, zb + .006, [.001, .003], BACK)
+    cut(door, box('latch', .08, .03, zb - .02, zb + .003, 0, -.04, HOLE, .01, .001))
+    for i in range(4): box('grip', .05, .004, zb - .0015, zb + .001, 0, -.075 - i * .01, BACK, .002, .001)
+    cut(back, box('sticker', .42, .13, zb - .02, zb + .0015, 0, .245, BACK, .01, .001))
+    ob = finish('gba_console', OUT)
+    if PREVIEW:
+        for v in ('front', 'back', 'three-quarter', 'top', 'bottom'): preview(ob, os.path.join(PREV, f'gba_console_{v}.png'), v)
+
+# ---------------- the cartridge ----------------
 def cartridge():
     reset()
-    SHELL = mat('shell', '#3b3b42', .3, .1, {'grain': 1})
+    SHELL = mat('shell', '#303236', .3, .15, {'grain': .2})
     HOLE = mat('hole', '#121216', .05)
     GOLD = mat('gold', '#d6b25a', .9, .3)
     LABEL = mat('label', '#ffffff', .22, 0, {'label': True})
     METAL = mat('metal', '#9a9ca4', .9, .3)
-    w, h, d = .575 / 2, .345 / 2, .08
-    # the outline: chamfered top corners, and the tab at the bottom that carries the contacts
-    outline = rounded([(-w, -h, .012), (-.11, -h, .004), (-.09, -h - .014, .004), (.09, -h - .014, .004), (.11, -h, .004), (w, -h, .012),
-                       (w, h - .028, .004), (w - .028, h, .004), (-w + .028, h, .004), (-w, h - .028, .004)], 6)
-    body = solid('cart', outline, -d / 2, d / 2, .01, SHELL)
-    # the label sits in a shallow recess with a raised lip around it; a raised band runs across the top
-    cut(body, box('recess', .45, .225, d / 2 - .002, d / 2 + .02, 0, -.02, SHELL, .012, .001))
-    flat('label', rrect(.44, .215, .01, 4, 0, -.02), d / 2 - .0015, LABEL)
-    box('band', .44, .045, d / 2 - .004, d / 2 + .0025, 0, .125, SHELL, .01, .002)
-    # the back: two screws, and a raised panel down the middle
-    for y in (.09, -.06):
-        cut(body, cylinder('screwhole', .02, -d / 2 - .02, -d / 2 + .004, 0, y, HOLE))
-        cylinder('screw', .014, -d / 2 + .001, -d / 2 + .004, 0, y, METAL)
-    box('ridge', .2, .26, -d / 2 - .003, -d / 2 + .004, 0, -.01, SHELL, .02, .002)
+    w, top, bot, d = .2875, .1675, -.1675, .08
+    # wider at the top where you grip it (a step 7 mm down each side), chamfered top corners, and the tab at the bottom
+    step, sx = top - .07, .014
+    outline = rounded([(-w + sx, bot, .012), (-.11, bot, .004), (-.09, bot - .012, .004), (.09, bot - .012, .004), (.11, bot, .004), (w - sx, bot, .012),
+                       (w - sx, step - .008, .003), (w, step, .003), (w, top - .016, .003), (w - .016, top, .003), (-w + .016, top, .003), (-w, top - .016, .003),
+                       (-w, step, .003), (-w + sx, step - .008, .003)], 6)
+    body = solid('cart', outline, -d / 2, d / 2, [.006, .006], SHELL)
+    # front: the label sits in a recess; the grip at the top is a slightly raised band
+    cut(body, box('recess', .45, .222, d / 2 - .0025, d / 2 + .02, 0, -.045, SHELL, .012, .001))
+    flat('label', rrect(.44, .212, .01, 4, 0, -.045), d / 2 - .002, LABEL)
+    cut(body, box('band', .47, .042, d / 2 - .0012, d / 2 + .02, 0, .128, SHELL, .01, .001))   # the grip band, slightly sunk
+    # back: two screws in their holes, and a shallow panel between them
+    for y in (.125, -.02):
+        cut(body, cylinder('screwhole', .014, -d / 2 - .02, -d / 2 + .008, 0, y, HOLE))
+        cylinder('screw', .0105, -d / 2 + .003, -d / 2 + .007, 0, y, METAL, bevel=.002)
+    cut(body, box('panel', .32, .16, -d / 2 - .02, -d / 2 + .0015, 0, -.06, SHELL, .02, .001))
     # the contacts: an opening along the bottom edge with the board's gold fingers inside
-    cut(body, box('mouth', .44, .06, -.022, .022, 0, -h - .01, HOLE, .004, .001))
+    cut(body, box('mouth', .44, .06, -.026, .02, 0, bot - .01, HOLE, .004, .001))
     for i in range(32):
-        box('pin', .009, .03, -.006, .006, -.195 + i * .0126, -h + .006, GOLD, .002, .001)
-    finish('gba_cart', OUT)
+        box('pin', .009, .02, -.012, -.004, -.195 + i * .0126, bot + .013, GOLD, .002, .001)
+    ob = finish('gba_cart', OUT)
+    if PREVIEW:
+        for v in ('front', 'back', 'bottom', 'three-quarter'): preview(ob, os.path.join(PREV, f'gba_cart_{v}.png'), v, ortho=.7)
 
+PREV = os.environ.get('SHELF_PREVIEW_DIR', '/tmp/shelf-previews'); os.makedirs(PREV, exist_ok=True)
 if __name__ == '__main__':
-    which = sys.argv[1:] or ['console', 'cart']
+    which = [a for a in sys.argv[1:] if not a.startswith('--')] or ['console', 'cart']
     if 'console' in which: console()
     if 'cart' in which: cartridge()

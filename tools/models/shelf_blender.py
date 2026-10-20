@@ -108,7 +108,18 @@ def _to_mesh(ob):
     return bpy.context.view_layer.objects.active
 
 def solid(name, outline, z0, z1, bevel=.01, material=None, res=4):
-    """An outline (front view) pushed from depth z0 (back) to z1 (front), with rounded edges of radius `bevel`."""
+    """An outline (front view) pushed from depth z0 (back) to z1 (front), with rounded edges of radius `bevel`.
+    bevel can be [front, back] to round the two faces differently; the less rounded face is then cut crisp."""
+    if isinstance(bevel, (list, tuple)):
+        bf, bb = bevel
+        if abs(bf - bb) > 1e-6:
+            big = max(bf, bb); ext = big * 1.5
+            ob = solid(name, outline, z0 - (ext if bb < bf else 0), z1 + (ext if bf < bb else 0), big, material, res)
+            xs = [p[0] for p in outline]; ys = [p[1] for p in outline]; pad = .5
+            cz0, cz1 = (z0 - 1, z0) if bb < bf else (z1, z1 + 1)
+            cutter = solid(name + '_trim', [(min(xs) - pad, min(ys) - pad), (max(xs) + pad, min(ys) - pad), (max(xs) + pad, max(ys) + pad), (min(xs) - pad, max(ys) + pad)], cz0, cz1, 0, None, 1)
+            return cut(ob, cutter, keep_material=False)
+        bevel = bf
     cu = bpy.data.curves.new(name, 'CURVE'); cu.dimensions = '2D'; cu.fill_mode = 'BOTH'
     sp = cu.splines.new('POLY'); pts = ccw(outline); sp.points.add(len(pts) - 1)
     for i, (x, y) in enumerate(pts): sp.points[i].co = (x, y, 0, 1)
@@ -168,6 +179,10 @@ def rotate(ob, rx=0, ry=0, rz=0, pivot=(0, 0, 0)):
 def finish(name, out_dir, ao_size=1024, samples=48, ao_dist=.08):
     """Join everything, smooth it, bake soft shadows (ambient occlusion) into a texture, and write the model file."""
     obs = [o for o in bpy.context.scene.objects if o.type == 'MESH']
+    for o in obs:   # an empty material slot can come along from a cut; give it its neighbour's material
+        real = [m for m in o.data.materials if m]
+        for i, m in enumerate(o.data.materials):
+            if m is None and real: o.data.materials[i] = real[0]
     for o in bpy.context.selected_objects: o.select_set(False)
     for o in obs:
         o.select_set(True)
@@ -194,6 +209,7 @@ def finish(name, out_dir, ao_size=1024, samples=48, ao_dist=.08):
     s.file_format = 'PNG'; s.color_mode = 'BW'; s.color_depth = '8'; s.compression = 100
     img.save_render(path, scene=sc)   # grayscale is all a shadow map needs
     export(ob, os.path.join(out_dir, name + '.json'), path)
+    return ob
 
 def export(ob, path, ao_png):
     """Shelf's model format: one part per material, each with positions, normals, UVs (label/screen), AO UVs and indices."""
@@ -226,3 +242,48 @@ def export(ob, path, ao_png):
     out['lo'], out['hi'] = lo, hi
     json.dump(out, open(path, 'w'))
     print(f'wrote {path}: {sum(len(P["i"]) // 3 for P in parts.values())} triangles, {len(out["parts"])} parts')
+
+# ---------- shaping helpers ----------
+
+def move(ob, dx=0, dy=0, dz=0):
+    """Move an object in Shelf's axes and bake the move in."""
+    ob.location = (ob.location.x + dx, ob.location.y - dz, ob.location.z + dy)
+    bpy.context.view_layer.objects.active = ob; bpy.ops.object.transform_apply(location=True)
+    return ob
+
+def band(outline, d_out, d_in, keep):
+    """A strip that hugs part of an outline: between the outline grown by d_out and shrunk by d_in, for the points
+    where keep(x, y) is true (they must be one unbroken run)."""
+    O = ccw(outline); n = len(O); A, B = offset(O, d_out), offset(O, -d_in)
+    flags = [keep(*p) for p in O]
+    start = next(i for i in range(n) if flags[i] and not flags[i - 1])
+    run = []; i = start
+    while flags[i % n]: run.append(i % n); i += 1
+    return [A[i] for i in run] + [B[i] for i in reversed(run)]
+
+def rotated(pts, deg, cx=0, cy=0):
+    a = math.radians(deg); c, s = math.cos(a), math.sin(a)
+    return [(cx + (x - cx) * c - (y - cy) * s, cy + (x - cx) * s + (y - cy) * c) for x, y in pts]
+
+# ---------- previews: render the model the way the reference photos see it ----------
+
+def preview(ob, path, view='front', size=900, ortho=1.6, samples=24):
+    """Render a quick studio image of the finished model. view: front, back, three-quarter, top, bottom, left."""
+    sc = bpy.context.scene; sc.render.engine = 'CYCLES'; sc.cycles.samples = samples; sc.cycles.device = 'CPU'
+    sc.render.resolution_x = sc.render.resolution_y = size; sc.render.film_transparent = False
+    w = sc.world; w.use_nodes = True; bg = w.node_tree.nodes.get('Background'); bg.inputs[0].default_value = (.85, .86, .9, 1); bg.inputs[1].default_value = .35
+    if 'key' not in bpy.data.objects:
+        L = bpy.data.lights.new('key', 'AREA'); L.energy = 25; L.size = 3; lo = bpy.data.objects.new('key', L); bpy.context.collection.objects.link(lo)
+        lo.location = (-2, -3, 3); lo.rotation_euler = (math.radians(50), 0, math.radians(-35))
+    cam = bpy.data.objects.get('cam')
+    if not cam:
+        cd = bpy.data.cameras.new('cam'); cam = bpy.data.objects.new('cam', cd); bpy.context.collection.objects.link(cam)
+    sc.camera = cam; cam.data.type = 'ORTHO'; cam.data.ortho_scale = ortho
+    dirs = {'front': (0, -1, 0), 'back': (0, 1, 0), 'top': (0, 0, 1), 'bottom': (0, 0, -1), 'left': (-1, 0, 0),
+            'three-quarter': (-.45, -1, .55)}
+    d = Vector(dirs[view]).normalized(); cam.location = d * 5
+    cam.rotation_euler = (-d).to_track_quat('-Z', 'Z' if view not in ('top', 'bottom') else 'Y').to_euler()
+    if view == 'back': cam.rotation_euler = (math.pi / 2, 0, math.pi)   # looking at the back, upright
+    if view == 'three-quarter': cam.data.type = 'PERSP'; cam.data.lens = 120
+    sc.view_settings.view_transform = 'Standard'; sc.render.image_settings.color_mode = 'RGB'
+    sc.render.filepath = path; bpy.ops.render.render(write_still=True)

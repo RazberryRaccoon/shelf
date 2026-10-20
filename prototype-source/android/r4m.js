@@ -185,7 +185,7 @@ const CART = {
   genesis: { w: 1.00, h: 1.30, d: .18, label: [0, .25, .74, .60], col: '#1d1e23', fold: .07 },
   gb:      { w: .57, h: .65, d: .08, label: [0, -.035, .42, .37], col: '#bdbcc4' },
   gbc:     { w: .57, h: .65, d: .08, label: [0, -.035, .42, .37], col: '#34c3b7' },
-  gba:     { w: .575, h: .345, d: .08, label: [0, -.02, .44, .215], col: '#3b3b42' },
+  gba:     { w: .575, h: .335, d: .08, label: [0, -.045, .44, .212], col: '#303236' },
   ds:      { w: .35, h: .33, d: .038, label: [0, -.03, .28, .2], col: '#3b3d47' },
   android: { w: .42, h: .30, d: .035, label: [0, -.02, .34, .2], col: '#262a3a' },
   ps1:     { w: 1.2, h: 1.2, d: .012, disc: true, r: .6 },
@@ -204,7 +204,11 @@ function cartOutline(sys) {
     case 'genesis': return rounded([[-.42, -h, .02], [.42, -h, .02], [.42, -.40, .015], [w, -.32, .015], [w, h, .06], [-w, h, .06], [-w, -.32, .015], [-.42, -.40, .015]]);
     case 'gb': return rounded([[-w, -h, .012], [w, -h, .012], [w, h - .06, .006], [w - .06, h, .006], [-w, h, .025]]);   // the notched corner
     case 'gbc': return rrect(c.w, c.h, [.012, .012, .03, .03]);
-    case 'gba': return rounded([[-w, -h, .012], [-.11, -h, .004], [-.09, -h - .014, .004], [.09, -h - .014, .004], [.11, -h, .004], [w, -h, .012], [w, h - .028, .004], [w - .028, h, .004], [-w + .028, h, .004], [-w, h - .028, .004]]);   // matches the Blender model
+    case 'gba': {   // wider at the top where you grip it, chamfered top corners, the tab at the bottom (matches the Blender model)
+      const st = h - .07, sx = .014;
+      return rounded([[-w + sx, -h, .012], [-.11, -h, .004], [-.09, -h - .012, .004], [.09, -h - .012, .004], [.11, -h, .004], [w - sx, -h, .012], [w - sx, st - .008, .003],
+        [w, st, .003], [w, h - .016, .003], [w - .016, h, .003], [-w + .016, h, .003], [-w, h - .016, .003], [-w, st, .003], [-w + sx, st - .008, .003]]);
+    }
     case 'ds': return rounded([[-w, -h, .01], [w, -h, .01], [w, h - .03, .004], [w - .03, h, .004], [-w, h, .012]]);
     case 'psp': return rounded([[-w, -.32, .03], [w, -.32, .03], [w, 0, 0], ...arcPts(0, 0, w, 0, Math.PI, 28).slice(1, -1), [-w, 0, 0]]);
     case 'ps1': return circle(c.r, 72);
