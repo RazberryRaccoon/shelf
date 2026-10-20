@@ -75,7 +75,7 @@ function refreshMuseum() {
     <div class="mu-facts"><div>Released in North America<b>${esc(d.released)}</b></div><div>Sold<b>${esc(d.sold)}</b></div><div>Processor<b>${esc(d.cpu)}</b></div><div>Plays<b>${esc(d.plays)}</b></div></div>
     <h3>Did you know?</h3><ul>${d.facts.map(f => `<li>${esc(f)}</li>`).join('')}</ul>
     <p class="mu-note">Shelf’s models are stylized: the real shapes and sizes, with no logos. Shown with ${esc(g.title)}, an invented game.</p>`;
-  $('#muHint').innerHTML = stage0 ? '<i class="btn">◀▶</i><i class="btn">▲▼</i> Turn it &nbsp; <i class="btn">A</i> Next exhibit &nbsp; <i class="btn">Y</i> Reset the view &nbsp; <i class="btn">B</i> Back to the list'
+  $('#muHint').innerHTML = stage0 ? '<i class="btn">◀▶</i><i class="btn">▲▼</i> Turn it &nbsp; <i class="btn">LB</i><i class="btn">RB</i> Switch exhibit &nbsp; <i class="btn">Y</i> Reset the view &nbsp; <i class="btn">B</i> Back to the list'
     : '<i class="btn">▲▼</i> Choose a console &nbsp; <i class="btn">A</i> Take a closer look';
   renderTop();
 }
@@ -89,7 +89,7 @@ function museumInput(a) {
   }
   if (a === 'left' || a === 'right') U.yawT += (a === 'left' ? -1 : 1) * .4;
   else if (a === 'up' || a === 'down') U.pitchT = clamp(U.pitchT + (a === 'up' ? 1 : -1) * .22, -1.1, 1.3);
-  else if (a === 'a') { pickExhibit(U.i, (U.ex + 1) % 4); sfx.select(); }
+  else if (a === 'lb' || a === 'rb' || a === 'a') { pickExhibit(U.i, (U.ex + (a === 'lb' ? 3 : 1)) % 4); sfx.select(); }
   else if (a === 'y') { const v = EX_VIEW[U.ex]; U.yawT = v.yaw + Math.round((U.yawT - v.yaw) / (Math.PI * 2)) * Math.PI * 2; U.pitchT = v.pitch; sfx.move(); }
   else if (a === 'b') { U.zone = 'rail'; sfx.back(); refreshMuseum(); }
 }

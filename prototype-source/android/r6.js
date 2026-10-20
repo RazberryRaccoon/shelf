@@ -23,7 +23,7 @@ function act(a) {
   }
   if (sc === 'play') return;
   if (TABS.includes(sc)) {
-    if (a === 'lb' || a === 'rb') { const k = (TABS.indexOf(sc) + (a === 'rb' ? 1 : TABS.length - 1)) % TABS.length; sfx.tab(); return enterTab(TABS[k]); }
+    if ((a === 'lb' || a === 'rb') && !(sc === 'museum' && S.mu.zone === 'stage' && !S.top.on)) { const k = (TABS.indexOf(sc) + (a === 'rb' ? 1 : TABS.length - 1)) % TABS.length; sfx.tab(); return enterTab(TABS[k]); }
     if (S.top.on) return topInput(a);
     return sc === 'home' ? homeInput(a) : sc === 'library' ? libInput(a) : sc === 'museum' ? museumInput(a) : appsInput(a);
   }

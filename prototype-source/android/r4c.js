@@ -31,7 +31,7 @@ function consoleModel(sys) {
       on(slabG(rrect(1.28, 1.5, .24, 8), .2, .08), at(0, .26, -.18), shellM('#c0bec8'));
       up(barG(1.0, .17, .01, .02), 0, .36, -.18, DARK);
       up(barG(1.06, .022, .01, .005), 0, .362, -.06, D0); up(barG(1.06, .022, .01, .005), 0, .362, -.3, D0);
-      [-.62, .62].forEach(x => { up(barG(.34, .14, .02, .06), x, .2, .52, D0); up(barG(.14, .12, .05, .04), x - .06, .22, .52, shellM('#9a98a4')); });
+      [-.8, .8].forEach(x => { up(barG(.3, .14, .02, .06), x, .21, .45, D0); up(barG(.13, .12, .05, .04), x - .06, .235, .45, shellM('#9a98a4')); });
       up(barG(.32, .17, .05, .06, .015), 0, .21, .7, D0);
       up(discG(.022, .006), -.3, .201, .86, led('#ff4a4a'));
       [-.36, .36].forEach(x => { face(barG(.3, .17, .008, .05), x, -.16, 1.21, DARK); face(planeGeo(.2, .06), x, -.16, 1.215, shellM('#5e5c66')); });
@@ -73,7 +73,7 @@ function consoleModel(sys) {
       dpad(-.21, -.2, z, .27, B0);
       [[.3, -.15], [.13, -.23]].forEach(([x, y]) => face(domeG(.066, .03), x, y, z, shellM('#9c2a5c', { spec: .5 })));
       [-.06, .1].forEach(x => face(barG(.13, .036, .02, .017), x, -.46, z + .008, shellM('#8d8c97'), .45));
-      for (let i = 0; i < 6; i++) face(barG(.022, .17, .006, .011), .19 + i * .045, -.52 + i * .0, z + .001, shellM('#9a99a2'), .5);
+      for (let i = 0; i < 6; i++) { const k = (i - 2.5) * .04; face(barG(.022, .15, .006, .011), .27 + k * Math.cos(.5), -.54 + k * Math.sin(.5), z + .001, shellM('#9a99a2'), .5); }   // speaker slots, kept inside the rounded corner
       up(barG(.18, .05, .03, .012), -.22, .74, .02, shellM('#9a99a2'));
       up(barG(.62, .12, .004, .01), 0, .741, -.08, DARK);
       slot = { kind: 'hand', x: 0, y: .74, z: -.08 }; break;
@@ -91,9 +91,9 @@ function consoleModel(sys) {
       up(barG(.5, .1, .004, .01), 0, .666, -.07, DARK);
       slot = { kind: 'hand', x: 0, y: .665, z: -.07 }; break;
     }
-    case 'gba': {   // wide with rounded ends, the screen between the controls, shoulder buttons on top
+    case 'gba': {   // wide, with firm corners, the screen between the controls, shoulder buttons along the top edge
       const S0 = shellM('#4e46a8', { spec: .45 }), z = .1225, B0 = shellM('#c5c4d2', { spec: .5 });
-      on(solidGeo(rrect(1.445, .82, .33, 10), .245, .045), IDENT, S0);
+      on(solidGeo(rrect(1.445, .82, [.2, .2, .1, .1], 8), .245, .03), IDENT, S0);
       face(solidGeo(rrect(.84, .6, .06, 6), .006, .002, 2), 0, .03, z + .002, shellM('#18181f', { spec: .5 }));
       face(scr(.62, .415), 0, .045, z + .0055, SCREEN);
       dpad(-.53, .07, z, .2, shellM('#3b3488'));
@@ -101,7 +101,7 @@ function consoleModel(sys) {
       [[-.53, -.21], [-.53, -.29]].forEach(([x, y]) => face(domeG(.024, .014), x, y, z, B0));
       grille(.52, -.24, z, 3, 3, .035, DARK);
       face(discG(.012, .004), -.36, -.26, z + .005, led('#5bff8a'));
-      [-1, 1].forEach(s => on(solidGeo(rrect(.34, .06, .03), .1, .02), at(s * .5, .385, -.05, 0, 0, -s * .06), shellM('#3b3488')));
+      [-1, 1].forEach(s => on(slabG(rrect(.26, .11, .025), .035, .012), at(s * .47, .41 + .0165, -.06), shellM('#3b3488')));
       up(barG(.62, .1, .004, .01), 0, .411, -.05, DARK);
       slot = { kind: 'hand', x: 0, y: .41, z: -.05 }; break;
     }
