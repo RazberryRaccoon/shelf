@@ -22,10 +22,10 @@ function act(a) {
     return;
   }
   if (sc === 'play') return;
-  if (['home', 'library', 'apps'].includes(sc)) {
-    if (a === 'lb' || a === 'rb') { const tabs = ['home', 'library', 'apps'], k = (tabs.indexOf(sc) + (a === 'rb' ? 1 : 2)) % 3; sfx.tab(); return enterTab(tabs[k]); }
+  if (TABS.includes(sc)) {
+    if (a === 'lb' || a === 'rb') { const k = (TABS.indexOf(sc) + (a === 'rb' ? 1 : TABS.length - 1)) % TABS.length; sfx.tab(); return enterTab(TABS[k]); }
     if (S.top.on) return topInput(a);
-    return sc === 'home' ? homeInput(a) : sc === 'library' ? libInput(a) : appsInput(a);
+    return sc === 'home' ? homeInput(a) : sc === 'library' ? libInput(a) : sc === 'museum' ? museumInput(a) : appsInput(a);
   }
   if (sc === 'game') return gameInput(a);
   if (sc === 'ach') return achInput(a);
@@ -177,6 +177,7 @@ function planetTarget() {
     case 'setup': return { x: 667, y: 1080, r: 560, a: 1 };
     case 'home': return { x: 1220, y: 900, r: 420, a: 1 };
     case 'library': case 'apps': return { x: 1300, y: 920, r: 380, a: .85 };
+    case 'museum': return { x: 560, y: 1150, r: 470, a: .55 };
     case 'game': return { x: 260, y: 940, r: 480, a: .9 };
     case 'settings': case 'ach': return { x: 1260, y: 940, r: 400, a: .5 };
     default: return { x: 667, y: 1200, r: 500, a: 0 };
@@ -200,7 +201,7 @@ function drawHome(dt, t) {
     approach(o, { y }, dt, foc ? 7 : 10);
     let M = M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s);
     if (q && foc) { const k = easeOut(q.t / .9); M = M4.trs(o.x * (1 - k), o.y + k * .6, o.z + k * 3, o.rx * (1 - k), o.ry * (1 - k), 0, o.s * (1 + k * .8)); }
-    const hpx = (CART[g.sys].h / 2 + (g.sys === 'gba' ? .1 : 0)) * o.s * PX;
+    const hpx = CART[g.sys].h / 2 * o.s * PX;
     if (o.alpha > .01) { shadowUnder(xpx, ypx - bob + hpx + (foc ? 24 : 12), Math.max(CART[g.sys].w, .5) * o.s * PX * .9, o.alpha, foc); drawn.push([g, M, o, foc]); }
   });
   for (const [g, M, o, foc] of drawn) { if (foc && rowFocus) { const m = moodColors(MOOD.cur); drawCartGlowM(g, M, o.s, hexRgb(m.accent), hexRgb(m.planet[0]), o.alpha); } drawCartM(g, M, o); }
@@ -284,6 +285,7 @@ function tick(dt) {
   if (S.screen === 'home') drawHome(dt, S.time);
   else if (S.screen === 'library') drawLibrary(dt, S.time);
   else if (S.screen === 'game') drawGamePage(dt, S.time);
+  else if (S.screen === 'museum') drawMuseum(dt);
 }
 async function boot() {
   fit();

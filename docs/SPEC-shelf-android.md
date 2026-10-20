@@ -265,6 +265,13 @@ plastic color, shadow color, and the 3D rim light.
 - **Build:** a Gradle project in a GitHub repository, with a **GitHub Actions** workflow that builds the APK.
   The user downloads the build output and sideloads it. The user chose this over installing Android Studio.
 
+## 16b. Museum
+
+- A tab that treats the consoles as exhibits: a timeline of every supported console, oldest first.
+- **Exhibits:** the console, its media and its box (closed and open), turned with the D-pad or by dragging.
+- **Info:** maker, North American release, units sold, processor, media, and a few facts.
+- Models follow the real silhouettes and sizes, stylized, with no logos.
+
 ## 17. Not yet designed
 
 - Touch interaction.

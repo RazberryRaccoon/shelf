@@ -6,10 +6,12 @@ const S = {
   lib: { zone: 'grid', rail: 0, filter: 0, i: 0, sort: 0, rowF: .6, list: [] },
   game: { id: null, zone: 'actions', i: 0, from: 'library', turn: false, rx: 0, ry: 0 },
   apps: { i: 0 }, set: { cat: 0, zone: 'nav', i: 0, back: 'home', sub: null, game: null },
+  mu: { i: 0, ex: 0, zone: 'rail', yaw: -.55, pitch: .45, yawT: -.55, pitchT: .45, open: 0, fade: 1, prev: null },
   ach: { id: null, filter: 0, i: 0 }, dlg: { open: false }, kb: { open: false },
   seq: null, play: null, time: 0,
 };
-const TOP = ['home', 'library', 'apps', 'settings', 'profile'];
+const TABS = ['home', 'library', 'apps', 'museum'];
+const TOP = [...TABS, 'settings', 'profile'];
 const SORTS = ['Recently played', 'A to Z', 'Release year'];
 const SHOWS = ['All', 'Saved', 'Not played'];
 const HOME_MAX = 10;
@@ -22,14 +24,14 @@ const motion = () => P.prefs.motion;
 const rec = id => P.played[id];
 function ensureRec(g) { if (!P.played[g.id]) P.played[g.id] = { last: 0, minutes: 0, earned: 0, fav: false, slots: [null, null, null, null], lastSlot: 0 }; return P.played[g.id]; }
 const BOXK = .8;   // boxes in the Library: 1 unit (100 mm) = .8 x PX pixels, so every box keeps its true size relative to the others
-function mediaScale(sys, px) { const c = CART[sys]; return px / PX / Math.max(c.w, c.h + (sys === 'gba' ? .1 : 0)); }
+function mediaScale(sys, px) { const c = CART[sys]; return px / PX / Math.max(c.w, c.h); }
 
 /* ================= small DOM helpers ================= */
 let toastTimer = 0;
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2400); }
 function show(screen) {
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + screen));
-  $('#topbar').classList.toggle('on', ['home', 'library', 'apps'].includes(screen));
+  $('#topbar').classList.toggle('on', TABS.includes(screen));
 }
 function clockText() { return new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
 function avatarCss(cols) { return `radial-gradient(circle at 35% 30%, ${cols[0]}, ${cols[1]} 55%, ${cols[2]})`; }
@@ -92,9 +94,9 @@ function enterSetup() { S.screen = 'setup'; show('setup'); setMood('home'); fill
 /* ================= tabs ================= */
 function enterTab(tab) {
   S.tab = tab; S.screen = tab; S.top.on = false; show(tab); renderTop();
-  if (tab === 'home') refreshHome(); else if (tab === 'library') refreshLibrary(true); else refreshApps();
+  if (tab === 'home') refreshHome(); else if (tab === 'library') refreshLibrary(true); else if (tab === 'museum') enterMuseum(); else refreshApps();
 }
-function refreshTab() { S.tab === 'home' ? refreshHome() : S.tab === 'library' ? refreshLibrary(false) : refreshApps(); renderTop(); }
+function refreshTab() { S.tab === 'home' ? refreshHome() : S.tab === 'library' ? refreshLibrary(false) : S.tab === 'museum' ? refreshMuseum() : refreshApps(); renderTop(); }
 const homeItems = () => P.recent.filter(id => inLibrary(byId[id]) && !(P.hidden && P.hidden.has(id))).slice(0, HOME_MAX).concat(['__all']);
 function homeCards(id) { return id === '__all' ? [] : [{ k: 'box' }, { k: 'ach' }, { k: 'saves' }]; }
 function cardHtml(c, g) {

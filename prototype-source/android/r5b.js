@@ -125,7 +125,7 @@ function settingsAct() {
 function closeSettings() {
   sfx.back();
   if (S.set.game) { const id = S.set.game; S.set.game = null; S.screen = 'game'; show('game'); return fillGame(); }
-  const b = S.set.back; if (b === 'game') { S.screen = 'game'; show('game'); fillGame(); } else enterTab(['home', 'library', 'apps'].includes(b) ? b : 'home');
+  const b = S.set.back; if (b === 'game') { S.screen = 'game'; show('game'); fillGame(); } else enterTab(TABS.includes(b) ? b : 'home');
 }
 
 /* ================= launching, playing, coming back ================= */

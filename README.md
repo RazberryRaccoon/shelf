@@ -10,7 +10,7 @@ Shelf has been built three times, each one learning from the last:
 
 | Version | Device | State | Download |
 |---|---|---|---|
-| **Shelf for Android** | Retroid Pocket 3+ (Android 11) | 🚧 **Current focus.** Design prototype v1 (runs in a browser). The real app hasn't been started. | [Prototype](https://github.com/RazberryRaccoon/shelf/raw/main/downloads/shelf-android-prototype.zip) |
+| **Shelf for Android** | Retroid Pocket 3+ (Android 11) | 🚧 **Current focus.** Design prototype, being revised (runs in a browser). The real app hasn't been started. | [Prototype](https://github.com/RazberryRaccoon/shelf/raw/main/downloads/shelf-android-prototype.zip) |
 | **Shelf for TV** | Raspberry Pi 3B+ on a TV | 🧪 Prototype finished. A first version for the Pi is written but has never been tried on a real Pi. | [Pi installer](https://github.com/RazberryRaccoon/shelf/raw/main/downloads/shelf-tv.tar.gz) · [Prototype](https://github.com/RazberryRaccoon/shelf/raw/main/downloads/shelf-tv-prototype.zip) |
 | **Shelf for Odroid GO** | Odroid GO (320×240 handheld) | ✅ **Finished and working** on the device. NES, Game Boy and Game Boy Color. | [Launcher + tools](https://github.com/RazberryRaccoon/shelf/raw/main/downloads/shelf-odroid-go.zip) |
 
@@ -32,7 +32,8 @@ ten consoles plus Android games:
 - **Opening a box** shows its cartridge or disc, its manual, screenshots, saves and achievements.
 - Games launch in RetroArch (or a standalone emulator), and the Home button saves and brings you back.
 
-Right now there's a **browser prototype** to look at and give feedback on. It's fixed at the Retroid's
+Right now there's a **browser prototype** to look at and give feedback on. Its new **Museum** tab shows every
+console, cartridge and box up close, with facts about each console. It's fixed at the Retroid's
 1334×750 screen size. The full design is in [docs/SPEC-shelf-android.md](docs/SPEC-shelf-android.md) and the
 plan for the real app is in [docs/ROADMAP.md](docs/ROADMAP.md).
 

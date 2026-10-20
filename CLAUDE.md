@@ -19,9 +19,10 @@ that we've learned … and make an Android game launcher that's the best it can 
 
 ## Where things stand
 
-- The Shelf for Android spec is agreed (see `docs/SPEC-shelf-android.md`), apart from the user's review of prototype v1.
-- Next steps, in order: get the user's feedback on the prototype → revise it → set up the Android project and
-  GitHub Actions build → build it in vertical slices (see `docs/ROADMAP.md`).
+- The user reviewed prototype v1 (nine notes, in `docs/DECISIONS.md`). Part 1 of the revision, detailed models
+  with real silhouettes, eleven consoles and the new Museum tab, is built. Part 2 (the other notes) comes next;
+  see `docs/ROADMAP.md`.
+- After that: set up the Android project and GitHub Actions build → build it in vertical slices.
 - The user asked to "talk it through" before building anything new. Propose, confirm, then build.
 
 ## The user
@@ -59,10 +60,9 @@ that we've learned … and make an Android game launcher that's the best it can 
 
 ## Hard constraints
 
-- **Don't replicate real console or cartridge designs** (Nintendo, Sega, Sony hardware and cartridge shells,
-  the UMD caddy). Shelf uses **original shell designs** with label windows at the real label sizes. Boxes are
-  simple shapes at real dimensions, which is fine. Discs and generic keep cases are generic objects. No
-  logos or console-maker branding anywhere.
+- **Silhouettes follow the real objects, details stay stylized** (the user's call, October 2026, relaxing the
+  earlier "original shell designs" rule): real outlines, proportions and sizes, label windows at the real label
+  sizes, but no logos or console-maker branding anywhere, and no exact replicas. Revisit before any public release.
 - **Prototypes use invented games, studios and generated art.** Real box art, labels, manuals and media
   come from the user's own scraper accounts at runtime.
 
