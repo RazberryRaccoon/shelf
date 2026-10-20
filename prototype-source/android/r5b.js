@@ -177,7 +177,7 @@ function mediaPath(sys, cp) {   // the media's pose just outside the slot, and f
 function mediaPoseNow(from, g) {   // where the media is on screen right now, so it can fly from there
   if (from === 'home') { const o = anim.get('home:' + g.id); if (o) return { x: o.x, y: o.y, z: o.z, rx: o.rx, ry: o.ry, s: o.s }; }
   if (from === 'game') { const o = anim.get('case'), m = caseModel(g.sys); if (o) {
-    const p = apply(M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s), [0, 0, m.top + CART[g.sys].d / 2 + .004]); return { x: p[0], y: p[1], z: p[2], rx: o.rx, ry: o.ry, s: o.s }; } }
+    const p = apply(M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s), [0, m.by, m.mediaZ]); return { x: p[0], y: p[1], z: p[2], rx: o.rx, ry: o.ry, s: o.s }; } }
   return { x: 0, y: -6, z: 0, rx: 0, ry: 0, s: 1 };
 }
 function homeSlotPose(g) { const [x, y] = pw(270, 238); return { x, y, z: .5, rx: -.1, ry: -.2, s: mediaScale(g.sys, 236) }; }
@@ -185,6 +185,7 @@ function startLaunch(g, slot, resume, from = S.screen) {
   const cp = consolePose(g.sys);
   S.seq = { kind: 'launch', g, slot, resume, t: 0, from, under: from === 'apps' ? null : from, flags: {}, cp, start: mediaPoseNow(from, g) };
   S.screen = 'launch'; show('none'); S.top.on = false; sfx.select();
+  $('#nowLoading b').textContent = g.title; setTimeout(() => { if (S.seq && S.seq.kind === 'launch') $('#nowLoading').classList.add('on'); }, 350);
 }
 function seqUpdate(dt) {
   const q = S.seq; q.t += dt; const t = q.t, F = q.flags, kind = consoleModel(q.g.sys).slot.kind;
@@ -193,7 +194,7 @@ function seqUpdate(dt) {
     if (t > click && !F.click) { F.click = 1; sfx.insert(); }
     if (t > 1.7 && !F.power) { F.power = 1; sfx.power(); }
     if (t > 2.35 && !F.fade) { F.fade = 1; const fl = $('#flash'); fl.style.transition = 'opacity .45s ease-in'; fl.style.opacity = 1; }
-    if (t > 2.85) { S.seq = null; startPlay(q.g, q.slot, q.resume, q.from); }
+    if (t > 2.85) { S.seq = null; $('#nowLoading').classList.remove('on'); startPlay(q.g, q.slot, q.resume, q.from); }
   } else {
     if (t > .3 && !F.off) { F.off = 1; sfx.off(); }
     if (t > .52 && !F.click) { F.click = 1; sfx.insert(); }
@@ -210,8 +211,7 @@ function seqTimes(q) {   // every moving part of the sequence, as 0..1 progress 
 function drawLaunch(dt) {
   const q = S.seq, g = q.g, T = seqTimes(q), hand = !!PLAT[g.sys].hand, cp = q.cp, path = mediaPath(g.sys, cp);
   if (q.under && T.scrim < .999) { if (q.under === 'home') drawHome(dt, S.time); else if (q.under === 'game') drawGamePage(dt, S.time); }
-  if (!NODRAW) { setFlat(); beginMeshes(); const b = hexRgb(getComputedStyle(stage).getPropertyValue('--bg').trim() || '#070b1e');
-    drawPlate('scrim', panelArt, 667, 375, 1500, 900, 3, b, T.scrim * .92); endMeshes(); gl.clear(gl.DEPTH_BUFFER_BIT); }
+  drawScrim(T.scrim);
   // the camera starts where the screen's own camera is, rises to look down at the console, then moves in close
   const camY = lerp(0, hand ? .8 : 2.3, T.cam), look = lerp(0, -.3, T.cam), camZ = lerp(CAMZ, hand ? 6.2 : 7.2, T.close);
   setCamera(camY, camZ, look); beginMeshes();

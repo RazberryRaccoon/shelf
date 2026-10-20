@@ -150,3 +150,17 @@
 - **Tested:** headless screenshots of quick setup, the keyboard, the emulator picker, the box closing, the
   Sound and platform settings, the saves card, and launches for SNES, PlayStation (lid), NES (front slot),
   Game Boy, DS and PSP, plus the return to Home. Not tested: how the music sounds (headless has no audio).
+
+**Prototype v2 review fixes (round 2):**
+- Keyboard and dialogs are solid and dim the screen behind them.
+- "Now loading" and the game's name show at the bottom while the console loads it.
+- Cases are hollow now: a floor, a thin outer wall and a molded tray with a well, so the media sits below the
+  rim and the cover closes over it. Before, a cartridge thicker than the cover poked through while closing.
+  The Genesis cartridge is 18 mm thick so it fits its case.
+- The Home button closes an open box first. From the Library, the closed box sinks away; from Home, it reverses.
+- Opening a box from Home: the open box slides in from the right edge while the cartridge flies into its tray;
+  closing reverses it, with Home fading back in underneath.
+- The planet moves while the box closes, not after.
+- Up and down move between the rows of buttons on the game page.
+- The Genesis manual glow was drawn without the case's tab offset; fixed (the cartridge and tray had the same
+  offset problem).

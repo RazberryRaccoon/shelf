@@ -59,15 +59,16 @@ const arcPts = (cx, cy, r, a0, a1, n) => Array.from({ length: n + 1 }, (_, k) =>
 
 // An outline pushed out to a depth along z, with rounded front and back edges (the bevel) and smooth sides.
 function solidGeo(outline, depth, bev = .01, steps = 3) {
-  const pts = ccw(dedupe(outline)), n = pts.length, h = depth / 2, b = Math.min(bev, h * .95), G = geo();
+  const pts = ccw(dedupe(outline)), n = pts.length, h = depth / 2, G = geo();
+  const [bf, bb] = (Array.isArray(bev) ? bev : [bev, bev]).map(v => Math.min(v, h * .95));   // the front and back bevels can differ
   const en = pts.map((p, i) => { const q = pts[(i + 1) % n], dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy) || 1; return [dy / l, -dx / l]; });
   const vn = i => { const a = en[(i - 1 + n) % n], c = en[i], x = a[0] + c[0], y = a[1] + c[1], l = Math.hypot(x, y) || 1; return [x / l, y / l]; };
   const sharp = i => { const a = en[(i - 1 + n) % n], c = en[i]; return a[0] * c[0] + a[1] * c[1] < .6; };
   const MI = pts.map((_, i) => { const v = vn(i), k = Math.max(.35, v[0] * en[i][0] + v[1] * en[i][1]); return [v[0] / k, v[1] / k]; });
   const at = (i, inset) => [pts[i][0] - MI[i][0] * inset, pts[i][1] - MI[i][1] * inset];
   const prof = [];   // [inset, z, horizontal part of the normal, z part of the normal]
-  for (let s = 0; s <= steps; s++) { const a = s / steps * Math.PI / 2; prof.push([b * (1 - Math.sin(a)), h - b * (1 - Math.cos(a)), Math.sin(a), Math.cos(a)]); }
-  for (let s = 0; s <= steps; s++) { const a = s / steps * Math.PI / 2; prof.push([b * (1 - Math.cos(a)), -h + b * (1 - Math.sin(a)), Math.cos(a), -Math.sin(a)]); }
+  for (let s = 0; s <= steps; s++) { const a = s / steps * Math.PI / 2; prof.push([bf * (1 - Math.sin(a)), h - bf * (1 - Math.cos(a)), Math.sin(a), Math.cos(a)]); }
+  for (let s = 0; s <= steps; s++) { const a = s / steps * Math.PI / 2; prof.push([bb * (1 - Math.cos(a)), -h + bb * (1 - Math.sin(a)), Math.cos(a), -Math.sin(a)]); }
   const per = [0]; for (let i = 1; i <= n; i++) per.push(per[i - 1] + Math.hypot(pts[i % n][0] - pts[i - 1][0], pts[i % n][1] - pts[i - 1][1]));
   for (let i = 0; i < n; i++) {
     const j = (i + 1) % n, nI = sharp(i) ? en[i] : vn(i), nJ = sharp(j) ? en[i] : vn(j);
@@ -79,9 +80,9 @@ function solidGeo(outline, depth, bev = .01, steps = 3) {
     }
   }
   let minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9; pts.forEach(([x, y]) => { minx = Math.min(minx, x); maxx = Math.max(maxx, x); miny = Math.min(miny, y); maxy = Math.max(maxy, y); });
-  const inner = pts.map((_, i) => at(i, b)), tris = earcut(inner);
-  [[h, 1], [-h, -1]].forEach(([z, nz]) => {
-    const base = G.p.length / 3;
+  const tris = earcut(pts.map((_, i) => at(i, bf)));
+  [[h, 1, bf], [-h, -1, bb]].forEach(([z, nz, b]) => {
+    const base = G.p.length / 3, inner = pts.map((_, i) => at(i, b));
     inner.forEach(([x, y]) => { G.p.push(x, y, z); G.n.push(0, 0, nz); G.t.push((x - minx) / (maxx - minx), (y - miny) / (maxy - miny)); });
     for (let k = 0; k < tris.length; k += 3) nz > 0 ? G.i.push(base + tris[k], base + tris[k + 1], base + tris[k + 2]) : G.i.push(base + tris[k], base + tris[k + 2], base + tris[k + 1]);
   });
@@ -105,10 +106,14 @@ function latheGeo(prof, seg = 32) {
   }
   return G;
 }
-// a flat frame between two outlines with the same number of points (an outer and an inner rounded rectangle)
+// a flat frame between two centered outlines (an outer and an inner rounded shape)
 function frameGeo(outer, inner, t) {
-  const O = ccw(outer), I = ccw(inner), n = O.length, G = geo(), h = t / 2;
-  if (I.length !== n) throw new Error('frameGeo needs matching outlines');
+  const O = ccw(outer), n = O.length, G = geo(), h = t / 2, IN = ccw(inner);
+  const hit = (dx, dy) => {   // where a ray from the middle crosses the inner outline (both outlines are centered and convex)
+    let best = 0; for (let i = 0; i < IN.length; i++) { const p = IN[i], q = IN[(i + 1) % IN.length], ex = q[0] - p[0], ey = q[1] - p[1], den = dx * ey - dy * ex;
+      if (Math.abs(den) < 1e-12) continue; const u = (p[0] * ey - p[1] * ex) / den, v = (p[0] * dy - p[1] * dx) / den; if (u > 0 && v >= -1e-9 && v <= 1 + 1e-9) best = u; }
+    return [dx * best, dy * best]; };
+  const I = IN.length === n ? IN : O.map(([x, y]) => hit(x, y));   // match the inner outline point for point
   const quad = (a, b, c, d, nn) => { const base = G.p.length / 3; [a, b, c, d].forEach((p, k) => { G.p.push(...p); G.n.push(...(Array.isArray(nn[0]) ? nn[k] : nn)); G.t.push(0, 0); }); G.i.push(base, base + 1, base + 2, base, base + 2, base + 3); };
   const en = (P, i) => { const q = P[(i + 1) % n], dx = q[0] - P[i][0], dy = q[1] - P[i][1], l = Math.hypot(dx, dy) || 1; return [dy / l, -dx / l, 0]; };
   for (let i = 0; i < n; i++) {
@@ -171,7 +176,7 @@ const CART = {
   nes:     { w: 1.20, h: 1.33, d: .17, label: [0, .175, .55, .90], col: '#8f8b86', fold: .07 },
   snes:    { w: 1.22, h: 1.00, d: .20, label: [0, .22, .825, .37], col: '#a8a6b4', fold: .07, foldW: .58 },
   n64:     { w: 1.16, h: .80, d: .18, label: [0, .02, .545, .625], col: '#5a5d66' },
-  genesis: { w: 1.00, h: 1.30, d: .22, label: [0, .25, .74, .60], col: '#1d1e23', fold: .07 },
+  genesis: { w: 1.00, h: 1.30, d: .18, label: [0, .25, .74, .60], col: '#1d1e23', fold: .07 },
   gb:      { w: .57, h: .65, d: .08, label: [0, -.035, .42, .37], col: '#bdbcc4' },
   gbc:     { w: .57, h: .65, d: .08, label: [0, -.035, .42, .37], col: '#34c3b7' },
   gba:     { w: .57, h: .345, d: .08, label: [0, -.01, .43, .22], col: '#4a4956' },
@@ -323,24 +328,27 @@ function caseModel(sys) {
   const jewelTray = { col: '#15161b', spec: .5, grain: 1 }, clear = { col: '#dfe8f2', spec: 1, gloss: 1, glass: .28 };
   // the base: its shell, the hinge along the spine, and the molded tray inside
   const Bs = Builder(), at = (x, y, z, rx = 0, ry = 0, rz = 0) => M4.trs(x, y, z, rx, ry, rz, 1);
-  Bs.add(solidGeo(outline, D - ct, .014, 3), at(0, by, -ct / 2), kind === 'jewel' ? jewelTray : body);
+  // The base is hollow: a floor, a thin outer wall up to the hinge line, and a molded tray a little lower, with a
+  // well the media sits in. That keeps the media (and the manual on the closed cover) inside the case.
+  const [mw, mh] = m.mediaSize, tz = top - .02, floor = Math.max(-D / 2 + .012, tz - c.d - .007), shellMat = kind === 'jewel' ? jewelTray : body;
+  const wellPts = c.disc ? rrect(1.24, 1.24, .62, 6) : rrect(mw + .03, mh + .03, c.umd ? .04 : .02, 6), ir = Math.max(.004, r - .012);
+  Object.assign(m, { tz, floor, mediaZ: floor + .003 + c.d / 2 });
+  Bs.add(solidGeo(outline, floor + D / 2, [0, .014], 3), at(0, by, (floor - D / 2) / 2), shellMat);
+  Bs.add(frameGeo(outline, rrect(W - .024, bh - .024, ir, 6), top - floor), at(0, by, (top + floor) / 2), shellMat);
+  Bs.add(frameGeo(rrect(W - .024, bh - .024, ir, 6), wellPts, tz - floor), at(0, by, (tz + floor) / 2), inner);
+  const flat = pts => { const P = ccw(pts), G = geo(); P.forEach(([x, y]) => { G.p.push(x, y, 0); G.n.push(0, 0, 1); G.t.push(0, 0); }); G.i = earcut(P); return G; };
+  Bs.add(flat(wellPts), at(0, by, floor + .0015), well);
   if (tab) { Bs.add(solidGeo(rrect(tw, tab + .05, [0, 0, .04, .04]), D * .3, .01), at(0, H / 2 - (tab + .05) / 2, -D / 2 + D * .15), body);
     [1, -1].forEach(s => Bs.add(discG(.03, .002), at(0, H / 2 - tab * .5, -D / 2 + D * .15 + s * D * .151), DARK)); }
   const kn = kind === 'jewel' ? clear : body;
   [-.4, 0, .4].forEach(k => Bs.add(discG(.01, bh * .14), at(-W / 2 + .011, by + k * bh, top - .002, -Math.PI / 2), kn));   // flush with the spine
-  Bs.add(planeGeo(W - .05, bh - .05), at(0, by, top + .001), inner);
-  for (const s of [-1, 1]) { Bs.add(barG(.006, D * .55, .012, .002), at(W / 2 - .02, by + s * bh * .34, top + .004), edge); }
-  const [mw, mh] = m.mediaSize;
+  for (const s of [-1, 1]) Bs.add(barG(.006, D * .55, .01, .002), at(W / 2 - .03, by + s * bh * .34, tz + .004), edge);
   if (c.disc) {   // a hub with teeth that grips the disc
-    Bs.add(ringG(.3, .62, .004, 72), at(0, 0, top + .003), well);
-    Bs.add(discG(.09, .01, 32), at(0, 0, top + .005), well);
-    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; Bs.add(barG(.02, .05, .012, .006), at(Math.cos(a) * .075, Math.sin(a) * .075, top + .006, 0, 0, a + Math.PI / 2), edge); }
-  } else {        // a raised rim that holds the cartridge or card, and two clips
-    const t = .014, wr = .022, ww = mw + .05, hh = mh + .05;
-    Bs.add(planeGeo(ww, hh), at(0, 0, top + .002), well);
-    Bs.add(barG(ww + wr * 2, wr, t), at(0, hh / 2 + wr / 2, top + t / 2), inner); Bs.add(barG(ww + wr * 2, wr, t), at(0, -hh / 2 - wr / 2, top + t / 2), inner);
-    Bs.add(barG(wr, hh, t), at(-ww / 2 - wr / 2, 0, top + t / 2), inner); Bs.add(barG(wr, hh, t), at(ww / 2 + wr / 2, 0, top + t / 2), inner);
-    Bs.add(barG(.1, .028, .012, .008), at(ww / 2 + wr / 2, mh * .2, top + t + .004), edge); Bs.add(barG(.1, .028, .012, .008), at(-ww / 2 - wr / 2, -mh * .2, top + t + .004), edge);
+    Bs.add(ringG(.3, .6, .003, 72), at(0, by, floor + .003), edge);
+    Bs.add(discG(.09, .008, 32), at(0, by, floor + .005), edge);
+    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; Bs.add(barG(.02, .05, .01, .006), at(Math.cos(a) * .075, by + Math.sin(a) * .075, floor + .006, 0, 0, a + Math.PI / 2), edge); }
+  } else {        // two clips at the edge of the well
+    Bs.add(barG(.1, .028, .01, .008), at(mw / 2 + .03, by + mh * .2, tz + .004), edge); Bs.add(barG(.1, .028, .01, .008), at(-mw / 2 - .03, by - mh * .2, tz + .004), edge);
   }
   Bs.add(planeGeo(D * .5, .2), at(W / 2 + .0015, by, -ct / 2, 0, Math.PI / 2), well);   // the finger notch on the open side
   m.base = Bs.build();
@@ -352,7 +360,7 @@ function caseModel(sys) {
     Bc.add(frameGeo(rrect(W - .02, bh - .02, ro, 6), rrect(W - .02 - rw * 2, bh - .02 - rw * 2, Math.max(.004, ro - rw), 6), rt), at(0, by, cz + rt / 2 - .001), body);
   }
   Bc.add(planeGeo(W - .05, bh - .05), at(0, by, top - .001, 0, Math.PI), inner);
-  [nh / 2 - .02, -nh / 2 + .02].forEach(y => Bc.add(barG(.12, .05, .02, .015), at(nw / 2 - .02, y, top - .02), body));
+  [nh / 2 - .02, -nh / 2 + .02].forEach(y => Bc.add(barG(.12, .05, .012, .012), at(nw / 2 - .02, by + y, top - .008), body));
   m.cover = Bc.build();
   return (caseMeshes[sys] = m);
 }
@@ -381,16 +389,16 @@ function drawCase(g, st, open = 0, lift = 0, hideMedia = false) {
   drawParts(m.base, M, st, x, 'opaque');
   drawPart(artPlane(W - .04, bh - .04, m.r), M4.mul(M, M4.trs(0, by, -D / 2 - .0015, 0, Math.PI, 0, 1)), o({ tex: back, spec: .5, gloss: .35 }));
   drawPart(artPlane(D - m.ct - .034, bh - 2 * m.r - .012, .004), M4.mul(M, M4.trs(-W / 2 - .0015, by, -m.ct / 2, 0, -Math.PI / 2, 0, 1)), o({ tex: spine, spec: .5, gloss: .35 }));
-  if (open > .01 && !hideMedia) drawCartM(g, M4.mul(M, M4.trs(0, 0, top + CART[g.sys].d / 2 + .004 + lift, 0, 0, 0, 1)), { alpha: al, bright: st.bright, glow: 0, s: st.s, detail: st.detail });
+  if (open > .01 && !hideMedia) drawCartM(g, M4.mul(M, M4.trs(0, by, m.mediaZ + lift, 0, 0, 0, 1)), { alpha: al, bright: st.bright, glow: 0, s: st.s, detail: st.detail });
   drawParts(m.base, M, st, x, 'glass');
   const CM = M4.mul(M, coverMatrix(m, open)), jewel = m.kind === 'jewel';
   drawParts(m.cover, CM, st, x, 'opaque');
   drawPart(artPlane(W - (jewel ? .03 : .044), bh - (jewel ? .03 : .044), m.r), M4.mul(CM, M4.trs(0, by, jewel ? D / 2 - .004 : D / 2 + .002, 0, 0, 0, 1)), o({ tex: front, spec: .45 }));
   if (open > .01) {
     const [mw, mh] = m.manualSize, inner = top;
-    drawPart(m.manual, M4.mul(CM, M4.trs(0, by, inner - .009, 0, 0, 0, [mw, mh, .014])), o({ col: [.93, .91, .87], spec: .1 }));
+    drawPart(m.manual, M4.mul(CM, M4.trs(0, by, inner - .008, 0, 0, 0, [mw, mh, .012])), o({ col: [.93, .91, .87], spec: .1 }));
     const mtex = hasManual(g) ? tex('mancover' + g.id, () => coverFront(g, Math.round(mw * 400), Math.round(mh * 400)), true) : null;
-    drawPart(PLANE, M4.mul(CM, M4.trs(0, by, inner - .017, 0, Math.PI, 0, [mw - .01, mh - .01, 1])), o(mtex ? { tex: mtex, spec: .2 } : { col: C.inner.map(v => v * .85), spec: .1 }));
+    drawPart(PLANE, M4.mul(CM, M4.trs(0, by, inner - .0145, 0, Math.PI, 0, [mw - .01, mh - .01, 1])), o(mtex ? { tex: mtex, spec: .2 } : { col: C.inner.map(v => v * .85), spec: .1 }));
   }
   drawParts(m.cover, CM, st, x, 'glass');
   if (!jewel) drawPart(artPlane(W - .05, bh - .05, m.r), M4.mul(CM, M4.trs(0, by, D / 2 + .0034, 0, 0, 0, 1)), o({ col: [1, 1, 1], alpha: al * .06, spec: 1, gloss: 1 }));   // the clear sleeve over the art
