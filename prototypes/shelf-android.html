@@ -1,0 +1,2267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Shelf for Android, prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  color-scheme: light;
+  --page: #d9dce6; --page-text: #3a3f58;
+  --display: "Unbounded", "Segoe UI", system-ui, sans-serif;
+  --body: "Manrope", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; --page: #000; --page-text: #8a90b0; } }
+:root[data-theme="dark"] { color-scheme: dark; --page: #000; --page-text: #8a90b0; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); height: 100%; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body { background: var(--page); color: var(--page-text); font-family: var(--body); }
+*, *::before, *::after { box-sizing: border-box; }
+
+/* the handheld's screen: 1334 x 750, scaled to fit the window */
+#stage { position: absolute; left: 0; top: 0; width: 1334px; height: 750px; transform-origin: 0 0; overflow: hidden; font-family: var(--body);
+  background: var(--bg); color: var(--fg); border-radius: 18px; }
+/* themes: every color the interface uses */
+#stage, #stage[data-t="space"] { --bg: #070b1e; --fg: #eef1ff; --fg2: #9aa2cc; --fg3: rgba(238,241,255,.55); --panel: rgba(12,17,44,.72); --panel2: rgba(238,241,255,.07);
+  --line: rgba(238,241,255,.12); --chip: rgba(238,241,255,.1); --sel: #eef1ff; --selfg: #0b1030; --shadow: rgba(0,0,0,.4); --scrim: rgba(5,8,22,.62); --theme-accent: #b3a6ff; }
+#stage { --acc-t: var(--accent); }
+#stage[data-t="light"], #stage[data-t="dawn"], #stage[data-t="bloom"] { --acc-t: color-mix(in srgb, var(--accent) 50%, var(--fg)); }
+#stage[data-t="dark"] { --bg: #000; --fg: #f2f2f4; --fg2: #a0a0a8; --fg3: rgba(242,242,244,.5); --panel: rgba(22,22,26,.92); --panel2: rgba(255,255,255,.06);
+  --line: rgba(255,255,255,.1); --chip: rgba(255,255,255,.09); --sel: #f2f2f4; --selfg: #000; --shadow: rgba(0,0,0,.6); --scrim: rgba(0,0,0,.7); --theme-accent: #f2f2f4; }
+#stage[data-t="light"] { --bg: #f4f5f8; --fg: #14161c; --fg2: #5f6573; --fg3: rgba(20,22,28,.5); --panel: rgba(255,255,255,.86); --panel2: rgba(20,22,28,.05);
+  --line: rgba(20,22,28,.1); --chip: rgba(20,22,28,.07); --sel: #14161c; --selfg: #fff; --shadow: rgba(40,50,80,.16); --scrim: rgba(240,242,248,.7); --theme-accent: #3f5bd8; }
+#stage[data-t="aurora"] { --bg: #050912; --fg: #eaf6f4; --fg2: #8fb2b0; --fg3: rgba(234,246,244,.55); --panel: rgba(8,18,26,.7); --panel2: rgba(234,246,244,.07);
+  --line: rgba(160,255,230,.13); --chip: rgba(234,246,244,.09); --sel: #b8fff0; --selfg: #04201c; --shadow: rgba(0,0,0,.45); --scrim: rgba(3,8,12,.65); --theme-accent: #6ff2d0; }
+#stage[data-t="dawn"] { --bg: #fbefe6; --fg: #3a2228; --fg2: #8a6a6a; --fg3: rgba(58,34,40,.5); --panel: rgba(255,250,246,.78); --panel2: rgba(58,34,40,.05);
+  --line: rgba(120,60,60,.12); --chip: rgba(58,34,40,.07); --sel: #3a2228; --selfg: #fff6f0; --shadow: rgba(140,70,60,.16); --scrim: rgba(251,239,230,.7); --theme-accent: #e0606a; }
+#stage[data-t="slate"] { --bg: #1d2128; --fg: #e8eaee; --fg2: #9298a4; --fg3: rgba(232,234,238,.5); --panel: rgba(38,43,52,.88); --panel2: rgba(232,234,238,.05);
+  --line: rgba(232,234,238,.09); --chip: rgba(232,234,238,.08); --sel: #e8eaee; --selfg: #1d2128; --shadow: rgba(0,0,0,.35); --scrim: rgba(20,23,28,.7); --theme-accent: #f0a35a; }
+#stage[data-t="bloom"] { --bg: #f3effc; --fg: #261d3d; --fg2: #6f6488; --fg3: rgba(38,29,61,.5); --panel: rgba(255,255,255,.7); --panel2: rgba(38,29,61,.05);
+  --line: rgba(38,29,61,.1); --chip: rgba(38,29,61,.07); --sel: #261d3d; --selfg: #fff; --shadow: rgba(90,60,140,.18); --scrim: rgba(243,239,252,.7); --theme-accent: #a052e0; }
+#gl { position: absolute; inset: 0; width: 1334px; height: 750px; display: block; }
+#ui { position: absolute; inset: 0; }
+.screen { position: absolute; inset: 0; opacity: 0; visibility: hidden; transition: opacity .35s ease, visibility 0s linear .35s; }
+.screen.on { opacity: 1; visibility: visible; transition: opacity .35s ease, visibility 0s; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; box-shadow: 0 16px 44px var(--shadow); }
+.btn { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; border: 1.5px solid var(--fg3); font-weight: 800; font-size: 11px; color: var(--fg); vertical-align: middle; }
+.bar { display: inline-block; height: 6px; border-radius: 3px; background: var(--chip); overflow: hidden; vertical-align: middle; }
+.bar b { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+
+/* top bar */
+#topbar { position: absolute; left: 0; right: 0; top: 0; height: 64px; opacity: 0; visibility: hidden; transition: opacity .35s, visibility 0s linear .35s; z-index: 3; }
+#topbar.on { opacity: 1; visibility: visible; transition: opacity .35s, visibility 0s; }
+.tabs { position: absolute; left: 28px; top: 16px; display: flex; gap: 4px; padding: 4px; border-radius: 22px; }
+.tab { font-family: var(--display); font-size: 15px; color: var(--fg3); padding: 6px 18px; border-radius: 18px; transition: color .2s, background .2s, box-shadow .2s; }
+.tab.sel { color: var(--fg); background: var(--chip); }
+.tab.focus, .tbtn.focus { box-shadow: 0 0 0 2px var(--sel); color: var(--fg); }
+.tright { position: absolute; right: 28px; top: 16px; display: flex; align-items: center; gap: 8px; }
+.status { display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 14px; border-radius: 20px; font-size: 14px; font-weight: 700; color: var(--fg2); }
+.status svg, .tbtn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.tbtn { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: 20px; font-size: 14px; font-weight: 700; color: var(--fg2); transition: box-shadow .2s, color .2s; }
+.avatar { width: 28px; height: 28px; border-radius: 50%; flex: none; }
+
+/* home */
+.home-info { position: absolute; left: 60px; top: 470px; width: 520px; }
+.home-info h2 { margin: 0; font-family: var(--display); font-weight: 500; font-size: 30px; line-height: 1.1; letter-spacing: -.01em; }
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 12px; font-size: 14px; color: var(--fg2); }
+.chip { display: inline-flex; align-items: center; gap: 7px; padding: 4px 12px; border-radius: 14px; background: var(--chip); color: var(--fg); font-weight: 700; font-size: 13px; }
+.chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.cards { position: absolute; left: 600px; top: 460px; display: flex; gap: 14px; }
+.card { position: relative; width: 210px; height: 160px; padding: 14px 16px; transition: transform .2s, box-shadow .2s; }
+.card.focus { transform: translateY(-5px); box-shadow: 0 0 0 2px var(--sel), 0 16px 44px var(--shadow); }
+.card h4 { margin: 0; font-size: 14px; font-weight: 800; }
+.card p { margin: 4px 0 0; font-size: 12.5px; color: var(--fg2); }
+.card canvas { position: absolute; left: 16px; right: 16px; bottom: 14px; width: 178px; height: 74px; border-radius: 10px; image-rendering: pixelated; object-fit: cover; }
+.card .big { margin-top: 18px; font-family: var(--display); font-size: 26px; }
+.card .big small { font-family: var(--body); font-size: 13px; color: var(--fg2); margin-left: 6px; }
+.card .bar { width: 100%; margin-top: 10px; }
+.minib { display: flex; gap: 5px; margin-top: 10px; }
+.minib img { width: 26px; height: 26px; border-radius: 7px; }
+.slotdots { display: flex; gap: 6px; margin-top: 22px; }
+.slotdots i { width: 38px; height: 28px; border-radius: 6px; border: 1.5px dashed var(--fg3); }
+.slotdots i.on { border: none; background: linear-gradient(140deg, var(--accent), var(--fg3)); }
+.note-small { font-size: 12.5px; color: var(--fg2); line-height: 1.45; margin-top: 8px; }
+
+/* library */
+.rail { position: absolute; left: 28px; top: 120px; width: 196px; height: 600px; padding: 8px; overflow: hidden; }
+.railin { display: block; position: relative; transition: transform .3s cubic-bezier(.2,.8,.2,1); }
+.rail div { position: relative; padding: 7px 12px; margin-bottom: 2px; border-radius: 11px; font-size: 13.5px; font-weight: 700; color: var(--fg3); display: flex; justify-content: space-between; white-space: nowrap; transition: background .2s, color .2s; }
+.rail div span { font-weight: 600; color: var(--fg3); }
+.rail div.cur { color: var(--fg); background: var(--chip); }
+.rail div.focus { background: var(--sel); color: var(--selfg); }
+.rail div.focus span { color: var(--selfg); opacity: .7; }
+.rail h5 { margin: 10px 12px 4px; font-size: 11.5px; font-weight: 700; color: var(--fg2); }
+.filters { position: absolute; left: 244px; top: 74px; display: flex; gap: 8px; }
+.filter { padding: 5px 13px; border-radius: 15px; border: 1.5px solid var(--line); font-size: 12.5px; color: var(--fg3); font-weight: 700; background: var(--panel); transition: background .2s, color .2s; }
+.filter em { font-style: normal; color: var(--fg); margin-left: 4px; }
+.filter.focus { background: var(--sel); border-color: var(--sel); color: var(--selfg); }
+.filter.focus em { color: var(--selfg); }
+.lib-head { position: absolute; right: 30px; top: 80px; font-size: 12.5px; color: var(--fg2); }
+.gridframe { position: absolute; left: 244px; top: 120px; width: 1062px; height: 600px; border-radius: 20px; border: 1px solid var(--line); overflow: hidden; pointer-events: none; }
+.gridframe::before, .gridframe::after { content: ""; position: absolute; left: 0; right: 0; height: 36px; }
+.gridframe::before { top: 0; background: linear-gradient(var(--fadec), transparent); }
+.gridframe::after { bottom: 0; background: linear-gradient(transparent, var(--fadec)); }
+.focus-title { position: absolute; width: 220px; margin-left: -110px; text-align: center; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.focus-title.on { opacity: 1; }
+.focus-title b { display: block; font-size: 14px; font-weight: 800; }
+.focus-title span { display: block; margin-top: 2px; font-size: 12px; color: var(--fg2); }
+.lib-empty { position: absolute; left: 244px; top: 380px; width: 1062px; padding: 0 160px; text-align: center; font-size: 16px; line-height: 1.5; color: var(--fg2); display: none; }
+.railhint { margin: 8px 12px 2px; font-size: 11.5px; color: var(--fg2); }
+.railhint .btn { margin-right: 4px; }
+
+/* game page */
+.gp { position: absolute; left: 690px; top: 70px; width: 616px; height: 656px; overflow: hidden; }
+.gpin { padding: 22px 26px 30px; transition: transform .35s cubic-bezier(.2,.8,.2,1); }
+.gp-sys { font-size: 12.5px; font-weight: 800; color: var(--acc-t); }
+.gp h2 { margin: 4px 0 0; font-family: var(--display); font-weight: 500; font-size: 26px; line-height: 1.12; }
+.facts { display: flex; gap: 22px; margin-top: 10px; font-size: 12px; color: var(--fg2); }
+.facts b { display: block; color: var(--fg); font-size: 13px; font-weight: 700; margin-top: 2px; }
+.actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 16px; }
+.act { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 18px; font-size: 13px; font-weight: 800; background: var(--chip); color: var(--fg); white-space: nowrap; transition: background .2s, color .2s, transform .2s; }
+.act.primary { background: var(--accent); color: #0b0d18; }
+.act.focus { background: var(--sel); color: var(--selfg); transform: scale(1.05); }
+.act .btn { min-width: 18px; height: 18px; font-size: 9.5px; border-color: currentColor; color: inherit; }
+.gp h3 { margin: 18px 0 8px; font-size: 12.5px; font-weight: 800; color: var(--fg2); display: flex; justify-content: space-between; }
+.gp h3 small { font-weight: 600; }
+.slots, .mstrip { display: flex; gap: 9px; }
+.mrow { margin: 0 -8px; padding: 6px 8px; overflow: hidden; }
+.mstrip { transition: transform .3s cubic-bezier(.2,.8,.2,1); }
+.slot { position: relative; width: 128px; transition: transform .2s; }
+.slot canvas, .slot .none { display: block; width: 128px; height: 92px; border-radius: 10px; }
+.slot canvas { image-rendering: pixelated; }
+.slot .none { border: 1.5px dashed var(--fg3); display: grid; place-items: center; font-size: 12px; color: var(--fg2); }
+.slot p { margin: 5px 0 0; font-size: 11.5px; color: var(--fg2); }
+.slot .tag { position: absolute; left: 6px; top: 6px; padding: 1px 7px; border-radius: 7px; background: rgba(7,11,30,.8); color: #fff; font-size: 10px; font-weight: 800; }
+.slot.focus, .mthumb.focus, .mvthumb.focus { transform: translateY(-3px); }
+.slot.focus canvas, .slot.focus .none, .mthumb.focus { box-shadow: 0 0 0 2px var(--sel); }
+.mthumb, .mvthumb { position: relative; flex: none; width: 128px; height: 92px; border-radius: 10px; overflow: hidden; transition: transform .2s, box-shadow .2s; }
+.mthumb img, .mvthumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.playmark { position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%; background: rgba(7,11,30,.7); }
+.playmark::after { content: ""; position: absolute; left: 12px; top: 9px; border-left: 10px solid #fff; border-top: 6px solid transparent; border-bottom: 6px solid transparent; }
+.dur { position: absolute; right: 5px; bottom: 5px; padding: 0 5px; border-radius: 5px; background: rgba(7,11,30,.8); color: #fff; font-size: 10px; font-weight: 800; }
+.managed { padding: 12px 14px; border-radius: 14px; background: var(--panel2); font-size: 12.5px; color: var(--fg2); line-height: 1.45; }
+.managed b { color: var(--fg); }
+.achcard { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: var(--panel2); font-size: 12.5px; color: var(--fg2); white-space: nowrap; transition: box-shadow .2s; }
+.achcard.focus { box-shadow: 0 0 0 2px var(--sel); }
+.achcard .bar { width: 110px; }
+.achcard .minib { margin: 0 0 0 auto; }
+.achcard .go { color: var(--fg); font-weight: 800; }
+.desc { margin: 14px 0 0; font-size: 13.5px; line-height: 1.55; color: var(--fg); opacity: .85; }
+.credit { margin: 8px 0 0; font-size: 11px; color: var(--fg2); }
+.objlabel { position: absolute; transform: translateX(-50%); padding: 4px 11px; border-radius: 12px; background: var(--sel); color: var(--selfg); font-size: 12px; font-weight: 800; white-space: nowrap; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.objlabel.on { opacity: 1; }
+.turnhint { position: absolute; left: 40px; bottom: 26px; padding: 8px 14px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); font-size: 12.5px; font-weight: 600; color: var(--fg); opacity: 0; transition: opacity .3s; }
+.turnhint.on { opacity: 1; }
+.turnhint .btn { margin-right: 3px; }
+
+/* apps */
+.appgrid { position: absolute; left: 60px; right: 60px; top: 96px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 22px 10px; }
+.app { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 4px; border-radius: 18px; transition: background .2s, transform .2s; }
+.app img { width: 74px; height: 74px; border-radius: 20px; box-shadow: 0 8px 22px var(--shadow); }
+.app span { font-size: 12.5px; font-weight: 700; max-width: 130px; text-align: center; color: var(--fg); }
+.app small { font-size: 10.5px; font-weight: 700; color: var(--acc-t); margin-top: -4px; }
+.app.focus { background: var(--chip); transform: translateY(-3px); box-shadow: 0 0 0 2px var(--sel); }
+.apphead { position: absolute; left: 60px; right: 60px; top: 72px; display: flex; justify-content: space-between; font-size: 12.5px; color: var(--fg2); }
+
+/* settings */
+#s-settings h1 { position: absolute; left: 34px; top: 22px; margin: 0; font-family: var(--display); font-weight: 500; font-size: 24px; }
+.set-nav { position: absolute; left: 28px; top: 70px; width: 230px; bottom: 26px; padding: 8px; }
+.set-nav div { padding: 9px 14px; margin-bottom: 2px; border-radius: 12px; font-size: 14px; font-weight: 700; color: var(--fg3); transition: background .2s, color .2s; }
+.set-nav div.cur { color: var(--fg); background: var(--chip); }
+.set-nav div.focus { background: var(--sel); color: var(--selfg); }
+.set-body { position: absolute; left: 276px; top: 70px; right: 28px; bottom: 26px; padding: 22px 28px 14px; overflow: hidden; display: flex; flex-direction: column; }
+.set-body h2 { margin: 0 0 3px; font-family: var(--display); font-weight: 500; font-size: 20px; }
+.set-body .intro { margin: 0 0 12px; font-size: 13px; color: var(--fg2); }
+.sview { position: relative; flex: 1; min-height: 0; overflow: hidden; margin: 0 -18px; padding: 3px 18px; }
+.srows { position: relative; }
+.srow { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 10px 16px; margin: 0 -16px 3px; border-radius: 14px; transition: background .2s; }
+.srow b { display: block; font-size: 14px; }
+.srow p { margin: 3px 0 0; font-size: 12px; color: var(--fg2); max-width: 600px; line-height: 1.4; }
+.srow em { flex: none; font-style: normal; font-size: 13px; font-weight: 700; color: var(--fg2); padding: 5px 12px; border-radius: 13px; background: var(--chip); }
+.srow em.act { background: none; color: var(--acc-t); }
+.srow em.nav::after { content: " ›"; }
+.srow .swatch { display: flex; gap: 4px; }
+.srow .swatch i { width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--line); }
+.srow .bar { width: 160px; margin-top: 8px; }
+.srow.focus { background: var(--panel2); box-shadow: inset 0 0 0 2px var(--sel); }
+.themes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 4px 0 14px; }
+.th { position: relative; height: 92px; border-radius: 14px; padding: 10px 12px; display: flex; align-items: flex-end; font-size: 13px; font-weight: 800; transition: transform .2s, box-shadow .2s; border: 1px solid var(--line); }
+.th.cur::after { content: "✓"; position: absolute; right: 10px; top: 8px; font-size: 14px; }
+.th.focus { transform: translateY(-3px); box-shadow: 0 0 0 2px var(--sel); }
+
+/* manual, media viewer, achievements, playing */
+.mv-head, .mn-head { position: absolute; left: 40px; right: 40px; top: 20px; display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; color: var(--fg2); }
+.mv-head span:first-child, .mn-head span:first-child { font-family: var(--display); font-size: 18px; color: var(--fg); }
+.mv-stage { position: absolute; left: 0; right: 0; top: 58px; height: 500px; display: grid; place-items: center; }
+#mvCanvas { border-radius: 8px; box-shadow: 0 20px 60px var(--shadow); }
+.mv-play { position: absolute; left: 50%; top: 50%; width: 76px; height: 76px; margin: -38px 0 0 -38px; border-radius: 50%; background: rgba(7,11,30,.72); display: grid; place-items: center; }
+.mv-play i { width: 0; height: 0; margin-left: 6px; border-left: 26px solid #fff; border-top: 17px solid transparent; border-bottom: 17px solid transparent; }
+.mv-bar { position: absolute; left: 50%; top: 568px; width: 620px; margin-left: -310px; display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--fg2); }
+.mv-bar .track { flex: 1; height: 4px; border-radius: 2px; background: var(--chip); overflow: hidden; }
+.mv-bar .track i { display: block; height: 100%; width: 0; background: var(--accent); }
+.mv-cap { position: absolute; left: 0; right: 0; top: 588px; text-align: center; font-size: 13.5px; font-weight: 700; }
+.mv-strip-wrap { position: absolute; left: 0; right: 0; top: 622px; height: 110px; overflow: hidden; }
+.mv-strip { display: flex; gap: 12px; padding: 6px 0; transition: transform .3s cubic-bezier(.2,.8,.2,1); }
+.mvthumb { opacity: .55; } .mvthumb.focus { opacity: 1; box-shadow: 0 0 0 2px var(--sel); }
+.mn-book { position: absolute; left: 50%; top: 58px; transform: translateX(-50%); display: flex; height: 600px; box-shadow: 0 20px 60px var(--shadow); }
+.mn-book canvas { height: 600px; width: auto; display: block; }
+.mn-book canvas + canvas { box-shadow: inset 14px 0 18px -14px rgba(0,0,0,.35); }
+.mn-book.turn { animation: turn .3s ease; }
+@keyframes turn { from { opacity: .3; transform: translateX(-50%) scale(.985); } to { opacity: 1; transform: translateX(-50%); } }
+.ribbon { position: absolute; right: 26px; top: -6px; width: 24px; height: 66px; background: var(--accent); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%); }
+.mn-foot { position: absolute; left: 40px; right: 40px; top: 676px; }
+.mn-track { display: flex; gap: 4px; height: 10px; align-items: flex-end; }
+.mn-track i { position: relative; flex: 1; height: 4px; border-radius: 2px; background: var(--chip); }
+.mn-track i.cur { background: var(--fg); }
+.mn-track i.mark::after { content: ""; position: absolute; left: 50%; top: -10px; width: 7px; height: 10px; margin-left: -3.5px; background: var(--accent); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 70%, 0 100%); }
+.mn-keys { display: flex; gap: 22px; margin-top: 12px; font-size: 12.5px; color: var(--fg2); }
+.mn-keys span:first-child { margin-right: auto; color: var(--fg); font-weight: 700; }
+.ach-side { position: absolute; left: 28px; top: 28px; width: 340px; bottom: 28px; padding: 26px 26px; }
+.ach-side h2 { margin: 4px 0 0; font-family: var(--display); font-weight: 500; font-size: 22px; line-height: 1.15; }
+.ring { position: relative; width: 140px; height: 140px; margin: 22px 0 18px; border-radius: 50%; display: grid; place-items: center; }
+.ring::before { content: ""; position: absolute; inset: 12px; border-radius: 50%; background: var(--bg); }
+.ring span { position: relative; text-align: center; font-family: var(--display); font-size: 30px; }
+.ring span small { display: block; font-family: var(--body); font-size: 12px; color: var(--fg2); }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 12px; font-size: 12px; color: var(--fg2); }
+.stats b { display: block; margin-top: 2px; color: var(--fg); font-size: 15px; }
+.award { margin-top: 18px; padding: 10px 12px; border-radius: 12px; background: var(--panel2); font-size: 12.5px; color: var(--fg2); line-height: 1.45; }
+.award b { color: var(--fg); }
+.ach-main { position: absolute; left: 392px; top: 28px; right: 28px; bottom: 20px; }
+.chips { display: flex; gap: 8px; margin-bottom: 12px; }
+.chips div { padding: 5px 14px; border-radius: 15px; font-size: 12.5px; font-weight: 700; color: var(--fg3); background: var(--panel); border: 1.5px solid var(--line); }
+.chips div.sel { background: var(--sel); color: var(--selfg); border-color: var(--sel); }
+.ach-view { position: absolute; left: 0; right: 0; top: 44px; bottom: 0; overflow: hidden; -webkit-mask-image: linear-gradient(transparent 0, #000 16px, #000 calc(100% - 30px), transparent); mask-image: linear-gradient(transparent 0, #000 16px, #000 calc(100% - 30px), transparent); }
+.ach-list { position: absolute; left: 0; right: 0; top: 0; padding: 10px 4px; transition: transform .3s cubic-bezier(.2,.8,.2,1); }
+.arow { display: flex; align-items: center; gap: 16px; padding: 10px 16px; margin-bottom: 7px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); }
+.arow img { width: 48px; height: 48px; border-radius: 12px; flex: none; }
+.arow .t { flex: 1; min-width: 0; } .arow .t b { display: block; font-size: 14.5px; }
+.arow .t p { margin: 3px 0 0; font-size: 12px; color: var(--fg2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.arow .tags { display: flex; gap: 5px; margin-top: 5px; }
+.arow .tags i { font-style: normal; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 7px; background: var(--chip); color: var(--fg2); }
+.arow .r { text-align: right; flex: none; width: 150px; font-size: 11.5px; color: var(--fg2); } .arow .r b { display: block; font-size: 14px; color: var(--fg); }
+.arow.locked .t b { opacity: .6; } .arow.focus { box-shadow: 0 0 0 2px var(--sel); }
+#s-play { background: #000; }
+#gamecv { position: absolute; image-rendering: pixelated; }
+.emu-tag { position: absolute; left: 22px; top: 18px; padding: 5px 12px; border-radius: 12px; background: rgba(255,255,255,.1); color: #fff; font-size: 12px; font-weight: 700; opacity: 0; transition: opacity .6s; }
+.emu-tag.show { opacity: 1; }
+
+/* setup, dialogs, keyboard, toast */
+.setup { position: absolute; left: 50%; top: 50%; width: 760px; transform: translate(-50%, -50%); padding: 34px 40px; text-align: left; }
+.setup .step { font-size: 12.5px; font-weight: 800; color: var(--acc-t); }
+.setup h1 { margin: 8px 0 6px; font-family: var(--display); font-weight: 500; font-size: 28px; line-height: 1.15; }
+.setup p.lead { margin: 0 0 18px; font-size: 14.5px; color: var(--fg2); line-height: 1.5; }
+.setup .opts { display: flex; flex-direction: column; gap: 6px; }
+.setup .opt { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 11px 16px; border-radius: 14px; background: var(--panel2); font-size: 14px; font-weight: 700; transition: box-shadow .2s, background .2s; }
+.setup .opt small { font-weight: 600; color: var(--fg2); font-size: 12.5px; }
+.setup .opt.focus { box-shadow: 0 0 0 2px var(--sel); }
+.setup .opt.primary { background: var(--accent); color: #0b0d18; justify-content: center; }
+.setup .opt.primary.focus { box-shadow: 0 0 0 2px var(--sel), 0 0 0 5px var(--accent); }
+.found { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 22px; margin: 0 0 18px; font-size: 13px; color: var(--fg2); }
+.found b { color: var(--fg); }
+.found .ok::before { content: "● "; color: var(--accent); }
+.dots { display: flex; gap: 6px; margin-top: 20px; } .dots i { width: 22px; height: 4px; border-radius: 2px; background: var(--chip); } .dots i.on { background: var(--accent); }
+.dialog, .kb { position: absolute; left: 50%; top: 50%; z-index: 8; border-radius: 22px; background: var(--panel); border: 1px solid var(--line); backdrop-filter: blur(0px);
+  box-shadow: 0 0 0 3000px var(--scrim), 0 24px 70px var(--shadow); opacity: 0; visibility: hidden; transform: translate(-50%, -46%); transition: opacity .2s, transform .2s, visibility 0s linear .2s; }
+.dialog { width: 470px; padding: 22px 18px 16px; }
+.dialog.open, .kb.open { opacity: 1; visibility: visible; transform: translate(-50%, -50%); transition: opacity .2s, transform .2s, visibility 0s; }
+.dialog h3, .kb h3 { margin: 0 0 12px 10px; font-family: var(--display); font-weight: 500; font-size: 18px; }
+.dialog p.dl { margin: -4px 10px 12px; font-size: 13px; color: var(--fg2); line-height: 1.45; }
+.ditem { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 13px; font-size: 14.5px; font-weight: 700; color: var(--fg3); }
+.ditem small { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--fg2); }
+.ditem.focus { background: var(--sel); color: var(--selfg); } .ditem.focus small { color: var(--selfg); opacity: .7; }
+.chk { position: relative; width: 20px; height: 20px; border-radius: 6px; border: 2px solid currentColor; flex: none; }
+.chk.on { background: var(--accent); border-color: var(--accent); }
+.chk.on::after { content: ""; position: absolute; left: 5px; top: 1px; width: 5px; height: 10px; border: solid #0d1330; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg); }
+.kb { width: 640px; padding: 22px 24px 20px; }
+.kbfield { margin: 0 0 14px; padding: 10px 16px; min-height: 46px; border-radius: 12px; background: var(--panel2); font-size: 20px; font-weight: 700; }
+.caret { display: inline-block; width: 2px; height: 20px; margin-left: 2px; vertical-align: -3px; background: var(--accent); animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.kbrow { display: flex; gap: 7px; margin-bottom: 7px; }
+.key { flex: 1; display: grid; place-items: center; height: 42px; border-radius: 10px; background: var(--chip); font-size: 17px; font-weight: 700; }
+.key.wide { font-size: 14px; } .key.focus { background: var(--sel); color: var(--selfg); }
+.toast { position: absolute; left: 50%; top: 18px; padding: 9px 22px; border-radius: 20px; background: var(--sel); color: var(--selfg); z-index: 9; font-size: 14px; font-weight: 800;
+  transform: translate(-50%, -90px); transition: transform .4s cubic-bezier(.2,.8,.2,1); white-space: nowrap; }
+.toast.show { transform: translate(-50%, 0); }
+#flash { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 7; }
+.keys { position: fixed; left: 0; right: 0; bottom: 6px; text-align: center; font-size: 12px; color: var(--page-text); }
+@media (prefers-reduced-motion: reduce) { .screen, .toast, .card, .mstrip, .gpin, .dialog, .kb { transition-duration: .01s; } }
+</style>
+</head>
+<body>
+<div id="stage" data-t="space">
+  <canvas id="gl"></canvas>
+  <div id="ui">
+    <section id="s-setup" class="screen"><div class="setup panel" id="setup"></div></section>
+    <header id="topbar">
+      <nav class="tabs panel"><div class="tab" data-k="home">Home</div><div class="tab" data-k="library">Library</div><div class="tab" data-k="apps">Apps</div></nav>
+      <div class="tright">
+        <div class="status panel"><svg viewBox="0 0 24 24"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0"/><circle cx="12" cy="19" r="1.2" fill="currentColor"/></svg>
+          <svg viewBox="0 0 24 24"><rect x="3" y="7" width="16" height="10" rx="2.5"/><path d="M21 10.5v3"/><rect x="5.5" y="9.5" width="9" height="5" rx="1" fill="currentColor" stroke="none"/></svg><span>76%</span><span id="clock"></span></div>
+        <div class="tbtn panel" data-k="settings" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M4.2 6.2l2.1 2.1M17.7 15.7l2.1 2.1M2.5 12h3M18.5 12h3M4.2 17.8l2.1-2.1M17.7 8.3l2.1-2.1"/></svg></div>
+        <div class="tbtn panel" data-k="profile"><i class="avatar" id="avatar"></i><span id="meName"></span></div>
+      </div>
+    </header>
+    <section id="s-home" class="screen">
+      <div class="home-info" id="homeInfo"><h2 id="hTitle"></h2><div class="meta" id="hMeta"></div></div>
+      <div class="cards" id="hCards"></div>
+      <div class="focus-title" id="hTile"><b>All games</b><span id="hTileN"></span></div>
+    </section>
+    <section id="s-library" class="screen">
+      <div class="gridframe"></div>
+      <div class="rail panel" id="rail"></div>
+      <div class="filters" id="filters"></div>
+      <div class="lib-head" id="libHead"></div>
+      <div class="focus-title" id="lFocus"><b></b><span></span></div>
+      <div class="lib-empty" id="libEmpty"></div>
+    </section>
+    <section id="s-game" class="screen">
+      <div class="objlabel" id="objLabel"></div>
+      <div class="turnhint" id="turnHint"><i class="btn">◀▶</i><i class="btn">▲▼</i> Turn the box &nbsp; <i class="btn">LB</i><i class="btn">RB</i> Front, spine, back &nbsp; <i class="btn">B</i> Open it again</div>
+      <div class="gp panel"><div class="gpin" id="gpin"></div></div>
+    </section>
+    <section id="s-apps" class="screen"><div class="apphead"><span id="appCount"></span><span><i class="btn">Y</i> App options, including Mark as game</span></div><div class="appgrid" id="appGrid"></div></section>
+    <section id="s-settings" class="screen"><h1>Settings</h1><aside class="set-nav panel" id="setNav"></aside><div class="set-body panel" id="setBody"></div></section>
+    <section id="s-ach" class="screen"><aside class="ach-side panel" id="achSide"></aside><div class="ach-main"><div class="chips" id="achChips"></div><div class="ach-view"><div class="ach-list" id="achList"></div></div></div></section>
+    <section id="s-media" class="screen">
+      <div class="mv-head"><span id="mvTitle"></span><span id="mvCount"></span></div>
+      <div class="mv-stage"><canvas id="mvCanvas"></canvas><div class="mv-play" id="mvPlay"><i></i></div></div>
+      <div class="mv-bar" id="mvBar"><i class="track"><i></i></i><span></span></div>
+      <div class="mv-cap" id="mvCap"></div>
+      <div class="mv-strip-wrap"><div class="mv-strip" id="mvStrip"></div></div>
+    </section>
+    <section id="s-manual" class="screen">
+      <div class="mn-head"><span id="mnTitle"></span><span id="mnPage"></span></div>
+      <div class="mn-book" id="mnBook"></div>
+      <div class="mn-foot"><div class="mn-track" id="mnTrack"></div>
+        <div class="mn-keys"><span id="mnMarks"></span><span><i class="btn">◀▶</i> Turn the page</span><span><i class="btn">Y</i> Bookmark</span><span><i class="btn">LB</i> <i class="btn">RB</i> Jump between bookmarks</span></div></div>
+    </section>
+    <section id="s-play" class="screen"><canvas id="gamecv"></canvas><div class="emu-tag" id="emuTag"></div></section>
+    <div class="dialog" id="dlg"></div>
+    <div class="kb" id="kb"></div>
+    <div class="toast" id="toast"></div>
+    <div id="flash"></div>
+  </div>
+</div>
+<p class="keys" id="keysHelp">Keyboard: arrows move, Enter is A, Esc is B, F is Y, Q and E are the shoulder buttons, H is Home. A controller works too.</p>
+<script>
+'use strict';
+/* ================= basics ================= */
+const W = 1334, H = 750;
+const $ = s => document.querySelector(s);
+const stage = $('#stage'), cv = $('#gl');
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const ease = t => t < 0 ? 0 : t > 1 ? 1 : t * t * (3 - 2 * t);
+const easeOut = t => 1 - Math.pow(1 - clamp(t, 0, 1), 3);
+function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; }
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function fit() {
+  const vw = innerWidth, vh = innerHeight - 30, s = Math.min(vw / W, vh / H);
+  stage.style.transform = `translate(${(vw - W * s) / 2}px, ${(vh - H * s) / 2}px) scale(${s})`;
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  const px = Math.max(640, Math.min(W * 1.5, Math.round(W * s * dpr)));
+  if (cv.width !== px) { cv.width = px; cv.height = Math.round(px * H / W); }
+}
+addEventListener('resize', fit);
+
+/* ================= platforms ================= */
+// Box sizes are the originals in decimetres (1 = 100 mm). Cardboard boxes become modern clamshell cases at the same size.
+function shades(hex) {   // planet and nebula colors derived from a console's accent
+  const [r, g, b] = hexRgb(hex), mix = (k, t) => '#' + [r, g, b].map(v => Math.round(clamp(k < 0 ? v * (1 + k) : v + (1 - v) * k, 0, 1) * 255).toString(16).padStart(2, '0')).join('');
+  return { planet: [mix(.55), hex, mix(-.62)], neb: [mix(-.72), mix(-.88)] };
+}
+const PLAT = {
+  nes:     { name: 'NES', long: 'Nintendo Entertainment System', box: [1.27, 1.82, .25], media: 'cart', accent: '#ff9db6', res: [256, 240], aspect: 4 / 3, emus: ['RetroArch: Mesen', 'RetroArch: FCEUmm', 'RetroArch: Nestopia'] },
+  snes:    { name: 'SNES', long: 'Super Nintendo', box: [1.74, 1.21, .28], media: 'cart', accent: '#c2b6ff', res: [256, 224], aspect: 4 / 3, emus: ['RetroArch: Snes9x', 'RetroArch: bsnes', 'Snes9x EX+'] },
+  n64:     { name: 'N64', long: 'Nintendo 64', box: [1.74, 1.21, .28], media: 'cart', accent: '#ffd06b', res: [320, 240], aspect: 4 / 3, emus: ['Mupen64Plus FZ', 'RetroArch: Mupen64Plus-Next', 'RetroArch: ParaLLEl N64'] },
+  genesis: { name: 'Genesis', long: 'Sega Genesis', box: [1.28, 1.97, .25], media: 'cart', accent: '#86b0ff', res: [320, 224], aspect: 4 / 3, real: true, emus: ['RetroArch: Genesis Plus GX', 'RetroArch: PicoDrive', 'MD.emu'] },
+  gb:      { name: 'Game Boy', long: 'Game Boy', box: [1.23, 1.23, .2], media: 'cart', accent: '#b9db74', res: [160, 144], aspect: 10 / 9, hand: true, emus: ['RetroArch: Gambatte', 'RetroArch: SameBoy', 'Pizza Boy GBC'] },
+  gbc:     { name: 'Game Boy Color', long: 'Game Boy Color', box: [1.23, 1.23, .2], media: 'cart', accent: '#5fe0d4', res: [160, 144], aspect: 10 / 9, hand: true, emus: ['RetroArch: Gambatte', 'RetroArch: SameBoy', 'Pizza Boy GBC'] },
+  gba:     { name: 'Game Boy Advance', long: 'Game Boy Advance', box: [1.23, 1.23, .2], media: 'cart', accent: '#ab98ff', res: [240, 160], aspect: 3 / 2, hand: true, emus: ['RetroArch: mGBA', 'RetroArch: gpSP', 'Pizza Boy GBA'] },
+  ps1:     { name: 'PlayStation', long: 'PlayStation', box: [1.42, 1.25, .099], media: 'disc', accent: '#9fb2d8', res: [320, 240], aspect: 4 / 3, real: true, emus: ['DuckStation', 'RetroArch: SwanStation', 'RetroArch: Beetle PSX'] },
+  ds:      { name: 'DS', long: 'Nintendo DS', box: [1.25, 1.37, .14], media: 'card', accent: '#ff9a82', res: [256, 384], aspect: 2 / 3, hand: true, real: true, emus: ['melonDS', 'DraStic', 'RetroArch: melonDS DS'] },
+  psp:     { name: 'PSP', long: 'PlayStation Portable', box: [1.04, 1.75, .14], media: 'umd', accent: '#a7e8ff', res: [480, 272], aspect: 16 / 9, hand: true, real: true, emus: ['PPSSPP', 'RetroArch: PPSSPP'] },
+  android: { name: 'Android', long: 'Android games', box: [1.35, 1.71, .12], media: 'acard', accent: '#8ff0b4', res: [320, 180], aspect: 16 / 9, real: true, emus: ['Opens the app'] },
+};
+const SYS_ORDER = ['nes', 'snes', 'n64', 'genesis', 'gb', 'gbc', 'gba', 'ps1', 'ds', 'psp', 'android'];
+for (const k of SYS_ORDER) Object.assign(PLAT[k], shades(PLAT[k].accent));
+const SYS = PLAT;   // the art generators use SYS
+const isRA = emu => emu.startsWith('RetroArch');
+
+/* ================= the library (all invented) ================= */
+const G = (sys, title, year, dev, genre, players, ach, desc) => ({ id: hash(sys + title).toString(36), sys, title, year, dev, genre, players, ach, desc });
+const GAMES = [
+  G('nes', 'Lantern Knight', 1987, 'Hearthside Games', 'Action', '1 player', 32, 'A lone knight climbs a burning fortress to bring back the lantern that keeps the valley warm. Every floor adds a new trick, from crumbling bridges to gargoyles that breathe embers.'),
+  G('nes', 'Comet Kid', 1989, 'Bluefin Soft', 'Platformer', '1 player', 40, 'Ride a comet across eight planets, bounce off moons and collect stardust before the sun sets on each world.'),
+  G('nes', 'Hollow Peak', 1988, 'Granite House', 'Adventure', '1 player', 45, 'Explore a mountain that is hollow all the way down. Map it room by room, and find out who carved the stairs.'),
+  G('nes', 'Starship Courier', 1991, 'Orbit Nine', 'Shooter', '1–2 players', 28, 'Deliver the mail across a hostile sector. Upgrade your little ship one stamp at a time.'),
+  G('snes', 'Aurora Quest', 1994, 'Northlight', 'Role-playing', '1 player', 60, 'Four travelers follow the northern lights to a city that only appears in winter. A long journey with a gentle heart.'),
+  G('snes', 'Skyline Racer', 1992, 'Velocity Lab', 'Racing', '1–2 players', 36, 'Neon highways stacked a hundred stories high. Drift between towers and race the night itself.'),
+  G('snes', 'Garden of Gears', 1993, 'Brass Bird', 'Puzzle', '1–2 players', 30, 'Grow clockwork flowers and wind them up to solve two hundred puzzles, each one a little stranger than the last.'),
+  G('snes', 'Tidewalker', 1995, 'Coral Studio', 'Action', '1 player', 44, 'Walk the sea floor when the tide goes out, and get back to shore before it comes in again.'),
+  G('n64', 'Kite Kingdom', 1997, 'Windmill', 'Platformer', '1 player', 70, 'Glide between floating islands on a patchwork kite, collecting the wind stones that keep the kingdom aloft.'),
+  G('n64', 'Orbit Golf', 1998, 'Brass Bird', 'Sports', '1–4 players', 40, 'Mini golf where every hole is a tiny planet. Mind the gravity, and never putt toward the sun.'),
+  G('n64', 'Ember Wings', 1999, 'Redline', 'Shooter', '1–2 players', 36, 'Pilot a dragonfly fighter through canyons of glass in a race to relight the last beacon.'),
+  G('genesis', 'Blast Velocity', 1991, 'Redline', 'Platformer', '1 player', 38, 'Run fast, run faster, then run through a loop the size of a moon. Speed is the whole idea.'),
+  G('genesis', 'Neon Coast', 1993, 'Palmwave', 'Beat ’em up', '1–2 players', 34, 'Clean up a seaside city one boardwalk at a time, with a soundtrack built for summer nights.'),
+  G('genesis', 'Iron Comet', 1990, 'Redline', 'Shooter', '1 player', 26, 'A side-scrolling shooter across a collapsing star system, with eight weapons you can swap mid-flight.'),
+  G('gb', 'Pocket Golem', 1991, 'Small Wonder', 'Role-playing', '1 player', 35, 'Raise a tiny stone golem from pebble to mountain. Feed it moss, teach it tricks, and climb the tower.'),
+  G('gb', 'Moss Kingdom', 1993, 'Fernleaf', 'Adventure', '1 player', 40, 'A kingdom so small it fits in a garden. Talk to beetles, cross puddle seas and find the lost crown.'),
+  G('gb', 'Snow Valley Sled', 1990, 'Frostbit', 'Sports', '1 player', 18, 'One hill, one sled, one perfect run. Shave seconds off every course in the valley.'),
+  G('gbc', 'Crystal Critters', 1999, 'Prism Garden', 'Role-playing', '1 player', 50, 'Catch creatures that grow crystals, trade them with friends and polish them into legends.'),
+  G('gbc', 'Harbor Days', 2000, 'Gull & Co', 'Simulation', '1 player', 32, 'Run a seaside harbor through four seasons. Fish, trade and repaint the lighthouse.'),
+  G('gbc', 'Pixie Patrol', 1999, 'Prism Garden', 'Platformer', '1 player', 28, 'A pixie with a lantern guards a forest at night. Light every path before morning.'),
+  G('gba', 'Starfall Tactics', 2003, 'Northlight', 'Strategy', '1 player', 64, 'A grid-based tactics saga about soldiers who fell from the stars and the farmers who took them in.'),
+  G('gba', 'Echo Island', 2002, 'Coral Studio', 'Adventure', '1 player', 46, 'Every sound on this island leaves a trace. Follow the echoes to the island’s oldest song.'),
+  G('gba', 'Gear Golf', 2002, 'Brass Bird', 'Sports', '1–4 players', 30, 'Mini golf on clockwork courses that move, spin and occasionally fight back.'),
+  G('ps1', 'Glass Cathedral', 1998, 'Vesper', 'Adventure', '1 player', 48, 'A thief and a bell-ringer explore a cathedral made of stained glass, where every window is a door to somewhere else.'),
+  G('ps1', 'Vector Rally', 1997, 'Velocity Lab', 'Racing', '1–2 players', 42, 'Wireframe cars, impossible tracks and a soundtrack that speeds up with you.'),
+  G('ps1', 'Hollow Moon', 1999, 'Northlight', 'Role-playing', '1 player', 66, 'The moon is hollow, and someone has been living inside it. A four-disc journey into the dark side.'),
+  G('ds', 'Paper Planets', 2007, 'Folded Sky', 'Puzzle', '1 player', 40, 'Fold paper into planets, launch them into orbit, and build a solar system one crease at a time.'),
+  G('ds', 'Pocket Atlas', 2008, 'Small Wonder', 'Adventure', '1 player', 44, 'Draw your own map as you explore an island that changes every time you close the lid.'),
+  G('ds', 'Lantern Lab', 2009, 'Hearthside Games', 'Puzzle', '1–2 players', 35, 'Bend light through prisms and mirrors to wake up a sleeping laboratory.'),
+  G('psp', 'Neon Drift', 2006, 'Velocity Lab', 'Racing', '1–4 players', 38, 'Night racing through a city that rearranges its streets every lap.'),
+  G('psp', 'Signal Tower', 2008, 'Orbit Nine', 'Strategy', '1 player', 50, 'Defend the last radio tower on a quiet planet by building relays, decoys and a lot of antennas.'),
+  G('psp', 'Tidal Knights', 2007, 'Coral Studio', 'Action', '1–2 players', 46, 'Knights who ride the tide into battle against a kingdom that lives underwater.'),
+  G('android', 'Moonlight Dash', 2021, 'Pale Studio', 'Runner', '1 player', 0, 'Run along the rings of a sleeping planet, collecting moonlight before sunrise.'),
+  G('android', 'Tiny Orchard', 2023, 'Leaf & Lantern', 'Simulation', '1 player', 0, 'Grow a pocket orchard, trade fruit with neighbors and decorate a cottage one pear at a time.'),
+];
+const byId = Object.fromEntries(GAMES.map(g => [g.id, g]));
+const theme = g => ({ 'Action': 'peaks', 'Platformer': 'planet', 'Racing': 'city', 'Adventure': 'forest', 'Shooter': 'space', 'Role-playing': 'peaks',
+  'Puzzle': 'geo', 'Strategy': 'space', 'Beat ’em up': 'city', 'Sports': 'sea', 'Simulation': 'sea', 'Runner': 'planet' })[g.genre] || 'planet';
+
+/* ================= Android apps (invented) ================= */
+const APPS = [
+  { name: 'Browser', icon: 'globe', hue: 210 }, { name: 'Files', icon: 'folder', hue: 40 }, { name: 'Music', icon: 'note', hue: 330 }, { name: 'Photos', icon: 'sun', hue: 20 },
+  { name: 'App Store', icon: 'bag', hue: 150 }, { name: 'RetroArch', icon: 'ring', hue: 260 }, { name: 'PPSSPP', icon: 'bolt', hue: 200 }, { name: 'DuckStation', icon: 'diamond', hue: 0 },
+  { name: 'melonDS', icon: 'crown', hue: 15 }, { name: 'Mupen64Plus FZ', icon: 'star', hue: 45 }, { name: 'Pixel Pond', icon: 'heart', hue: 185, game: true }, { name: 'Sky Courier', icon: 'flag', hue: 280, game: true },
+  { name: 'Moonlight Dash', icon: 'moon', hue: 240, game: true, marked: true }, { name: 'Tiny Orchard', icon: 'leaf', hue: 110, game: true, marked: true }, { name: 'Clock', icon: 'clock', hue: 220 }, { name: 'Settings', icon: 'gear', hue: 230 },
+];
+
+/* ================= the one profile ================= */
+const NOW = Date.now(), HOUR = 3600e3, DAY = 86400e3;
+const P = { name: '', colors: ['#ffd38a', '#e8834a', '#6a2a1e'], setup: false, recent: [], played: {}, collections: [], ra: 'player_one',
+  prefs: { sound: true, motion: !reduceMotion, theme: 'space', accentFollows: true, caseTint: false, hardcore: false, achPop: true, autosave: true, rewind: false, res: 'native',
+    filter: 'None', layout: 'Nintendo', homeLauncher: true, showApps: 'All apps' },
+  emu: {}, gameEmu: {}, art: { source: 'ScreenScraper', ss: 'player_one', videos: true, manuals: true, backs: true, region: 'USA' } };
+for (const k of SYS_ORDER) P.emu[k] = PLAT[k].emus[0];
+[['Aurora Quest', 2 * HOUR, 1312, 38, 3], ['Glass Cathedral', 22 * HOUR, 640, 20, 2], ['Kite Kingdom', 2 * DAY, 905, 41, 2], ['Lantern Knight', 3 * DAY, 248, 14, 1],
+ ['Paper Planets', 4 * DAY, 300, 12, 1], ['Neon Drift', 6 * DAY, 210, 9, 1], ['Starfall Tactics', 8 * DAY, 422, 20, 2], ['Moonlight Dash', 9 * DAY, 120, 0, 0], ['Pocket Golem', 12 * DAY, 75, 6, 1], ['Crystal Critters', 15 * DAY, 640, 27, 2]]
+  .forEach(([title, ago, mins, earned, slots], i) => {
+    const g = GAMES.find(x => x.title === title); P.recent.push(g.id);
+    P.played[g.id] = { last: NOW - ago, minutes: mins, earned, fav: i % 3 === 0, slots: [0, 1, 2, 3].map(k => k < slots ? { ts: NOW - ago - k * DAY * 2.3, seed: hash(g.id + k) } : null), lastSlot: 0 };
+  });
+P.collections.push({ id: 'couch', name: 'Couch co-op', games: ['Orbit Golf', 'Neon Coast', 'Skyline Racer', 'Vector Rally'].map(t => GAMES.find(g => g.title === t).id) });
+const emuFor = g => P.gameEmu[g.id] || P.emu[g.sys];
+function agoText(ts) {
+  const d = NOW - ts;
+  if (d < HOUR) return 'Just now';
+  if (d < DAY) { const h = Math.round(d / HOUR); return `${h} hour${h > 1 ? 's' : ''} ago`; }
+  const n = Math.round(d / DAY);
+  return n === 1 ? 'Yesterday' : n < 14 ? `${n} days ago` : `${Math.round(n / 7)} weeks ago`;
+}
+function playedText(m) { if (!m) return 'Not played yet'; if (m < 60) return `${m} minutes played`; const h = Math.floor(m / 60); return `${h} hour${h > 1 ? 's' : ''} played`; }
+
+/* ================= sound (soft, optional) ================= */
+let AC = null;
+function audio() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { } } if (AC && AC.state === 'suspended') AC.resume(); return AC; }
+function tone(freq, dur, gain, type = 'sine', when = 0, glide = 0) {
+  if (!P.prefs.sound) return;
+  const a = AC; if (!a) return;
+  const t = a.currentTime + when, o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t); if (glide) o.frequency.exponentialRampToValueAtTime(freq * glide, t + dur);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.05);
+}
+function thud(when = 0, gain = 0.12) {
+  if (!P.prefs.sound || !AC) return;
+  const a = AC, t = a.currentTime + when, len = 0.12, buf = a.createBuffer(1, a.sampleRate * len, a.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 4);
+  const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+  f.type = 'lowpass'; f.frequency.value = 900; g.gain.value = gain; s.buffer = buf; s.connect(f).connect(g).connect(a.destination); s.start(t);
+}
+const sfx = {
+  move: () => tone(1320, 0.05, 0.018),
+  select: () => { tone(660, 0.12, 0.04); tone(990, 0.16, 0.035, 'sine', 0.06); },
+  back: () => tone(700, 0.12, 0.03, 'sine', 0, 0.7),
+  tab: () => tone(880, 0.08, 0.025, 'triangle'),
+  insert: () => { thud(0, 0.16); tone(220, 0.08, 0.04, 'triangle', 0.02); },
+  power: () => [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, 1.4, 0.022, 'sine', i * 0.07)),
+  saved: () => { tone(784, 0.14, 0.03); tone(1175, 0.24, 0.028, 'sine', 0.09); },
+};
+
+/* ================= achievements (generated; on the Pi these come from the RetroAchievements API) ================= */
+const ITEMS = { peaks: 'embers', planet: 'stardust', city: 'tokens', forest: 'acorns', space: 'star shards', sea: 'shells', geo: 'gears' };
+const PLACES = ['the first village', 'the old bridge', 'the crystal caves', 'the clock tower', 'the sunken garden', 'the sky harbor', 'the frozen pass', 'the last fortress'];
+const CHALLENGES = [
+  ['Untouchable', 'Beat a boss without taking a hit'], ['Speed Runner', 'Finish any chapter in under three minutes'], ['Sharp Eyes', 'Find a hidden room'],
+  ['No Shortcuts', 'Finish a chapter without skipping a single area'], ['Steady Hands', 'Clear a stage without falling once'], ['Night Owl', 'Play a full chapter at night in the game'],
+  ['Collector', 'Collect 100 {item}'], ['Treasure Hunter', 'Open every chest in {place}'], ['High Flyer', 'Reach the highest point in {place}'],
+  ['Second Wind', 'Recover from one hit point and win'], ['Iron Will', 'Finish the game without a continue'], ['Patient One', 'Wait out the storm in {place}'],
+  ['Quick Draw', 'Win a battle in the first ten seconds'], ['Lucky Break', 'Find the rare drop in {place}'], ['Big Spender', 'Spend 5,000 coins in one visit'],
+  ['Explorer', 'Visit every area on the map'], ['Perfectionist', 'Get a perfect rating on any stage'], ['Pacifist', 'Clear {place} without defeating anyone'],
+  ['Hidden Path', 'Take the secret route out of {place}'], ['Full Pockets', 'Carry the maximum number of {item}'], ['Old Friend', 'Talk to every villager in {place}'],
+  ['Long Way Round', 'Reach {place} by the scenic route'], ['Bright Idea', 'Solve the lantern puzzle in {place}'], ['Echo', 'Find all six sound stones'] ];
+const ACH_ICONS = ['star', 'diamond', 'ring', 'bolt', 'crown', 'flag', 'heart', 'moon'];
+const achCache = {};
+function achievements(g) {
+  if (achCache[g.id]) return achCache[g.id];
+  const r = rng(hash(g.id + 'ach')), n = Math.max(1, g.ach), item = ITEMS[theme(g)], list = [], used = {};
+  const players = 400 + (hash(g.id) % 14000), prog = Math.min(8, Math.max(3, Math.round(n * .3)));
+  const deck = [...CHALLENGES].sort(() => r() - .5);   // each name once before any repeats
+  const name = t => { used[t] = (used[t] || 0) + 1; return used[t] > 1 ? `${t} ${['', '', 'II', 'III', 'IV', 'V', 'VI'][used[t]] || used[t]}` : t; };
+  for (let i = 0; i < n; i++) {
+    let a;
+    if (i === n - 1) a = { title: 'The Long Road Home', desc: `Finish ${g.title}`, type: 'Win condition', pts: 25, rate: .14 + r() * .1 };
+    else if (i < prog) { const place = PLACES[i % PLACES.length]; a = { title: name(['Setting Out', 'Onward', 'Deeper Still', 'Halfway There', 'Over the Ridge', 'Almost Home', 'Final Approach', 'Last Light'][i % 8]),
+      desc: `Reach ${place}`, type: 'Progression', pts: [3, 5, 5, 10][i % 4], rate: Math.max(.2, .9 - i * .07) }; }
+    else { const [t, d] = deck[(i - prog) % deck.length];
+      const tier = (used[t] || 0) + 1, title = name(t);
+      a = { title, desc: d.replace('100', [100, 250, 500, 999][Math.min(3, tier - 1)]).replace('{item}', item).replace('{place}', PLACES[Math.floor(r() * PLACES.length)]), type: r() < .12 ? 'Missable' : '', pts: [1, 2, 3, 5, 5, 10, 10, 25][Math.floor(r() * 8)], rate: (.03 + r() * .45) / tier }; }
+    a.icon = ACH_ICONS[Math.floor(r() * ACH_ICONS.length)]; a.id = g.id + ':' + i; a.order = i;
+    list.push(a);
+  }
+  return (achCache[g.id] = { list, players, points: list.reduce((s, a) => s + a.pts, 0) });
+}
+// which of a game's achievements this profile has earned: the most common ones first, with dates and hardcore flags
+function achFor(p, g) {
+  const A = achievements(g), r = (p || P).played[g.id], k = r ? r.earned : 0, rr = rng(hash(p.name + g.id));
+  const byEase = [...A.list].sort((a, b) => b.rate - a.rate), earned = {};
+  byEase.slice(0, k).forEach((a, i) => { earned[a.id] = { date: (r.last || NOW) - (k - i) * (DAY * (.3 + rr() * 2)), hc: rr() < .6 }; });
+  return earned;
+}
+function profilePoints(p) { let t = 0; for (const id in p.played) { const g = byId[id], e = achFor(p, g); achievements(g).list.forEach(a => { if (e[a.id]) t += a.pts; }); } return t; }
+
+/* ================= library rail ================= */
+const BASE_RAIL = [{ k: 'all', label: 'All games' }, ...SYS_ORDER.map(s => ({ k: s, label: PLAT[s].name })), { head: 'Collections' },
+  { k: 'fav', label: 'Favorites' }, { k: 'prog', label: 'In progress' }];
+function railItems() { return [...BASE_RAIL, ...P.collections.map(c => ({ k: 'col:' + c.id, label: c.name, custom: c }))]; }
+function railMatch(k, g) {
+  const r = P.played[g.id];
+  if (k === 'all') return true; if (PLAT[k]) return g.sys === k;
+  if (k === 'fav') return !!(r && r.fav);
+  if (k === 'prog') return !!(r && r.earned > 0 && r.earned < g.ach);
+  if (k.startsWith('col:')) { const c = P.collections.find(x => 'col:' + x.id === k); return !!c && c.games.includes(g.id); }
+  return true;
+}
+/* ================= procedural art ================= */
+function pal(g) {
+  const r = rng(hash(g.id + 'pal')), h = Math.floor(r() * 360);
+  return { h, r,
+    sky1: `hsl(${h},55%,16%)`, sky2: `hsl(${(h + 40) % 360},70%,${54 + r() * 10}%)`,
+    sun: `hsl(${(h + 180) % 360},90%,72%)`, far: `hsl(${(h + 15) % 360},40%,34%)`, mid: `hsl(${(h + 5) % 360},42%,24%)`,
+    near: `hsl(${(h + 350) % 360},45%,12%)`, pop: `hsl(${(h + 200) % 360},85%,66%)` };
+}
+function sky(ctx, w, h, p) {
+  const gr = ctx.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, p.sky1); gr.addColorStop(1, p.sky2);
+  ctx.fillStyle = gr; ctx.fillRect(0, 0, w, h);
+  const r = rng(hash(p.h + 'stars'));
+  ctx.fillStyle = 'rgba(255,255,255,.8)';
+  for (let i = 0; i < 70; i++) { const s = r() * 2.2 + .4; ctx.globalAlpha = r() * .8 + .2; ctx.fillRect(r() * w, r() * h * .6, s, s); }
+  ctx.globalAlpha = 1;
+}
+function ridge(ctx, w, h, base, amp, color, r, sharp) {
+  ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(0, h);
+  const n = sharp ? 7 : 40;
+  for (let i = 0; i <= n; i++) { const x = i / n * w, y = base - (sharp ? (i % 2 ? amp * (.6 + r() * .4) : amp * r() * .25) : (Math.sin(i * .5 + r() * .3) * .5 + .5) * amp); ctx.lineTo(x, y); }
+  ctx.lineTo(w, h); ctx.fill();
+}
+function drawScene(ctx, w, h, g) {
+  const p = pal(g), r = rng(hash(g.id + 'scene')), t = theme(g);
+  sky(ctx, w, h, p);
+  const sunR = Math.min(w, h) * (0.12 + r() * 0.08), sx = w * (0.25 + r() * 0.5), sy = h * (0.25 + r() * 0.15);
+  if (t !== 'geo') {
+    const sg = ctx.createRadialGradient(sx, sy, 0, sx, sy, sunR * 3); sg.addColorStop(0, 'rgba(255,255,255,.35)'); sg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = sg; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = p.sun; ctx.beginPath(); ctx.arc(sx, sy, sunR, 0, 7); ctx.fill();
+  }
+  if (t === 'peaks') { ridge(ctx, w, h, h * .62, h * .3, p.far, r, true); ridge(ctx, w, h, h * .78, h * .22, p.mid, r, true); ridge(ctx, w, h, h * .92, h * .12, p.near, r, false); }
+  else if (t === 'planet') {
+    ctx.fillStyle = p.pop; ctx.beginPath(); ctx.arc(w * .7, h * .62, w * .32, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.arc(w * .78, h * .66, w * .3, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = w * .015; ctx.beginPath(); ctx.ellipse(w * .7, h * .62, w * .5, w * .1, -.3, 0, 7); ctx.stroke();
+    ridge(ctx, w, h, h * .95, h * .1, p.near, r, false);
+  } else if (t === 'city') {
+    for (let layer = 0; layer < 2; layer++) {
+      ctx.fillStyle = layer ? p.near : p.far;
+      let x = -10;
+      while (x < w) { const bw = w * (.05 + r() * .08), bh = h * (layer ? .25 + r() * .3 : .35 + r() * .3); ctx.fillRect(x, h - bh, bw, bh);
+        if (layer) { ctx.fillStyle = p.sun; for (let k = 0; k < 6; k++) ctx.fillRect(x + r() * bw * .8, h - bh + r() * bh * .8, 3, 4); ctx.fillStyle = p.near; }
+        x += bw + w * .01; }
+    }
+    ctx.fillStyle = p.pop; ctx.fillRect(0, h * .9, w, h * .01);
+  } else if (t === 'forest') {
+    ridge(ctx, w, h, h * .7, h * .12, p.far, r, false);
+    for (let layer = 0; layer < 2; layer++) {
+      ctx.fillStyle = layer ? p.near : p.mid;
+      for (let i = 0; i < 9; i++) { const x = r() * w, y = h * (layer ? .82 : .72), s = h * (layer ? .14 : .1) * (.7 + r() * .6);
+        ctx.beginPath(); ctx.moveTo(x, y - s * 2.2); ctx.lineTo(x + s * .8, y); ctx.lineTo(x - s * .8, y); ctx.fill(); }
+    }
+    ctx.fillStyle = p.near; ctx.fillRect(0, h * .85, w, h * .15);
+  } else if (t === 'space') {
+    const ng = ctx.createRadialGradient(w * .3, h * .5, 0, w * .3, h * .5, w * .6); ng.addColorStop(0, p.pop); ng.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalAlpha = .45; ctx.fillStyle = ng; ctx.fillRect(0, 0, w, h); ctx.globalAlpha = 1;
+    ctx.fillStyle = '#f4f6ff'; const cx = w * .45, cy = h * .6, s = w * .16;
+    ctx.beginPath(); ctx.moveTo(cx + s, cy); ctx.lineTo(cx - s * .7, cy - s * .5); ctx.lineTo(cx - s * .4, cy); ctx.lineTo(cx - s * .7, cy + s * .5); ctx.fill();
+    ctx.fillStyle = p.sun; ctx.beginPath(); ctx.moveTo(cx - s * .45, cy - s * .15); ctx.lineTo(cx - s * 1.1, cy); ctx.lineTo(cx - s * .45, cy + s * .15); ctx.fill();
+  } else if (t === 'sea') {
+    for (let k = 0; k < 4; k++) {
+      ctx.fillStyle = [p.far, p.mid, p.near, p.near][k]; ctx.globalAlpha = k === 3 ? .8 : 1; ctx.beginPath(); ctx.moveTo(0, h);
+      const base = h * (.6 + k * .1);
+      for (let x = 0; x <= w; x += w / 40) ctx.lineTo(x, base + Math.sin(x / w * 12 + k * 2 + r()) * h * .015);
+      ctx.lineTo(w, h); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  } else {   // geo
+    for (let i = 0; i < 9; i++) {
+      ctx.save(); ctx.translate(r() * w, r() * h); ctx.rotate(r() * 3); ctx.fillStyle = [p.pop, p.sun, p.far][i % 3]; ctx.globalAlpha = .85;
+      const s = w * (.08 + r() * .14); if (i % 2) ctx.fillRect(-s / 2, -s / 2, s, s); else { ctx.beginPath(); ctx.arc(0, 0, s / 2, 0, 7); ctx.fill(); }
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+function wrap(ctx, text, maxW) {
+  const words = text.split(' '), lines = []; let cur = '';
+  for (const w of words) { const t = cur ? cur + ' ' + w : w; if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; }
+  if (cur) lines.push(cur); return lines;
+}
+function drawTitle(ctx, text, cx, y, maxW, size, align = 'center') {
+  let lines;
+  for (;;) { ctx.font = `600 ${size}px Unbounded, sans-serif`; lines = wrap(ctx, text, maxW); if (lines.length <= 2 && lines.every(l => ctx.measureText(l).width <= maxW) || size < 12) break; size *= .9; }
+  ctx.textAlign = align; ctx.textBaseline = 'top';
+  lines.forEach((l, i) => {
+    ctx.lineWidth = size * .16; ctx.strokeStyle = 'rgba(10,8,30,.75)'; ctx.lineJoin = 'round'; ctx.strokeText(l, cx, y + i * size * 1.08);
+    ctx.fillStyle = '#fff'; ctx.fillText(l, cx, y + i * size * 1.08);
+  });
+  return y + lines.length * size * 1.08;
+}
+function canvas(w, h) { const c = document.createElement('canvas'); c.width = Math.round(w); c.height = Math.round(h); return c; }
+
+function labelArt(g, aspect) {        // aspect = width / height of the cartridge label
+  const w = 512, h = Math.round(512 / aspect), c = canvas(w, h), ctx = c.getContext('2d');
+  drawScene(ctx, w, h, g);
+  const sh = ctx.createLinearGradient(0, h * .55, 0, h); sh.addColorStop(0, 'rgba(8,6,24,0)'); sh.addColorStop(1, 'rgba(8,6,24,.7)');
+  ctx.fillStyle = sh; ctx.fillRect(0, 0, w, h);
+  const size = Math.min(w, h) * 0.13, lines = (() => { ctx.font = `600 ${size}px Unbounded, sans-serif`; return wrap(ctx, g.title, w * .86).length; })();
+  drawTitle(ctx, g.title, w / 2, h - size * (lines > 1 ? 2.6 : 1.6), w * .86, size);
+  return c;
+}
+function coverFront(g, w, h) {
+  if (g.sys === 'android') return androidCover(g, w, h);
+  const c = canvas(w, h), ctx = c.getContext('2d'), s = SYS[g.sys];
+  drawScene(ctx, w, h, g);
+  const band = Math.round(h * 0.075);
+  ctx.fillStyle = 'rgba(8,8,20,.85)'; ctx.fillRect(0, 0, w, band);
+  ctx.fillStyle = s.accent; ctx.fillRect(0, band - 4, w, 4);
+  ctx.fillStyle = '#fff'; ctx.font = `700 ${band * .45}px Manrope, sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText(s.long, band * .45, band / 2);
+  drawTitle(ctx, g.title, w / 2, band + h * .05, w * .84, Math.min(w, h) * .11);
+  ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = `600 ${Math.min(w, h) * .035}px Manrope, sans-serif`; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText(g.dev, w - w * .05, h - h * .04);
+  return c;
+}
+function coverBack(g, w, h) {   // sized by the box's shorter side, so wide boxes (SNES, N64) fit as well as tall ones
+  const c = canvas(w, h), ctx = c.getContext('2d'), p = pal(g), s = SYS[g.sys], u = Math.min(w, h * .8);
+  ctx.fillStyle = `hsl(${p.h},35%,12%)`; ctx.fillRect(0, 0, w, h);
+  const m = u * .07, by = h - m - u * .1; let y = m;
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.font = `600 ${u * .055}px Unbounded, sans-serif`; ctx.fillText(g.title, m, y); y += u * .1;
+  let sw = (w - m * 3) / 2, shh = sw * s.res[1] / s.res[0];
+  if (shh > h * .36) { shh = h * .36; sw = shh * s.res[0] / s.res[1]; }
+  for (let i = 0; i < 2; i++) { const shot = gameFrame(g, hash(g.id + 'back' + i), i * 37); ctx.imageSmoothingEnabled = false; ctx.drawImage(shot, m + i * (sw + m), y, sw, shh); }
+  y += shh + m * .8;
+  const lh = u * .052; ctx.font = `500 ${u * .036}px Manrope, sans-serif`; ctx.fillStyle = 'rgba(255,255,255,.85)';
+  for (const l of wrap(ctx, g.desc, w - m * 2)) { if (y + lh > by - u * .03) break; ctx.fillText(l, m, y); y += lh; }   // stop before the barcode
+  y += m * .3; if (y + lh < by - u * .03) { ctx.fillStyle = s.accent; ctx.font = `700 ${u * .034}px Manrope, sans-serif`; ctx.fillText(`${g.genre}, ${g.players}`, m, y); }
+  const bw = Math.min(w * .3, u * .32), bh = u * .08;
+  ctx.fillStyle = '#fff'; ctx.fillRect(w - m - bw, by, bw, bh);
+  ctx.fillStyle = '#111'; const br = rng(hash(g.id + 'bar'));
+  for (let x = w - m - bw + 4; x < w - m - 4; x += 3) if (br() > .45) ctx.fillRect(x, by + bh * .12, br() > .5 ? 2 : 1, bh * .76);
+  ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = `500 ${u * .03}px Manrope, sans-serif`; ctx.fillText(`${g.dev}, ${g.year}`, m, by + bh * .3);
+  return c;
+}
+function spineArt(g, len, thick) {   // drawn upright: len tall, thick wide
+  const c = canvas(thick, len), ctx = c.getContext('2d'), p = pal(g), s = SYS[g.sys];
+  ctx.fillStyle = `hsl(${p.h},40%,14%)`; ctx.fillRect(0, 0, thick, len);
+  ctx.fillStyle = s.accent; ctx.fillRect(0, 0, thick, len * .1);
+  ctx.save(); ctx.translate(thick / 2, len * .14); ctx.rotate(Math.PI / 2);
+  ctx.fillStyle = '#fff'; ctx.font = `600 ${thick * .38}px Unbounded, sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  let size = thick * .38; while (ctx.measureText(g.title).width > len * .78 && size > 8) { size *= .92; ctx.font = `600 ${size}px Unbounded, sans-serif`; }
+  ctx.fillText(g.title, 0, 0); ctx.restore();
+  return c;
+}
+
+/* A pretend game screen: a small pixel-art level that scrolls. Used for save thumbnails,
+   the back of the box and the "playing" screen. Game Boy games get the four greens. */
+const DMG = ['#e0f8d0', '#88c070', '#346856', '#081820'];
+function gameFrame(g, seed, scroll, out) {
+  const s = SYS[g.sys], [w, h] = s.res, c = out || canvas(w, h), p = pal(g), r = rng(seed);
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+  const ctx = c.getContext('2d');
+  const green = g.sys === 'gb';
+  const col = (css, k) => green ? DMG[k] : css;
+  ctx.fillStyle = col(`hsl(${p.h},60%,${30 + r() * 30}%)`, 0); ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = col(`hsl(${(p.h + 30) % 360},55%,70%)`, 0);
+  for (let i = 0; i < 5; i++) { const cx = ((i * 97 + seed % 50) - scroll * .2) % (w + 60); ctx.fillRect((cx + w + 60) % (w + 60) - 30, 14 + (i * 23) % 40, 26, 8); }
+  ctx.fillStyle = col(`hsl(${(p.h + 10) % 360},40%,38%)`, 1);
+  for (let x = 0; x < w; x += 4) { const wx = x + scroll * .5; const hh = 30 + Math.sin(wx * .03 + seed) * 12 + Math.sin(wx * .011) * 10; ctx.fillRect(x, h - 40 - hh, 4, hh + 40); }
+  const tile = 16, gy = h - 32;
+  for (let x = -(scroll % tile); x < w; x += tile) {
+    ctx.fillStyle = col(`hsl(${(p.h + 200) % 360},45%,35%)`, 2); ctx.fillRect(x, gy, tile, 32);
+    ctx.fillStyle = col(`hsl(${(p.h + 200) % 360},50%,50%)`, 1); ctx.fillRect(x, gy, tile - 1, 4);
+    ctx.fillStyle = col('rgba(0,0,0,.25)', 3); ctx.fillRect(x + tile - 1, gy, 1, 32); ctx.fillRect(x, gy + 15, tile, 1);
+  }
+  const pr = rng(seed + 7);
+  for (let i = 0; i < 6; i++) {
+    const px = ((i * 120 + pr() * 60) - scroll) % (w + 200); const X = (px + w + 200) % (w + 200) - 100, Y = gy - 30 - (i % 3) * 24;
+    ctx.fillStyle = col(`hsl(${(p.h + 200) % 360},45%,40%)`, 2); ctx.fillRect(X, Y, 48, 8);
+    ctx.fillStyle = col('#ffd84a', 1); ctx.fillRect(X + 18, Y - 14, 6, 8);
+  }
+  const bob = Math.abs(Math.sin(scroll * .08)) * 10, px0 = Math.round(w * .3), py0 = gy - 16 - bob;
+  ctx.fillStyle = col('#ffffff', 0); ctx.fillRect(px0, py0, 10, 16);
+  ctx.fillStyle = col(`hsl(${(p.h + 180) % 360},80%,55%)`, 3); ctx.fillRect(px0, py0 + 6, 10, 10); ctx.fillRect(px0 + 6, py0 + 2, 2, 2);
+  return c;
+}
+
+/* achievement badges: a small glyph on a colored tile; locked ones are gray with a lock */
+const badgeCache = new Map();
+function badge(g, a, locked) {
+  const key = a.id + (locked ? 'L' : ''); if (badgeCache.has(key)) return badgeCache.get(key);
+  const c = canvas(96, 96), x = c.getContext('2d'), p = pal(g), r = rng(hash(a.id));
+  const h = (p.h + Math.floor(r() * 120) - 60 + 360) % 360;
+  const gr = x.createLinearGradient(0, 0, 96, 96);
+  gr.addColorStop(0, locked ? '#3a3f58' : `hsl(${h},70%,62%)`); gr.addColorStop(1, locked ? '#1d2138' : `hsl(${(h + 40) % 360},65%,32%)`);
+  x.fillStyle = gr; x.beginPath(); x.roundRect(0, 0, 96, 96, 20); x.fill();
+  x.fillStyle = locked ? 'rgba(238,241,255,.25)' : '#fff'; x.strokeStyle = x.fillStyle; x.lineWidth = 7; x.lineJoin = 'round'; x.lineCap = 'round';
+  x.save(); x.translate(48, 46);
+  const star = (n, R, r2) => { x.beginPath(); for (let i = 0; i < n * 2; i++) { const a2 = i / (n * 2) * Math.PI * 2 - Math.PI / 2, rad = i % 2 ? r2 : R; x.lineTo(Math.cos(a2) * rad, Math.sin(a2) * rad); } x.closePath(); x.fill(); };
+  switch (a.icon) {
+    case 'star': star(5, 28, 12); break;
+    case 'diamond': x.beginPath(); x.moveTo(0, -28); x.lineTo(22, 0); x.lineTo(0, 28); x.lineTo(-22, 0); x.closePath(); x.fill(); break;
+    case 'ring': x.beginPath(); x.arc(0, 0, 20, 0, 7); x.stroke(); break;
+    case 'bolt': x.beginPath(); x.moveTo(6, -28); x.lineTo(-14, 4); x.lineTo(0, 4); x.lineTo(-6, 28); x.lineTo(14, -4); x.lineTo(0, -4); x.closePath(); x.fill(); break;
+    case 'crown': x.beginPath(); x.moveTo(-24, 16); x.lineTo(-24, -12); x.lineTo(-10, 2); x.lineTo(0, -20); x.lineTo(10, 2); x.lineTo(24, -12); x.lineTo(24, 16); x.closePath(); x.fill(); break;
+    case 'flag': x.fillRect(-18, -26, 5, 54); x.beginPath(); x.moveTo(-13, -26); x.lineTo(22, -15); x.lineTo(-13, -2); x.closePath(); x.fill(); break;
+    case 'heart': x.beginPath(); x.moveTo(0, 22); x.bezierCurveTo(-34, 0, -18, -30, 0, -12); x.bezierCurveTo(18, -30, 34, 0, 0, 22); x.fill(); break;
+    default: x.beginPath(); x.arc(0, 0, 24, 0, 7); x.fill(); x.fillStyle = gr; x.beginPath(); x.arc(10, -8, 20, 0, 7); x.fill();
+  }
+  x.restore();
+  if (locked) { x.fillStyle = 'rgba(7,11,30,.85)'; x.beginPath(); x.roundRect(58, 58, 32, 32, 9); x.fill(); x.strokeStyle = '#9aa2cc'; x.lineWidth = 3;
+    x.beginPath(); x.arc(74, 70, 6, Math.PI, 0); x.stroke(); x.fillStyle = '#9aa2cc'; x.fillRect(66, 70, 16, 12); }
+  const url = c.toDataURL(); badgeCache.set(key, url); return url;
+}
+// a soft rounded panel used as a GL texture: a fill, a bright border and a glow, all in the alpha channel
+function plateArt() {
+  const c = canvas(320, 384), x = c.getContext('2d'); x.clearRect(0, 0, 320, 384);
+  x.shadowColor = 'rgba(255,255,255,.9)'; x.shadowBlur = 26;
+  x.strokeStyle = 'rgba(255,255,255,1)'; x.lineWidth = 6; x.beginPath(); x.roundRect(30, 30, 260, 324, 34); x.stroke();
+  x.shadowBlur = 0; x.fillStyle = 'rgba(255,255,255,.16)'; x.beginPath(); x.roundRect(33, 33, 254, 318, 31); x.fill();
+  return c;
+}
+function tileArt() {
+  const c = canvas(256, 256), x = c.getContext('2d'); x.clearRect(0, 0, 256, 256);
+  x.fillStyle = 'rgba(255,255,255,.1)'; x.beginPath(); x.roundRect(8, 8, 240, 240, 36); x.fill();
+  x.setLineDash([16, 12]); x.strokeStyle = 'rgba(255,255,255,.55)'; x.lineWidth = 4; x.beginPath(); x.roundRect(8, 8, 240, 240, 36); x.stroke();
+  return c;
+}
+
+function panelArt() { const c = canvas(677, 369), x = c.getContext('2d'); x.clearRect(0, 0, 677, 369); x.fillStyle = '#fff'; x.beginPath(); x.roundRect(0, 0, 677, 369, 14); x.fill(); return c; }
+
+function shadowArt() { const c = canvas(256, 96), x = c.getContext('2d'), g = x.createRadialGradient(128, 128, 0, 128, 128, 128);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.5, 'rgba(255,255,255,.5)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.setTransform(1, 0, 0, 96 / 256, 0, 0); x.fillStyle = g; x.fillRect(0, 0, 256, 256); return c; }
+
+/* ================= media: title screens, thumbnails and manual pages (all generated here; scraped on the Pi) ================= */
+function titleFrame(g, out) {   // a pretend title screen at the console's resolution
+  const s = SYS[g.sys], [w, h] = s.res, c = out || canvas(w, h); if (c.width !== w) { c.width = w; c.height = h; }
+  const x = c.getContext('2d'), p = pal(g), green = g.sys === 'gb', col = (css, k) => green ? DMG[k] : css;
+  x.fillStyle = col(`hsl(${p.h},55%,14%)`, 3); x.fillRect(0, 0, w, h);
+  const r = rng(hash(g.id + 'title')); x.fillStyle = col('#ffffff', 0);
+  for (let i = 0; i < 40; i++) x.fillRect(Math.floor(r() * w), Math.floor(r() * h * .7), 1, 1);
+  x.fillStyle = col(`hsl(${(p.h + 20) % 360},45%,30%)`, 2); for (let i = 0; i < w; i += 4) { const hh = 18 + Math.sin(i * .05 + p.h) * 8; x.fillRect(i, h - hh, 4, hh); }
+  // the title, drawn small and scaled up so it looks like pixel art
+  const t = canvas(w, 40), tx = t.getContext('2d'); tx.font = `bold ${Math.round(w / 14)}px Manrope, sans-serif`; tx.textAlign = 'center'; tx.textBaseline = 'middle';
+  tx.fillStyle = col(`hsl(${(p.h + 180) % 360},90%,70%)`, 0); tx.fillText(g.title.toUpperCase(), w / 2, 20);
+  x.imageSmoothingEnabled = false; x.drawImage(t, 0, 0, w, 40, 0, h * .22, w, 40 * 1.6);
+  x.font = `bold ${Math.round(w / 26)}px Manrope, sans-serif`; x.textAlign = 'center'; x.fillStyle = col('#ffffff', 0); x.fillText('PRESS START', w / 2, h * .72);
+  x.font = `${Math.round(w / 34)}px Manrope, sans-serif`; x.fillStyle = col('rgba(255,255,255,.7)', 1); x.fillText(`© ${g.year} ${g.dev.toUpperCase()}`, w / 2, h * .86);
+  return c;
+}
+const mediaCache = new Map();
+function mediaCanvas(g, m) {   // the full-size picture for one media item
+  const key = g.id + m.kind + (m.seed || ''); if (mediaCache.has(key)) return mediaCache.get(key);
+  const [bw, bh] = BOX[g.sys], k = 900 / Math.max(bw, bh);
+  const c = m.kind === 'title' ? titleFrame(g) : m.kind === 'box' ? coverFront(g, bw * k, bh * k) : m.kind === 'back' ? coverBack(g, bw * k, bh * k) : gameFrame(g, m.seed, m.scroll);
+  mediaCache.set(key, c); return c;
+}
+function mediaThumb(g, m) {   // a small picture for the strips, cached as an image
+  const key = 'thumb' + g.id + m.kind + (m.seed || ''); if (mediaCache.has(key)) return mediaCache.get(key);
+  const src = mediaCanvas(g, m), t = canvas(240, 176), x = t.getContext('2d'), pixel = m.kind !== 'box' && m.kind !== 'back';
+  x.fillStyle = '#0a0d22'; x.fillRect(0, 0, 240, 176); x.imageSmoothingEnabled = !pixel;
+  const sc = pixel ? Math.max(240 / src.width, 176 / src.height) : Math.min(240 / src.width, 176 / src.height);   // screens fill, boxes fit
+  x.drawImage(src, (240 - src.width * sc) / 2, (176 - src.height * sc) / 2, src.width * sc, src.height * sc);
+  const url = t.toDataURL(); mediaCache.set(key, url); return url;
+}
+
+const SENTENCES = [
+  'Press Start at the title screen to begin. Choose Continue to pick up from your last save.',
+  'Every world is split into short stages. Reach the lantern at the end of each one to light the way forward.',
+  'Hidden paths are marked by cracked stone and loose bricks. Try every wall.',
+  'Your health is shown at the top of the screen. Collect glowing seeds to restore it.',
+  'Some doors only open after you find the matching key somewhere else in the world.',
+  'When you are stuck, return to the village. The people there always have something new to say.',
+  'Treasure chests can hold coins, keys or rare items. Some only appear after a boss is defeated.',
+  'Hold the button longer to jump higher. Tap it for a short hop over small gaps.',
+  'The map screen shows every area you have visited. Areas with secrets left to find are marked with a star.',
+  'Bosses have patterns. Watch carefully, wait for an opening, and strike when they pause.',
+  'Two players can take turns. The second player starts after the first player loses a life.',
+  'Rare items are often guarded. Look for them high up, far down, or behind a waterfall.',
+  'Your progress is saved at each lantern you light, so take your time and explore.',
+  'Coins can be spent at the traveling shop, which appears in a different place in every world.',
+  'If you lose all your lives, you will return to the start of the current world with your items intact.',
+  'Listen closely. Many secrets are announced by a short chime when you are near them.',
+];
+const SECTIONS = ['Getting started', 'Controls', 'The story', 'On screen', 'Items', 'Tips', 'The story', 'On screen', 'Items', 'Tips', 'Worlds', 'Getting started'];
+function manualPage(g, n, total) {
+  const key = 'man' + g.id + ':' + n; if (mediaCache.has(key)) return mediaCache.get(key);
+  const W0 = 600, H0 = 840, c = canvas(W0, H0), x = c.getContext('2d'), p = pal(g), r = rng(hash(g.id + 'man' + n)), m = 52;
+  if (n === 0) { const [bw, bh] = BOX[g.sys], f = coverFront(g, 600, 840 * Math.min(1, bh / bw)); x.fillStyle = `hsl(${p.h},35%,14%)`; x.fillRect(0, 0, W0, H0); x.drawImage(f, 0, (H0 - f.height) / 2); mediaCache.set(key, c); return c; }
+  x.fillStyle = '#f3eee3'; x.fillRect(0, 0, W0, H0);
+  const kind = n === 1 ? 'Contents' : n === total - 1 ? 'Notes' : SECTIONS[(n - 2) % SECTIONS.length];
+  x.fillStyle = `hsl(${p.h},45%,32%)`; x.fillRect(0, 0, W0, 76);
+  x.fillStyle = '#fff'; x.font = '600 30px Unbounded, sans-serif'; x.textBaseline = 'middle'; x.fillText(kind, m, 40);
+  x.fillStyle = '#8a8478'; x.font = '500 18px Manrope, sans-serif'; x.textAlign = 'center'; x.fillText(String(n), W0 / 2, H0 - 30); x.textAlign = 'left';
+  let y = 120; x.textBaseline = 'top';
+  const para = (t, size = 21, color = '#3b3833') => { x.font = `500 ${size}px Manrope, sans-serif`; x.fillStyle = color; wrap(x, t, W0 - m * 2).forEach(l => { x.fillText(l, m, y); y += size * 1.5; }); y += 16; };
+  const sentences = k => Array.from({ length: k }, () => SENTENCES[Math.floor(r() * SENTENCES.length)]).join(' ');
+  if (kind === 'Contents') {
+    x.font = '500 22px Manrope, sans-serif';
+    const first = [];   // each section's real first page
+    for (let q = 2; q < total - 1; q++) { const t = SECTIONS[(q - 2) % SECTIONS.length]; if (!first.some(f => f[0] === t)) first.push([t, q]); }
+    first.push(['Notes', total - 1]);
+    first.forEach(([t, pgn]) => {
+      x.fillStyle = '#3b3833'; x.fillText(t, m, y); const pg = String(pgn); x.textAlign = 'right'; x.fillText(pg, W0 - m, y); x.textAlign = 'left';
+      x.fillStyle = '#b7b0a2'; for (let d = m + x.measureText(t).width + 12; d < W0 - m - 40; d += 10) x.fillRect(d, y + 16, 3, 3); y += 52; });
+  } else if (kind === 'Controls') {
+    para(`${g.title} is played with the standard controller.`);
+    const cx = W0 / 2, cy = 330; x.fillStyle = '#d9d2c3'; x.beginPath(); x.roundRect(cx - 200, cy - 80, 400, 160, 70); x.fill();
+    x.fillStyle = '#3b3833'; x.fillRect(cx - 150, cy - 12, 70, 24); x.fillRect(cx - 127, cy - 35, 24, 70);
+    x.fillStyle = `hsl(${p.h},55%,45%)`; [[110, -18], [150, 12]].forEach(([dx, dy]) => { x.beginPath(); x.arc(cx + dx, cy + dy, 18, 0, 7); x.fill(); });
+    x.fillStyle = '#6d675c'; x.fillRect(cx - 40, cy + 20, 30, 10); x.fillRect(cx + 5, cy + 20, 30, 10);
+    y = 460; [['Control pad', 'Move, and choose menu items'], ['A button', 'Jump. Hold to jump higher'], ['B button', 'Use the item you are holding'], ['Start', 'Pause and open the map'], ['Select', 'Change the item you are holding']].forEach(([a, b]) => {
+      x.font = '700 21px Manrope, sans-serif'; x.fillStyle = '#3b3833'; x.fillText(a, m, y); x.font = '500 21px Manrope, sans-serif'; x.fillText(b, m + 170, y); y += 44; });
+  } else if (kind === 'The story') {
+    const ill = canvas(W0 - m * 2, 240); drawScene(ill.getContext('2d'), ill.width, ill.height, g); x.drawImage(ill, m, y); y += 266;
+    para(g.desc, 22); para(sentences(2));
+  } else if (kind === 'On screen') {
+    [0, 1].forEach(i => { const f = gameFrame(g, hash(g.id + 'manshot' + n + i), 40 + i * 90), sw = 230, sh = sw * f.height / f.width;
+      x.imageSmoothingEnabled = false; x.drawImage(f, m + i * (sw + 36), y, sw, sh); x.imageSmoothingEnabled = true;
+      x.font = '500 17px Manrope, sans-serif'; x.fillStyle = '#6d675c'; x.fillText(['Health and coins', 'The map screen'][i], m + i * (sw + 36), y + sh + 10); });
+    y += 260; para(sentences(3));
+  } else if (kind === 'Items') {
+    const names = ['Lantern', 'Seed', 'Key', 'Map', 'Boots', 'Charm', 'Shell', 'Gear', 'Crown'];
+    names.forEach((t, i) => { const col = i % 3, row = Math.floor(i / 3), ix = m + col * 170, iy = y + row * 150;
+      x.fillStyle = `hsl(${(p.h + i * 40) % 360},55%,55%)`; x.beginPath(); x.roundRect(ix + 30, iy, 72, 72, 18); x.fill();
+      x.font = '600 19px Manrope, sans-serif'; x.fillStyle = '#3b3833'; x.textAlign = 'center'; x.fillText(t, ix + 66, iy + 84); x.textAlign = 'left'; });
+    y += 470; para(sentences(1));
+  } else if (kind === 'Notes') {
+    x.strokeStyle = '#cfc7b6'; x.lineWidth = 1.5; for (let ly = y + 30; ly < H0 - 80; ly += 44) { x.beginPath(); x.moveTo(m, ly); x.lineTo(W0 - m, ly); x.stroke(); }
+  } else { para(sentences(3)); para(sentences(3)); if (r() > .4) para(sentences(2)); }
+  mediaCache.set(key, c); return c;
+}
+
+/* ================= new for Android: disc labels, app icons, covers for Android games ================= */
+function glyph(x, kind, size) {   // simple shapes for icons and badges, centered at 0,0
+  const S = size / 56;
+  x.save(); x.scale(S, S); x.lineWidth = 7; x.lineJoin = 'round'; x.lineCap = 'round';
+  const star = (n, R, r2) => { x.beginPath(); for (let i = 0; i < n * 2; i++) { const a = i / (n * 2) * Math.PI * 2 - Math.PI / 2, rad = i % 2 ? r2 : R; x.lineTo(Math.cos(a) * rad, Math.sin(a) * rad); } x.closePath(); x.fill(); };
+  switch (kind) {
+    case 'globe': x.beginPath(); x.arc(0, 0, 22, 0, 7); x.stroke(); x.beginPath(); x.ellipse(0, 0, 9, 22, 0, 0, 7); x.stroke(); x.beginPath(); x.moveTo(-22, 0); x.lineTo(22, 0); x.stroke(); break;
+    case 'folder': x.beginPath(); x.roundRect(-24, -14, 48, 34, 5); x.fill(); x.beginPath(); x.roundRect(-24, -20, 20, 10, 4); x.fill(); break;
+    case 'note': x.beginPath(); x.arc(-8, 14, 8, 0, 7); x.fill(); x.fillRect(-2, -20, 5, 34); x.beginPath(); x.moveTo(3, -20); x.lineTo(18, -12); x.lineTo(3, -6); x.fill(); break;
+    case 'sun': x.beginPath(); x.arc(0, 0, 10, 0, 7); x.fill(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; x.beginPath(); x.moveTo(Math.cos(a) * 16, Math.sin(a) * 16); x.lineTo(Math.cos(a) * 23, Math.sin(a) * 23); x.stroke(); } break;
+    case 'bag': x.beginPath(); x.roundRect(-20, -10, 40, 32, 6); x.fill(); x.beginPath(); x.arc(0, -10, 9, Math.PI, 0); x.stroke(); break;
+    case 'ring': x.beginPath(); x.arc(0, 0, 18, 0, 7); x.stroke(); x.beginPath(); x.arc(0, 0, 6, 0, 7); x.fill(); break;
+    case 'bolt': x.beginPath(); x.moveTo(6, -24); x.lineTo(-14, 4); x.lineTo(0, 4); x.lineTo(-6, 24); x.lineTo(14, -4); x.lineTo(0, -4); x.closePath(); x.fill(); break;
+    case 'diamond': x.beginPath(); x.moveTo(0, -24); x.lineTo(20, 0); x.lineTo(0, 24); x.lineTo(-20, 0); x.closePath(); x.fill(); break;
+    case 'crown': x.beginPath(); x.moveTo(-22, 14); x.lineTo(-22, -10); x.lineTo(-9, 2); x.lineTo(0, -18); x.lineTo(9, 2); x.lineTo(22, -10); x.lineTo(22, 14); x.closePath(); x.fill(); break;
+    case 'star': star(5, 24, 10); break;
+    case 'heart': x.beginPath(); x.moveTo(0, 20); x.bezierCurveTo(-30, 0, -16, -26, 0, -10); x.bezierCurveTo(16, -26, 30, 0, 0, 20); x.fill(); break;
+    case 'flag': x.fillRect(-16, -22, 5, 46); x.beginPath(); x.moveTo(-11, -22); x.lineTo(20, -12); x.lineTo(-11, -1); x.closePath(); x.fill(); break;
+    case 'moon': x.beginPath(); x.arc(0, 0, 20, 0, 7); x.fill(); x.globalCompositeOperation = 'destination-out'; x.beginPath(); x.arc(9, -7, 17, 0, 7); x.fill(); x.globalCompositeOperation = 'source-over'; break;
+    case 'leaf': x.beginPath(); x.moveTo(-18, 18); x.bezierCurveTo(-20, -14, 6, -22, 20, -20); x.bezierCurveTo(20, 4, 4, 22, -18, 18); x.fill(); break;
+    case 'clock': x.beginPath(); x.arc(0, 0, 21, 0, 7); x.stroke(); x.beginPath(); x.moveTo(0, -12); x.lineTo(0, 0); x.lineTo(9, 6); x.stroke(); break;
+    case 'gear': x.beginPath(); x.arc(0, 0, 14, 0, 7); x.stroke(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; x.beginPath(); x.moveTo(Math.cos(a) * 15, Math.sin(a) * 15); x.lineTo(Math.cos(a) * 23, Math.sin(a) * 23); x.stroke(); } break;
+    default: x.beginPath(); x.arc(0, 0, 20, 0, 7); x.fill();
+  }
+  x.restore();
+}
+const iconCache = new Map();
+function appIcon(app, size = 148) {
+  const key = app.name + size; if (iconCache.has(key)) return iconCache.get(key);
+  const c = canvas(size, size), x = c.getContext('2d'), g = x.createLinearGradient(0, 0, size, size);
+  g.addColorStop(0, `hsl(${app.hue},75%,64%)`); g.addColorStop(1, `hsl(${(app.hue + 35) % 360},70%,42%)`);
+  x.fillStyle = g; x.beginPath(); x.roundRect(0, 0, size, size, size * .26); x.fill();
+  x.fillStyle = '#fff'; x.strokeStyle = '#fff'; x.save(); x.translate(size / 2, size / 2); glyph(x, app.icon, size * .52); x.restore();
+  iconCache.set(key, c); return c;
+}
+function androidCover(g, w, h) {   // store-style art built from the app's icon
+  const app = APPS.find(a => a.name === g.title) || { name: g.title, icon: 'star', hue: hash(g.id) % 360 };
+  const c = canvas(w, h), x = c.getContext('2d'), gr = x.createLinearGradient(0, 0, w, h);
+  gr.addColorStop(0, `hsl(${app.hue},60%,22%)`); gr.addColorStop(1, `hsl(${(app.hue + 50) % 360},70%,48%)`);
+  x.fillStyle = gr; x.fillRect(0, 0, w, h);
+  for (let i = 0; i < 5; i++) { const r = rng(hash(g.id + i)); x.fillStyle = `hsla(${(app.hue + r() * 80) % 360},80%,70%,.18)`; x.beginPath(); x.arc(r() * w, r() * h, w * (.15 + r() * .3), 0, 7); x.fill(); }
+  const ic = appIcon(app, Math.round(w * .46)); x.shadowColor = 'rgba(0,0,0,.35)'; x.shadowBlur = w * .05; x.drawImage(ic, (w - ic.width) / 2, h * .28); x.shadowBlur = 0;
+  drawTitle(x, g.title, w / 2, h * .72, w * .84, Math.min(w, h) * .085);
+  return c;
+}
+function discArt(g, size = 512) {   // a printed disc: art inside a ring, with the center hole
+  const c = canvas(size, size), x = c.getContext('2d'), R = size / 2;
+  const scene = canvas(size, size); drawScene(scene.getContext('2d'), size, size, g);
+  x.save(); x.beginPath(); x.arc(R, R, R - 1, 0, 7); x.clip(); x.drawImage(scene, 0, 0);
+  const sh = x.createLinearGradient(0, R * .9, 0, R * 1.6); sh.addColorStop(0, 'rgba(8,6,24,0)'); sh.addColorStop(1, 'rgba(8,6,24,.65)'); x.fillStyle = sh; x.fillRect(0, 0, size, size);
+  x.restore();
+  drawTitle(x, g.title, R, R * 1.32, size * .62, size * .07);
+  x.fillStyle = 'rgba(210,214,226,1)'; x.beginPath(); x.arc(R, R, R * .32, 0, 7); x.fill();       // the clear center ring
+  x.fillStyle = 'rgba(160,166,182,1)'; x.beginPath(); x.arc(R, R, R * .25, 0, 7); x.fill();
+  x.globalCompositeOperation = 'destination-out'; x.beginPath(); x.arc(R, R, R * .125, 0, 7); x.fill(); x.globalCompositeOperation = 'source-over';
+  return c;
+}
+/* ================= WebGL 1 renderer (the same API as the Pi 3's OpenGL ES 2.0) ================= */
+const gl = cv.getContext('webgl', { antialias: true, alpha: false, premultipliedAlpha: false });
+const M4 = {
+  mul(a, b) { const o = new Float32Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + r] * b[c * 4 + k]; o[c * 4 + r] = s; } return o; },
+  persp(fovy, asp, n, f) { const t = 1 / Math.tan(fovy / 2), o = new Float32Array(16); o[0] = t / asp; o[5] = t; o[10] = (f + n) / (n - f); o[11] = -1; o[14] = 2 * f * n / (n - f); return o; },
+  // translate, rotate (Y, then X, then Z) and scale; s may be a number or [sx, sy, sz]
+  trs(x, y, z, rx, ry, rz, s) {
+    const sx = Array.isArray(s) ? s[0] : s, sy = Array.isArray(s) ? s[1] : s, sz = Array.isArray(s) ? s[2] : s;
+    const cx = Math.cos(rx), snx = Math.sin(rx), cy = Math.cos(ry), sny = Math.sin(ry), cz = Math.cos(rz), snz = Math.sin(rz);
+    // R = Ry * Rx * Rz
+    const r00 = cy * cz + sny * snx * snz, r01 = -cy * snz + sny * snx * cz, r02 = sny * cx;
+    const r10 = cx * snz, r11 = cx * cz, r12 = -snx;
+    const r20 = -sny * cz + cy * snx * snz, r21 = sny * snz + cy * snx * cz, r22 = cy * cx;
+    return new Float32Array([r00 * sx, r10 * sx, r20 * sx, 0, r01 * sy, r11 * sy, r21 * sy, 0, r02 * sz, r12 * sz, r22 * sz, 0, x, y, z, 1]);
+  },
+};
+const FOV = 30 * Math.PI / 180, CAMZ = 10, PX = (H / 2) / (CAMZ * Math.tan(FOV / 2));   // pixels per world unit at z = 0
+const pw = (px, py) => [(px - W / 2) / PX, -(py - H / 2) / PX];
+
+function shader(vs, fs) {
+  const mk = (t, s) => { const x = gl.createShader(t); gl.shaderSource(x, s); gl.compileShader(x); if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x)); return x; };
+  const p = gl.createProgram(); gl.attachShader(p, mk(gl.VERTEX_SHADER, vs)); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const u = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+  for (let i = 0; i < n; i++) { const info = gl.getActiveUniform(p, i); u[info.name.replace('[0]', '')] = gl.getUniformLocation(p, info.name); }
+  const a = {}, na = gl.getProgramParameter(p, gl.ACTIVE_ATTRIBUTES);
+  for (let i = 0; i < na; i++) { const info = gl.getActiveAttrib(p, i); a[info.name] = gl.getAttribLocation(p, info.name); }
+  return { p, u, a };
+}
+let MESH, BG, STARS, PLANET, FIELDS;
+function initGL() {
+  MESH = shader(`
+attribute vec3 aPos; attribute vec3 aNor; attribute vec2 aUV;
+uniform mat4 uVP, uM; uniform float uGrow; varying vec3 vN, vW, vL; varying vec2 vUV;
+void main() { vL = aPos; vec4 w = uM * vec4(aPos + aNor * uGrow * aUV.y, 1.0); vW = w.xyz; vN = mat3(uM) * aNor; vUV = aUV; gl_Position = uVP * w; }`, `
+precision mediump float;
+varying vec3 vN, vW, vL; varying vec2 vUV;
+uniform sampler2D uTex; uniform float uTexOn, uAlpha, uSpec, uBright, uMode, uTime; uniform vec3 uColor, uRim, uEye, uEmit;
+void main() {
+  if (uMode > 1.5) {   // selection glow: two colors chasing each other around the outline
+    float k = 0.5 + 0.5 * sin(atan(vL.y, vL.x) + 0.8);          // brighter toward the top left, where the light comes from
+    float pulse = 0.86 + 0.14 * sin(uTime * 1.3);                 // the whole ring breathes together, slowly
+    float fade = pow(1.0 - vUV.y, 1.8);
+    gl_FragColor = vec4(mix(uColor, uEmit, k), uAlpha * fade * (0.55 + 0.45 * k) * pulse); return;
+  }
+  vec4 tc = texture2D(uTex, vUV);
+  if (uMode > 0.5) { gl_FragColor = vec4(uColor, tc.a * uAlpha); return; }
+  vec3 n = normalize(vN);
+  vec3 base = uTexOn > 0.5 ? tc.rgb : uColor;
+  vec3 L = normalize(vec3(-0.45, 0.75, 0.55));
+  vec3 V = normalize(uEye - vW);
+  float d = max(dot(n, L), 0.0);
+  float s = pow(max(dot(n, normalize(L + V)), 0.0), 36.0) * uSpec;
+  float rim = pow(1.0 - max(dot(n, V), 0.0), 2.5);
+  vec3 c = base * (0.20 + 0.70 * d + 0.30 * max(dot(n, V), 0.0)) * uBright + vec3(s) + uRim * rim * 0.55 + uEmit;
+  gl_FragColor = vec4(c, uAlpha * (uTexOn > 0.5 ? tc.a : 1.0));
+}`);
+  BG = shader(`
+attribute vec2 aP; varying vec2 vUV; void main() { vUV = aP * 0.5 + 0.5; gl_Position = vec4(aP, 0.0, 1.0); }`, `
+precision mediump float; varying vec2 vUV; uniform sampler2D uA, uB; uniform float uMix, uBright;
+void main() { gl_FragColor = vec4(mix(texture2D(uA, vUV).rgb, texture2D(uB, vUV).rgb, uMix) * uBright, 1.0); }`);
+  STARS = shader(`
+attribute vec2 aP; attribute float aS, aD, aPh; uniform vec2 uPan; uniform float uT, uScale, uBright; varying float vA;
+void main() {
+  vec2 p = fract(aP + uPan * aD) * 2.0 - 1.0; p.y = -p.y;
+  vA = (0.55 + 0.45 * sin(uT * (0.6 + aPh) + aPh * 20.0)) * uBright * (0.4 + 0.6 * aD);
+  gl_PointSize = aS * uScale; gl_Position = vec4(p, 0.0, 1.0);
+}`, `
+precision mediump float; varying float vA;
+void main() { float r = length(gl_PointCoord - 0.5) * 2.0; gl_FragColor = vec4(vec3(0.93, 0.95, 1.0), vA * smoothstep(1.0, 0.2, r)); }`);
+  FIELDS = shader(`
+attribute vec2 aP; varying vec2 vUV; void main() { vUV = aP * 0.5 + 0.5; gl_Position = vec4(aP, 0.0, 1.0); }`, `
+precision mediump float; varying vec2 vUV; uniform vec3 uTop, uBot, uC1, uC2, uC3; uniform float uT, uAmt;
+vec3 blob(vec3 col, vec3 c, vec2 p, float r) { vec2 d = (vUV - p) * vec2(1.78, 1.0); return mix(col, c, uAmt * exp(-dot(d, d) / (r * r))); }
+void main() {
+  vec3 col = mix(uBot, uTop, vUV.y);
+  col = blob(col, uC1, vec2(0.25 + 0.08 * sin(uT * 0.05), 0.75 + 0.06 * cos(uT * 0.04)), 0.55);
+  col = blob(col, uC2, vec2(0.80 + 0.07 * cos(uT * 0.045), 0.30 + 0.07 * sin(uT * 0.05)), 0.6);
+  col = blob(col, uC3, vec2(0.55 + 0.10 * sin(uT * 0.035 + 2.0), 0.95 + 0.05 * sin(uT * 0.04)), 0.45);
+  gl_FragColor = vec4(col, 1.0);
+}`);
+  PLANET = shader(`
+attribute vec2 aP; uniform vec2 uC; uniform float uR; varying vec2 vL;
+void main() { vL = aP * 1.3; vec2 px = uC + vL * uR; gl_Position = vec4(px.x / 667.0 - 1.0, 1.0 - px.y / 375.0, 0.0, 1.0); }`, `
+precision mediump float; varying vec2 vL; uniform sampler2D uTex; uniform float uRot, uAlpha; uniform vec3 uAtm;
+void main() {
+  float r = length(vL);
+  vec3 L = normalize(vec3(-0.55, 0.55, 0.62));
+  if (r < 1.0) {
+    vec3 n = vec3(vL.x, -vL.y, sqrt(1.0 - r * r));
+    float c = cos(0.35), s = sin(0.35);
+    vec3 m = vec3(n.x * c - n.y * s, n.x * s + n.y * c, n.z);
+    float lon = atan(m.x, m.z) / 6.28318 + uRot, lat = acos(clamp(m.y, -1.0, 1.0)) / 3.14159;
+    vec3 col = texture2D(uTex, vec2(fract(lon), lat)).rgb;
+    float d = smoothstep(-0.15, 0.6, dot(n, L));
+    float edge = pow(1.0 - n.z, 3.0);
+    vec3 outc = col * (0.06 + 0.94 * d) + uAtm * edge * (0.25 + 0.75 * d);
+    gl_FragColor = vec4(outc + uAtm * smoothstep(0.97, 1.0, r) * 0.55, uAlpha);
+  } else {
+    float lit = clamp(dot(normalize(vec3(vL.x, -vL.y, 0.0)), L) * 0.5 + 0.5, 0.0, 1.0);
+    float g = exp(-(r - 1.0) * 14.0) * (0.15 + 0.85 * lit);
+    gl_FragColor = vec4(uAtm, g * 0.55 * uAlpha);
+  }
+}`);
+}
+
+/* ---------- buffers ---------- */
+function mesh(pos, nor, uv, idx) {
+  const b = k => { const x = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, x); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(k), gl.STATIC_DRAW); return x; };
+  const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idx), gl.STATIC_DRAW);
+  return { p: b(pos), n: b(nor), t: b(uv), i: ib, count: idx.length };
+}
+// A flat shape (convex, counter-clockwise) pushed out to a given depth, with smooth sides on rounded corners.
+function extrude(pts, depth) {
+  const pos = [], nor = [], uv = [], idx = [], n = pts.length, z = depth / 2;
+  let minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9, cx = 0, cy = 0;
+  pts.forEach(([x, y]) => { minx = Math.min(minx, x); maxx = Math.max(maxx, x); miny = Math.min(miny, y); maxy = Math.max(maxy, y); cx += x / n; cy += y / n; });
+  const face = (zz, nz) => {
+    const start = pos.length / 3;
+    pos.push(cx, cy, zz); nor.push(0, 0, nz); uv.push((cx - minx) / (maxx - minx), (cy - miny) / (maxy - miny));
+    pts.forEach(([x, y]) => { pos.push(x, y, zz); nor.push(0, 0, nz); uv.push((x - minx) / (maxx - minx), (y - miny) / (maxy - miny)); });
+    for (let i = 0; i < n; i++) { const a = start + 1 + i, b = start + 1 + (i + 1) % n; nz > 0 ? idx.push(start, a, b) : idx.push(start, b, a); }
+  };
+  face(z, 1); face(-z, -1);
+  const en = pts.map((p, i) => { const q = pts[(i + 1) % n], dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy) || 1; return [dy / l, -dx / l]; });
+  const vn = (i, e) => { const a = en[(i - 1 + n) % n], b = en[i]; const dot = a[0] * b[0] + a[1] * b[1]; if (dot < 0.7) return en[e]; const x = a[0] + b[0], y = a[1] + b[1], l = Math.hypot(x, y); return [x / l, y / l]; };
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n, a = pts[i], b = pts[j], na = vn(i, i), nb = vn(j, i), s = pos.length / 3;
+    pos.push(a[0], a[1], z, a[0], a[1], -z, b[0], b[1], -z, b[0], b[1], z);
+    nor.push(na[0], na[1], 0, na[0], na[1], 0, nb[0], nb[1], 0, nb[0], nb[1], 0);
+    uv.push(0, 0, 0, 1, 1, 1, 1, 0);
+    idx.push(s, s + 1, s + 2, s, s + 2, s + 3);
+  }
+  return mesh(pos, nor, uv, idx);
+}
+// outline of a w x h shape with per-corner radius; a negative radius cuts the corner off instead
+function shape(w, h, r = [0, 0, 0, 0]) {   // radii: bottom-left, bottom-right, top-right, top-left
+  const pts = [], hw = w / 2, hh = h / 2;
+  const corner = (cx, cy, rad, a0) => { for (let k = 0; k <= 5; k++) { const a = a0 + k / 5 * Math.PI / 2; pts.push([cx + Math.cos(a) * rad, cy + Math.sin(a) * rad]); } };
+  const R = r.map(x => Math.abs(x));
+  // bottom-left
+  if (r[0] < 0) { pts.push([-hw, -hh + R[0]], [-hw + R[0], -hh]); } else corner(-hw + R[0], -hh + R[0], R[0], Math.PI);
+  if (r[1] < 0) { pts.push([hw - R[1], -hh], [hw, -hh + R[1]]); } else corner(hw - R[1], -hh + R[1], R[1], Math.PI * 1.5);
+  if (r[2] < 0) { pts.push([hw, hh - R[2]], [hw - R[2], hh]); } else corner(hw - R[2], hh - R[2], R[2], 0);
+  if (r[3] < 0) { pts.push([-hw + R[3], hh], [-hw, hh - R[3]]); } else corner(-hw + R[3], hh - R[3], R[3], Math.PI / 2);
+  // drop accidental duplicates (zero radius corners give six identical points)
+  return pts.filter((p, i) => { const q = pts[(i + pts.length - 1) % pts.length]; return Math.hypot(p[0] - q[0], p[1] - q[1]) > 1e-5; });
+}
+function circle(r, seg = 28) { const pts = []; for (let i = 0; i < seg; i++) { const a = i / seg * Math.PI * 2; pts.push([Math.cos(a) * r, Math.sin(a) * r]); } return pts; }
+function ringMesh(pts) {   // inner edge on the outline (uv.y = 0), outer edge pushed out in the shader (uv.y = 1)
+  const n = pts.length, pos = [], nor = [], uv = [], idx = [];
+  const en = pts.map((p, i) => { const q = pts[(i + 1) % n], dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy) || 1; return [dy / l, -dx / l]; });
+  for (let i = 0; i <= n; i++) {
+    const k = i % n, a = en[(k - 1 + n) % n], b = en[k]; let x = a[0] + b[0], y = a[1] + b[1]; const l = Math.hypot(x, y) || 1; x /= l; y /= l;
+    pos.push(pts[k][0], pts[k][1], 0, pts[k][0], pts[k][1], 0); nor.push(x, y, 0, x, y, 0); uv.push(i / n, 0, i / n, 1);
+    if (i < n) { const s = i * 2; idx.push(s, s + 1, s + 3, s, s + 3, s + 2); }
+  }
+  return mesh(pos, nor, uv, idx);
+}
+let QUAD, PLANE, SCREENQ, STARBUF;
+function initMeshes() {
+  PLANE = mesh([-.5, -.5, 0, .5, -.5, 0, .5, .5, 0, -.5, .5, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1], [0, 0, 1, 0, 1, 1, 0, 1], [0, 1, 2, 0, 2, 3]);
+  SCREENQ = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, SCREENQ); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1]), gl.STATIC_DRAW);
+  const r = rng(99), st = [];
+  for (let i = 0; i < 520; i++) { const d = r(); st.push(r(), r(), 1.2 + Math.pow(r(), 3) * 2.8, 0.15 + d * 0.85, r()); }
+  STARBUF = { b: gl.createBuffer(), n: 520 }; gl.bindBuffer(gl.ARRAY_BUFFER, STARBUF.b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(st), gl.STATIC_DRAW);
+}
+
+/* ---------- textures ---------- */
+const texCache = new Map();
+function tex(key, make, rgba) {
+  if (texCache.has(key)) return texCache.get(key);
+  const c = make(), t = gl.createTexture(), f = rgba ? gl.RGBA : gl.RGB;
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  gl.texImage2D(gl.TEXTURE_2D, 0, f, f, gl.UNSIGNED_BYTE, c);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  texCache.set(key, t); return t;
+}
+function planetSurface(cols, seed) {
+  const c = canvas(512, 256), ctx = c.getContext('2d'), r = rng(seed);
+  const [a, b, d] = cols.map(hexRgb);
+  const img = ctx.createImageData(512, 256);
+  const bands = []; for (let i = 0; i < 9; i++) bands.push([r() * 6 + 2, r() * 6.28, r() * .5 + .2]);
+  for (let y = 0; y < 256; y++) {
+    let t = 0; bands.forEach(([f, ph, amp]) => t += Math.sin(y / 256 * f * 3.14 + ph) * amp);
+    t = t * .25 + .5;
+    for (let x = 0; x < 512; x++) {
+      const wob = Math.sin(x / 512 * 6.283 * 3 + y * .05) * .05 + Math.sin(x / 512 * 6.283 * 7 + y * .13) * .025;
+      const k = clamp(t + wob, 0, 1), c1 = k < .5 ? d : b, c2 = k < .5 ? b : a, m = k < .5 ? k * 2 : (k - .5) * 2;
+      const i = (y * 512 + x) * 4;
+      img.data[i] = (c1[0] + (c2[0] - c1[0]) * m) * 255; img.data[i + 1] = (c1[1] + (c2[1] - c1[1]) * m) * 255; img.data[i + 2] = (c1[2] + (c2[2] - c1[2]) * m) * 255; img.data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return c;
+}
+function nebula(cols, seed) {
+  const c = canvas(960, 540), ctx = c.getContext('2d'), r = rng(seed);
+  ctx.fillStyle = '#070b1e'; ctx.fillRect(0, 0, 960, 540);
+  for (let i = 0; i < 7; i++) {
+    const x = r() * 960, y = r() * 540, rad = 200 + r() * 380, g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+    g.addColorStop(0, cols[i % 2]); g.addColorStop(1, 'rgba(7,11,30,0)');
+    ctx.globalAlpha = .55 + r() * .35; ctx.fillStyle = g; ctx.fillRect(0, 0, 960, 540);
+  }
+  ctx.globalAlpha = 1;
+  return c;
+}
+
+/* ---------- media: cartridges, discs and cards (original shell designs; label windows at real label sizes) ---------- */
+const CART = {
+  nes:     { w: 1.20, h: 1.34, d: .17, label: [0, .155, .55, .90], frame: '#5d5955' },
+  snes:    { w: 1.30, h: .95, d: .2, label: [0, .22, .825, .37], frame: '#8f8ca0' },
+  n64:     { w: 1.16, h: .82, d: .2, label: [0, .04, .545, .625], frame: '#3d4049' },
+  genesis: { w: .98, h: 1.34, d: .22, label: [0, .29, .74, .60], frame: '#1e3570' },
+  gb:      { w: .60, h: .66, d: .09, label: [0, -.06, .42, .37], frame: '#9a99a2' },
+  gbc:     { w: .60, h: .66, d: .09, label: [0, -.06, .42, .37], frame: '#17635c' },
+  gba:     { w: .60, h: .38, d: .085, label: [0, .02, .43, .22], frame: '#2a2656' },
+  ds:      { w: .35, h: .33, d: .04, label: [0, -.025, .28, .2], frame: '#2c2e38' },
+};
+CART.android = { w: .42, h: .30, d: .035, label: [0, 0, .34, .22], frame: '#1f2333' };
+CART.ps1 = { w: 1.2, h: 1.2, d: .012, disc: true, r: .6 };
+CART.psp = { w: .66, h: .7, d: .045, umd: true, r: .3 };
+const cartMeshes = {};
+function cartModel(sys) {
+  if (cartMeshes[sys]) return cartMeshes[sys];
+  const c = CART[sys], P = [], f = c.d / 2;
+  const add = (mesh, x, y, z, s, col, o = {}) => P.push(Object.assign({ mesh, m: M4.trs(x, y, z, 0, 0, 0, s), col: hexRgb(col), spec: .3 }, o));
+  const box = (w, h, d, r) => extrude(shape(w, h, [r, r, r, r]), d);
+  let outline;
+  if (c.disc) {   // a compact disc: printed label on top, silver underneath
+    outline = circle(c.r, 64); add(extrude(outline, c.d), 0, 0, 0, 1, '#c9ccd6', { spec: 1 });
+    add(PLANE, 0, 0, f + .001, [c.r * 2 - .02, c.r * 2 - .02, 1], '#ffffff', { label: true, disc: true, spec: .4 });
+    return (cartMeshes[sys] = { parts: P, c, ring: ringMesh(outline) });
+  }
+  if (c.umd) {    // a small disc in an original clear caddy
+    outline = shape(c.w, c.h, [.05, .05, .14, .05]); add(extrude(outline, c.d), 0, 0, 0, 1, '#bfe9ff', { spec: .9, glass: .35 });
+    add(extrude(circle(c.r, 48), .006), 0, -.02, 0, 1, '#d8dce6', { spec: 1 });
+    add(PLANE, 0, -.02, .004, [c.r * 2 - .02, c.r * 2 - .02, 1], '#ffffff', { label: true, disc: true, spec: .4 });
+    add(box(.36, .05, .012, .02), 0, .3, f + .002, 1, '#7fa7c0', { spec: .5 });
+    return (cartMeshes[sys] = { parts: P, c, ring: ringMesh(outline) });
+  }
+  const [lx, ly, lw, lh] = c.label;
+  if (sys === 'nes') {
+    outline = shape(c.w, c.h, [.025, .025, .025, .025]); add(extrude(outline, c.d), 0, 0, 0, 1, '#8e8a86');
+    for (const sx of [-1, 1]) for (let i = 0; i < 6; i++) add(box(.02, .62, .016, .008), sx * (.34 + i * .042), .2, f + .004, 1, '#6f6b67');
+    add(box(.9, .08, .014, .03), 0, -.47, f + .004, 1, '#5d5955');
+    add(extrude(circle(.04, 18), .02), .45, -.57, f + .006, 1, '#ff9db6', { spec: .7 });
+  } else if (sys === 'snes') {
+    outline = shape(c.w, c.h, [.05, .05, .34, .34]); add(extrude(outline, c.d), 0, 0, 0, 1, '#b4b1c2');
+    [-.2, -.25, -.3].forEach(y => add(box(.8, .022, .016, .008), 0, y, f + .004, 1, '#9794a8'));
+    add(box(1.02, .03, .016, .01), 0, -.43, f + .004, 1, '#8f7ee8', { spec: .6 });
+  } else if (sys === 'n64') {   // "Crest": a broad arched top and ribbed side grips
+    outline = shape(c.w, c.h, [.04, .04, .22, .22]); add(extrude(outline, c.d), 0, 0, 0, 1, '#6b6e78', { spec: .4 });
+    for (const sx of [-1, 1]) for (let i = 0; i < 4; i++) add(box(.016, .5, .016, .006), sx * (.38 + i * .04), 0, f + .004, 1, '#575a63');
+    add(box(.7, .035, .014, .012), 0, -.35, f + .004, 1, '#ffd06b', { spec: .6 });
+  } else if (sys === 'genesis') {
+    outline = shape(c.w, c.h, [.03, .03, -.14, -.14]); add(extrude(outline, c.d), 0, 0, 0, 1, '#1f2026', { spec: .75 });
+    [-.42, -.48, -.54].forEach(y => add(box(.5, .028, .016, .01), 0, y, f + .004, 1, '#0b0b0f'));
+  } else if (sys === 'gb') {
+    outline = shape(c.w, c.h, [.1, .1, .1, .1]); add(extrude(outline, c.d), 0, 0, 0, 1, '#bcbbc3');
+    add(extrude(circle(.055, 20), .012), 0, .25, f + .002, 1, '#8f8e97', { spec: .1 });
+  } else if (sys === 'gbc') {
+    add(box(.5, .52, .01, .02), 0, 0, 0, 1, '#1d5b4c', { spec: .4 });
+    [[-.12, .2], [.1, .2]].forEach(([x, y]) => add(box(.12, .06, .02, .005), x, y, .015, 1, '#0e1412', { spec: .5 }));
+    outline = shape(c.w, c.h, [-.07, -.07, -.07, -.07]); add(extrude(outline, c.d), 0, 0, 0, 1, '#38c7bd', { spec: .9, glass: .5 });
+  } else if (sys === 'gba') {
+    outline = shape(c.w, c.h, [.03, .03, .09, .09]); add(extrude(outline, c.d), 0, 0, 0, 1, '#3f3a7a', { spec: .4 });
+    add(box(.44, .07, .06, .015), 0, -c.h / 2 - .03, 0, 1, '#2a2656');
+    for (let i = -2; i <= 2; i++) add(box(.012, .04, .012, .004), i * .07, -c.h / 2 - .03, .034, 1, '#8b84d8');
+  } else if (sys === 'ds') {      // "Chip": a small card with one cut corner
+    outline = shape(c.w, c.h, [.02, .02, -.045, .02]); add(extrude(outline, c.d), 0, 0, 0, 1, '#3a3d48', { spec: .5 });
+    add(box(.22, .02, .006, .004), 0, .135, f + .001, 1, '#ff9a82', { spec: .6 });
+  } else {                        // Android game card: a slim rounded card
+    outline = shape(c.w, c.h, [.035, .035, .035, .035]); add(extrude(outline, c.d), 0, 0, 0, 1, '#262a3a', { spec: .6 });
+  }
+  add(PLANE, lx, ly, f + .003, [lw + .03, lh + .03, 1], c.frame, { spec: .1 });
+  add(PLANE, lx, ly, f + .005, [lw, lh, 1], '#ffffff', { label: true, spec: .25 });
+  return (cartMeshes[sys] = { parts: P, c, ring: ringMesh(outline) });
+}
+const labelAspect = sys => { const c = CART[sys]; return c.disc || c.umd ? 1 : c.label[2] / c.label[3]; };
+function labelTex(g) { const c = CART[g.sys]; return c.disc || c.umd ? tex('disc' + g.id, () => discArt(g), true) : tex('label' + g.id, () => labelArt(g, labelAspect(g.sys)), true); }
+function drawCartM(g, M, st) {
+  if (NODRAW) return;
+  const cm = cartModel(g.sys);
+  for (const p of cm.parts) drawPart(p.mesh, M4.mul(M, p.m), { col: p.col, spec: p.spec, alpha: st.alpha * (p.glass || 1), bright: st.bright,
+    tex: p.label ? labelTex(g) : null, emit: st.glow ? RIM.map(v => v * st.glow * .06) : null });
+}
+
+/* ---------- cases: the originals' sizes; cardboard boxes become modern clamshell cases ---------- */
+const BOX = {}; for (const k in PLAT) BOX[k] = PLAT[k].box;
+const caseMeshes = {};
+function caseColors(sys) {
+  const light = ['light', 'dawn', 'bloom'].includes(P.prefs.theme);
+  const neutral = light ? '#e8eaf0' : '#2b2f3c', inside = light ? '#d7dae2' : '#1d2029';
+  const real = { genesis: ['#17181d', '#101114'], ps1: ['#24262e', '#16171c'], ds: ['#d9dce4', '#c4c8d2'], psp: ['#1f2128', '#15161b'], android: ['#262b3a', '#1b1f2b'] }[sys];
+  let body = real ? real[0] : neutral, inner = real ? real[1] : inside;
+  if (P.prefs.caseTint && !real) { const a = hexRgb(PLAT[sys].accent), b = hexRgb(body); body = '#' + a.map((v, i) => Math.round((v * .35 + b[i] * .65) * 255).toString(16).padStart(2, '0')).join(''); }
+  return { body: hexRgb(body), inner: hexRgb(inner) };
+}
+function caseModel(sys) {
+  if (caseMeshes[sys]) return caseMeshes[sys];
+  const [W, H, D] = BOX[sys], r = sys === 'ps1' ? .012 : .04, ct = Math.min(.03, D * .22);
+  const outline = shape(W, H, [r, r, r, r]);
+  const m = { W, H, D, ct, r,
+    base: extrude(outline, D - ct), cover: extrude(outline, ct), ring: ringMesh(outline),
+    manual: extrude(shape(1, 1, [.012, .012, .012, .012]), 1), clip: extrude(shape(.12, .05, [.015, .015, .015, .015]), .02) };
+  const c = CART[sys];
+  m.manualSize = [W * .8, H * .8];   // the booklet has the box's own shape: landscape for SNES and N64, square for Game Boy, and so on
+  m.mediaSize = c.disc || c.umd ? [c.w, c.h] : [c.w, c.h + (sys === 'gba' ? .1 : 0)];
+  return (caseMeshes[sys] = m);
+}
+// the cover swings open on the spine hinge: 0 is closed, 1 is fully open and lying to the left
+function coverMatrix(m, open) {
+  const hx = -m.W / 2, hz = m.D / 2 - m.ct / 2;
+  return M4.mul(M4.trs(hx, 0, hz, 0, -Math.PI * open, 0, 1), M4.trs(-hx, 0, -hz, 0, 0, 0, 1));
+}
+function drawCase(g, st, open = 0, lift = 0, hideMedia = false) {
+  if (NODRAW) return;
+  const m = caseModel(g.sys), C = caseColors(g.sys), M = M4.trs(st.x, st.y, st.z, st.rx || 0, st.ry || 0, 0, st.s);
+  const [W, H, D] = [m.W, m.H, m.D], top = D / 2 - m.ct, k = 360 / Math.min(W, H);
+  const front = tex('front' + g.id, () => coverFront(g, W * k, H * k)), back = tex('back' + g.id, () => coverBack(g, W * k, H * k));
+  const spine = tex('spine' + g.id, () => spineArt(g, H * k, Math.max(28, D * k)));
+  const o = (extra) => Object.assign({ alpha: st.alpha, bright: st.bright, spec: .35 }, extra);
+  // the base, its back and spine art, and the tray inside
+  drawPart(m.base, M4.mul(M, M4.trs(0, 0, -m.ct / 2, 0, 0, 0, 1)), o({ col: C.body }));
+  drawPart(PLANE, M4.mul(M, M4.trs(0, 0, -D / 2 - .002, 0, Math.PI, 0, [W - .006, H - .006, 1])), o({ tex: back, spec: .5 }));
+  drawPart(PLANE, M4.mul(M, M4.trs(-W / 2 - .002, 0, 0, 0, -Math.PI / 2, 0, [D - .004, H - .006, 1])), o({ tex: spine, spec: .5 }));
+  if (open > .01) {
+    drawPart(PLANE, M4.mul(M, M4.trs(0, 0, top + .001, 0, 0, 0, [W - .05, H - .05, 1])), o({ col: C.inner, spec: .15 }));
+    const [mw, mh] = m.mediaSize;
+    drawPart(PLANE, M4.mul(M, M4.trs(0, 0, top + .002, 0, 0, 0, [mw + .07, mh + .07, 1])), o({ col: C.inner.map(v => v * .72), spec: .1 }));
+    [[0, mh / 2 + .045], [0, -mh / 2 - .045]].forEach(([x, y]) => drawPart(m.clip, M4.mul(M, M4.trs(x, y, top + .01, 0, 0, 0, 1)), o({ col: C.body })));
+    if (!hideMedia) drawCartM(g, M4.mul(M, M4.trs(0, 0, top + CART[g.sys].d / 2 + .004 + lift, 0, 0, 0, 1)), { alpha: st.alpha, bright: st.bright, glow: 0 });
+  }
+  // the cover: front art outside; the manual, held by two clips, inside
+  const CM = M4.mul(M, coverMatrix(m, open));
+  drawPart(m.cover, M4.mul(CM, M4.trs(0, 0, D / 2 - m.ct / 2, 0, 0, 0, 1)), o({ col: C.body }));
+  drawPart(PLANE, M4.mul(CM, M4.trs(0, 0, D / 2 + .002, 0, 0, 0, [W - .006, H - .006, 1])), o({ tex: front, spec: .55 }));
+  if (open > .01) {
+    const [mw, mh] = m.manualSize, inner = D / 2 - m.ct;
+    drawPart(PLANE, M4.mul(CM, M4.trs(0, 0, inner - .001, 0, Math.PI, 0, [W - .05, H - .05, 1])), o({ col: C.inner, spec: .15 }));
+    drawPart(m.manual, M4.mul(CM, M4.trs(0, 0, inner - .009, 0, 0, 0, [mw, mh, .014])), o({ col: [.93, .91, .87], spec: .1 }));
+    const mtex = hasManual(g) ? tex('mancover' + g.id, () => coverFront(g, Math.round(mw * 400), Math.round(mh * 400)), true) : null;
+    drawPart(PLANE, M4.mul(CM, M4.trs(0, 0, inner - .017, 0, Math.PI, 0, [mw - .01, mh - .01, 1])), o(mtex ? { tex: mtex, spec: .2 } : { col: C.inner.map(v => v * .85), spec: .1 }));
+    [mh / 2 - .02, -mh / 2 + .02].forEach(y => drawPart(m.clip, M4.mul(CM, M4.trs(mw / 2 - .02, y, inner - .02, 0, 0, 0, 1)), o({ col: C.body })));
+  }
+}
+function drawCaseGlow(g, st, c1, c2) {
+  if (NODRAW) return;
+  const m = caseModel(g.sys), M = M4.trs(st.x, st.y, st.z, st.rx || 0, st.ry || 0, 0, st.s);
+  gl.disable(gl.CULL_FACE); gl.depthMask(false);
+  drawPart(m.ring, M, { col: c1, emit: c2, alpha: .95 * st.alpha, mask: false, hull: true, grow: 22 / (PX * st.s) });
+  gl.enable(gl.CULL_FACE); gl.depthMask(true);
+}
+function drawCartGlowM(g, M, s, c1, c2, alpha = 1) {
+  if (NODRAW) return;
+  const cm = cartModel(g.sys); gl.disable(gl.CULL_FACE); gl.depthMask(false);
+  drawPart(cm.ring, M, { col: c1, emit: c2, alpha: .95 * alpha, hull: true, grow: 20 / (PX * s) });
+  gl.enable(gl.CULL_FACE); gl.depthMask(true);
+}
+
+/* ---------- drawing ---------- */
+let VP, EYE = [0, 0, CAMZ], RIM = [0.6, 0.5, 1];
+function setCamera(camY = 0, camZ = CAMZ, lookY = 0) {
+  const proj = M4.persp(FOV, W / H, 0.1, 100);
+  const pitch = Math.atan2(camY - lookY, camZ);
+  const view = M4.mul(M4.trs(0, 0, 0, pitch, 0, 0, 1), M4.trs(0, -camY, -camZ, 0, 0, 0, 1));
+  VP = M4.mul(proj, view); EYE = [0, camY, camZ];
+}
+function bindMesh(m) {
+  const a = MESH.a;
+  gl.bindBuffer(gl.ARRAY_BUFFER, m.p); gl.vertexAttribPointer(a.aPos, 3, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, m.n); gl.vertexAttribPointer(a.aNor, 3, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, m.t); gl.vertexAttribPointer(a.aUV, 2, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, m.i);
+}
+function drawPart(m, model, o) {
+  if (NODRAW) return;
+  const u = MESH.u;
+  gl.uniformMatrix4fv(u.uM, false, model);
+  gl.uniform1f(u.uTexOn, o.tex ? 1 : 0);
+  if (o.tex) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, o.tex); gl.uniform1i(u.uTex, 0); }
+  gl.uniform3fv(u.uColor, o.col || [1, 1, 1]); gl.uniform1f(u.uAlpha, o.alpha == null ? 1 : o.alpha); gl.uniform1f(u.uSpec, o.spec || 0);
+  gl.uniform1f(u.uBright, o.bright == null ? 1 : o.bright); gl.uniform3fv(u.uEmit, o.emit || [0, 0, 0]); gl.uniform1f(u.uMode, o.hull ? 2 : o.mask ? 1 : 0); gl.uniform1f(u.uGrow, o.grow || 0);
+  bindMesh(m); gl.drawElements(gl.TRIANGLES, m.count, gl.UNSIGNED_SHORT, 0);
+}
+function beginMeshes() {
+  if (NODRAW) return;
+  gl.useProgram(MESH.p); const a = MESH.a;
+  gl.enableVertexAttribArray(a.aPos); gl.enableVertexAttribArray(a.aNor); gl.enableVertexAttribArray(a.aUV);
+  gl.uniformMatrix4fv(MESH.u.uVP, false, VP); gl.uniform3fv(MESH.u.uEye, EYE); gl.uniform3fv(MESH.u.uRim, RIM); gl.uniform1f(MESH.u.uTime, S.time);
+  gl.enable(gl.DEPTH_TEST); gl.enable(gl.CULL_FACE); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+}
+function endMeshes() { if (NODRAW) return; const a = MESH.a; gl.disableVertexAttribArray(a.aNor); gl.disableVertexAttribArray(a.aUV); gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); }
+/* ---------- the backdrop ---------- */
+const MOOD = { cur: 'home', prev: 'home', t: 1 };
+function moodColors(key) { return SYS[key] ? SYS[key] : { planet: ['#e6dcff', '#8b78e6', '#2b1f66'], neb: ['#2a1a5e', '#0d0b2c'], accent: getComputedStyle(stage).getPropertyValue('--theme-accent').trim() || '#c2b6ff' }; }
+function setMood(key) {
+  if (key === MOOD.cur) return;
+  MOOD.prev = MOOD.cur; MOOD.cur = key; MOOD.t = 0; applyAccent();
+}
+function applyAccent() {   // the accent follows the console in view, or stays the theme's own
+  const own = getComputedStyle(stage).getPropertyValue('--theme-accent').trim(), acc = P.prefs.accentFollows && SYS[MOOD.cur] ? SYS[MOOD.cur].accent : own;
+  stage.style.setProperty('--accent', acc); RIM_T = hexRgb(acc);
+}
+let RIM_T = [0.6, 0.5, 1];
+const THEMES = {
+  space:  { name: 'Space', stars: 1, space: true },
+  dark:   { name: 'Dark', top: '#050506', bot: '#000000', c: ['#121216', '#0b0b0e', '#101013'], amt: .6, stars: 0 },
+  light:  { name: 'Light', top: '#f7f8fb', bot: '#eceef3', c: ['#ffffff', '#e4e8f2', '#f2f0f7'], amt: .7, stars: 0 },
+  aurora: { name: 'Aurora', top: '#04070f', bot: '#060b12', c: ['#0f6a5a', '#3a2a7a', '#0b4a6a'], amt: .55, stars: .5 },
+  dawn:   { name: 'Dawn', top: '#fff4ec', bot: '#f8ddd2', c: ['#ffd2b8', '#f6b6c4', '#ffe7c4'], amt: .65, stars: 0 },
+  slate:  { name: 'Slate', top: '#232831', bot: '#191c22', c: ['#2c323d', '#3a3127', '#262b34'], amt: .5, stars: 0 },
+  bloom:  { name: 'Bloom', top: '#f7f2ff', bot: '#efe9fb', c: ['#ffc1df', '#bfe0ff', '#c8f5dc'], amt: .75, stars: 0 },
+};
+function drawBackdrop(time, opts) {
+  if (NODRAW) return;
+  const T = THEMES[P.prefs.theme] || THEMES.space;
+  gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
+  if (T.space) {
+    gl.useProgram(BG.p);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex('neb' + MOOD.prev, () => nebula(moodColors(MOOD.prev).neb, hash(MOOD.prev)))); gl.uniform1i(BG.u.uA, 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, tex('neb' + MOOD.cur, () => nebula(moodColors(MOOD.cur).neb, hash(MOOD.cur)))); gl.uniform1i(BG.u.uB, 1);
+    gl.uniform1f(BG.u.uMix, ease(MOOD.t)); gl.uniform1f(BG.u.uBright, opts.bright);
+    gl.bindBuffer(gl.ARRAY_BUFFER, SCREENQ); gl.enableVertexAttribArray(BG.a.aP); gl.vertexAttribPointer(BG.a.aP, 2, gl.FLOAT, false, 0, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 6); gl.activeTexture(gl.TEXTURE0);
+  } else {
+    gl.useProgram(FIELDS.p); const u = FIELDS.u;
+    gl.uniform3fv(u.uTop, hexRgb(T.top)); gl.uniform3fv(u.uBot, hexRgb(T.bot));
+    // one of the fields takes the current console's color, softly, when accents follow the console
+    const acc = hexRgb(moodColors(MOOD.cur).accent), c1 = hexRgb(T.c[0]), follow = P.prefs.accentFollows && MOOD.cur !== 'home' ? .3 : 0;
+    gl.uniform3fv(u.uC1, c1.map((v, i) => v * (1 - follow) + acc[i] * follow)); gl.uniform3fv(u.uC2, hexRgb(T.c[1])); gl.uniform3fv(u.uC3, hexRgb(T.c[2]));
+    gl.uniform1f(u.uT, time); gl.uniform1f(u.uAmt, T.amt * opts.bright);
+    gl.bindBuffer(gl.ARRAY_BUFFER, SCREENQ); gl.enableVertexAttribArray(FIELDS.a.aP); gl.vertexAttribPointer(FIELDS.a.aP, 2, gl.FLOAT, false, 0, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+  }
+  gl.enable(gl.BLEND);
+  if (T.stars) {
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+    gl.useProgram(STARS.p);
+    gl.uniform2f(STARS.u.uPan, opts.pan, 0); gl.uniform1f(STARS.u.uT, time); gl.uniform1f(STARS.u.uScale, cv.width / W); gl.uniform1f(STARS.u.uBright, opts.bright * T.stars);
+    gl.bindBuffer(gl.ARRAY_BUFFER, STARBUF.b);
+    const a = STARS.a; [['aP', 2, 0], ['aS', 1, 2], ['aD', 1, 3], ['aPh', 1, 4]].forEach(([n, k, off]) => { gl.enableVertexAttribArray(a[n]); gl.vertexAttribPointer(a[n], k, gl.FLOAT, false, 20, off * 4); });
+    gl.drawArrays(gl.POINTS, 0, STARBUF.n);
+    ['aS', 'aD', 'aPh'].forEach(n => gl.disableVertexAttribArray(a[n]));
+  }
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  if (T.space && opts.planet) {
+    const p = opts.planet;
+    if (MOOD.t < 1) drawPlanet(MOOD.prev, p.x, p.y, p.r, time, opts.bright * (1 - ease(MOOD.t)) * p.a);
+    drawPlanet(MOOD.cur, p.x, p.y, p.r, time, opts.bright * (MOOD.t < 1 ? ease(MOOD.t) : 1) * p.a);
+  }
+}
+function drawPlanet(key, x, y, r, time, alpha, cols) {
+  if (NODRAW) return;
+  const c = cols || moodColors(key).planet;
+  gl.useProgram(PLANET.p);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex('planet' + key, () => planetSurface(c, hash(key)))); gl.uniform1i(PLANET.u.uTex, 0);
+  gl.uniform2f(PLANET.u.uC, x, y); gl.uniform1f(PLANET.u.uR, r); gl.uniform1f(PLANET.u.uRot, time * .004); gl.uniform1f(PLANET.u.uAlpha, alpha);
+  gl.uniform3fv(PLANET.u.uAtm, hexRgb(c[0]));
+  gl.bindBuffer(gl.ARRAY_BUFFER, SCREENQ); gl.enableVertexAttribArray(PLANET.a.aP); gl.vertexAttribPointer(PLANET.a.aP, 2, gl.FLOAT, false, 0, 0);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+}
+
+/* glowing panels (library selection, the "All games" tile) and clipping to a band of the screen */
+function drawPlate(key, make, px, py, wpx, hpx, z, color, alpha) {
+  if (NODRAW || alpha <= 0.005) return;
+  const [x, y] = pw(px, py);
+  gl.depthMask(false);
+  drawPart(PLANE, M4.trs(x, y, z, 0, 0, 0, [wpx / PX, hpx / PX, 1]), { tex: tex(key, make, true), col: color, alpha, mask: true });
+  gl.depthMask(true);
+}
+function clipBand(y0, y1) { if (NODRAW) return; const k = cv.height / H; gl.enable(gl.SCISSOR_TEST); gl.scissor(0, Math.round((H - y1) * k), cv.width, Math.round((y1 - y0) * k)); }
+function unclip() { if (!NODRAW) gl.disable(gl.SCISSOR_TEST); }
+
+// the selection glow: a soft ring that hugs the cartridge's outline and moves with it
+function drawCartGlow(g, st, c1, c2) {
+  if (NODRAW) return;
+  const cm = cartModel(g.sys), M = M4.trs(st.x, st.y, st.z, st.rx || 0, st.ry || 0, st.rz || 0, st.s);
+  gl.disable(gl.CULL_FACE); gl.depthMask(false);
+  drawPart(cm.ring, M, { hull: true, grow: 26 / (PX * st.s), col: c1, emit: c2, alpha: .95 * (st.alpha == null ? 1 : st.alpha) });
+  gl.enable(gl.CULL_FACE); gl.depthMask(true);
+}
+function clipRect(x0, y0, x1, y1) { if (NODRAW) return; const k = cv.height / H; gl.enable(gl.SCISSOR_TEST); gl.scissor(Math.round(x0 * k), Math.round((H - y1) * k), Math.round((x1 - x0) * k), Math.round((y1 - y0) * k)); }
+
+// an orthographic camera matching the pixel grid at z = 0, for the flat Library view
+function setFlat() { const hw = W / 2 / PX, hh = H / 2 / PX; VP = new Float32Array([1 / hw, 0, 0, 0, 0, 1 / hh, 0, 0, 0, 0, -.02, 0, 0, 0, 0, 1]); EYE = [0, 0, CAMZ]; }
+/* ================= state ================= */
+const S = {
+  screen: 'setup', tab: 'home', top: { on: false, i: 0 },
+  setup: { step: 0, i: 0 },
+  home: { i: 0, f: 0, zone: 'row', card: 0 },
+  lib: { zone: 'grid', rail: 0, filter: 0, i: 0, sort: 0, rowF: .6, list: [] },
+  game: { id: null, zone: 'actions', i: 0, from: 'library', turn: false, rx: 0, ry: 0 },
+  apps: { i: 0 }, set: { cat: 0, zone: 'nav', i: 0, back: 'home', sub: null, game: null },
+  ach: { id: null, filter: 0, i: 0 }, dlg: { open: false }, kb: { open: false },
+  seq: null, play: null, time: 0,
+};
+const TOP = ['home', 'library', 'apps', 'settings', 'profile'];
+const SORTS = ['Recently played', 'A to Z', 'Release year'];
+const SHOWS = ['All', 'Saved', 'Not played'];
+const HOME_MAX = 10;
+const ANDROID_GAMES = new Set(['Moonlight Dash', 'Tiny Orchard']);
+const inLibrary = g => g.sys !== 'android' || ANDROID_GAMES.has(g.title);
+const anim = new Map();
+function pose(key, init) { if (!anim.has(key)) anim.set(key, Object.assign({ x: 0, y: 0, z: 0, rx: 0, ry: 0, s: 0, alpha: 0, bright: 1, glow: 0, open: 0, lift: 0 }, init)); return anim.get(key); }
+function approach(o, t, dt, rate = 9) { const k = 1 - Math.exp(-dt * rate); for (const n in t) o[n] += (t[n] - o[n]) * k; }
+const motion = () => P.prefs.motion;
+const rec = id => P.played[id];
+function ensureRec(g) { if (!P.played[g.id]) P.played[g.id] = { last: 0, minutes: 0, earned: 0, fav: false, slots: [null, null, null, null], lastSlot: 0 }; return P.played[g.id]; }
+const BOXK = .8;   // boxes in the Library: 1 unit (100 mm) = .8 x PX pixels, so every box keeps its true size relative to the others
+function mediaScale(sys, px) { const c = CART[sys]; return px / PX / Math.max(c.w, c.h + (sys === 'gba' ? .1 : 0)); }
+
+/* ================= small DOM helpers ================= */
+let toastTimer = 0;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2400); }
+function show(screen) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + screen));
+  $('#topbar').classList.toggle('on', ['home', 'library', 'apps'].includes(screen));
+}
+function clockText() { return new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
+function avatarCss(cols) { return `radial-gradient(circle at 35% 30%, ${cols[0]}, ${cols[1]} 55%, ${cols[2]})`; }
+function dateText(ts) { return new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }); }
+function renderTop() { document.querySelectorAll('#topbar [data-k]').forEach(e => { const k = e.dataset.k; e.classList.toggle('sel', k === S.tab); e.classList.toggle('focus', S.top.on && TOP[S.top.i] === k); }); }
+function paintProfile() { $('#meName').textContent = P.name; $('#avatar').style.background = avatarCss(P.colors); }
+function applyTheme(t) {
+  P.prefs.theme = t; stage.dataset.t = t;
+  stage.style.setProperty('--fadec', getComputedStyle(stage).getPropertyValue('--bg'));
+  applyAccent();
+}
+const PROFILE_COLORS = [['#ffd38a', '#e8834a', '#6a2a1e'], ['#bff3ff', '#3fa4d9', '#13355e'], ['#f6c8ff', '#b05ad8', '#401a5e'], ['#d6ffc8', '#5ac46a', '#1a4a2a'], ['#ffe0f0', '#e0607e', '#5a1a33']];
+
+/* ================= first-run setup ================= */
+const SETUP_STEPS = 6;
+function setupOpts() {
+  const s = S.setup.step;
+  if (s === 0) return [{ k: 'next', label: 'Get started', primary: true }];
+  if (s === 1) return [{ k: 'name', label: 'Your name', value: P.name || 'Choose' }, ...PROFILE_COLORS.map((c, i) => ({ k: 'color', i, label: ['Amber', 'Sky', 'Orchid', 'Fern', 'Rose'][i], color: c })), { k: 'next', label: 'Continue', primary: true }];
+  if (s === 2) return [...Object.keys(THEMES).map(t => ({ k: 'theme', t, label: THEMES[t].name })), { k: 'next', label: 'Continue', primary: true }];
+  if (s === 3) return [{ k: 'folder', label: 'Add another folder' }, { k: 'next', label: 'Continue', primary: true }];
+  if (s === 4) return [{ k: 'ss', label: 'ScreenScraper', value: P.art.ss ? 'Signed in' : 'Sign in' }, { k: 'ra', label: 'RetroAchievements', value: P.ra ? 'Signed in' : 'Sign in' }, { k: 'next', label: 'Continue', primary: true }];
+  return [{ k: 'launcher', label: 'Use Shelf as my home screen', primary: true }, { k: 'skip', label: 'Not now' }];
+}
+function fillSetup() {
+  const s = S.setup.step, opts = setupOpts(); S.setup.i = clamp(S.setup.i, 0, opts.length - 1);
+  const counts = SYS_ORDER.filter(k => k !== 'android').map(k => [PLAT[k].name, GAMES.filter(g => g.sys === k).length]);
+  const head = [
+    ['Welcome', 'Shelf', 'A home for your games. Let’s set up this handheld; it takes about a minute.'],
+    ['Step 1 of 5', 'Who’s playing?', 'Shelf keeps one profile. Your name and color show at the top of the screen.'],
+    ['Step 2 of 5', 'Pick a look', 'You can change it any time in Settings.'],
+    ['Step 3 of 5', `Found ${GAMES.filter(g => g.sys !== 'android').length} games`, 'In Internal storage › ROMs and SD card › ROMs, sorted into consoles by folder and file type.'],
+    ['Step 4 of 5', 'Art, manuals and achievements', 'Sign in to download box art, manuals and videos, and to earn achievements. Both are free, and both can wait.'],
+    ['Step 5 of 5', 'Make Shelf your home screen?', 'Then the Home button always brings you back here, and Shelf can save a game in RetroArch before you leave it. Your apps stay one tab away.'],
+  ][s];
+  let extra = '';
+  if (s === 3) extra = `<div class="found">${counts.map(([n, c]) => `<div class="ok">${n} <b>${c}</b></div>`).join('')}</div>
+    <div class="found"><div class="ok">RetroArch <b>with 9 cores</b></div><div class="ok">DuckStation</div><div class="ok">melonDS</div><div class="ok">PPSSPP</div><div class="ok">Mupen64Plus FZ</div></div>`;
+  $('#setup').innerHTML = `<div class="step">${head[0]}</div><h1>${head[1]}</h1><p class="lead">${head[2]}</p>${extra}<div class="opts">` + opts.map((o, i) => {
+    const cur = (o.k === 'theme' && P.prefs.theme === o.t) || (o.k === 'color' && P.colors === o.color);
+    const T = o.t && THEMES[o.t], sw = o.color ? `<span style="width:20px;height:20px;border-radius:50%;background:${avatarCss(o.color)}"></span>`
+      : T ? `<span style="width:34px;height:20px;border-radius:6px;border:1px solid var(--line);background:${T.space ? 'radial-gradient(circle at 70% 130%, #8b78e6 0, #2a1a5e 45%, #070b1e 80%)' : `linear-gradient(135deg, ${T.top}, ${T.c[0]} 55%, ${T.c[1]})`}"></span>` : '';
+    return `<div class="opt ${o.primary ? 'primary' : ''} ${i === S.setup.i ? 'focus' : ''}"><span style="display:flex;gap:10px;align-items:center">${sw}${o.label}${cur ? ' ✓' : ''}</span>${o.value ? `<small>${esc(o.value)}</small>` : ''}</div>`;
+  }).join('') + `</div><div class="dots">${Array.from({ length: SETUP_STEPS }, (_, i) => `<i class="${i <= s ? 'on' : ''}"></i>`).join('')}</div>`;
+}
+function setupAct() {
+  const o = setupOpts()[S.setup.i]; sfx.select();
+  if (o.k === 'name') return openKb('Your name', P.name, v => { P.name = v; fillSetup(); });
+  if (o.k === 'color') { P.colors = o.color; return fillSetup(); }
+  if (o.k === 'theme') { applyTheme(o.t); return fillSetup(); }
+  if (o.k === 'folder') return toast('Opens Android’s folder picker');
+  if (o.k === 'ss') { P.art.ss = P.art.ss ? null : 'player_one'; P.art.source = P.art.ss ? 'ScreenScraper' : 'Free sources'; return fillSetup(); }
+  if (o.k === 'ra') { P.ra = P.ra ? null : 'player_one'; return fillSetup(); }
+  if (o.k === 'next') { if (S.setup.step === 1 && !P.name) return openKb('Your name', '', v => { P.name = v; S.setup.step++; S.setup.i = 0; fillSetup(); }); S.setup.step++; S.setup.i = 0; return fillSetup(); }
+  P.prefs.homeLauncher = o.k === 'launcher'; finishSetup();
+}
+function finishSetup() { P.setup = true; paintProfile(); enterTab('home'); toast(`Welcome, ${P.name}`); }
+function enterSetup() { S.screen = 'setup'; show('setup'); setMood('home'); fillSetup(); }
+
+/* ================= tabs ================= */
+function enterTab(tab) {
+  S.tab = tab; S.screen = tab; S.top.on = false; show(tab); renderTop();
+  if (tab === 'home') refreshHome(); else if (tab === 'library') refreshLibrary(true); else refreshApps();
+}
+function refreshTab() { S.tab === 'home' ? refreshHome() : S.tab === 'library' ? refreshLibrary(false) : refreshApps(); renderTop(); }
+const homeItems = () => P.recent.filter(id => inLibrary(byId[id]) && !(P.hidden && P.hidden.has(id))).slice(0, HOME_MAX).concat(['__all']);
+function homeCards(id) { return id === '__all' ? [] : [{ k: 'box' }, { k: 'ach' }, { k: 'saves' }]; }
+function cardHtml(c, g) {
+  const r = rec(g.id);
+  if (c.k === 'box') return `<h4>Open the box</h4><p>Manual, saves, media and details</p><div class="big">⧉</div>`;
+  if (c.k === 'ach') {
+    if (g.sys === 'android') return `<h4>Achievements</h4><p>Android games keep their own.</p>`;
+    if (!P.ra) return `<h4>Achievements</h4><p>Sign in to RetroAchievements in Settings to earn them.</p>`;
+    const A = achievements(g), e = achFor(P, g), got = A.list.filter(a => e[a.id]).sort((a, b) => e[b.id].date - e[a.id].date), pct = Math.round(got.length / A.list.length * 100);
+    return `<h4>Achievements</h4><div class="big">${got.length}<small>of ${A.list.length}</small></div><i class="bar"><b style="width:${pct}%"></b></i><div class="minib">${got.slice(0, 5).map(a => `<img src="${badge(g, a, false)}" alt="">`).join('')}</div>`;
+  }
+  const emu = emuFor(g);
+  if (!isRA(emu)) return `<h4>Saves</h4><p class="note-small">${g.sys === 'android' ? 'The app keeps its own saves.' : `Kept by ${emu}. Shelf’s save slots work with RetroArch.`}</p>`;
+  const used = r ? r.slots.filter(Boolean).length : 0;
+  return `<h4>Saves</h4><p>${used} of 4 slots used</p><div class="slotdots">${[0, 1, 2, 3].map(i => `<i class="${r && r.slots[i] ? 'on' : ''}"></i>`).join('')}</div>`;
+}
+function refreshHome() {
+  const items = homeItems(), H0 = S.home; H0.i = clamp(H0.i, 0, items.length - 1);
+  const id = items[H0.i], cards = homeCards(id); H0.card = clamp(H0.card, 0, Math.max(0, cards.length - 1)); if (!cards.length) H0.zone = 'row';
+  if (id === '__all') { setMood('home'); $('#hTitle').textContent = 'Your library'; $('#hMeta').innerHTML = `<span>${GAMES.filter(inLibrary).length} games on ${SYS_ORDER.length - 1} consoles, plus Android</span>`; }
+  else {
+    const g = byId[id], r = rec(id), emu = emuFor(g); setMood(g.sys); $('#hTitle').textContent = g.title;
+    $('#hMeta').innerHTML = `<span class="chip"><i></i>${PLAT[g.sys].name}</span><span>${agoText(r.last)}</span><span>${playedText(r.minutes)}</span><span>${isRA(emu) && r.slots.some(Boolean) ? 'A to resume' : 'A to play'}</span>`;
+  }
+  const g = byId[id];
+  $('#hCards').innerHTML = cards.map((c, i) => `<div class="card panel ${H0.zone === 'cards' && H0.card === i ? 'focus' : ''}">${cardHtml(c, g)}</div>`).join('');
+  $('#hTileN').textContent = `${GAMES.filter(inLibrary).length} games`;
+  renderTop();
+}
+
+/* ================= library ================= */
+const railStops = () => railItems().map((r, i) => r.head ? -1 : i).filter(i => i >= 0);
+function libList() {
+  const RI = railItems(); S.lib.rail = clamp(S.lib.rail, 0, RI.length - 1);
+  const k = RI[S.lib.rail].k, sort = S.lib.sort;
+  const list = GAMES.filter(inLibrary).filter(g => railMatch(k, g));
+  list.sort((a, b) => sort === 1 ? a.title.localeCompare(b.title) : sort === 2 ? a.year - b.year || a.title.localeCompare(b.title)
+    : ((P.played[b.id] || { last: 0 }).last - (P.played[a.id] || { last: 0 }).last) || a.title.localeCompare(b.title));
+  return list;
+}
+function refreshLibrary(rebuild) {
+  const L = S.lib; if (rebuild) { L.list = libList(); L.i = clamp(L.i, 0, Math.max(0, L.list.length - 1)); }
+  const RI = railItems();
+  $('#rail').innerHTML = '<nav class="railin">' + RI.map((r, i) => r.head ? `<h5>${r.head}</h5>` :
+    `<div class="${i === L.rail ? 'cur' : ''} ${!S.top.on && L.zone === 'rail' && i === L.rail ? 'focus' : ''}">${esc(r.label)}<span>${GAMES.filter(inLibrary).filter(g => railMatch(r.k, g)).length}</span></div>`).join('')
+    + (!S.top.on && L.zone === 'rail' && RI[L.rail].custom ? '<p class="railhint"><i class="btn">Y</i> Rename or delete</p>' : '') + '</nav>';
+  const rin = $('#rail .railin'), cur = rin.querySelector('.cur');
+  if (cur) { const view = 584, off = clamp(cur.offsetTop + cur.offsetHeight / 2 - view / 2, 0, Math.max(0, rin.scrollHeight - view)); rin.style.transform = `translateY(${-off}px)`; }
+  $('#filters').innerHTML = `<div class="filter ${!S.top.on && L.zone === 'filters' ? 'focus' : ''}">Sort<em>${SORTS[L.sort]}</em></div>`;
+  $('#libHead').textContent = `${L.list.length} ${L.list.length === 1 ? 'game' : 'games'}`;
+  const empty = !L.list.length; $('#libEmpty').style.display = empty ? 'block' : 'none';
+  $('#libEmpty').textContent = RI[L.rail].custom ? 'No games here yet. Open any game’s box and choose Add to collection.' : 'Nothing here yet.';
+  const onGrid = L.zone === 'grid' && !S.top.on && !empty; $('#lFocus').classList.toggle('on', onGrid);
+  if (onGrid) { const g = L.list[L.i], r = P.played[g.id]; $('#lFocus b').textContent = g.title; $('#lFocus span').textContent = `${PLAT[g.sys].name}, ${g.year}` + (r && r.last ? `, ${agoText(r.last).toLowerCase()}` : ''); setMood(g.sys); }
+  else setMood(PLAT[RI[L.rail].k] ? RI[L.rail].k : 'home');
+  renderTop();
+}
+
+/* ================= the game page: the open box ================= */
+function openGame(id, fromKey, from) {
+  const g = byId[id]; S.game = { id, zone: 'actions', i: 0, from: from || S.tab, turn: false, rx: 0, ry: 0 };
+  const f = anim.get(fromKey), bp = pose('case', {});
+  Object.assign(bp, f ? { x: f.x, y: f.y, z: f.z || 0, rx: f.rx || 0, ry: f.ry || 0, s: f.s, alpha: 1, open: 0, lift: 0 } : { x: 0, y: 0, z: 0, s: .5, alpha: 0, open: 0 });
+  if (fromKey && fromKey.startsWith('home:')) bp.s = (f ? f.s : .5) * Math.max(CART[g.sys].w, CART[g.sys].h) / Math.max(BOX[g.sys][0], BOX[g.sys][1]);
+  S.screen = 'game'; show('game'); setMood(g.sys); sfx.select(); fillGame();
+}
+function gameActions() {
+  const g = byId[S.game.id], r = rec(g.id), ra = isRA(emuFor(g)), saved = ra && r && r.slots.some(Boolean) && !P.prefs.hardcore;
+  return [saved ? 'Resume' : 'Play', ...(saved ? ['New game'] : []), 'Close the box', 'Game settings', 'col', 'fav'];
+}
+function fillGame() {
+  const g = byId[S.game.id], s = PLAT[g.sys], r = rec(g.id), G0 = S.game, emu = emuFor(g), ra = isRA(emu);
+  const acts = gameActions(), slots = r ? r.slots : [null, null, null, null], last = r ? r.lastSlot : -1, media = mediaFor(g);
+  let h = `<div class="gp-sys">${s.long}</div><h2>${esc(g.title)}</h2>
+    <div class="facts">${[['Released', g.year], ['Developer', g.dev], ['Genre', g.genre], ['Players', g.players], ['Plays with', emu.replace('RetroArch: ', 'RetroArch, ')]].map(([a, b]) => `<div>${a}<b>${b}</b></div>`).join('')}</div>
+    <div class="actions" data-z="actions">${acts.map((a, i) => `<div class="act ${i === 0 ? 'primary' : ''} ${G0.zone === 'actions' && G0.i === i ? 'focus' : ''}">${a === 'fav' ? `${r && r.fav ? '★' : '☆'} <i class="btn">Y</i>` : a === 'col' ? 'Add to collection' : a}</div>`).join('')}</div>`;
+  h += `<h3 data-z="saves">Saves${ra ? '<small>Slots are kept per game</small>' : ''}</h3>`;
+  h += ra ? `<div class="slots">${slots.map((sl, i) => `<div class="slot ${G0.zone === 'saves' && G0.i === i ? 'focus' : ''}">${sl ? '<canvas></canvas>' : '<div class="none">New game</div>'}${sl && i === last ? '<span class="tag">Last played</span>' : ''}<p>${sl ? agoText(sl.ts) : `Slot ${i + 1}`}</p></div>`).join('')}</div>`
+    : `<div class="managed ${G0.zone === 'saves' ? 'focus' : ''}">${g.sys === 'android' ? 'This app keeps its own saves.' : `<b>${emu}</b> keeps this game’s saves. Shelf’s save slots work with RetroArch; you can switch in Game settings.`}</div>`;
+  h += `<h3 data-z="media">Media<small>${media.length} items</small></h3><div class="mrow"><div class="mstrip" id="gMedia">${mediaStrip(g, media, G0.zone === 'media' ? G0.i : -1, 'mthumb')}</div></div>`;
+  if (g.sys !== 'android') {
+    const A = achievements(g), e = P.ra ? achFor(P, g) : {}, got = A.list.filter(a => e[a.id]), pts = got.reduce((t, a) => t + a.pts, 0), pct = Math.round(got.length / A.list.length * 100);
+    h += `<h3 data-z="ach">Achievements</h3><div class="achcard ${G0.zone === 'ach' ? 'focus' : ''}">${P.ra ? `<span>${got.length} of ${A.list.length}</span><i class="bar"><b style="width:${pct}%"></b></i><span>${pts} of ${A.points} points</span><div class="minib">${got.slice(-3).map(a => `<img src="${badge(g, a, false)}" alt="">`).join('')}</div><span class="go">View all</span>` : 'Sign in to RetroAchievements in Settings to earn these.'}</div>`;
+  }
+  h += `<p class="desc">${esc(g.desc)}</p><p class="credit">${artCredit()}</p>`;
+  $('#gpin').innerHTML = h;
+  $('#gpin').querySelectorAll('.slot').forEach((el, i) => { const sl = slots[i], c = el.querySelector('canvas'); if (sl && c) gameFrame(g, sl.seed, sl.scroll || 100, c); });
+  $('#gMedia').style.transform = `translateX(${-Math.max(0, Math.min((G0.zone === 'media' ? G0.i : 0) - 2, media.length - 4.3)) * 137}px)`;
+  // keep the focused section in view
+  const zoneEl = $('#gpin').querySelector(`[data-z="${G0.zone}"]`), off = zoneEl && G0.zone !== 'actions' ? clamp(zoneEl.offsetTop - 150, 0, 400) : 0;
+  $('#gpin').style.transform = `translateY(${-off}px)`;
+  $('#turnHint').classList.toggle('on', G0.turn);
+}
+function artCredit() { return usingSS() ? 'Art, manuals and details from ScreenScraper.' : 'Art from RetroArch’s thumbnail database. Details from Wikipedia.'; }
+function gameAction() {
+  const g = byId[S.game.id], r = rec(g.id), G0 = S.game;
+  if (G0.zone === 'ach') return P.ra ? openAch(g.id) : openSettings(5);
+  if (G0.zone === 'media') return openMedia(G0.i);
+  if (G0.zone === 'saves') { if (!isRA(emuFor(g))) return toast('Change the emulator in Game settings to use save slots'); return startLaunch(g, G0.i, !!(r && r.slots[G0.i])); }
+  if (G0.zone === 'manual') { if (hasManual(g)) return openManual(); return toast(usingSS() ? 'ScreenScraper doesn’t have a manual for this game' : 'Manuals come from ScreenScraper. Sign in under Settings, Art and info.'); }
+  if (G0.zone === 'cart') return startLaunch(g, r ? r.lastSlot : 0, !!(r && r.slots.some(Boolean)));
+  const a = gameActions()[G0.i];
+  if (a === 'Resume') return startLaunch(g, r.lastSlot, true);
+  if (a === 'Play') return startLaunch(g, r ? Math.max(0, r.slots.findIndex(x => !x)) : 0, false);
+  if (a === 'New game') { const free = r.slots.findIndex(x => !x); G0.zone = 'saves'; G0.i = free < 0 ? 0 : free; fillGame(); return toast(free < 0 ? 'All four slots are used. Choose one to replace.' : 'Choose a slot for the new game'); }
+  if (a === 'Close the box') { G0.turn = true; G0.rx = .12; G0.ry = .5; sfx.select(); return fillGame(); }
+  if (a === 'Game settings') return openGameSettings(g.id);
+  if (a === 'col') return addToCollection(g);
+  toggleFav(g);
+}
+function toggleFav(g) {
+  const r = ensureRec(g); r.fav = !r.fav; sfx.select(); toast(r.fav ? `Added ${g.title} to Favorites` : `Removed ${g.title} from Favorites`);
+  if (S.screen === 'game') fillGame(); else if (S.screen === 'home') refreshHome(); else if (S.screen === 'library') refreshLibrary(false);
+}
+/* ================= Apps ================= */
+const iconUrls = new Map();
+const iconUrl = app => { if (!iconUrls.has(app.name)) iconUrls.set(app.name, appIcon(app).toDataURL()); return iconUrls.get(app.name); };
+function refreshApps() {
+  S.apps.i = clamp(S.apps.i, 0, APPS.length - 1); setMood('home');
+  $('#appCount').textContent = `${APPS.length} apps on this handheld`;
+  $('#appGrid').innerHTML = APPS.map((a, i) => `<div class="app ${!S.top.on && i === S.apps.i ? 'focus' : ''}"><img src="${iconUrl(a)}" alt=""><span>${esc(a.name)}</span>${ANDROID_GAMES.has(a.name) ? '<small>In Library</small>' : ''}</div>`).join('');
+  renderTop();
+}
+function appOptions() {
+  const app = APPS[S.apps.i], inLib = ANDROID_GAMES.has(app.name);
+  openDlg(app.name, [{ label: inLib ? 'Move back to Apps' : 'Mark as game', sub: inLib ? '' : 'Gives it a box in your Library' }, { label: 'App info' }, { label: 'Cancel' }], i => {
+    closeDlg();
+    if (i === 0) inLib ? unmarkGame(app.name) : markAsGame(app);
+    else if (i === 1) toast('Opens Android’s app info');
+    refreshApps();
+  });
+}
+function markAsGame(app) {
+  let g = GAMES.find(x => x.sys === 'android' && x.title === app.name);
+  if (!g) { g = G('android', app.name, 2024, 'From the app store', 'Game', '1 player', 0, `${app.name} on your handheld. Shelf found its art in a game database, or made a box from its icon.`); GAMES.push(g); byId[g.id] = g; }
+  ANDROID_GAMES.add(app.name); sfx.saved(); toast(`${app.name} is now in your Library, under Android`);
+}
+function unmarkGame(name) { ANDROID_GAMES.delete(name); sfx.back(); toast(`${name} is back in Apps`); }
+
+/* ================= settings ================= */
+const CATS = ['Profile', 'Appearance', 'Platforms', 'Emulators', 'Art and info', 'Achievements', 'Controls', 'Home screen and apps', 'About'];
+const INSTALLED = { 'RetroArch': 'Installed, 9 cores', 'DuckStation': 'Installed', 'melonDS': 'Installed', 'PPSSPP': 'Installed', 'Mupen64Plus FZ': 'Installed' };
+const ALL_EMUS = ['RetroArch', 'DuckStation', 'melonDS', 'PPSSPP', 'Mupen64Plus FZ', 'DraStic', 'Snes9x EX+', 'MD.emu', 'Pizza Boy GBC', 'Pizza Boy GBA'];
+P.pf = {}; SYS_ORDER.forEach(k => P.pf[k] = { filter: 'None' }); P.gf = {}; P.hidden = new Set();
+function settingsModel() {
+  const Q = P.prefs, tog = (label, key, desc, obj = Q) => ({ label, desc, value: obj[key] ? 'On' : 'Off', act: () => { obj[key] = !obj[key]; } });
+  const cyc = (label, obj, key, vals, desc, names) => ({ label, desc, value: names ? names[obj[key]] : obj[key], act: () => { obj[key] = vals[(vals.indexOf(obj[key]) + 1) % vals.length]; } });
+  const info = (label, value, desc, bar) => ({ label, desc, value, info: true, bar });
+  const action = (label, value, desc, act) => ({ label, desc, value, act, action: true });
+  const nav = (label, value, desc, go) => ({ label, desc, value, act: go, nav: true });
+  if (S.set.game) {   // one game's own settings
+    const g = byId[S.set.game], own = P.gameEmu[g.id], opts = [null, ...PLAT[g.sys].emus], emu = emuFor(g), gf = P.gf[g.id] || (P.gf[g.id] = { filter: null });
+    return [{ cat: g.title, intro: `${PLAT[g.sys].long}. These override the platform’s settings for this game only.`, items: g.sys === 'android' ? [
+      action('Move back to Apps', '', 'Takes it out of the Library. It stays installed.', () => { unmarkGame(g.title); S.set.game = null; enterTab('apps'); return true; }),
+      action('Box art', 'Choose', 'Pick other art from the game databases, or make a box from the icon.', () => toast('Shows other art to choose from')),
+      tog('Show on Home', 'show', 'Include it in your recently played cartridges.', { get show() { return !P.hidden.has(g.id); }, set show(v) { v ? P.hidden.delete(g.id) : P.hidden.add(g.id); } })] : [
+      { label: 'Emulator', desc: own ? 'Chosen for this game.' : `Using the ${PLAT[g.sys].name} default. Choose to override it.`, value: own ? own : `Default (${P.emu[g.sys]})`, act: () => { const i = opts.indexOf(own || null); const n = opts[(i + 1) % opts.length]; if (n) P.gameEmu[g.id] = n; else delete P.gameEmu[g.id]; } },
+      info('Saves', isRA(emu) ? 'Shelf’s slots' : `Kept by ${emu}`, isRA(emu) ? 'Four save slots with screenshots, per game.' : 'Standalone emulators keep their own saves.'),
+      { label: 'Screen filter', desc: 'Overrides the platform’s filter.', value: gf.filter || `Default (${P.pf[g.sys].filter})`, act: () => { const v = [null, 'None', 'Scanlines', 'LCD grid'], i = v.indexOf(gf.filter); gf.filter = v[(i + 1) % v.length]; } },
+      action('Box art', 'Choose', 'Pick other box art from ScreenScraper.', () => toast('Shows other box art to choose from')),
+      info('Manual', hasManual(g) ? `${manualPages(g)} pages` : 'Not found', hasManual(g) ? 'Downloaded from ScreenScraper.' : 'ScreenScraper doesn’t have one for this game.'),
+      tog('Show on Home', 'show', 'Include it in your recently played cartridges.', { get show() { return !P.hidden.has(g.id); }, set show(v) { v ? P.hidden.delete(g.id) : P.hidden.add(g.id); } })] }];
+  }
+  if (S.set.sub) {      // one platform's page
+    const k = S.set.sub, pl = PLAT[k], emu = P.emu[k];
+    return CATS.map(c => c === 'Platforms' ? { cat: pl.long, intro: `${GAMES.filter(g => g.sys === k && inLibrary(g)).length} games. Press B to go back to all platforms.`, items: k === 'android' ? [
+      info('Launching', 'Opens the app', 'Android games open in their own app.'), info('Box', 'Keep case', 'A generic keep case at Blu-ray size.')] : [
+      { label: 'Default emulator', desc: 'Used by every game on this platform unless a game chooses its own.', value: emu.replace('RetroArch: ', 'RetroArch, '), act: () => { const e = pl.emus; P.emu[k] = e[(e.indexOf(emu) + 1) % e.length]; } },
+      info('Saves', isRA(emu) ? 'Shelf’s slots' : `Kept by ${emu}`, isRA(emu) ? 'RetroArch saves into Shelf’s four slots per game.' : 'Standalone emulators keep their own saves.'),
+      cyc('Screen filter', P.pf[k], 'filter', ['None', 'Scanlines', 'LCD grid'], 'A filter over the game picture, when the emulator supports one.'),
+      info('Game folder', `ROMs/${k}`, 'Where Shelf looks for this platform’s games.'),
+      info('BIOS', k === 'ps1' ? 'Found' : 'Not needed', k === 'ps1' ? 'DuckStation found a PlayStation BIOS.' : 'This platform runs without one.'),
+      info('Box', pl.real ? 'Original case' : 'Modern case', pl.real ? 'The original case, opening as it really does.' : 'A modern clamshell case at the original box’s size.')] } : null).map((c, i) => c || modelFor(i));
+  }
+  return CATS.map((c, i) => modelFor(i));
+  function modelFor(i) {
+    switch (CATS[i]) {
+      case 'Profile': return { cat: 'Profile', intro: 'This handheld has one profile.', items: [
+        action('Name', P.name, 'Shown at the top of the screen.', () => openKb('Your name', P.name, v => { P.name = v; paintProfile(); fillSettings(); })),
+        action('Color', 'Change', 'Your profile’s color.', () => { const i = PROFILE_COLORS.indexOf(P.colors); P.colors = PROFILE_COLORS[(i + 1) % PROFILE_COLORS.length]; paintProfile(); }),
+        action('Run setup again', '', 'Go through the first-run steps again.', () => { S.setup = { step: 0, i: 0 }; enterSetup(); return true; })] };
+      case 'Appearance': return { cat: 'Appearance', intro: 'Themes change the background, panels, lighting and accent.', items: [
+        { label: 'themes', themes: true },
+        tog('Accent follows the console', 'accentFollows', 'The accent color and one background field take on each console’s color.'),
+        cyc('Case color', Q, 'caseTint', [false, true], 'The plastic of the modern cases.', { false: 'Neutral', true: 'Console color' }),
+        tog('Background motion', 'motion', 'Drifting backgrounds, twinkling stars and the slow float of boxes and cartridges.'),
+        tog('Interface sounds', 'sound', 'Soft clicks when you move and choose.')] };
+      case 'Platforms': return { cat: 'Platforms', intro: 'Choose a platform for its default emulator, filters and folders.', items: SYS_ORDER.map(k =>
+        nav(PLAT[k].long, k === 'android' ? 'Apps' : P.emu[k].replace('RetroArch: ', 'RetroArch, '), `${GAMES.filter(g => g.sys === k && inLibrary(g)).length} games`, () => { S.set.sub = k; S.set.i = 0; })) };
+      case 'Emulators': return { cat: 'Emulators', intro: 'Emulators found on this handheld. Shelf launches them for you.', items: [
+        ...ALL_EMUS.map(e => INSTALLED[e] ? info(e, INSTALLED[e], e === 'RetroArch' ? 'Shelf manages save slots and achievements through RetroArch.' : 'A standalone emulator. It keeps its own saves.')
+          : action(e, 'Get it', 'Not installed.', () => toast(`Opens ${e} in the app store`))),
+        action('Look for emulators again', '', 'After installing or removing one.', () => toast('Found 5 emulators'))] };
+      case 'Art and info': { const A = P.art, ss = A.source === 'ScreenScraper'; return { cat: 'Art and info', intro: 'Box art, manuals, media and details are downloaded for you. Cartridge labels too, where the source has them.', items: [
+        { label: 'Source', value: A.source, desc: ss ? 'The most complete: boxes, manuals, videos and details.' : 'RetroArch’s databases and Wikipedia. No account needed.', act: () => { A.source = ss ? 'Free sources' : 'ScreenScraper'; } },
+        ...(ss ? [action('ScreenScraper account', A.ss || 'Sign in', A.ss ? 'Signed in.' : 'A free account from screenscraper.fr.', () => { A.ss = A.ss ? null : 'player_one'; })] : []),
+        tog('Gameplay videos', 'videos', 'Short clips for each game’s media.', A), tog('Manuals', 'manuals', 'Scans of the original manuals.', A),
+        cyc('Region', A, 'region', ['USA', 'Europe', 'Japan', 'World'], 'Which region’s box art to prefer.'),
+        action('Update everything now', 'Update', `Look up art and details for all ${GAMES.length} games again.`, () => toast('Updating in the background'))] }; }
+      case 'Achievements': return { cat: 'Achievements', intro: P.ra ? `Signed in as ${P.ra}.` : 'Not signed in.', items: [
+        action('RetroAchievements account', P.ra || 'Sign in', 'Achievements work with RetroArch.', () => { P.ra = P.ra ? null : 'player_one'; }),
+        tog('Hardcore mode', 'hardcore', 'Double points, but saves and rewind are off while you play.'),
+        tog('Unlock pop-ups', 'achPop', 'A short message when you earn one.')] };
+      case 'Controls': return { cat: 'Controls', intro: 'How Shelf reads your buttons.', items: [
+        cyc('Button layout', Q, 'layout', ['Nintendo', 'Xbox'], 'Which of A and B confirms.'),
+        info('Home button', 'Saves, then returns', 'In RetroArch games, Shelf saves before coming back.'),
+        tog('Vibration', 'vibe', 'A light tap when you open a box or start a game.', Object.assign(Q, { vibe: Q.vibe ?? true }))] };
+      case 'Home screen and apps': return { cat: 'Home screen and apps', intro: 'Shelf as this handheld’s launcher.', items: [
+        tog('Use Shelf as the home screen', 'homeLauncher', 'The Home button always brings you here.'),
+        cyc('Apps tab shows', Q, 'showApps', ['All apps', 'Hide emulators'], 'Emulators can stay out of the way, since Shelf launches them.'),
+        info('Android games', `${ANDROID_GAMES.size} marked`, 'In Apps, press Y on a game and choose Mark as game.')] };
+      default: return { cat: 'About', intro: 'Shelf for Android, prototype.', items: [info('Device', 'Retroid Pocket 3+', 'Android 11, Unisoc T618.'), info('Storage', '61.2 of 116 GB', 'Games, art, manuals and media.', 53), info('Version', '0.1 prototype', '')] };
+    }
+  }
+}
+function openSettings(cat = 0) { S.set = { cat, zone: cat ? 'items' : 'nav', i: 0, back: S.screen, sub: null, game: null, ti: Object.keys(THEMES).indexOf(P.prefs.theme) }; S.screen = 'settings'; show('settings'); sfx.select(); fillSettings(); }
+function openGameSettings(id) { S.set = { cat: 0, zone: 'items', i: 0, back: 'game', sub: null, game: id }; S.screen = 'settings'; show('settings'); sfx.select(); fillSettings(); }
+function fillSettings() {
+  const M = settingsModel(), cat = S.set.game ? 0 : S.set.cat, C = M[cat];
+  $('#setNav').innerHTML = S.set.game ? `<div class="cur ${S.set.zone === 'nav' ? 'focus' : ''}">This game</div><div style="font-size:12px;font-weight:600;color:var(--fg2)">B goes back to the box.</div>`
+    : M.map((c, i) => `<div class="${i === cat ? 'cur' : ''} ${S.set.zone === 'nav' && i === cat ? 'focus' : ''}">${CATS[i]}</div>`).join('');
+  const keys = Object.keys(THEMES);
+  $('#setBody').innerHTML = `<h2>${esc(C.cat)}</h2><p class="intro">${C.intro}</p><div class="sview"><div class="srows">` + C.items.map((it, i) => {
+    const f = S.set.zone === 'items' && i === S.set.i;
+    if (it.themes) return `<div class="themes">${keys.map((k, j) => { const T = THEMES[k], bg = T.space ? 'radial-gradient(circle at 70% 120%, #8b78e6 0, #2a1a5e 40%, #070b1e 75%)' : `linear-gradient(160deg, ${T.top}, ${T.c[0]} 55%, ${T.c[1]})`;
+      const fg = ['light', 'dawn', 'bloom'].includes(k) ? '#14161c' : '#eef1ff';
+      return `<div class="th ${P.prefs.theme === k ? 'cur' : ''} ${f && S.set.ti === j ? 'focus' : ''}" style="background:${bg};color:${fg}">${T.name}</div>`; }).join('')}</div>`;
+    return `<div class="srow ${f ? 'focus' : ''}"><div><b>${esc(it.label)}</b><p>${it.desc || ''}</p>${it.bar ? `<i class="bar"><b style="width:${it.bar}%"></b></i>` : ''}</div>${it.value !== '' && it.value != null ? `<em class="${it.action ? 'act' : ''} ${it.nav ? 'nav' : ''}">${esc(String(it.value))}</em>` : ''}</div>`;
+  }).join('') + '</div></div>';
+  const rows = $('#setBody .srows'), fr = rows.querySelector('.srow.focus, .th.focus');
+  if (fr) { const view = $('#setBody .sview').clientHeight, el = fr.classList.contains('th') ? fr.parentElement : fr, off = clamp(el.offsetTop + el.offsetHeight / 2 - view / 2, 0, Math.max(0, rows.scrollHeight - view)); rows.style.transform = `translateY(${-off}px)`; }
+}
+function settingsAct() {
+  const it = settingsModel()[S.set.game ? 0 : S.set.cat].items[S.set.i];
+  if (it.themes) { applyTheme(Object.keys(THEMES)[S.set.ti]); sfx.select(); return fillSettings(); }
+  if (it.info) return;
+  const left = it.act(); sfx.select(); if (!left) fillSettings();
+}
+function closeSettings() {
+  sfx.back();
+  if (S.set.game) { const id = S.set.game; S.set.game = null; S.screen = 'game'; show('game'); return fillGame(); }
+  const b = S.set.back; if (b === 'game') { S.screen = 'game'; show('game'); fillGame(); } else enterTab(['home', 'library', 'apps'].includes(b) ? b : 'home');
+}
+
+/* ================= launching, playing, coming back ================= */
+function startLaunch(g, slot, resume) {
+  S.seq = { kind: 'launch', g, slot, resume, t: 0, from: S.screen, flags: {} };
+  sfx.select();
+}
+function seqUpdate(dt) {
+  const q = S.seq; q.t += dt;
+  if (q.kind === 'launch') {
+    if (q.t > .55 && !q.flags.fade) { q.flags.fade = 1; const fl = $('#flash'); fl.style.transition = 'opacity .35s ease-in'; fl.style.opacity = 1; sfx.insert(); }
+    if (q.t > .95) { S.seq = null; startPlay(q.g, q.slot, q.resume, q.from); }
+  } else if (q.t > .9) { S.seq = null; }
+}
+function startPlay(g, slot, resume, from) {
+  const r = ensureRec(g), emu = emuFor(g);
+  S.play = { g, slot, from, t: 0, seed: hash(g.id + 'play'), scroll: resume && r.slots[slot] ? (r.slots[slot].scroll || 120) : 0 };
+  S.screen = 'play'; show('play');
+  const gc = $('#gamecv'), [w, h] = PLAT[g.sys].res; gc.width = w; gc.height = h;
+  const asp = PLAT[g.sys].aspect, dh = Math.min(H, W / asp), dw = dh * asp;
+  Object.assign(gc.style, { width: dw + 'px', height: dh + 'px', left: (W - dw) / 2 + 'px', top: (H - dh) / 2 + 'px' });
+  const tag = $('#emuTag'); tag.textContent = g.sys === 'android' ? `${g.title} is open. Press H, the Home button, to come back.` : `Playing in ${emu.replace('RetroArch: ', 'RetroArch, ')}. Press H, the Home button, to come back.`;
+  tag.classList.add('show'); setTimeout(() => tag.classList.remove('show'), 3500);
+  const fl = $('#flash'); fl.style.transition = 'opacity .5s ease-out'; fl.style.opacity = 0;
+}
+function playUpdate(dt) { const p = S.play; p.t += dt; p.scroll += dt * 40; gameFrame(p.g, p.seed, Math.floor(p.scroll), $('#gamecv')); }
+function homeFromPlay() {
+  const p = S.play; if (!p) return; S.play = null;
+  const g = p.g, r = ensureRec(g), emu = emuFor(g), ra = isRA(emu) && P.prefs.autosave && !P.prefs.hardcore;
+  if (ra) { r.slots[p.slot] = { ts: Date.now(), seed: p.seed, scroll: Math.floor(p.scroll) }; r.lastSlot = p.slot; }
+  r.last = Date.now(); r.minutes += Math.max(1, Math.round(p.t / 60));
+  P.recent = [g.id, ...P.recent.filter(x => x !== g.id)];
+  const fl = $('#flash'); fl.style.transition = 'none'; fl.style.opacity = 1;
+  requestAnimationFrame(() => { fl.style.transition = 'opacity .5s ease'; fl.style.opacity = 0; });
+  S.seq = { kind: 'return', g, t: 0, flags: {} };
+  if (p.from === 'home') { S.home.i = 0; S.home.zone = 'row'; enterTab('home'); }
+  else { S.screen = 'game'; show('game'); fillGame(); }
+  sfx.saved(); toast(ra ? `Saved to slot ${p.slot + 1}` : g.sys === 'android' ? `Back from ${g.title}` : `Back from ${emu}`);
+}
+/* ================= achievements page ================= */
+const ACH_FILTERS = ['All', 'Earned', 'Locked'];
+function openAch(id) { S.ach = { id, filter: 0, i: 0, from: S.screen }; S.screen = 'ach'; show('ach'); sfx.select(); fillAch(true); }
+function achRows() {
+  const g = byId[S.ach.id], e = achFor(P, g);
+  return achievements(g).list.map(a => ({ a, e: e[a.id] })).filter(x => S.ach.filter === 0 || (S.ach.filter === 1 ? x.e : !x.e));
+}
+function fillAch(full) {
+  const g = byId[S.ach.id], A = achievements(g), e = achFor(P, g), rows = achRows();
+  S.ach.i = clamp(S.ach.i, 0, Math.max(0, rows.length - 1));
+  if (full) {
+    const got = A.list.filter(a => e[a.id]), pct = Math.round(got.length / A.list.length * 100), pts = got.reduce((t, a) => t + a.pts, 0), hc = got.filter(a => e[a.id].hc).length;
+    const win = A.list.find(a => a.type === 'Win condition'), beaten = win && e[win.id];
+    $('#achSide').innerHTML = `<div class="gp-sys">${SYS[g.sys].long}</div><h2>${g.title}</h2>
+      <div class="ring" style="background: conic-gradient(var(--accent) ${pct * 3.6}deg, rgba(238,241,255,.12) 0)"><span>${pct}%<small>complete</small></span></div>
+      <div class="stats"><div>Achievements<b>${got.length} of ${A.list.length}</b></div><div>Points<b>${pts} of ${A.points}</b></div>
+        <div>Hardcore unlocks<b>${hc}</b></div><div>Players<b>${A.players.toLocaleString()}</b></div></div>
+      <div class="award">${got.length === A.list.length ? '<b>Mastered.</b> You’ve earned every achievement.' : beaten ? '<b>Beaten.</b> Earn the rest to master it.' : 'Finish the game to earn the <b>Beaten</b> award. Earn every achievement to master it.'}</div>`;
+  }
+  $('#achChips').innerHTML = ACH_FILTERS.map((f, i) => `<div class="${i === S.ach.filter ? 'sel' : ''}">${f}</div>`).join('');
+  $('#achList').innerHTML = rows.length ? rows.map((x, i) => `<div class="arow ${x.e ? '' : 'locked'} ${i === S.ach.i ? 'focus' : ''}"><img src="${badge(g, x.a, !x.e)}" alt="">
+    <div class="t"><b>${x.a.title}</b><p>${x.a.desc}</p><div class="tags">${x.a.type ? `<i>${x.a.type}</i>` : ''}${x.e && x.e.hc ? '<i class="hc">Hardcore</i>' : ''}</div></div>
+    <div class="r"><b>${x.a.pts} ${x.a.pts === 1 ? 'point' : 'points'}</b>${x.e ? `Earned ${dateText(x.e.date)}` : 'Locked'}<br>${Math.max(1, Math.round(x.a.rate * 100))}% of players</div></div>`).join('')
+    : `<div class="arow"><div class="t"><b>Nothing here yet</b><p>Earned achievements show up here as you unlock them.</p></div></div>`;
+  const rowH = 77, viewH = 750 - 28 - 20 - 44, total = rows.length * rowH + 20;
+  const off = clamp(S.ach.i * rowH + rowH / 2 - viewH / 2, 0, Math.max(0, total - viewH));
+  $('#achList').style.transform = `translateY(${-off}px)`;
+}
+
+/* ================= dialogs, the on-screen keyboard and collections ================= */
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+function openDlg(title, items, onPick, i = 0) { S.dlg = { open: true, title, items, i, onPick }; renderDlg(); sfx.select(); }
+function closeDlg() { S.dlg.open = false; renderDlg(); }
+function renderDlg() {
+  const d = S.dlg, el = $('#dlg'); el.classList.toggle('open', !!d.open); if (!d.open) return;
+  el.innerHTML = `<h3>${esc(d.title)}</h3>` + d.items.map((it, i) => `<div class="ditem ${i === d.i ? 'focus' : ''}">${it.check != null ? `<span class="chk ${it.check ? 'on' : ''}"></span>` : ''}<span>${esc(it.label)}</span>${it.sub ? `<small>${esc(it.sub)}</small>` : ''}</div>`).join('');
+}
+const KB_ROWS = [[...'ABCDEFGHIJ'], [...'KLMNOPQRST'], [...'UVWXYZ', "'", '&', '-', '!'], [...'1234567890'], ['Space', 'Delete', 'Done']];
+function openKb(title, value, onDone) { S.kb = { open: true, title, value, r: 0, c: 0, onDone }; renderKb(); sfx.select(); }
+function renderKb() {
+  const k = S.kb, el = $('#kb'); el.classList.toggle('open', !!k.open); if (!k.open) return;
+  el.innerHTML = `<h3>${esc(k.title)}</h3><div class="kbfield">${esc(k.value)}<i class="caret"></i></div>` + KB_ROWS.map((row, r) =>
+    `<div class="kbrow">${row.map((key, c) => `<span class="key ${key.length > 1 ? 'wide' : ''} ${r === k.r && c === k.c ? 'focus' : ''}">${key}</span>`).join('')}</div>`).join('');
+}
+function kbType(ch) {   // capitalizes the start of each word, like a title
+  const k = S.kb; if (k.value.length >= 28) return;
+  if (ch === ' ') { if (k.value && !k.value.endsWith(' ')) k.value += ' '; }
+  else { const start = !k.value || k.value.endsWith(' '); k.value += start ? ch.toUpperCase() : ch.toLowerCase(); }
+  renderKb(); sfx.move();
+}
+function kbDone() { const k = S.kb, v = k.value.trim(); if (!v) return toast('Type a name first'); k.open = false; renderKb(); k.onDone(v); }
+function kbPress() {
+  const key = KB_ROWS[S.kb.r][S.kb.c];
+  if (key === 'Space') kbType(' '); else if (key === 'Delete') { S.kb.value = S.kb.value.slice(0, -1); renderKb(); sfx.back(); }
+  else if (key === 'Done') kbDone(); else kbType(key);
+}
+function newCollection(addId) {
+  openKb('Name your collection', '', name => {
+    const p = P;
+    if (p.collections.some(c => c.name.toLowerCase() === name.toLowerCase())) return toast(`You already have a collection called ${name}`);
+    const c = { id: Date.now().toString(36), name, games: addId ? [addId] : [] };
+    p.collections.push(c); sfx.select(); toast(addId ? `Added to ${name}` : `Made ${name}`);
+    if (S.screen === 'library') { S.lib.rail = railItems().findIndex(x => x.k === 'col:' + c.id); S.lib.i = 0; refreshLibrary(true); }
+    else if (S.screen === 'game') fillGame();
+  });
+}
+function collectionOptions(c) {
+  openDlg(c.name, [{ label: 'Rename' }, { label: 'Delete collection' }, { label: 'Cancel' }], i => {
+    closeDlg();
+    if (i === 0) openKb('Rename collection', c.name, name => { c.name = name; toast(`Renamed to ${name}`); refreshLibrary(false); });
+    else if (i === 1) openDlg(`Delete “${c.name}”?`, [{ label: 'Delete', sub: 'The games stay in your library' }, { label: 'Keep it' }], j => {
+      closeDlg();
+      if (j === 0) { P.collections = P.collections.filter(x => x !== c); S.lib.rail = 0; S.lib.i = 0; S.lib.zone = 'rail'; toast(`Deleted ${c.name}`); refreshLibrary(true); }
+    }, 1);
+  });
+}
+function addToCollection(g) {
+  const p = P, items = () => [...p.collections.map(c => ({ label: c.name, check: c.games.includes(g.id) })), { label: 'New collection…' }];
+  openDlg(`Add ${g.title} to`, items(), i => {
+    if (i === p.collections.length) { closeDlg(); return newCollection(g.id); }
+    const c = p.collections[i], had = c.games.includes(g.id);
+    c.games = had ? c.games.filter(x => x !== g.id) : [...c.games, g.id];
+    sfx.select(); toast(had ? `Removed from ${c.name}` : `Added to ${c.name}`); S.dlg.items = items(); renderDlg();
+  });
+}
+
+/* ================= media and manuals for a game ================= */
+const usingSS = () => P.art.source === 'ScreenScraper' && !!P.art.ss;
+function mediaFor(g) {
+  const A = P.art, ss = usingSS(), r = rng(hash(g.id + 'media')), out = [];
+  if (g.sys === 'android') return [{ kind: 'box', label: 'Store art' }, { kind: 'shot', label: 'Screenshot', seed: hash(g.id + 'shot0'), scroll: 40 }, { kind: 'shot', label: 'Screenshot', seed: hash(g.id + 'shot1'), scroll: 160 }];
+  if (ss && A.videos) out.push({ kind: 'video', label: 'Gameplay video', seed: hash(g.id + 'vid'), dur: 30 + Math.floor(r() * 40), scroll: 60 });
+  if (true) { out.push({ kind: 'title', label: 'Title screen' });
+    const n = ss ? 4 : 2; for (let i = 0; i < n; i++) out.push({ kind: 'shot', label: 'Screenshot', seed: hash(g.id + 'shot' + i), scroll: 30 + i * 140 }); }
+  out.push({ kind: 'box', label: 'Box, front' });
+  if (ss && A.backs) out.push({ kind: 'back', label: 'Box, back' });
+  return out;
+}
+const hasManual = g => g.sys !== 'android' && usingSS() && P.art.manuals && hash(g.id + 'hasman') % 7 !== 0;   // most games, not all
+const manualPages = g => 16 + (hash(g.id + 'pages') % 3) * 4;
+const fmtTime = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+function mediaStrip(g, items, focus, cls) {
+  return items.map((m, i) => `<div class="${cls} ${i === focus ? 'focus' : ''}"><img src="${mediaThumb(g, m)}" alt="${m.label}">${m.kind === 'video' ? `<i class="playmark"></i><span class="dur">${fmtTime(m.dur)}</span>` : ''}</div>`).join('');
+}
+
+/* the media viewer: one picture large, the whole sequence below it */
+function openMedia(i) { const g = byId[S.game.id]; S.mv = { gid: g.id, i, playing: false, t: 0 }; S.screen = 'media'; show('media'); sfx.select(); fillMedia(); }
+function fillMedia() {
+  const g = byId[S.mv.gid], items = mediaFor(g), m = items[S.mv.i], c = $('#mvCanvas'), src = mediaCanvas(g, m);
+  const pixel = m.kind !== 'box' && m.kind !== 'back', boxH = 490, boxW = 1100;
+  const dispW = pixel ? src.height * SYS[g.sys].aspect : src.width, sc = Math.min(boxW / dispW, boxH / src.height);   // game pictures use the console's real screen shape
+  c.width = src.width; c.height = src.height; c.getContext('2d').drawImage(src, 0, 0);
+  Object.assign(c.style, { width: Math.round(dispW * sc) + 'px', height: Math.round(src.height * sc) + 'px', imageRendering: pixel ? 'pixelated' : 'auto' });
+  $('#mvTitle').textContent = g.title; $('#mvCount').textContent = `${S.mv.i + 1} of ${items.length}`;
+  $('#mvCap').textContent = m.kind === 'video' ? `${m.label}, ${fmtTime(m.dur)}` : m.label;
+  const vid = m.kind === 'video';
+  $('#mvPlay').style.display = vid && !S.mv.playing ? 'grid' : 'none';
+  $('#mvBar').style.display = vid ? 'flex' : 'none'; updateMvBar();
+  $('#mvStrip').innerHTML = mediaStrip(g, items, S.mv.i, 'mvthumb');
+  $('#mvStrip').style.transform = `translateX(${W / 2 - (S.mv.i * 140 + 64)}px)`;   // keep the current one centered (128 wide, 12 apart)
+}
+function updateMvBar() {
+  const g = byId[S.mv.gid], m = mediaFor(g)[S.mv.i]; if (m.kind !== 'video') return;
+  $('#mvBar i').style.width = (S.mv.t / m.dur * 100) + '%'; $('#mvBar span').textContent = `${fmtTime(S.mv.t)} / ${fmtTime(m.dur)}`;
+}
+function mvUpdate(dt) {   // videos only move while playing
+  const M = S.mv; if (!M || !M.playing) return; const g = byId[M.gid], m = mediaFor(g)[M.i];
+  M.t += dt; if (M.t >= m.dur) { M.playing = false; M.t = 0; fillMedia(); return; }
+  gameFrame(g, m.seed, Math.floor(m.scroll + M.t * 40), $('#mvCanvas')); updateMvBar();
+}
+
+/* the manual reader: two-page spreads, your place remembered, bookmarks */
+function manualState(g) { const r = ensureRec(g); if (!r.manual) r.manual = { spread: 0, marks: [] }; return r.manual; }
+const spreads = g => 1 + Math.ceil((manualPages(g) - 1) / 2);
+function openManual() {
+  const g = byId[S.game.id], st = manualState(g);
+  S.man = { gid: g.id }; S.screen = 'manual'; show('manual'); sfx.select(); fillManual();
+  if (st.spread > 0) toast(`Picked up where you left off, page ${st.spread * 2 - 1}`);
+}
+function spreadPages(g, s) { const n = manualPages(g); return s === 0 ? [0] : [2 * s - 1, 2 * s].filter(p => p < n); }
+function fillManual() {
+  const g = byId[S.man.gid], st = manualState(g), n = manualPages(g), pages = spreadPages(g, st.spread), marked = st.marks.includes(st.spread);
+  $('#mnTitle').textContent = `${g.title} manual`;
+  $('#mnPage').textContent = st.spread === 0 ? `Cover, ${n} pages` : pages.length > 1 ? `Pages ${pages[0]} and ${pages[1]} of ${n - 1}` : `Page ${pages[0]} of ${n - 1}`;
+  const book = $('#mnBook'); book.innerHTML = ''; book.classList.toggle('single', pages.length === 1);
+  pages.forEach(pg => { const c = manualPage(g, pg, n), el = document.createElement('canvas'); el.width = c.width; el.height = c.height; el.getContext('2d').drawImage(c, 0, 0); book.appendChild(el); });
+  if (marked) book.insertAdjacentHTML('beforeend', '<i class="ribbon"></i>');
+  book.classList.remove('turn'); void book.offsetWidth; book.classList.add('turn');
+  const total = spreads(g);
+  $('#mnTrack').innerHTML = Array.from({ length: total }, (_, s) => `<i class="${s === st.spread ? 'cur' : ''} ${st.marks.includes(s) ? 'mark' : ''}"></i>`).join('');
+  $('#mnMarks').textContent = st.marks.length ? `${st.marks.length} bookmark${st.marks.length > 1 ? 's' : ''}` : 'No bookmarks yet';
+}
+function manualInput(a) {
+  const g = byId[S.man.gid], st = manualState(g), total = spreads(g);
+  if (a === 'left' || a === 'right') { const k = clamp(st.spread + (a === 'left' ? -1 : 1), 0, total - 1); if (k !== st.spread) { st.spread = k; sfx.move(); fillManual(); } }
+  else if (a === 'y') { const i = st.marks.indexOf(st.spread); if (i < 0) { st.marks.push(st.spread); st.marks.sort((x, y) => x - y); toast('Bookmarked'); } else { st.marks.splice(i, 1); toast('Bookmark removed'); } sfx.select(); fillManual(); }
+  else if (a === 'lb' || a === 'rb') {
+    const next = a === 'rb' ? st.marks.find(s => s > st.spread) : [...st.marks].reverse().find(s => s < st.spread);
+    if (next == null) toast(st.marks.length ? `No more bookmarks ${a === 'rb' ? 'ahead' : 'before this page'}` : 'Press Y to bookmark a page'); else { st.spread = next; sfx.tab(); fillManual(); }
+  }
+  else if (a === 'b') { sfx.back(); S.screen = 'game'; show('game'); S.game.zone = 'manual'; fillGame(); }
+}
+/* ================= input ================= */
+function act(a) {
+  audio();
+  if (a === 'home') { closeDlg(); S.kb.open = false; renderKb(); if (S.screen === 'play') return homeFromPlay(); if (S.screen === 'setup' || S.seq) return; S.home.i = 0; S.home.zone = 'row'; sfx.tab(); return enterTab('home'); }
+  if (S.kb.open) {
+    const k = S.kb; if (a !== 'a') k.typed = false;
+    if (a === 'up' || a === 'down') { const r = clamp(k.r + (a === 'up' ? -1 : 1), 0, KB_ROWS.length - 1); if (r !== k.r) { k.c = Math.min(Math.round(k.c * (KB_ROWS[r].length - 1) / Math.max(1, KB_ROWS[k.r].length - 1)), KB_ROWS[r].length - 1); k.r = r; sfx.move(); renderKb(); } }
+    else if (a === 'left' || a === 'right') { k.c = (k.c + (a === 'left' ? -1 : 1) + KB_ROWS[k.r].length) % KB_ROWS[k.r].length; sfx.move(); renderKb(); }
+    else if (a === 'a') kbPress(); else if (a === 'y') { k.value = k.value.slice(0, -1); renderKb(); } else if (a === 'b') { k.open = false; renderKb(); sfx.back(); }
+    return;
+  }
+  if (S.dlg.open) { const d = S.dlg;
+    if (a === 'up' || a === 'down') { d.i = clamp(d.i + (a === 'up' ? -1 : 1), 0, d.items.length - 1); sfx.move(); renderDlg(); }
+    else if (a === 'a') d.onPick(d.i); else if (a === 'b') { closeDlg(); sfx.back(); }
+    return; }
+  if (S.seq) return;
+  const sc = S.screen;
+  if (sc === 'setup') {
+    const n = setupOpts().length;
+    if (['up', 'down', 'left', 'right'].includes(a)) { const k = clamp(S.setup.i + (a === 'up' || a === 'left' ? -1 : 1), 0, n - 1); if (k !== S.setup.i) { S.setup.i = k; sfx.move(); fillSetup(); } }
+    else if (a === 'a') setupAct(); else if (a === 'b' && S.setup.step > 0) { S.setup.step--; S.setup.i = 0; sfx.back(); fillSetup(); }
+    return;
+  }
+  if (sc === 'play') return;
+  if (['home', 'library', 'apps'].includes(sc)) {
+    if (a === 'lb' || a === 'rb') { const tabs = ['home', 'library', 'apps'], k = (tabs.indexOf(sc) + (a === 'rb' ? 1 : 2)) % 3; sfx.tab(); return enterTab(tabs[k]); }
+    if (S.top.on) return topInput(a);
+    return sc === 'home' ? homeInput(a) : sc === 'library' ? libInput(a) : appsInput(a);
+  }
+  if (sc === 'game') return gameInput(a);
+  if (sc === 'ach') return achInput(a);
+  if (sc === 'media') return mediaInput(a);
+  if (sc === 'manual') return manualInput(a);
+  if (sc === 'settings') return setInput(a);
+}
+function topInput(a) {
+  if (a === 'left' || a === 'right') { const k = clamp(S.top.i + (a === 'left' ? -1 : 1), 0, TOP.length - 1); if (k !== S.top.i) { S.top.i = k; sfx.move(); renderTop(); } }
+  else if (a === 'down' || a === 'b') { S.top.on = false; sfx.move(); refreshTab(); }
+  else if (a === 'a') { const k = TOP[S.top.i];
+    if (k === 'settings') return openSettings(0); if (k === 'profile') return openSettings(0);
+    if (k !== S.tab) { sfx.tab(); enterTab(k); S.top.on = true; S.top.i = TOP.indexOf(k); refreshTab(); } }
+}
+function homeInput(a) {
+  const H0 = S.home, items = homeItems(), id = items[H0.i];
+  if (H0.zone === 'row') {
+    if (a === 'left' || a === 'right') { const k = clamp(H0.i + (a === 'left' ? -1 : 1), 0, items.length - 1); if (k !== H0.i) { H0.i = k; H0.card = 0; sfx.move(); refreshHome(); } }
+    else if (a === 'up') { S.top.on = true; S.top.i = 0; sfx.move(); refreshHome(); }
+    else if (a === 'down' && id !== '__all') { H0.zone = 'cards'; H0.card = 0; sfx.move(); refreshHome(); }
+    else if (a === 'a') { if (id === '__all') { sfx.select(); enterTab('library'); } else { const g = byId[id], r = rec(id); startLaunch(g, r.lastSlot, isRA(emuFor(g)) && r.slots.some(Boolean)); } }
+    else if (a === 'y' && id !== '__all') toggleFav(byId[id]);
+  } else {
+    if (a === 'left' || a === 'right') { const k = clamp(H0.card + (a === 'left' ? -1 : 1), 0, 2); if (k !== H0.card) { H0.card = k; sfx.move(); refreshHome(); } }
+    else if (a === 'up' || a === 'b') { H0.zone = 'row'; sfx.move(); refreshHome(); }
+    else if (a === 'a') { const c = homeCards(id)[H0.card].k, g = byId[id];
+      if (c === 'box') openGame(id, 'home:' + id, 'home'); else if (c === 'ach') { if (g.sys !== 'android') P.ra ? openAch(id) : openSettings(5); } else { openGame(id, 'home:' + id, 'home'); S.game.zone = isRA(emuFor(g)) ? 'saves' : 'actions'; S.game.i = 0; fillGame(); } }
+  }
+}
+function libInput(a) {
+  const L = S.lib, n = L.list.length, cols = 5;
+  if (L.zone === 'grid') {
+    const col = L.i % cols;
+    if (a === 'left') { if (col === 0 || !n) L.zone = 'rail'; else L.i--; sfx.move(); }
+    else if (a === 'right') { if (col < cols - 1 && L.i + 1 < n) { L.i++; sfx.move(); } }
+    else if (a === 'up') { if (L.i < cols) L.zone = 'filters'; else L.i -= cols; sfx.move(); }
+    else if (a === 'down') { if (L.i + cols < n) { L.i += cols; sfx.move(); } else if (Math.floor(L.i / cols) < Math.floor((n - 1) / cols)) { L.i = n - 1; sfx.move(); } }
+    else if (a === 'a' && n) return openGame(L.list[L.i].id, 'lib:' + L.list[L.i].id, 'library');
+    else if (a === 'y' && n) return toggleFav(L.list[L.i]);
+    else if (a === 'b') { L.zone = 'rail'; sfx.back(); }
+  } else if (L.zone === 'rail') {
+    const stops = railStops(), at = stops.indexOf(L.rail), item = railItems()[L.rail];
+    if (a === 'up' && at === 0) { S.top.on = true; S.top.i = 1; sfx.move(); }
+    else if (a === 'up' || a === 'down') { const k = clamp(at + (a === 'up' ? -1 : 1), 0, stops.length - 1); if (stops[k] !== L.rail) { L.rail = stops[k]; L.i = 0; L.rowF = .6; sfx.move(); return refreshLibrary(true); } }
+    else if (a === 'y' && item.custom) return collectionOptions(item.custom);
+    else if ((a === 'right' || a === 'a') && n) { L.zone = 'grid'; sfx.move(); }
+  } else {
+    if (a === 'left') { L.zone = 'rail'; sfx.move(); } else if (a === 'up') { S.top.on = true; S.top.i = 1; sfx.move(); }
+    else if (a === 'down' || a === 'b') { if (n) L.zone = 'grid'; sfx.move(); }
+    else if (a === 'a') { L.sort = (L.sort + 1) % SORTS.length; L.i = 0; sfx.select(); return refreshLibrary(true); }
+  }
+  refreshLibrary(false);
+}
+function appsInput(a) {
+  const cols = 7, n = APPS.length, i = S.apps.i;
+  if (a === 'left' && i % cols > 0) { S.apps.i--; sfx.move(); } else if (a === 'right' && i % cols < cols - 1 && i + 1 < n) { S.apps.i++; sfx.move(); }
+  else if (a === 'up') { if (i < cols) { S.top.on = true; S.top.i = 2; } else S.apps.i -= cols; sfx.move(); }
+  else if (a === 'down' && i + cols < n) { S.apps.i += cols; sfx.move(); }
+  else if (a === 'a') { const app = APPS[i]; if (ANDROID_GAMES.has(app.name)) { const g = GAMES.find(x => x.title === app.name); return startPlayDirect(g); } toast(`Opens ${app.name}`); }
+  else if (a === 'y') return appOptions();
+  refreshApps();
+}
+function startPlayDirect(g) { S.seq = { kind: 'launch', g, slot: 0, resume: false, t: .5, from: 'apps', flags: {} }; }
+function gameInput(a) {
+  const G0 = S.game, g = byId[G0.id], acts = gameActions(), ra = isRA(emuFor(g)), nMedia = mediaFor(g).length;
+  if (G0.turn) {   // turning the closed box
+    if (a === 'left' || a === 'right') { G0.ry += (a === 'left' ? -1 : 1) * .45; sfx.move(); }
+    else if (a === 'up' || a === 'down') { G0.rx = clamp(G0.rx + (a === 'up' ? -1 : 1) * .3, -.9, .9); sfx.move(); }
+    else if (a === 'lb' || a === 'rb') { const views = [0, Math.PI / 2, Math.PI], cur = views.reduce((b, v, i) => Math.abs(((G0.ry - v) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI) < Math.abs(((G0.ry - views[b]) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI) ? i : b, 0);
+      const next = views[(cur + (a === 'rb' ? 1 : 2)) % 3]; let d = next - G0.ry; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; G0.ry += d; G0.rx = 0; sfx.move(); }
+    else if (a === 'b' || a === 'a') { G0.turn = false; G0.zone = 'actions'; G0.i = 0; sfx.select(); fillGame(); }
+    return;
+  }
+  if (a === 'y') return toggleFav(g);
+  if (a === 'b') { if (G0.zone !== 'actions') { G0.zone = 'actions'; G0.i = 0; fillGame(); return sfx.back(); } sfx.back(); return enterTab(G0.from); }
+  const go = (zone, i = 0) => { G0.zone = zone; G0.i = i; sfx.move(); };
+  const z = G0.zone;
+  if (z === 'manual') { if (a === 'right') go('cart'); else if (a === 'a') return gameAction(); }
+  else if (z === 'cart') { if (a === 'left') go('manual'); else if (a === 'right') go('actions'); else if (a === 'a') return gameAction(); }
+  else if (z === 'actions') {
+    if (a === 'left') { if (G0.i === 0) go('cart'); else { G0.i--; sfx.move(); } } else if (a === 'right') { if (G0.i < acts.length - 1) { G0.i++; sfx.move(); } }
+    else if (a === 'down') go('saves', ra ? (rec(G0.id) || { lastSlot: 0 }).lastSlot : 0); else if (a === 'a') return gameAction();
+  } else if (z === 'saves') {
+    if (a === 'left') { if (!ra || G0.i === 0) go('cart'); else { G0.i--; sfx.move(); } } else if (a === 'right' && ra && G0.i < 3) { G0.i++; sfx.move(); }
+    else if (a === 'up') go('actions'); else if (a === 'down') go('media'); else if (a === 'a') return gameAction();
+  } else if (z === 'media') {
+    if (a === 'left') { if (G0.i === 0) go('cart'); else { G0.i--; sfx.move(); } } else if (a === 'right' && G0.i < nMedia - 1) { G0.i++; sfx.move(); }
+    else if (a === 'up') go('saves', ra ? (rec(G0.id) || { lastSlot: 0 }).lastSlot : 0); else if (a === 'down' && g.sys !== 'android') go('ach'); else if (a === 'a') return gameAction();
+  } else { if (a === 'up') go('media'); else if (a === 'left') go('cart'); else if (a === 'a') return gameAction(); }
+  fillGame();
+}
+function achInput(a) {
+  const n = achRows().length;
+  if (a === 'up' || a === 'down') { const k = clamp(S.ach.i + (a === 'up' ? -1 : 1), 0, Math.max(0, n - 1)); if (k !== S.ach.i) { S.ach.i = k; sfx.move(); fillAch(false); } }
+  else if (a === 'left' || a === 'right') { const k = clamp(S.ach.filter + (a === 'left' ? -1 : 1), 0, 2); if (k !== S.ach.filter) { S.ach.filter = k; S.ach.i = 0; sfx.tab(); fillAch(false); } }
+  else if (a === 'b') { sfx.back(); if (S.ach.from === 'game') { S.screen = 'game'; show('game'); S.game.zone = 'ach'; fillGame(); } else enterTab('home'); }
+}
+function mediaInput(a) {
+  const M = S.mv, n = mediaFor(byId[M.gid]).length;
+  if (a === 'left' || a === 'right') { const k = clamp(M.i + (a === 'left' ? -1 : 1), 0, n - 1); if (k !== M.i) { M.i = k; M.playing = false; M.t = 0; sfx.move(); fillMedia(); } }
+  else if (a === 'a') { const m = mediaFor(byId[M.gid])[M.i]; if (m.kind === 'video') { M.playing = !M.playing; sfx.select(); fillMedia(); } }
+  else if (a === 'b') { M.playing = false; sfx.back(); S.screen = 'game'; show('game'); S.game.zone = 'media'; S.game.i = M.i; fillGame(); }
+}
+function setInput(a) {
+  const Z = S.set, M = settingsModel(), cat = Z.game ? 0 : Z.cat, items = M[cat].items, it = items[Z.i];
+  if (Z.zone === 'nav') {
+    if ((a === 'up' || a === 'down') && !Z.game) { const k = clamp(Z.cat + (a === 'up' ? -1 : 1), 0, M.length - 1); if (k !== Z.cat) { Z.cat = k; Z.sub = null; sfx.move(); } }
+    else if (a === 'right' || a === 'a') { Z.zone = 'items'; Z.i = 0; sfx.move(); } else if (a === 'b') return closeSettings();
+  } else {
+    if (it && it.themes && (a === 'left' || a === 'right')) { Z.ti = clamp(Z.ti + (a === 'left' ? -1 : 1), 0, Object.keys(THEMES).length - 1); sfx.move(); }
+    else if (a === 'up' || a === 'down') { const k = clamp(Z.i + (a === 'up' ? -1 : 1), 0, items.length - 1); if (k !== Z.i) { Z.i = k; sfx.move(); } }
+    else if (a === 'left' && !Z.game) { Z.zone = 'nav'; sfx.move(); }
+    else if (a === 'b') { if (Z.sub) { const k = Z.sub; Z.sub = null; Z.i = SYS_ORDER.indexOf(k); sfx.back(); } else if (Z.game) return closeSettings(); else { Z.zone = 'nav'; sfx.move(); } }
+    else if (a === 'a') return settingsAct();
+  }
+  fillSettings();
+}
+const KEYS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', ' ': 'a', Escape: 'b', Backspace: 'b', f: 'y', F: 'y', q: 'lb', Q: 'lb', e: 'rb', E: 'rb', h: 'home', H: 'home' };
+addEventListener('keydown', e => {
+  if (S.kb.open) {
+    if (e.key.length === 1 && /[A-Za-z0-9 '&!-]/.test(e.key)) { e.preventDefault(); audio(); S.kb.typed = true; return kbType(e.key); }
+    if (e.key === 'Backspace') { e.preventDefault(); S.kb.value = S.kb.value.slice(0, -1); return renderKb(); }
+    if (e.key === 'Enter' && S.kb.typed) { e.preventDefault(); return kbDone(); }
+  }
+  const a = KEYS[e.key]; if (!a) return; e.preventDefault(); act(a);
+});
+const PAD = { prev: {}, hold: {} };
+function pollPad(dt) {
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [], p = [...pads].find(Boolean); if (!p) return;
+  const press = i => !!(p.buttons[i] && p.buttons[i].pressed), ax = p.axes[0] || 0, ay = p.axes[1] || 0;
+  const now = { a: press(0), b: press(1), y: press(3), lb: press(4), rb: press(5), home: press(16) || (press(8) && press(9)),
+    up: press(12) || ay < -.55, down: press(13) || ay > .55, left: press(14) || ax < -.55, right: press(15) || ax > .55 };
+  for (const k in now) {
+    if (now[k] && !PAD.prev[k]) { act(k); PAD.hold[k] = 0; }
+    else if (now[k] && ['up', 'down', 'left', 'right'].includes(k)) { PAD.hold[k] += dt; if (PAD.hold[k] > .38) { PAD.hold[k] -= .11; act(k); } }
+  }
+  PAD.prev = now;
+}
+
+/* ================= drawing ================= */
+function project(p) { const v = [VP[0] * p[0] + VP[4] * p[1] + VP[8] * p[2] + VP[12], VP[1] * p[0] + VP[5] * p[1] + VP[9] * p[2] + VP[13], VP[3] * p[0] + VP[7] * p[1] + VP[11] * p[2] + VP[15]];
+  return [(v[0] / v[2] + 1) / 2 * W, (1 - v[1] / v[2]) / 2 * H]; }
+function apply(M, p) { return [M[0] * p[0] + M[4] * p[1] + M[8] * p[2] + M[12], M[1] * p[0] + M[5] * p[1] + M[9] * p[2] + M[13], M[2] * p[0] + M[6] * p[1] + M[10] * p[2] + M[14]]; }
+const lightTheme = () => ['light', 'dawn', 'bloom'].includes(P.prefs.theme);
+function shadowUnder(xpx, ypx, wpx, alpha, far) { drawPlate('shadow', shadowArt, xpx, ypx, wpx, far ? 24 : 18, -.8, lightTheme() ? [.25, .2, .35] : [0, 0, .02], alpha * (lightTheme() ? .35 : .55)); }
+const PL = { x: 667, y: 1100, r: 520, a: 1 };
+function planetTarget() {
+  switch (S.screen) {
+    case 'setup': return { x: 667, y: 1080, r: 560, a: 1 };
+    case 'home': return { x: 1220, y: 900, r: 420, a: 1 };
+    case 'library': case 'apps': return { x: 1300, y: 920, r: 380, a: .85 };
+    case 'game': return { x: 260, y: 940, r: 480, a: .9 };
+    case 'settings': case 'ach': return { x: 1260, y: 940, r: 400, a: .5 };
+    default: return { x: 667, y: 1200, r: 500, a: 0 };
+  }
+}
+function drawHome(dt, t) {
+  const items = homeItems(), H0 = S.home, rowFocus = H0.zone === 'row' && !S.top.on, q = S.seq && S.seq.from === 'home' ? S.seq : null;
+  approach(H0, { f: H0.i }, dt, 8);
+  setFlat(); beginMeshes();
+  const drawn = [];
+  items.forEach((id, i) => {
+    const off = i - H0.f, foc = i === H0.i, xpx = 270 + off * 196 + Math.sign(off) * Math.min(Math.abs(off), 1) * 70;
+    const alpha = off < 0 ? (off > -1 ? 1 + .6 * off : .4 * (1 - clamp(-off - 1, 0, 1))) : 1 - clamp((off - 5) / 1.2, 0, 1);
+    const bob = motion() ? Math.sin(t * .8 + i * 1.7) * (foc ? 4 : 3) : 0, ypx = (foc ? 238 : 262) + bob;
+    if (id === '__all') { const o = pose('home:__all', { s: 0 }); approach(o, { x: xpx, y: 262, s: foc ? 190 : 140, alpha }, dt, 10);
+      drawPlate('tile', tileArt, o.x, o.y, o.s, o.s, 0, foc && rowFocus ? [1, 1, 1] : lightTheme() ? [.3, .32, .4] : [.75, .78, .95], o.alpha);
+      if (!NODRAW) { const L = $('#hTile'); L.style.left = o.x + 'px'; L.style.top = (o.y - 22) + 'px'; L.style.opacity = o.alpha; L.classList.add('on'); }
+      return; }
+    const g = byId[id], o = pose('home:' + id, { s: 0, y: 3 }), [x, y] = pw(xpx, ypx);
+    approach(o, { x, z: foc ? .5 : 0, ry: -.2, rx: -.1, s: mediaScale(g.sys, foc ? 236 : 150), alpha, bright: foc ? 1.02 : .72, glow: foc && rowFocus ? 1 : 0 }, dt, 10);
+    approach(o, { y }, dt, foc ? 7 : 10);
+    let M = M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s);
+    if (q && foc) { const k = easeOut(q.t / .9); M = M4.trs(o.x * (1 - k), o.y + k * .6, o.z + k * 3, o.rx * (1 - k), o.ry * (1 - k), 0, o.s * (1 + k * .8)); }
+    const hpx = (CART[g.sys].h / 2 + (g.sys === 'gba' ? .1 : 0)) * o.s * PX;
+    if (o.alpha > .01) { shadowUnder(xpx, ypx - bob + hpx + (foc ? 24 : 12), Math.max(CART[g.sys].w, .5) * o.s * PX * .9, o.alpha, foc); drawn.push([g, M, o, foc]); }
+  });
+  for (const [g, M, o, foc] of drawn) { if (foc && rowFocus) { const m = moodColors(MOOD.cur); drawCartGlowM(g, M, o.s, hexRgb(m.accent), hexRgb(m.planet[0]), o.alpha); } drawCartM(g, M, o); }
+  endMeshes();
+  if (!NODRAW && items[H0.i] !== '__all') $('#hTile').classList.toggle('on', true);
+}
+function drawLibrary(dt, t) {
+  const L = S.lib, cols = 5, row = Math.floor(L.i / cols), onGrid = L.zone === 'grid' && !S.top.on;
+  const lastRow = Math.max(0, Math.floor((L.list.length - 1) / cols)), top = .58, bottom = .49;
+  approach(L, { rowF: clamp(row, top, Math.max(top, lastRow - bottom)) }, dt, 9);
+  const CY = 420, ROW = 300, cx = c => 350 + c * 212.5, s0 = BOXK, still = !motion();
+  setFlat(); beginMeshes();
+  drawPlate('gridpanel', panelArt, 775, 420, 1062, 600, 0, lightTheme() ? [1, 1, 1] : [.035, .045, .11], lightTheme() ? .4 : .55);
+  clipRect(245, 121, 1305, 719);
+  let focus = null;
+  L.list.forEach((g, i) => {
+    const r = Math.floor(i / cols), c = i % cols, foc = onGrid && i === L.i, o = pose('lib:' + g.id, { s: 0 });
+    const ypx = CY + (r - L.rowF) * ROW, lift = foc ? 14 : 0, bob = still ? 0 : Math.sin(t * .8 + i * 1.7) * (foc ? 4 : 3), [x, y] = pw(cx(c), ypx - lift + bob);
+    const cut = Math.max(0, 260 - ypx, ypx - 600) / 90, vis = 1 - clamp((Math.abs(ypx - CY) - ROW) / 90, 0, 1);
+    approach(o, { x, z: foc ? .4 : 0, ry: .3, rx: -.08, s: s0 * (foc ? 1.08 : 1), alpha: clamp(vis, 0, 1) * (1 - .45 * clamp(cut, 0, 1)), bright: foc ? 1.03 : onGrid ? .66 : .82 }, dt, 11);
+    approach(o, { y }, dt, foc ? 7 : 11);
+    const [bw, bh] = BOX[g.sys];
+    if (o.alpha > .01) shadowUnder(cx(c), ypx + bh / 2 * o.s * PX + (foc ? 22 : 12), bw * o.s * PX * .95, o.alpha, foc);
+    if (foc) focus = { g, o, c, ypx: ypx - lift, bh }; else if (o.alpha > .01) drawCase(g, o, 0);
+  });
+  if (focus) { const m = moodColors(MOOD.cur); drawCaseGlow(focus.g, focus.o, hexRgb(m.accent), hexRgb(m.planet[0])); drawCase(focus.g, focus.o, 0);
+    if (!NODRAW) { const F = $('#lFocus'); F.style.left = cx(focus.c) + 'px'; F.style.top = (focus.ypx + focus.bh / 2 * focus.o.s * PX + 26) + 'px'; } }
+  unclip(); endMeshes();
+}
+function drawGamePage(dt, t) {
+  const G0 = S.game, g = byId[G0.id], o = pose('case', {}), m = caseModel(g.sys), [W0, H0] = [m.W, m.H];
+  const sOpen = Math.min(620 / (2 * W0 * PX), 520 / (H0 * PX)), s = G0.turn ? Math.min(sOpen * 1.35, 430 / (Math.max(W0, H0) * PX)) : sOpen;
+  const [cxw, cyw] = pw(345, 392), openT = G0.turn ? 0 : 1;
+  approach(o, { open: openT }, dt, 5.5);
+  approach(o, { x: cxw + (m.W / 2) * s * o.open, y: cyw, z: 0, s, alpha: 1, bright: 1, rx: G0.turn ? G0.rx : -.18, ry: G0.turn ? G0.ry : 0 }, dt, 6);
+  setCamera(0, CAMZ, 0); beginMeshes();
+  const q = S.seq && S.seq.g === g ? S.seq : null, fromHere = q && (q.kind === 'return' || q.from === 'game');
+  drawCase(g, o, o.open, 0, !!fromHere);
+  const M = M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s), top = m.D / 2 - m.ct, d = CART[g.sys].d, trayM = M4.mul(M, M4.trs(0, 0, top + d / 2 + .004, 0, 0, 0, 1));
+  if (fromHere) {   // the cartridge lifting out of the tray to play, or settling back in
+    const k = q.kind === 'launch' ? easeOut(q.t / .9) : 1 - easeOut(q.t / .7);
+    drawCartM(g, M4.mul(trayM, M4.trs(0, k * .5, k * 4, 0, 0, 0, 1 + k * .6)), { alpha: 1, bright: 1 });
+  }
+  const mc = moodColors(MOOD.cur), c1 = hexRgb(mc.accent), c2 = hexRgb(mc.planet[0]);
+  if (!G0.turn && o.open > .9 && !q) {
+    if (G0.zone === 'cart') drawCartGlowM(g, trayM, o.s, c1, c2);
+    if (G0.zone === 'manual') { const CM = M4.mul(M, coverMatrix(m, o.open)), [mw, mh] = m.manualSize;
+      if (!m.manRing) m.manRing = ringMesh(shape(mw, mh, [.012, .012, .012, .012]));
+      gl.disable(gl.CULL_FACE); gl.depthMask(false); drawPart(m.manRing, M4.mul(CM, M4.trs(0, 0, top - .02, 0, Math.PI, 0, 1)), { col: c1, emit: c2, alpha: .95, hull: true, grow: 20 / (PX * o.s) }); gl.enable(gl.CULL_FACE); gl.depthMask(true); }
+  }
+  endMeshes();
+  if (!NODRAW) {   // a label over the object you're on
+    const L = $('#objLabel'), on = !G0.turn && o.open > .9 && (G0.zone === 'cart' || G0.zone === 'manual') && !q;
+    L.classList.toggle('on', on);
+    if (on) {
+      const CM = M4.mul(M, coverMatrix(m, o.open)), pt = G0.zone === 'cart' ? apply(trayM, [0, (CART[g.sys].h) / 2 + .08, 0]) : apply(CM, [0, m.manualSize[1] / 2 + .08, top]);
+      const [px, py] = project(pt); L.style.left = px + 'px'; L.style.top = (py - 34) + 'px';
+      const ra = isRA(emuFor(g)), r = rec(g.id);
+      L.textContent = G0.zone === 'cart' ? (ra && r && r.slots.some(Boolean) ? 'Resume' : 'Play') : hasManual(g) ? 'Read the manual' : 'No manual';
+    }
+  }
+}
+
+/* ================= main loop ================= */
+let last = performance.now(), clockTimer = 0, MANUAL = false, NODRAW = false;
+window.__step = (seconds, fps = 30) => { MANUAL = true; const n = Math.max(1, Math.round(seconds * fps)); for (let i = 0; i < n; i++) { NODRAW = i < n - 1; tick(1 / fps); } NODRAW = false; };
+function loop(now) { requestAnimationFrame(loop); const dt = Math.min(.05, (now - last) / 1000); last = now; if (!MANUAL) { try { tick(dt); } catch (e) { console.error(e); } } }
+function tick(dt) {
+  pollPad(dt);
+  if (motion()) S.time += dt;
+  MOOD.t = Math.min(1, MOOD.t + dt / .8);
+  for (let i = 0; i < 3; i++) RIM[i] += (RIM_T[i] - RIM[i]) * Math.min(1, dt * 4);
+  if (S.seq) seqUpdate(dt);
+  if (S.play) playUpdate(dt);
+  if (S.screen === 'media') mvUpdate(dt);
+  approach(PL, planetTarget(), dt, 3);
+  clockTimer -= dt; if (clockTimer <= 0) { clockTimer = 1; $('#clock').textContent = clockText(); }
+  if (!NODRAW) { gl.viewport(0, 0, cv.width, cv.height); const b = hexRgb(getComputedStyle(stage).getPropertyValue('--bg').trim() || '#070b1e'); gl.clearColor(b[0], b[1], b[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); }
+  const dim = ['media', 'manual', 'play'].includes(S.screen) ? .45 : 1;
+  drawBackdrop(S.time, { bright: dim, pan: S.screen === 'home' ? S.home.f * .006 : S.screen === 'library' ? S.lib.rowF * .02 : 0, planet: PL.a > .01 ? PL : null });
+  if (S.screen === 'home') drawHome(dt, S.time);
+  else if (S.screen === 'library') drawLibrary(dt, S.time);
+  else if (S.screen === 'game') drawGamePage(dt, S.time);
+}
+async function boot() {
+  fit();
+  if (!gl) { document.body.insertAdjacentHTML('beforeend', '<p style="padding:40px">This prototype needs WebGL.</p>'); return; }
+  initGL(); initMeshes(); applyTheme(P.prefs.theme);
+  try { await Promise.race([Promise.all([document.fonts.load('600 40px Unbounded'), document.fonts.load('600 20px Manrope')]), new Promise(r => setTimeout(r, 2000))]); } catch (e) { }
+  enterSetup();
+  requestAnimationFrame(loop);
+}
+boot();
+</script>
+</body>
+</html>

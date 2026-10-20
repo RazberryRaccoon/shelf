@@ -1,0 +1,105 @@
+# History: what was built, what broke, what we learned
+
+## 1. Shelf for Odroid GO (finished, working)
+
+**Hardware:** Odroid GO, an ESP32-WROVER with a 320×240 screen. NES, Game Boy and Game Boy Color only.
+
+**Built:**
+- A browser prototype (`prototypes/shelf-odroid-launcher.html`).
+- Standalone ESP-IDF firmware, later abandoned (kept in `code/shelf-firmware-standalone.zip`).
+- **Shelf as retro-go's launcher** (`code/shelf-retrogo/`, the final version), with an installer script that
+  patches retro-go to auto-save on quit.
+
+**Tools:**
+- `convert_art.py`: turns cover and label images into Shelf's `.img` format.
+- `fetch_info.py`: identifies ROMs by checksum and downloads art and info from RetroArch's database, its
+  thumbnail server and Wikipedia.
+- `crop_labels.py`: a Tkinter tool that finds the label in a whole-cartridge photo and crops it, with
+  automatic detection, ROM matching, saving straight to the card, and progress remembered between sessions.
+
+**Fixed along the way:**
+- Upside-down screen: `LCD_MADCTL = 0xA0`.
+- Lag: the screen transfer moved to the second core, and flash and PSRAM run at 80 MHz.
+- "Apps found: none": the partition table is read straight from flash.
+- In-game menus: moving to retro-go solved them.
+- No Save & Quit: the auto-save patch.
+
+**Other notes:**
+- The SD card shares the SPI bus with the screen, so every SD access takes a bus lock.
+- The user built everything on Windows, with ESP-IDF 4.4.8 at `C:\esp\esp-idf-v4.4.8` and a helper `C:\esp\idf.bat`.
+- Python 3.11 is used for ESP-IDF and the tools. Pillow wasn't available for the user's Python 3.15.
+
+## 2. Shelf for TV (Raspberry Pi 3B+)
+
+### Research findings
+- The Pi 3B+ outputs up to 1080p60, has OpenGL ES 2.0 and 1 GB of RAM.
+- It plays everything up to the 16-bit era perfectly and PS1 nearly so. N64 is hit and miss; Dreamcast,
+  PSP and Saturn mostly don't run.
+- Other frontends: ES-DE treats the Pi 4 as its minimum. Pegasus is stuck at an "alpha16" build.
+
+### The prototype (`prototypes/shelf-tv.html`, final after 7 feedback rounds)
+- Profiles, Home (cartridges with game-hub cards) and Library (rail, a framed grid with centered rows, glow
+  selection, flat camera, floating, shadows).
+- **Game page:** 3D box, saves, media row, achievements card, manual button.
+- **Full pages:** achievements, manual reader (bookmarks, saved place), media viewer, settings (including art
+  sources). Also the launch and return animations, custom collections, and the on-screen keyboard.
+
+### The Pi slice (`code/shelf-tv-pi/`, never tested on hardware)
+- **The app:** C with SDL2, OpenGL ES 2, FreeType and libpng. A platform layer separates the Pi (SDL2) from
+  an offscreen test build (Mesa EGL surfaceless).
+- **Scripts:** a session loop, a Home-button watcher using `python3-evdev`, and Shelf's RetroArch settings.
+- **The installer** sets up Samba, auto-login, and display-mode detection for whether RetroArch can draw directly to the screen.
+- **Tested here:** the renderer offscreen, the full launch → play → save → return loop with a stand-in
+  RetroArch, and saves resuming.
+- **Not tested:** real hardware. Unknowns are speed, whether Debian's RetroArch can draw without a display
+  server, and controller Home-button reporting.
+
+### Lessons (apply them to Android)
+
+**Rendering:**
+- **Perspective cameras make grids drift:** items near the edges get pushed outward and overlap frames. Use a
+  flat camera for grids and rows.
+- **A highlight panel behind a 3D object never lines up** with it. A flat ring mesh built from the object's
+  own outline, attached to the model and fading outward, does. Growing the shell outward (an "inverted hull")
+  gave uneven, stepped results.
+- **OpenGL ES:** a uniform declared in both the vertex and fragment shader with different precision fails
+  to link. Mesa caught this; give the fragment shader its own uniform instead.
+- **Software rendering in tests runs at about 1 fps,** so animations stall in screenshots. Advance them
+  deterministically with a test hook such as `window.__step(seconds)` rather than waiting.
+- **A loop that throws an error freezes everything.** Wrap each frame in try/catch and keep scheduling frames.
+
+**Interaction:**
+- **Back must return to wherever a screen was opened from.** A missing game id once froze the whole interface.
+- **On-screen keyboard:** Enter has to type the selected key, and only submit right after real-keyboard typing.
+
+**Art:**
+- **Nebula art:** fade each cloud's alpha to transparent, not toward a base color, or it shows seams.
+
+**Data:**
+- **Real data:** label windows must match the real labels' visible face. NES labels are tall and narrow and
+  SNES labels very wide; both fold 7 mm over the cartridge's top edge.
+
+## 3. Shelf for Android (current)
+
+**Discussion:**
+- Settled the concept and the console list.
+- Researched label sizes, box sizes, the Retroid Pocket 3+, and RetroArch's Android intents.
+- Settled modern clamshell cases at original sizes.
+
+**Prototype v1:** `prototypes/shelf-android.html`, about 2,270 lines, built from the parts in `prototype-source/android/`.
+- **Contents:**
+  - setup, Home, Library
+  - the open box with its hinged cover, manual and media
+  - Close the box and turning it
+  - launching and returning
+  - Apps and Mark as game
+  - all settings, including per-platform and per-game pages
+  - seven themes
+  - manual reader, media viewer and achievements
+- **Bugs found while testing:**
+  - camera functions called by their C names
+  - landscape manuals squeezed into a tall booklet
+  - back-cover text running into the barcode on wide boxes
+  - an unreadable hint over the planet
+  - accent text too pale on light themes
+- **Status:** published and working. The user moved to Claude Code before reviewing it.

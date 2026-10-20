@@ -1,0 +1,1393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Shelf launcher prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Pixelify+Sans:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#e6e9f0; --ink:#1c2130; --muted:#525a72; --rule:#c9cedb;
+  --kbd:#d4d9e5; --kbd-ink:#1c2130; --accent:#b8324f;
+  --shell:#2b3142; --shell-hi:#3b4258; --shell-lo:#1c202c; --bezel:#0d0f16;
+  --btn:#161a24; --btn-hi:#2a3040; --ab:#c4405a; --ab-ink:#ffffff; --label:#a9b2c9;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11131a; --ink:#e4e7ef; --muted:#9aa2b8; --rule:#2a2f3d;
+    --kbd:#262b39; --kbd-ink:#e4e7ef; --accent:#ff7a92;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11131a; --ink:#e4e7ef; --muted:#9aa2b8; --rule:#2a2f3d;
+  --kbd:#262b39; --kbd-ink:#e4e7ef; --accent:#ff7a92;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Atkinson Hyperlegible',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:16px;line-height:1.5}
+.wrap{max-width:1120px;margin:0 auto;padding:28px 20px 48px;display:grid;gap:28px;justify-items:center}
+header{text-align:center;max-width:46ch}
+h1{font-family:'Pixelify Sans','Courier New',monospace;font-weight:700;font-size:44px;line-height:1;margin:0 0 10px;letter-spacing:.5px}
+header p{margin:0;color:var(--muted)}
+.help{max-width:420px;width:100%}
+.help h2{font-family:'Pixelify Sans','Courier New',monospace;font-weight:500;font-size:22px;margin:0 0 12px}
+.keys{margin:0;display:grid;gap:8px}
+.keys div{display:grid;grid-template-columns:96px 1fr;gap:12px;align-items:baseline}
+.keys dt{display:flex;gap:4px;flex-wrap:wrap}
+.keys dd{margin:0;color:var(--muted)}
+kbd{font-family:inherit;font-size:13px;font-weight:700;background:var(--kbd);color:var(--kbd-ink);border-radius:5px;padding:1px 7px;border-bottom:2px solid var(--rule)}
+.help p{color:var(--muted);margin:18px 0 14px;font-size:15px}
+.toggle{display:flex;gap:10px;align-items:flex-start;font-size:15px;cursor:pointer}
+.toggle input{margin-top:4px;accent-color:var(--accent);width:16px;height:16px}
+@media (min-width:1000px){
+  .wrap{grid-template-columns:auto minmax(260px,320px);align-items:start;justify-items:start}
+  header{grid-column:1 / -1;justify-self:center}
+  .help{padding-top:24px}
+}
+
+/* the handheld */
+.device{--pad:22px;background:var(--shell);border-radius:30px;padding:var(--pad);
+  box-shadow:inset 0 2px 0 var(--shell-hi),inset 0 -4px 0 var(--shell-lo),0 22px 44px -22px rgba(0,0,0,.55);
+  user-select:none;-webkit-user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.bezel{background:var(--bezel);border-radius:14px;padding:14px;box-shadow:inset 0 0 0 1px #000}
+#screen{display:block;width:var(--sw,640px);height:var(--sh,480px);image-rendering:pixelated;image-rendering:crisp-edges;background:#000}
+.sysrow{display:flex;justify-content:space-between;gap:10px;margin:18px 4px 4px}
+.sysrow button{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;background:none;border:0;padding:4px 0;cursor:pointer;color:var(--label);font:700 11px/1 'Atkinson Hyperlegible',system-ui,sans-serif}
+.sysrow .pill{display:block;width:44px;height:11px;border-radius:6px;background:var(--btn);box-shadow:inset 0 -2px 0 rgba(255,255,255,.06)}
+.pads{display:flex;justify-content:space-between;align-items:center;padding:14px 10px 6px;gap:16px}
+.dpad{position:relative;width:132px;height:132px;flex:none}
+.dpad button,.dpad .hub{position:absolute;background:var(--btn);border:0;padding:0;cursor:pointer}
+.dpad .up{left:44px;top:0;width:44px;height:46px;border-radius:8px 8px 0 0}
+.dpad .down{left:44px;bottom:0;width:44px;height:46px;border-radius:0 0 8px 8px}
+.dpad .left{left:0;top:44px;width:46px;height:44px;border-radius:8px 0 0 8px}
+.dpad .right{right:0;top:44px;width:46px;height:44px;border-radius:0 8px 8px 0}
+.dpad .hub{left:44px;top:44px;width:44px;height:44px;pointer-events:none}
+.dpad button::after{content:"";position:absolute;left:50%;top:50%;width:0;height:0;border:6px solid transparent;transform:translate(-50%,-50%)}
+.dpad .up::after{border-bottom-color:#3a4256;margin-top:-4px}
+.dpad .down::after{border-top-color:#3a4256;margin-top:4px}
+.dpad .left::after{border-right-color:#3a4256;margin-left:-4px}
+.dpad .right::after{border-left-color:#3a4256;margin-left:4px}
+.ab{display:flex;gap:16px;transform:rotate(-20deg);padding-right:4px}
+.ab button{width:58px;height:58px;border-radius:50%;border:0;background:var(--ab);color:var(--ab-ink);cursor:pointer;
+  font:700 19px/1 'Pixelify Sans','Courier New',monospace;box-shadow:inset 0 -4px 0 rgba(0,0,0,.25)}
+.ab .b{margin-top:30px}
+.device button.is-pressed,.device button:active{filter:brightness(.8)}
+.ab button.is-pressed,.ab button:active{transform:translateY(2px)}
+.device button:focus-visible{outline:3px solid #ffd25a;outline-offset:2px}
+.grille{display:flex;gap:6px;justify-content:flex-end;padding:10px 8px 0}
+.grille span{width:4px;height:22px;border-radius:2px;background:var(--shell-lo)}
+@media (max-width:440px){
+  .device{--pad:14px;border-radius:24px}
+  .bezel{padding:8px}
+  .dpad{transform:scale(.85);transform-origin:left center}
+  .ab button{width:50px;height:50px}
+}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <h1>Shelf</h1>
+    <p>A launcher prototype for the Odroid Go, drawn pixel for pixel at the device’s 320×240 resolution.</p>
+  </header>
+
+  <div class="device" role="group" aria-label="Handheld controls">
+    <div class="bezel"><canvas id="screen" width="320" height="240" role="img" aria-label="Launcher screen showing game cartridges in a carousel"></canvas></div>
+    <div class="sysrow">
+      <button data-btn="menu" aria-label="Menu"><span class="pill"></span>Menu</button>
+      <button data-btn="volume" aria-label="Volume"><span class="pill"></span>Volume</button>
+      <button data-btn="select" aria-label="Select"><span class="pill"></span>Select</button>
+      <button data-btn="start" aria-label="Start"><span class="pill"></span>Start</button>
+    </div>
+    <div class="pads">
+      <div class="dpad">
+        <button class="up" data-btn="up" aria-label="Up"></button>
+        <button class="left" data-btn="left" aria-label="Left"></button>
+        <span class="hub" aria-hidden="true"></span>
+        <button class="right" data-btn="right" aria-label="Right"></button>
+        <button class="down" data-btn="down" aria-label="Down"></button>
+      </div>
+      <div class="ab">
+        <button class="b" data-btn="b" aria-label="B button">B</button>
+        <button class="a" data-btn="a" aria-label="A button">A</button>
+      </div>
+    </div>
+    <div class="grille" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+  </div>
+
+  <aside class="help">
+    <h2>Controls</h2>
+    <dl class="keys">
+      <div><dt><kbd>←</kbd><kbd>→</kbd></dt><dd>Browse cartridges (hold to scroll faster)</dd></div>
+      <div><dt><kbd>↑</kbd><kbd>↓</kbd></dt><dd>Switch shelves: NES, Game Boy, Game Boy Color</dd></div>
+      <div><dt><kbd>X</kbd></dt><dd>A: open a game, choose</dd></div>
+      <div><dt><kbd>Z</kbd></dt><dd>B: back</dd></div>
+      <div><dt><kbd>Shift</kbd></dt><dd>Select: favorite</dd></div>
+      <div><dt><kbd>Enter</kbd></dt><dd>Start: change sort order</dd></div>
+      <div><dt><kbd>Esc</kbd></dt><dd>Menu: settings</dd></div>
+      <div><dt><kbd>V</kbd></dt><dd>Volume</dd></div>
+    </dl>
+    <p>Leave it idle for 20 seconds to see attract mode. Sound starts after your first button press. The box art is generated placeholder art; your real covers go on these cartridges.</p><p>Play a game, then press B to quit: it saves your spot, and the game’s page offers Resume from then on.</p>
+    <label class="toggle"><input type="checkbox" id="lock30"> Cap at 30 frames per second, closer to the real device</label>
+  </aside>
+</main>
+<script>
+(() => {
+'use strict';
+const W = 320, H = 240, PLANK = 169, BASE = 172;
+const cv = document.getElementById('screen');
+const ctx = cv.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let T = performance.now() / 1000;
+
+function mk(w, h) {
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, w | 0); c.height = Math.max(1, h | 0);
+  c.g = c.getContext('2d'); c.g.imageSmoothingEnabled = false;
+  return c;
+}
+
+/* ---------- color: everything is snapped to RGB565, like the real panel ---------- */
+const hx = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+const cl = v => Math.max(0, Math.min(255, v));
+const q5 = v => Math.round(Math.round(cl(v) * 31 / 255) * 255 / 31);
+const q6 = v => Math.round(Math.round(cl(v) * 63 / 255) * 255 / 63);
+const q565 = c => [q5(c[0]), q6(c[1]), q5(c[2])];
+const css = c => `rgb(${c[0]},${c[1]},${c[2]})`;
+const lerp = (a, b, t) => a + (b - a) * t;
+const lerpC = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
+let TINT = null;
+function col(h) { let c = hx(h); if (TINT) c = lerpC(c, TINT.c, TINT.t); return css(q565(c)); }
+function shade(h, t, to = '#000000') { let c = lerpC(hx(h), hx(to), t); if (TINT) c = lerpC(c, TINT.c, TINT.t); return css(q565(c)); }
+
+const BAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const bay = (x, y) => (BAY[(y & 3) * 4 + (x & 3)] + 0.5) / 16;
+
+const DMG = ['#142b1a', '#355e30', '#7fa13d', '#c4d98b'].map(h => q565(hx(h)));
+const DMGS = DMG.map(css);
+function dmgify(c, kf = 1) {
+  const g = c.g || c.getContext('2d');
+  const w = c.width, id = g.getImageData(0, 0, w, c.height), d = id.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] < 128) { d[i + 3] = 0; continue; }
+    const p = i >> 2, x = p % w, y = (p / w) | 0;
+    let l = (0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]) / 255;
+    l = Math.min(1, Math.pow(l, 0.9) * 1.06 * kf);
+    const v = l * 3, f = v - Math.floor(v);
+    const k = Math.max(0, Math.min(3, Math.floor(v) + (f > bay(x, y) ? 1 : 0)));
+    const cc = DMG[k]; d[i] = cc[0]; d[i + 1] = cc[1]; d[i + 2] = cc[2]; d[i + 3] = 255;
+  }
+  g.putImageData(id, 0, 0);
+  return c;
+}
+
+/* ---------- 5×8 bitmap font (ports straight to a C table) ---------- */
+const FONT = {
+  ' ': '00000,00000,00000,00000,00000,00000,00000',
+  'A': '01110,10001,10001,11111,10001,10001,10001', 'B': '11110,10001,10001,11110,10001,10001,11110',
+  'C': '01110,10001,10000,10000,10000,10001,01110', 'D': '11110,10001,10001,10001,10001,10001,11110',
+  'E': '11111,10000,10000,11110,10000,10000,11111', 'F': '11111,10000,10000,11110,10000,10000,10000',
+  'G': '01110,10001,10000,10111,10001,10001,01111', 'H': '10001,10001,10001,11111,10001,10001,10001',
+  'I': '11100,01000,01000,01000,01000,01000,11100', 'J': '00111,00010,00010,00010,00010,10010,01100',
+  'K': '10001,10010,10100,11000,10100,10010,10001', 'L': '10000,10000,10000,10000,10000,10000,11111',
+  'M': '10001,11011,10101,10101,10001,10001,10001', 'N': '10001,11001,10101,10011,10001,10001,10001',
+  'O': '01110,10001,10001,10001,10001,10001,01110', 'P': '11110,10001,10001,11110,10000,10000,10000',
+  'Q': '01110,10001,10001,10001,10101,10010,01101', 'R': '11110,10001,10001,11110,10100,10010,10001',
+  'S': '01111,10000,10000,01110,00001,00001,11110', 'T': '11111,00100,00100,00100,00100,00100,00100',
+  'U': '10001,10001,10001,10001,10001,10001,01110', 'V': '10001,10001,10001,10001,10001,01010,00100',
+  'W': '10001,10001,10001,10101,10101,10101,01010', 'X': '10001,10001,01010,00100,01010,10001,10001',
+  'Y': '10001,10001,01010,00100,00100,00100,00100', 'Z': '11111,00001,00010,00100,01000,10000,11111',
+  'a': '00000,00000,01110,00001,01111,10001,01111', 'b': '10000,10000,11110,10001,10001,10001,11110',
+  'c': '00000,00000,01110,10000,10000,10001,01110', 'd': '00001,00001,01111,10001,10001,10001,01111',
+  'e': '00000,00000,01110,10001,11111,10000,01110', 'f': '00110,01000,01000,11100,01000,01000,01000',
+  'g': '00000,00000,01111,10001,10001,01111,00001,01110', 'h': '10000,10000,10110,11001,10001,10001,10001',
+  'i': '01000,00000,11000,01000,01000,01000,11100', 'j': '00010,00000,00110,00010,00010,00010,10010,01100',
+  'k': '10000,10000,10010,10100,11000,10100,10010', 'l': '11000,01000,01000,01000,01000,01000,11100',
+  'm': '00000,00000,11010,10101,10101,10101,10101', 'n': '00000,00000,10110,11001,10001,10001,10001',
+  'o': '00000,00000,01110,10001,10001,10001,01110', 'p': '00000,00000,11110,10001,10001,11110,10000,10000',
+  'q': '00000,00000,01111,10001,10001,01111,00001,00001', 'r': '00000,00000,10110,11001,10000,10000,10000',
+  's': '00000,00000,01111,10000,01110,00001,11110', 't': '01000,01000,11100,01000,01000,01001,00110',
+  'u': '00000,00000,10001,10001,10001,10011,01101', 'v': '00000,00000,10001,10001,10001,01010,00100',
+  'w': '00000,00000,10001,10001,10101,10101,01010', 'x': '00000,00000,10001,01010,00100,01010,10001',
+  'y': '00000,00000,10001,10001,10001,01111,00001,01110', 'z': '00000,00000,11111,00010,00100,01000,11111',
+  '0': '01110,10001,10011,10101,11001,10001,01110', '1': '00100,01100,00100,00100,00100,00100,01110',
+  '2': '01110,10001,00001,00010,00100,01000,11111', '3': '11111,00010,00100,00010,00001,10001,01110',
+  '4': '00010,00110,01010,10010,11111,00010,00010', '5': '11111,10000,11110,00001,00001,10001,01110',
+  '6': '00110,01000,10000,11110,10001,10001,01110', '7': '11111,00001,00010,00100,01000,01000,01000',
+  '8': '01110,10001,10001,01110,10001,10001,01110', '9': '01110,10001,10001,01111,00001,00010,01100',
+  '.': '00000,00000,00000,00000,00000,11000,11000', ',': '00000,00000,00000,00000,00000,01000,01000,10000',
+  ':': '00000,11000,11000,00000,11000,11000,00000', '!': '10000,10000,10000,10000,10000,00000,10000',
+  '?': '01110,10001,00001,00010,00100,00000,00100', '-': '00000,00000,00000,11110,00000,00000,00000',
+  "'": '01000,01000,10000,00000,00000,00000,00000', '"': '10100,10100,00000,00000,00000,00000,00000',
+  '/': '00001,00010,00010,00100,01000,01000,10000', '&': '01100,10010,10100,01000,10101,10010,01101',
+  '(': '01000,10000,10000,10000,10000,10000,01000', ')': '10000,01000,01000,01000,01000,01000,10000',
+  '+': '00000,00100,00100,11111,00100,00100,00000', '%': '11001,11010,00010,00100,01000,01011,10011',
+  '…': '00000,00000,00000,00000,00000,00000,10101', '♥': '00000,01010,11111,11111,01110,00100,00000',
+  '▶': '10000,11000,11100,11110,11100,11000,10000', '◀': '00010,00110,01110,11110,01110,00110,00010',
+  '×': '00000,10001,01010,00100,01010,10001,00000'
+};
+const GL = {};
+for (const ch in FONT) {
+  const rows = FONT[ch].split(',').map(r => parseInt(r, 2));
+  while (rows.length < 8) rows.push(0);
+  let mn = 5, mx = -1;
+  rows.forEach(r => { for (let c = 0; c < 5; c++) if (r & (1 << (4 - c))) { mn = Math.min(mn, c); mx = Math.max(mx, c); } });
+  if (ch === ' ') { mn = 0; mx = 1; }
+  if (/[0-9]/.test(ch)) { mn = 0; mx = 4; }
+  GL[ch] = { rows, mn, mx, w: mx - mn + 1 };
+}
+const ALIAS = { '’': "'", '‘': "'", '“': '"', '”': '"', '—': '-', '–': '-' };
+const glyph = ch => GL[ALIAS[ch] || ch] || GL['?'];
+function textWidth(s, sc = 1) { let w = 0; for (const ch of s) w += glyph(ch).w + 1; return Math.max(0, w - 1) * sc; }
+const tcache = new Map();
+function textCanvas(s, color, sc) {
+  const key = s + '|' + color + '|' + sc;
+  let c = tcache.get(key); if (c) return c;
+  c = mk(Math.max(1, textWidth(s, sc)), 8 * sc);
+  c.g.fillStyle = color;
+  let x = 0;
+  for (const ch of s) {
+    const gl = glyph(ch);
+    for (let r = 0; r < 8; r++) {
+      const row = gl.rows[r];
+      for (let k = gl.mn; k <= gl.mx; k++) if (row & (1 << (4 - k))) c.g.fillRect((x + k - gl.mn) * sc, r * sc, sc, sc);
+    }
+    x += gl.w + 1;
+  }
+  if (tcache.size > 800) tcache.clear();
+  tcache.set(key, c);
+  return c;
+}
+function text(g, s, x, y, color, o = {}) {
+  const sc = o.scale || 1, c = textCanvas(s, color, sc);
+  let dx = x;
+  if (o.align === 'center') dx = x - (c.width >> 1); else if (o.align === 'right') dx = x - c.width;
+  if (o.shadow) g.drawImage(textCanvas(s, o.shadow, sc), dx + sc, y + sc);
+  g.drawImage(c, dx, y);
+  return c.width;
+}
+function wrap(s, maxW, sc = 1) {
+  const lines = []; let cur = '';
+  for (const w of s.split(' ')) {
+    const t = cur ? cur + ' ' + w : w;
+    if (textWidth(t, sc) <= maxW || !cur) cur = t; else { lines.push(cur); cur = w; }
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+/* ---------- small helpers ---------- */
+function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const clamp01 = v => Math.max(0, Math.min(1, v));
+const easeOut = t => 1 - Math.pow(1 - t, 3), easeIn = t => t * t * t, easeInQuad = t => t * t;
+const easeInOut = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const easeOutBack = t => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+const easeOutBounce = t => { const n = 7.5625, d = 2.75; if (t < 1 / d) return n * t * t; if (t < 2 / d) return n * (t -= 1.5 / d) * t + 0.75; if (t < 2.5 / d) return n * (t -= 2.25 / d) * t + 0.9375; return n * (t -= 2.625 / d) * t + 0.984375; };
+function spring(o, k, target, dt, st, dm) { const vk = k + 'V'; let v = o[vk] || 0; v += ((target - o[k]) * st - v * dm) * dt; o[vk] = v; o[k] += v * dt; }
+
+function gradient(g, x0, y0, w, h, stops) {
+  const cs = stops.map(s => { let c = hx(s); if (TINT) c = lerpC(c, TINT.c, TINT.t); return c; });
+  const steps = [];
+  for (let i = 0; i < cs.length - 1; i++) for (let k = 0; k < 4; k++) steps.push(q565(lerpC(cs[i], cs[i + 1], k / 4)));
+  steps.push(q565(cs[cs.length - 1]));
+  const n = steps.length - 1, id = g.createImageData(w, h), d = id.data;
+  for (let y = 0; y < h; y++) {
+    const t = n > 0 ? (h > 1 ? y / (h - 1) : 0) * n : 0;
+    const i = Math.min(Math.max(n - 1, 0), Math.floor(t)), f = t - i;
+    for (let x = 0; x < w; x++) {
+      const c = (n > 0 && f > bay(x + x0, y + y0)) ? steps[i + 1] : steps[i];
+      const p = (y * w + x) * 4; d[p] = c[0]; d[p + 1] = c[1]; d[p + 2] = c[2]; d[p + 3] = 255;
+    }
+  }
+  g.putImageData(id, x0, y0);
+}
+function disc(g, cx, cy, r, c) { g.fillStyle = c; cx = Math.round(cx); cy = Math.round(cy); for (let y = -r; y <= r; y++) { const hw = Math.floor(Math.sqrt(r * r - y * y) + 0.35); g.fillRect(cx - hw, cy + y, hw * 2 + 1, 1); } }
+function ridge(g, w, base, amp, R, c, hi, bottom, fr) {
+  const ph = fr.map(() => R() * 6.283), tops = new Array(w);
+  g.fillStyle = c;
+  for (let x = 0; x < w; x++) { let v = 0; for (let i = 0; i < fr.length; i++) v += Math.sin(x * fr[i][0] + ph[i]) * fr[i][1]; const y = Math.round(base - amp * v); tops[x] = y; if (bottom > y) g.fillRect(x, y, 1, bottom - y); }
+  if (hi) { g.fillStyle = hi; for (let x = 0; x < w; x++) g.fillRect(x, tops[x], 1, 1); }
+  return tops;
+}
+function line(g, x0, y0, x1, y1, c) {
+  g.fillStyle = c; x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
+  const dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1, dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+  let e = dx + dy;
+  for (let n = 0; n < 400; n++) { g.fillRect(x0, y0, 1, 1); if (x0 === x1 && y0 === y1) break; const e2 = 2 * e; if (e2 >= dy) { e += dy; x0 += sx; } if (e2 <= dx) { e += dx; y0 += sy; } }
+}
+function pine(g, cx, base, h, c) { g.fillStyle = c; for (let i = 0; i <= h; i++) { let hw = Math.floor(i * 0.42); if (i % 4 === 0 && i > 2) hw -= 1; g.fillRect(cx - hw, base - h + i, hw * 2 + 1, 1); } g.fillRect(cx, base, 1, 2); }
+const HEART = ['01010', '11111', '11111', '01110', '00100'];
+function heart(g, x, y, c) { g.fillStyle = c; HEART.forEach((r, ry) => { for (let rx = 0; rx < 5; rx++) if (r[rx] === '1') g.fillRect(x + rx, y + ry, 1, 1); }); }
+function sticker(g, x, y, c) { for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) heart(g, x + dx, y + dy, '#ffffff'); heart(g, x, y, c); }
+
+/* ---------- tiny sprites for the placeholder box art ---------- */
+const SPR = {
+  lantern: { pal: { a: '#2a2230', b: '#e0a030', c: '#ffd36a', d: '#fff6c8' }, rows: ['...a...', '..aaa..', '.a...a.', '.abcba.', '.bcdcb.', '.bcdcb.', '.abcba.', '.aaaaa.', '..a.a..'] },
+  ship: { pal: { a: '#4a3020', b: '#f6f1e2', c: '#8a4a2a', d: '#5a2e1a' }, rows: ['.....a......', '.....ab.....', '.....abb....', '.....abbb...', '.....abbbb..', '.....abbbbb.', '.....a......', 'cccccccccccc', '.dddddddddd.'] },
+  rocket: { pal: { a: '#3a3048', b: '#e8e8f0', c: '#4fa3e0', d: '#ff9a3a' }, rows: ['...a...', '..aba..', '..bbb..', '.bbcbb.', '.bcccb.', '.bbcbb.', '.bbbbb.', '.bbbbb.', 'abbbbba', 'aa...aa', '..ddd..', '...d...'] },
+  castle: { pal: { a: '#2a2236', b: '#ffcf5a' }, rows: ['a.a.......a.a', 'aaa...a...aaa', 'aaa..aaa..aaa', 'aaa.aaaaa.aaa', 'aaaaaaaaaaaaa', 'aaaabaaabaaaa', 'aaaaaaaaaaaaa', 'aaaaaaaaaaaaa', 'aaaaabbbaaaaa', 'aaaabbbbbaaaa', 'aaaabbbbbaaaa', 'aaaabbbbbaaaa'] },
+  frog: { pal: { a: '#1f3a1a', b: '#5cbf4a', c: '#ffffff' }, rows: ['.aa....aa.', 'acba..abca', 'abbbbbbbba', '.abbbbbba.', 'abbaaaabba', '.abbbbbba.', 'aa.a..a.aa'] },
+  turnip: { pal: { a: '#3f8a3a', b: '#f2e8f2', c: '#b05aa8' }, rows: ['..a...a..', '...a.a...', '....a....', '..bbbbb..', '.bbbbbbb.', 'bbbbbbbbb', 'cbbbbbbbc', 'ccbbbbbcc', '.ccccccc.', '..ccccc..', '....c....'] },
+  fish: { pal: { a: '#1a2a4a', b: '#ffb03a', c: '#ffffff' }, rows: ['...aaaa..a.', '.aabbbbaaba', 'abcbbbbbbba', 'abbbbbbbbba', '.aabbbbaaba', '...aaaa..a.'] },
+  golem: { pal: { a: '#2a2a34', b: '#9aa0b0', c: '#7affd4' }, rows: ['..aaaaaa..', '..abbbba..', '..acbbca..', '..abbbba..', 'aaaaaaaaaa', 'abbbbbbbba', 'a.abbbba.a', '..abbbba..', '..aa..aa..', '..aa..aa..'] },
+  sled: { pal: { a: '#3a2a1a', b: '#d8463a' }, rows: ['..bbbbbbbb..', '.bbbbbbbbbb.', '..a......a..', '..a......a..', 'aaaaaaaaaaaa', 'a...........'] }
+};
+function sprite(g, name, x, y, sc, over) {
+  const s = SPR[name], pal = Object.assign({}, s.pal, over || {}), cs = {};
+  for (const k in pal) cs[k] = col(pal[k]);
+  s.rows.forEach((row, ry) => { for (let rx = 0; rx < row.length; rx++) { const ch = row[rx]; if (ch === '.') continue; g.fillStyle = cs[ch]; g.fillRect(x + rx * sc, y + ry * sc, sc, sc); } });
+}
+
+/* ---------- library (invented titles; real ROMs and covers replace these) ---------- */
+const SH = [
+  { id: 'nes', name: 'NES', kind: 'home', theme: 'hills', games: [
+    { title: 'Lantern Knight', scene: 'forest', time: 'night', sprite: 'lantern', min: 252, last: 3, save: 3, fav: true },
+    { title: 'Sky Pirates of Oro', scene: 'sea', time: 'day', sprite: 'ship', min: 95, last: 12, save: 12 },
+    { title: 'Moonlit Harbor', scene: 'sea', time: 'night', sprite: 'ship', min: 41, last: 30, save: null },
+    { title: 'Turbo Turnip', scene: 'peaks', time: 'day', sprite: 'turnip', min: 18, last: 1, save: null },
+    { title: 'Castle Ember', scene: 'peaks', time: 'dusk', sprite: 'castle', min: 610, last: 0, save: 0, fav: true },
+    { title: 'Frog Prince Rally', scene: 'forest', time: 'day', sprite: 'frog', min: 0, last: null, save: null },
+    { title: 'Deep Sea Dive', scene: 'deep', time: 'day', sprite: 'fish', min: 66, last: 45, save: 45 },
+    { title: 'Comet Courier', scene: 'space', time: 'night', sprite: 'rocket', min: 130, last: 6, save: 6 }
+  ] },
+  { id: 'gb', name: 'Game Boy', kind: 'pocket', theme: 'meadow', games: [
+    { title: 'Pocket Golem', scene: 'peaks', time: 'day', sprite: 'golem', min: 340, last: 2, save: 2, fav: true },
+    { title: 'Tower of Tiles', scene: 'city', time: 'night', sprite: 'castle', min: 75, last: 20, save: null },
+    { title: 'Snow Valley Sled', scene: 'peaks', time: 'day', snow: true, sprite: 'sled', min: 22, last: 9, save: null },
+    { title: 'Bit Gardener', scene: 'forest', time: 'day', sprite: 'turnip', min: 188, last: 1, save: 1 },
+    { title: 'Mole Patrol', noArt: true, min: 0, last: null, save: null }
+  ] },
+  { id: 'gbc', name: 'Game Boy Color', kind: 'pocket', theme: 'coast', games: [
+    { title: 'Coral Kingdom', scene: 'deep', time: 'day', sprite: 'fish', shell: '#2a9d9a', min: 410, last: 4, save: 4, fav: true },
+    { title: 'Neon Ninja Nell', scene: 'city', time: 'night', neon: true, shell: '#6b4bb0', min: 57, last: 15, save: 15 },
+    { title: 'Pumpkin Patch Panic', scene: 'forest', time: 'dusk', sprite: 'turnip', spal: { b: '#f08a24', c: '#c45a14' }, shell: '#d06a2a', min: 12, last: 60, save: null },
+    { title: 'Rainbow Rover', scene: 'peaks', time: 'day', rainbow: true, sprite: 'golem', shell: '#8fbf3a', min: 0, last: null, save: null },
+    { title: 'Aurora Quest', scene: 'peaks', time: 'night', aurora: true, sprite: 'lantern', shell: '#3a3d4a', min: 233, last: 2, save: 2 }
+  ] }
+];
+const SYSLONG = { nes: 'NES cartridge', gb: 'Game Boy cartridge', gbc: 'Game Boy Color cartridge' };
+const settings = { sound: 'on', motion: 'on', gbGreen: true, attract: '20' };
+const isDMG = sys => sys === 'gb' && settings.gbGreen;
+
+const SORTS = [
+  { label: 'Sorted A to Z', cmp: (a, b) => a.title.localeCompare(b.title) },
+  { label: 'Recently played first', cmp: (a, b) => ((a.last ?? 1e9) - (b.last ?? 1e9)) || a.title.localeCompare(b.title) },
+  { label: 'Most played first', cmp: (a, b) => (b.min - a.min) || a.title.localeCompare(b.title) },
+  { label: 'Favorites first', cmp: (a, b) => ((b.fav ? 1 : 0) - (a.fav ? 1 : 0)) || a.title.localeCompare(b.title) }
+];
+SH.forEach(sh => {
+  sh.games.forEach(gm => { gm.sys = sh.id; gm.fav = !!gm.fav; gm.lift = 0; });
+  sh.games.sort(SORTS[0].cmp);
+  sh.games.forEach((gm, j) => { gm.pos = j; });
+  sh.sel = 0; sh.scroll = 0; sh.sort = 0;
+});
+
+function fmtMin(m) { if (m < 60) return `${m}m`; const h = Math.floor(m / 60), r = m % 60; return r ? `${h}h ${r}m` : `${h}h`; }
+function fmtDays(n) { if (n === 0) return 'today'; if (n === 1) return 'yesterday'; if (n < 7) return `${n} days ago`; if (n < 14) return 'last week'; if (n < 60) return `${Math.round(n / 7)} weeks ago`; return `${Math.round(n / 30)} months ago`; }
+
+/* ---------- placeholder box art, 64×80, drawn once per game ---------- */
+const ART_SKY = { day: ['#3a78d4', '#7ab4ee', '#d8eef9'], dusk: ['#241d50', '#8c3a6e', '#f0924e'], night: ['#060a24', '#141c4c', '#2c3570'] };
+function makeArt(gm) {
+  const c = mk(64, 80), g = c.g, R = rng(hash(gm.title));
+  TINT = null;
+  if (gm.noArt) return fallbackArt(gm, c);
+  const time = gm.time || 'day';
+  let ground = 62;
+  if (gm.scene === 'deep') gradient(g, 0, 0, 64, 80, ['#38bccb', '#18689a', '#0a2650']);
+  else if (gm.scene === 'space') gradient(g, 0, 0, 64, 80, ['#04030c', '#170d36', '#40205e']);
+  else gradient(g, 0, 0, 64, 80, ART_SKY[time]);
+  const stars = (n, maxY) => { for (let i = 0; i < n; i++) { g.fillStyle = col(R() < 0.25 ? '#ffffff' : '#a8b4e8'); g.fillRect((R() * 64) | 0, (R() * maxY) | 0, 1, 1); } };
+  switch (gm.scene) {
+    case 'peaks': {
+      if (time === 'night') { stars(40, 46); disc(g, 47, 14, 5, col('#eeeacc')); g.fillStyle = col('#cfc9a6'); g.fillRect(45, 13, 2, 2); }
+      else if (time === 'dusk') disc(g, 22, 40, 9, col('#ffb36a'));
+      else disc(g, 48, 15, 6, col('#fff1a8'));
+      if (gm.aurora) { const ac = ['#5af0a8', '#3ac0c8', '#7a6af0']; for (let x = 0; x < 64; x++) { const y0 = 8 + Math.round(Math.sin(x * 0.18) * 4 + Math.sin(x * 0.07) * 3); for (let k = 0; k < 12; k++) if (bay(x, y0 + k) < 1 - k / 12) { g.fillStyle = col(ac[(k / 4) | 0]); g.fillRect(x, y0 + k, 1, 1); } } }
+      if (gm.rainbow) { const rc = ['#e8504a', '#f0a040', '#f0e050', '#60c060', '#4a90e0', '#8060c0']; for (let y = 0; y < 62; y++) for (let x = 0; x < 64; x++) { const k = Math.floor(36 - Math.hypot(x - 32, y - 62)); if (k >= 0 && k < 6) { g.fillStyle = col(rc[k]); g.fillRect(x, y, 1, 1); } } }
+      const far = { day: '#6f84b0', dusk: '#5a3866', night: '#232a56' }[time];
+      const tops = ridge(g, 64, 40, 9, R, col(far), null, 80, [[0.16, 1], [0.41, 0.35], [0.9, 0.12]]);
+      g.fillStyle = col(time === 'night' ? '#8a94c0' : '#f4f6fb');
+      for (let x = 0; x < 64; x++) if (tops[x] < 38 || gm.snow) g.fillRect(x, tops[x], 1, gm.snow ? 3 : 2);
+      const near = { day: gm.snow ? '#dfe8f4' : '#3f7a4a', dusk: '#2d2440', night: '#121733' }[time];
+      const nt = ridge(g, 64, 62, 4, R, col(near), gm.snow ? col('#ffffff') : shade(near, 0.3, '#ffffff'), 80, [[0.12, 1], [0.3, 0.3]]);
+      ground = nt[32];
+      break;
+    }
+    case 'forest': {
+      if (time === 'night') { stars(30, 40); disc(g, 46, 16, 6, col('#eeeacc')); }
+      else if (time === 'dusk') disc(g, 40, 36, 10, col('#ff9a5a'));
+      else disc(g, 16, 16, 6, col('#fff1a8'));
+      const farC = { day: '#4f7a8a', dusk: '#4a2a50', night: '#1c2348' }[time], nearC = { day: '#2f5a3a', dusk: '#22182e', night: '#0c1028' }[time];
+      for (let x = -2; x < 66; x += 5) pine(g, x + ((R() * 3) | 0), 52, 10 + ((R() * 7) | 0), col(farC));
+      g.fillStyle = col(farC); g.fillRect(0, 52, 64, 28);
+      g.fillStyle = col({ day: '#dbe8ee', dusk: '#c88aa0', night: '#4a5488' }[time]);
+      for (let y = 49; y < 58; y++) for (let x = 0; x < 64; x++) if (bay(x, y) < 0.6 - Math.abs(y - 53) * 0.12) g.fillRect(x, y, 1, 1);
+      for (let x = -4; x < 70; x += 11) { if (Math.abs(x - 32) < 8) continue; pine(g, x + ((R() * 4) | 0), 72, 18 + ((R() * 8) | 0), col(nearC)); }
+      g.fillStyle = col(nearC); g.fillRect(0, 68, 64, 12);
+      ground = 69;
+      break;
+    }
+    case 'sea': {
+      const sun = { day: [46, 16, 6, '#fff1a8'], dusk: [32, 36, 9, '#ffb06a'], night: [44, 14, 5, '#eeeacc'] }[time];
+      if (time === 'night') stars(35, 36);
+      disc(g, sun[0], sun[1], sun[2], col(sun[3]));
+      gradient(g, 0, 42, 64, 38, { day: ['#2a6ab0', '#123e78'], dusk: ['#5a2e6a', '#24163e'], night: ['#16204e', '#080c26'] }[time]);
+      g.fillStyle = col({ day: '#cfe8f8', dusk: '#f0a070', night: '#6a74a8' }[time]); g.fillRect(0, 42, 64, 1);
+      g.fillStyle = col(sun[3]);
+      for (let y = 44; y < 78; y += 2) { const w = Math.max(1, (7 - (y - 44) / 6) | 0) + ((R() * 3) | 0); g.fillRect(sun[0] - (w >> 1) + (((R() * 3) | 0) - 1), y, w, 1); }
+      g.fillStyle = col({ day: '#7ab4e6', dusk: '#a05a8a', night: '#3a4888' }[time]);
+      for (let i = 0; i < 14; i++) g.fillRect((R() * 60) | 0, 46 + ((R() * 32) | 0), 2 + ((R() * 4) | 0), 1);
+      g.fillStyle = col({ day: '#2e5a3a', dusk: '#2a1a34', night: '#0e1430' }[time]);
+      for (let x = 2; x < 20; x++) { const h = Math.round(Math.sin((x - 2) / 18 * Math.PI) * 4); g.fillRect(x, 42 - h, 1, h); }
+      g.fillRect(10, 30, 1, 9); g.fillRect(6, 29, 4, 1); g.fillRect(11, 29, 4, 1); g.fillRect(5, 30, 2, 1); g.fillRect(14, 30, 2, 1);
+      ground = 60;
+      break;
+    }
+    case 'deep': {
+      g.fillStyle = col('#7ad8e0');
+      for (let k = 0; k < 3; k++) { const x0 = 8 + k * 18; for (let y = 0; y < 60; y++) { const x = x0 + Math.floor(y * 0.35); for (let w = 0; w < 4; w++) if (bay(x + w, y) < 0.32 - y / 220) g.fillRect(x + w, y, 1, 1); } }
+      g.fillStyle = col('#d8c48a'); for (let x = 0; x < 64; x++) { const h = 4 + Math.round(Math.sin(x * 0.2) * 1.5); g.fillRect(x, 80 - h, 1, h); }
+      g.fillStyle = col('#2f9a6a');
+      for (let k = 0; k < 6; k++) { const bx = 4 + k * 11 + ((R() * 4) | 0), hh = 12 + ((R() * 14) | 0); for (let y = 0; y < hh; y++) g.fillRect(bx + Math.round(Math.sin(y * 0.4 + k) * 1.5), 78 - y, 2, 1); }
+      g.fillStyle = col('#cfeff5');
+      for (let k = 0; k < 7; k++) { const bx = (R() * 64) | 0, by = (R() * 56) | 0; if (R() < 0.6) g.fillRect(bx, by, 1, 1); else { g.fillRect(bx - 1, by, 1, 1); g.fillRect(bx + 1, by, 1, 1); g.fillRect(bx, by - 1, 1, 1); g.fillRect(bx, by + 1, 1, 1); } }
+      ground = 46;
+      break;
+    }
+    case 'space': {
+      stars(70, 80);
+      const ring = col('#f0d8a8');
+      const ringPts = front => { g.fillStyle = ring; for (let a = 0; a < 360; a += 2) { const r = a * Math.PI / 180; if ((Math.sin(r) > 0) === front) g.fillRect(Math.round(44 + Math.cos(r) * 15), Math.round(24 + Math.sin(r) * 4), 1, 1); } };
+      ringPts(false); disc(g, 44, 24, 9, col('#d88a5a')); g.fillStyle = col('#b0603e'); g.fillRect(36, 26, 17, 2); g.fillRect(38, 21, 12, 1); ringPts(true);
+      for (let i = 0; i < 16; i++) { g.fillStyle = col(i < 3 ? '#ffffff' : '#8ab8ff'); if (bay(i, i) < 1 - i / 16) g.fillRect(16 - i, 50 - Math.round(i * 0.6), 1, 1); }
+      ground = 72;
+      break;
+    }
+    case 'city': {
+      stars(30, 30); disc(g, 50, 12, 5, col('#eeeacc'));
+      let x = -2;
+      while (x < 64) {
+        const w = 6 + ((R() * 8) | 0), h = 18 + ((R() * 30) | 0);
+        g.fillStyle = col(R() < 0.5 ? '#1a1838' : '#221e48'); g.fillRect(x, 80 - h, w, h);
+        for (let wy = 80 - h + 3; wy < 78; wy += 4) for (let wx = x + 1; wx < x + w - 1; wx += 3) if (R() < 0.45) { g.fillStyle = col(gm.neon ? (R() < 0.5 ? '#ff5ab8' : '#5af0ff') : '#ffd36b'); g.fillRect(wx, wy, 1, 2); }
+        x += w + 1;
+      }
+      if (gm.neon) { g.fillStyle = col('#ff5ab8'); g.fillRect(8, 40, 12, 3); g.fillStyle = col('#5af0ff'); g.fillRect(44, 34, 3, 10); }
+      ground = 80;
+      break;
+    }
+  }
+  if (gm.sprite) { const s = SPR[gm.sprite], sw = s.rows[0].length, sh = s.rows.length; sprite(g, gm.sprite, 32 - sw, ground - sh * 2 + 1, 2, gm.spal); }
+  c.artFocus = ground;
+  return c;
+}
+function fallbackArt(gm, c) {
+  // what a game with no cover gets: a generated label, never a blank
+  const g = c.g, cols = ['#b8325a', '#2a7f9e', '#6b4bb0', '#c27a1e', '#3f8f4f'];
+  const base = cols[hash(gm.title) % cols.length];
+  g.fillStyle = col(base); g.fillRect(0, 0, 64, 80);
+  g.fillStyle = shade(base, 0.16, '#ffffff');
+  for (let y = 0; y < 80; y++) for (let x = 0; x < 64; x++) if (((x + y) >> 2) % 3 === 0) g.fillRect(x, y, 1, 1);
+  const ini = gm.title.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  text(g, ini, 33, 23, shade(base, 0.6), { scale: 3, align: 'center' });
+  text(g, ini, 32, 22, '#ffffff', { scale: 3, align: 'center' });
+  wrap(gm.title, 56).forEach((l, i) => text(g, l, 32, 56 + i * 9, '#ffffff', { align: 'center' }));
+  return c;
+}
+
+const cache = new Map();
+function cached(key, fn) { let v = cache.get(key); if (!v) { v = fn(); cache.set(key, v); } return v; }
+const getArt = gm => cached('art|' + gm.title, () => makeArt(gm));
+const getArtV = gm => cached('artv|' + gm.title + '|' + isDMG(gm.sys), () => { const a = getArt(gm); if (!isDMG(gm.sys)) return a; const c = mk(64, 80); c.g.drawImage(a, 0, 0); return dmgify(c); });
+const getCart = gm => cached('cart|' + gm.title + '|' + isDMG(gm.sys), () => makeCart(gm));
+const getBox = gm => cached('box|' + gm.title + '|' + isDMG(gm.sys) + '|' + gm.fav, () => makeBox(gm));
+const avgColor = gm => cached('avg|' + gm.title + '|' + isDMG(gm.sys), () => {
+  const a = getArtV(gm), d = a.g.getImageData(0, 0, 64, 80).data; let r = 0, gg = 0, b = 0;
+  for (let i = 0; i < d.length; i += 4) { r += d[i]; gg += d[i + 1]; b += d[i + 2]; }
+  const n = d.length / 4; return [r / n, gg / n, b / n];
+});
+
+/* ---------- cartridges: original shell designs, drawn large ---------- */
+const getArt2 = gm => cached('art2|' + gm.title, () => { const a = getArt(gm), c = mk(128, 160); c.g.drawImage(a, 0, 0, 64, 80, 0, 0, 128, 160); c.artFocus = a.artFocus; return c; });
+function cornerInset(i, r) { if (r <= 0 || i >= r) return 0; return Math.max(0, r - Math.round(Math.sqrt(Math.max(0, r * r - (r - i - 0.5) * (r - i - 0.5))))); }
+const mixHex = (a, b, t) => css(q565(lerpC(hx(a), hx(b), t)));
+const LABEL = { home: { lx: 13, ly: 26, lw: 106, lh: 88, bh: 13 }, pocket: { lx: 11, ly: 20, lw: 90, lh: 78, bh: 12 } };
+function makeCart(gm) {
+  TINT = null;
+  const home = gm.sys === 'nes', w = home ? 132 : 112, h = home ? 148 : 128;
+  const c = mk(w, h), g = c.g, R = rng(hash(gm.title + 'shell'));
+  const body = home ? '#85878f' : gm.sys === 'gb' ? '#aaabb3' : (gm.shell || '#6b4bb0');
+  const clear = gm.sys === 'gbc';
+  const mid = col(body), dark = shade(body, 0.32, '#0a0a14'), darker = shade(body, 0.55, '#0a0a14'), light = shade(body, 0.28, '#ffffff'), lighter = shade(body, 0.5, '#ffffff'), edge = shade(body, 0.74);
+  const rt = 3, rb = home ? 3 : 7, ins = [];
+  for (let y = 0; y < h; y++) ins[y] = Math.max(cornerInset(y, rt), cornerInset(h - 1 - y, rb));
+  g.fillStyle = mid; for (let y = 0; y < h; y++) g.fillRect(ins[y], y, w - 2 * ins[y], 1);
+  if (clear) {
+    // see-through shell: the board inside shows through the plastic
+    const bx = 12, by = h - 40, bw = w - 24, bh = 34;
+    g.fillStyle = mixHex('#1f5a3a', body, 0.45); g.fillRect(bx, by, bw, bh);
+    g.fillStyle = mixHex('#14141c', body, 0.4); g.fillRect(bx + 26, by + 6, 22, 12); g.fillRect(bx + 56, by + 8, 14, 9);
+    g.fillStyle = mixHex('#e0b84a', body, 0.35); for (let x = bx + 4; x < bx + bw - 4; x += 3) g.fillRect(x, by + bh - 7, 2, 6);
+    g.fillStyle = mixHex('#58a070', body, 0.5); g.fillRect(bx + 6, by + 22, 40, 1); g.fillRect(bx + 50, by + 4, 1, 14);
+    g.fillStyle = mid; for (let y = by; y < by + bh; y++) for (let x = bx; x < bx + bw; x++) if (bay(x, y) < 0.3) g.fillRect(x, y, 1, 1);
+  }
+  for (let y = 1; y < h - 1; y++) { g.fillStyle = light; g.fillRect(ins[y] + 1, y, 1, 1); g.fillStyle = dark; g.fillRect(w - 2 - ins[y], y, 1, 1); }
+  g.fillStyle = light; g.fillRect(ins[1] + 1, 1, w - 2 * ins[1] - 2, 1);
+  g.fillStyle = dark; g.fillRect(ins[h - 2] + 1, h - 2, w - 2 * ins[h - 2] - 2, 1);
+  g.fillStyle = edge;
+  for (let y = 0; y < h; y++) {
+    const a = ins[y], span = Math.max(1, Math.max(y > 0 ? ins[y - 1] : a, y < h - 1 ? ins[y + 1] : a) - a);
+    g.fillRect(a, y, span, 1); g.fillRect(w - a - span, y, span, 1);
+  }
+  g.fillRect(ins[0], 0, w - 2 * ins[0], 1); g.fillRect(ins[h - 1], h - 1, w - 2 * ins[h - 1], 1);
+  // grip ridges
+  const gx0 = home ? 12 : 10, gx1 = w - gx0;
+  for (let k = 0, y = 5; k < (home ? 6 : 4); k++, y += 3) { g.fillStyle = dark; g.fillRect(gx0, y, gx1 - gx0, 1); g.fillStyle = light; g.fillRect(gx0, y + 1, gx1 - gx0, 1); }
+  if (home) for (const x of [6, w - 8]) { g.fillStyle = dark; g.fillRect(x, 30, 1, h - 62); g.fillStyle = light; g.fillRect(x + 1, 30, 1, h - 62); }
+  // label recess, shaped to the label art’s own proportions
+  const Lb = LABEL[home ? 'home' : 'pocket'], lab = getLabel(gm, Lb.lw, Lb.lh);
+  const fs = Math.min(1, Lb.lw / lab.width, Lb.lh / lab.height), lw = Math.round(lab.width * fs), lh = Math.round(lab.height * fs);
+  const lx = Lb.lx + ((Lb.lw - lw) >> 1), ly = Lb.ly + ((Lb.lh - lh) >> 1);
+  g.fillStyle = darker; g.fillRect(lx - 2, ly - 2, lw + 4, 2); g.fillRect(lx - 2, ly - 2, 2, lh + 4);
+  g.fillStyle = lighter; g.fillRect(lx - 2, ly + lh, lw + 4, 2); g.fillRect(lx + lw, ly - 2, 2, lh + 4);
+  g.drawImage(lab, lx, ly, lw, lh);
+  g.fillStyle = 'rgba(255,255,255,0.13)';
+  for (let i = 0; i < lh; i++) {
+    const x = lx + Math.round(lw * 0.62) - i;
+    if (x >= lx && x + 4 <= lx + lw) g.fillRect(x, ly + i, 4, 1);
+    if (x + 8 >= lx && x + 9 <= lx + lw) g.fillRect(x + 8, ly + i, 1, 1);
+  }
+  if (hash(gm.title) % 3 === 0) { // a label corner that has started to lift
+    g.fillStyle = col('#f4f0e6'); for (let i = 0; i < 4; i++) g.fillRect(lx + lw - 4 + i, ly + i, 4 - i, 1);
+    g.fillStyle = 'rgba(0,0,0,0.3)'; for (let i = 0; i < 4; i++) g.fillRect(lx + lw - 5 + i, ly + i, 1, 1);
+  }
+  // embossed arrow
+  const ax = w >> 1, ay = Lb.ly + Lb.lh + (home ? 7 : 6);
+  g.fillStyle = light; g.fillRect(ax - 4, ay - 1, 9, 1);
+  g.fillStyle = dark; for (let i = 0; i < 5; i++) g.fillRect(ax - 4 + i, ay + i, 9 - 2 * i, 1);
+  if (home) {
+    const by = h - 20;
+    g.fillStyle = dark; g.fillRect(8, by, w - 16, 14); g.fillStyle = light; g.fillRect(8, by - 1, w - 16, 1);
+    g.fillStyle = darker; for (let x = 14; x < w - 16; x += 9) g.fillRect(x, by + 4, 4, 7);
+  } else if (!clear) { g.fillStyle = dark; g.fillRect(16, h - 12, w - 32, 1); g.fillStyle = light; g.fillRect(16, h - 11, w - 32, 1); }
+  g.fillStyle = lighter;
+  for (let k = 0; k < 7; k++) { const x = 4 + ((R() * (w - 8)) | 0), y = R() < 0.5 ? ly + lh + 14 + ((R() * 4) | 0) : 2 + ((R() * 18) | 0); if (y < h - 22 || !home) g.fillRect(x, y, 1, 1); }
+  if (isDMG(gm.sys)) dmgify(c, 0.88);
+  return c;
+}
+
+/* ---------- boxes (shown big in the detail view and attract mode) ---------- */
+// Each system has its own box shape. Real covers are converted to exactly these sizes,
+// so they show pixel for pixel with no title band drawn over them.
+const BOXSIZE = { nes: [112, 160], gb: [128, 128], gbc: [128, 128] };
+const LOGO_COLS = ['#ffd25a', '#ff8a9a', '#8ae0ff', '#ffffff', '#b8f08a'];
+function outlined(g, s, x, y, c, o = {}) {
+  const sc = o.scale || 1, ink = '#0a0812';
+  for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [sc, sc]]) text(g, s, x + dx, y + dy, ink, { scale: sc, align: o.align });
+  text(g, s, x, y, c, { scale: sc, align: o.align });
+}
+function artLogo(g, gm, w, y, maxLines, sc) {
+  // stands in for the logo that real cover and label art already includes
+  const c = LOGO_COLS[hash(gm.title + 'logo') % LOGO_COLS.length];
+  let lines = wrap(gm.title, w - 12, sc);
+  if (lines.length > maxLines && sc > 1) { sc = 1; lines = wrap(gm.title, w - 12, 1); }
+  lines.forEach((l, i) => outlined(g, l, w >> 1, y + i * (8 * sc + 2), c, { scale: sc, align: 'center' }));
+}
+function cropFocus(gm, w, h) {
+  const a = getArt2(gm), fy = (a.artFocus != null ? a.artFocus : 40) * 2, cw = Math.min(w, 128), ch = Math.min(h, 160);
+  const sx = (128 - cw) >> 1, sy = Math.max(0, Math.min(160 - ch, Math.round(fy - ch * 0.8)));
+  const c = mk(w, h); c.g.drawImage(a, sx, sy, cw, ch, 0, 0, cw, ch); return c;
+}
+function generatedLabel(gm, w, h) {
+  // only for games with no label art: a printed title strip over generated art
+  const c = mk(w, h), g = c.g, bh = 12;
+  g.drawImage(getArt2(gm), (128 - w) >> 1, 20, w, h - bh, 0, bh, w, h - bh);
+  g.fillStyle = col('#16141c'); g.fillRect(0, 0, w, bh);
+  let t = gm.title;
+  if (textWidth(t) > w - 10) { while (t.length > 1 && textWidth(t + '…') > w - 10) t = t.slice(0, -1); t = t.trimEnd() + '…'; }
+  text(g, t, 5, 2, '#ffffff');
+  return c;
+}
+function makeLabel(gm, w, h) {
+  TINT = null;
+  if (gm.noArt) return generatedLabel(gm, w, h);
+  const c = cropFocus(gm, w, h); artLogo(c.g, gm, w, 4, 2, 1); return c;
+}
+const getLabel = (gm, w, h) => cached('label|' + gm.title + '|' + w + 'x' + h, () => makeLabel(gm, w, h));
+function makeBox(gm) {
+  TINT = null;
+  const [bw, bh] = BOXSIZE[gm.sys];
+  let c;
+  if (gm.noArt) {
+    c = mk(bw, bh); const g = c.g;
+    g.drawImage(getArt2(gm), (128 - bw) >> 1, Math.max(0, (160 - bh) >> 1), bw, bh, 0, 0, bw, bh);
+    const band = { nes: '#16141c', gb: '#2a2c3c', gbc: '#6e1c44' }[gm.sys], lines = wrap(gm.title, bw - 12), th = lines.length * 10 + 6;
+    g.fillStyle = col(band); g.fillRect(0, 0, bw, th);
+    lines.forEach((l, i) => text(g, l, bw >> 1, 4 + i * 10, '#ffffff', { align: 'center' }));
+  } else { c = cropFocus(gm, bw, bh); artLogo(c.g, gm, bw, 8, 2, 2); }
+  const g = c.g;
+  g.fillStyle = 'rgba(255,255,255,0.25)'; g.fillRect(0, 0, bw, 1); g.fillRect(0, 0, 1, bh);
+  g.fillStyle = 'rgba(0,0,0,0.4)'; g.fillRect(bw - 1, 0, 1, bh); g.fillRect(0, bh - 1, bw, 1);
+  if (gm.fav) sticker(g, bw - 12, bh - 12, '#ff4a6a');
+  if (isDMG(gm.sys)) dmgify(c);
+  return c;
+}
+function boxRect(gm) { const b = getBox(gm); return { x: 14, y: 30 + ((184 - b.height) >> 1), w: b.width, h: b.height }; }
+const panelX = gm => { const r = boxRect(gm); return r.x + r.w + 10; };
+
+/* ---------- backdrops: minimal space, one mood per console ---------- */
+const MOODS = {
+  nes: { bg: ['#06071a', '#0c0b22', '#170f2c'], glow: '#2e1634', accent: '#ff7a90', planet: ['#9a4452', '#4e1e36', '#1c0b1e'], rim: '#ffb4a6', dust: '#211a38' },
+  gb: { bg: ['#05090c', '#0a1410', '#12221a'], glow: '#1a3020', accent: '#c4d98b', planet: ['#8a8e98', '#454852', '#1c1e26'], rim: '#f4f6ff', craters: true },
+  gbc: { bg: ['#080720', '#100d36', '#1a134c'], glow: '#22226a', accent: '#7ad8ff', planet: ['#2e9aa0', '#1a4e70', '#0c1636'], rim: '#b8f6ff', nebula: ['#6a3ac8', '#c0489c'] }
+};
+const PL = { x: 160, y: 442, r: 262 };
+const CY = 106;
+const motionOn = () => settings.motion === 'on' && !reduceMotion;
+function buildShelfLayers(sh) {
+  const M = MOODS[sh.id], R = rng(hash(sh.id + 'space'));
+  const L = { bg: mk(W, H), planet: mk(W, H), stars: [] };
+  TINT = null;
+  const g = L.bg.g;
+  gradient(g, 0, 0, W, H, M.bg);
+  if (M.dust) { // a faint band of dust across the sky
+    g.fillStyle = col(M.dust);
+    for (let y = 0; y < 180; y++) for (let x = 0; x < W; x++) { const d = Math.abs((y - 24) - (x - 40) * 0.32) / 26; if (d < 1 && bay(x, y) < (1 - d) * 0.45 * (0.6 + 0.4 * Math.sin(x * 0.05))) g.fillRect(x, y, 1, 1); }
+  }
+  if (M.nebula) { // soft nebula wisps
+    const blobs = [[70, 46, 50, 0], [120, 26, 36, 1], [256, 64, 44, 0], [214, 26, 30, 1]];
+    const nc = M.nebula.map(n => css(q565(lerpC(hx(n), hx(M.bg[1]), 0.45))));
+    for (let y = 0; y < 180; y++) for (let x = 0; x < W; x++) {
+      let v = 0, ci = 0, best = 0;
+      for (const [bx, by, r, k] of blobs) { const e = Math.exp(-((x - bx) ** 2 + ((y - by) * 1.6) ** 2) / (r * r)); v += e; if (e > best) { best = e; ci = k; } }
+      if (bay(x, y) < Math.min(1, v) * 0.38) { g.fillStyle = nc[ci]; g.fillRect(x, y, 1, 1); }
+    }
+  }
+  g.fillStyle = col(M.glow); // a quiet spotlight behind the selected cartridge
+  for (let y = 0; y < 200; y++) for (let x = 30; x < 290; x++) { const d = Math.hypot((x - 160) / 1.25, y - CY) / 105; if (d < 1 && bay(x, y) < (1 - d) * 0.5) g.fillRect(x, y, 1, 1); }
+  // the planet rising along the bottom edge
+  const pg = L.planet.g, id = pg.createImageData(W, H), d = id.data, pc = M.planet.map(hx), rim = hx(M.rim), haze = lerpC(rim, hx(M.bg[2]), 0.55);
+  const craters = [];
+  if (M.craters) for (let k = 0; k < 16; k++) craters.push([R() * W, 186 + R() * 54, 3 + R() * 9]);
+  for (let y = 150; y < H; y++) for (let x = 0; x < W; x++) {
+    const dx = x - PL.x, dy = y - PL.y, dist = Math.sqrt(dx * dx + dy * dy), p = (y * W + x) * 4;
+    let c = null;
+    if (dist <= PL.r) {
+      const depth = PL.r - dist, t = Math.min(1, Math.min(1, depth / 46) * 0.8 + (x / W) * 0.2);
+      c = t < 0.5 ? lerpC(pc[0], pc[1], t * 2) : lerpC(pc[1], pc[2], (t - 0.5) * 2);
+      if (!M.craters) { const band = Math.sin((dy + dx * 0.12) * 0.32 + Math.sin(dx * 0.03) * 2); if (band > 0.55) c = lerpC(c, pc[0], 0.16); else if (band < -0.7) c = lerpC(c, pc[2], 0.2); }
+      else for (const [cx, cy, r] of craters) { const ex = (x - cx) / r, ey = (y - cy) / (r * 0.45); if (ex * ex + ey * ey < 1) { c = lerpC(c, pc[2], 0.35); if (ey > 0.55) c = lerpC(c, pc[0], 0.5); } }
+      if (depth < 1.2) c = rim; else if (depth < 3 && bay(x, y) < 0.5) c = lerpC(c, rim, 0.5);
+      c = c.map(v => v + (bay(x, y) - 0.5) * 9);
+    } else if (dist <= PL.r + 9 && bay(x, y) < (1 - (dist - PL.r) / 9) * 0.5) c = haze;
+    if (c) { const q = q565(c); d[p] = q[0]; d[p + 1] = q[1]; d[p + 2] = q[2]; d[p + 3] = 255; }
+  }
+  pg.putImageData(id, 0, 0);
+  for (let k = 0; k < 72; k++) L.stars.push({ x: R() * W, y: 4 + R() * 176, z: [0.18, 0.35, 0.6][k % 3], tw: R() * 6.28 });
+  if (isDMG(sh.id)) { dmgify(L.bg, 0.3); dmgify(L.planet, 0.9); }
+  return L;
+}
+let layers = [];
+function rebuild() { layers = SH.map(sh => buildShelfLayers(sh)); }
+
+/* ---------- drawing the home screen ---------- */
+function drawStars(sh, L, off) {
+  const dmg = isDMG(sh.id), cols = dmg ? [DMGS[1], DMGS[2], DMGS[3]] : ['#3e4672', '#8a94c8', '#ffffff'];
+  const drift = motionOn() ? T * 2 : 0;
+  for (const s of L.stars) {
+    const x = Math.round((((s.x - (sh.scroll * 26 + drift) * s.z) % W) + W) % W), y = Math.round(s.y + off * (0.25 + s.z * 0.4));
+    const k = s.z > 0.5 ? 2 : s.z > 0.3 ? 1 : 0;
+    ctx.fillStyle = cols[k]; ctx.fillRect(x, y, 1, 1);
+    if (k === 2 && motionOn() && Math.sin(T * 2.3 + s.tw * 7) > 0.93) { ctx.fillRect(x - 1, y, 3, 1); ctx.fillRect(x, y - 1, 1, 3); }
+  }
+}
+function moodExtras(sh, off) {
+  const dmg = isDMG(sh.id), m = motionOn(), oy = Math.round(off * 0.5);
+  if (sh.id === 'nes') { // a small moon on a slow orbit
+    const a = m ? T * 0.04 : 0.6, mx = Math.round(160 + Math.cos(a) * 150), my = Math.round(54 + Math.sin(a) * 24) + oy;
+    disc(ctx, mx, my, 6, '#4a3a52');
+    ctx.fillStyle = '#e8d8c8'; for (let yy = -6; yy <= 6; yy++) { const hw = Math.floor(Math.sqrt(36 - yy * yy) + 0.35); ctx.fillRect(mx - hw, my + yy, Math.max(1, hw), 1); }
+    ctx.fillStyle = '#b8a8a0'; ctx.fillRect(mx - 4, my - 2, 2, 2); ctx.fillRect(mx - 2, my + 2, 2, 1);
+  } else if (sh.id === 'gb') { // a satellite drifting past, light blinking
+    const x = m ? Math.round(((T * 5) % (W + 40)) - 20) : 220, y = 32 + Math.round(Math.sin(x * 0.02) * 6) + oy;
+    const c1 = dmg ? DMGS[2] : '#6a7a8a', c2 = dmg ? DMGS[3] : '#e4ecf4';
+    ctx.fillStyle = c1; ctx.fillRect(x - 6, y, 4, 2); ctx.fillRect(x + 3, y, 4, 2);
+    ctx.fillStyle = c2; ctx.fillRect(x - 1, y - 1, 3, 4);
+    if (!m || (T % 1.4) < 0.18) ctx.fillRect(x, y - 3, 1, 1);
+  } else { // a comet taking its time
+    const x = m ? Math.round(((T * 4) % (W + 90)) - 45) : 120, y = Math.round(22 + x * 0.06) + oy;
+    ctx.fillStyle = '#e8fcff'; ctx.fillRect(x, y, 2, 2);
+    ctx.fillStyle = '#7ad8ff'; for (let i = 1; i < 22; i++) if (bay(x - i, y) < 1 - i / 22) ctx.fillRect(x - i, Math.round(y - i * 0.06), 1, 1);
+  }
+}
+function drawShootingStar(sh, off) {
+  const s = S.shoot; if (!s) return;
+  const q = (T - s.t0) / 0.7; if (q > 1) { S.shoot = null; return; }
+  const hx0 = s.x + q * 110, hy0 = s.y + q * 40 + off * 0.3;
+  ctx.fillStyle = isDMG(sh.id) ? DMGS[3] : '#ffffff';
+  for (let i = 0; i < 14; i++) if (bay(i, (q * 16) | 0) < (1 - i / 14) * (1 - q * 0.5)) ctx.fillRect(Math.round(hx0 - i * 2.75), Math.round(hy0 - i), 1, 1);
+}
+const tmps = [0, 1, 2, 3, 4, 5, 6].map(() => mk(140, 160));
+function cartLayout(sh, r) {
+  const home = sh.kind === 'home', sp1 = home ? 127 : 110, sp2 = home ? 102 : 92, a = Math.abs(r), s = Math.sign(r);
+  return { x: 160 + s * (a <= 1 ? a * sp1 : sp1 + (a - 1) * sp2), sc: 1 - Math.min(a, 2.5) * 0.22 };
+}
+function drawCarts(sh, off, opt) {
+  const cur = sh === SH[S.shelf], list = [], dmg = isDMG(sh.id), M = MOODS[sh.id];
+  sh.games.forEach((gm, j) => { const r = gm.pos - sh.scroll; if (Math.abs(r) < 2.6) list.push([gm, j, r]); });
+  list.sort((a, b) => Math.abs(b[2]) - Math.abs(a[2]));
+  const shadeC = dmg ? DMGS[0] : M.bg[0], off2 = Math.abs(sh.scroll - sh.sel), lab = LABEL[sh.kind];
+  list.forEach(([gm, j, r], li) => {
+    if (opt.hideSel && cur && j === sh.sel) return;
+    const { x, sc } = cartLayout(sh, r), a = Math.abs(r), tmp = tmps[li % tmps.length];
+    const spr = getCart(gm), dw = Math.max(1, Math.round(spr.width * sc)), dh = Math.max(1, Math.round(spr.height * sc));
+    const sel = cur && j === sh.sel;
+    const bob = (sel && off2 < 0.12 && motionOn()) ? Math.round(Math.sin(T * 2.2) * 1.3) : 0;
+    const hop = (T - S.sortAt < 0.9) ? Math.round(Math.min(1, Math.abs(gm.pos - j)) * 12) : 0;
+    const x0 = Math.round(x - dw / 2), y0 = Math.round(off + CY - gm.lift + bob - hop - dh / 2);
+    const dark = Math.min(0.6, a * 0.32);
+    if (dark > 0.02) {
+      const tg = tmp.g; tg.clearRect(0, 0, tmp.width, tmp.height); tg.drawImage(spr, 0, 0, dw, dh);
+      tg.globalCompositeOperation = 'source-atop'; tg.globalAlpha = dark; tg.fillStyle = shadeC; tg.fillRect(0, 0, dw, dh);
+      tg.globalAlpha = 1; tg.globalCompositeOperation = 'source-over';
+      ctx.drawImage(tmp, 0, 0, dw, dh, x0, y0, dw, dh);
+    } else ctx.drawImage(spr, x0, y0, dw, dh);
+    if (sel && off2 < 0.12) { // pulsing focus ring
+      const ox = x0 - 4, oy = y0 - 4, ow = dw + 8, oh = dh + 8;
+      ctx.globalAlpha = (0.55 + 0.45 * (motionOn() ? Math.sin(T * 4) : 1)) * (1 - off2 / 0.12);
+      ctx.fillStyle = dmg ? DMGS[3] : M.accent;
+      ctx.fillRect(ox + 2, oy, ow - 4, 1); ctx.fillRect(ox + 2, oy + oh - 1, ow - 4, 1); ctx.fillRect(ox, oy + 2, 1, oh - 4); ctx.fillRect(ox + ow - 1, oy + 2, 1, oh - 4);
+      ctx.fillRect(ox + 1, oy + 1, 1, 1); ctx.fillRect(ox + ow - 2, oy + 1, 1, 1); ctx.fillRect(ox + 1, oy + oh - 2, 1, 1); ctx.fillRect(ox + ow - 2, oy + oh - 2, 1, 1);
+      ctx.globalAlpha = 1;
+    }
+    if (gm.fav) sticker(ctx, x0 + Math.round((lab.lx + lab.lw - 9) * sc), y0 + Math.round((lab.ly + 4) * sc), dmg ? DMGS[0] : '#ff4a6a');
+  });
+}
+const FLOPPY = ['1111110', '1100011', '1100011', '1111111', '1000001', '1011101', '1111111'];
+function drawInfo(sh, off) {
+  const gm = sh.games[sh.sel]; if (!gm) return;
+  const cur = sh === SH[S.shelf], e = cur ? easeOut(clamp01((T - S.titleT) / 0.28)) : 1, dx = cur ? Math.round(S.titleDir * 10 * (1 - e)) : 0;
+  ctx.globalAlpha = 0.2 + 0.8 * e;
+  text(ctx, gm.title, 160 + dx, off + 189, '#ffffff', { scale: 2, align: 'center', shadow: '#05060c' });
+  const played = gm.min ? `Played ${fmtMin(gm.min)}` : 'Not played yet';
+  const saved = gm.save != null, s = saved ? `Saved ${fmtDays(gm.save)}     ${played}` : played;
+  const sx = 160 - (textWidth(s) >> 1) + dx + (saved ? 5 : 0);
+  if (saved) { ctx.fillStyle = isDMG(sh.id) ? DMGS[3] : MOODS[sh.id].accent; FLOPPY.forEach((row, ry) => { for (let rx = 0; rx < 7; rx++) if (row[rx] === '1') ctx.fillRect(sx - 11 + rx, off + 208 + ry, 1, 1); }); }
+  text(ctx, s, sx, off + 208, '#b4bdd8', { shadow: '#05060c' });
+  ctx.globalAlpha = 1;
+}
+function drawShelfWorld(i, off, opt) {
+  const sh = SH[i], L = layers[i]; if (!L) return;
+  ctx.save(); ctx.beginPath(); ctx.rect(0, off, W, H); ctx.clip();
+  ctx.drawImage(L.bg, 0, Math.round(off * 0.4));
+  drawStars(sh, L, off);
+  moodExtras(sh, off);
+  if (i === S.shelf) drawShootingStar(sh, off);
+  ctx.drawImage(L.planet, 0, Math.round(off * 0.8));
+  drawCarts(sh, off, opt);
+  drawInfo(sh, off);
+  ctx.restore();
+}
+function renderShelfScene(opt = {}) {
+  ctx.fillStyle = '#04050c'; ctx.fillRect(0, 0, W, H);
+  const lo = Math.floor(S.cam), hi = Math.ceil(S.cam);
+  for (const i of new Set([lo, hi])) if (i >= 0 && i < SH.length) drawShelfWorld(i, Math.round((i - S.cam) * H), opt);
+}
+function drawBattery(x, y) {
+  ctx.fillStyle = '#dfe4f0';
+  ctx.fillRect(x, y, 14, 1); ctx.fillRect(x, y + 6, 14, 1); ctx.fillRect(x, y, 1, 7); ctx.fillRect(x + 13, y, 1, 7); ctx.fillRect(x + 14, y + 2, 1, 3);
+  ctx.fillStyle = '#7ee08a'; ctx.fillRect(x + 2, y + 2, 8, 3);
+}
+function drawTopBar() {
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, 230, 16); ctx.clip();
+  SH.forEach((sh, i) => {
+    const dy = Math.round((i - S.cam) * 16); if (Math.abs(dy) >= 16) return;
+    const nw = text(ctx, sh.name, 12, 6 + dy, '#ffffff', { shadow: '#05060c' });
+    text(ctx, `${sh.games.length} games`, 12 + nw + 7, 6 + dy, '#7e88aa');
+  });
+  ctx.restore();
+  SH.forEach((sh, i) => { ctx.fillStyle = i === S.shelf ? '#ffffff' : '#3e4672'; ctx.fillRect(5, 5 + i * 4, 2, 2); });
+  const d = new Date();
+  text(ctx, `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`, W - 25, 6, '#ffffff', { align: 'right', shadow: '#05060c' });
+  drawBattery(W - 20, 6);
+}
+function drawBtnIcon(name, x, y) {
+  if (name.length === 1) {
+    ctx.fillStyle = '#c4405a';
+    [3, 7, 9, 9, 9, 9, 9, 7, 3].forEach((w, r) => ctx.fillRect(x + ((9 - w) >> 1), y + r, w, 1));
+    text(ctx, name, x + 2, y + 1, '#ffffff');
+    return 9;
+  }
+  const w = textWidth(name) + 6;
+  ctx.fillStyle = '#3a4266'; ctx.fillRect(x + 1, y, w - 2, 9); ctx.fillRect(x, y + 1, w, 7);
+  text(ctx, name, x + 3, y + 1, '#ffffff');
+  return w;
+}
+function drawHints(items) {
+  ctx.fillStyle = 'rgba(255,255,255,0.16)'; ctx.fillRect(8, 224, W - 16, 1);
+  let x = 10;
+  for (const [b, label] of items) { x += drawBtnIcon(b, x, 228) + 3; x += text(ctx, label, x, 229, '#dfe4f0') + 10; }
+}
+
+/* ---------- state ---------- */
+const S = {
+  scene: 'boot', bootT0: 0, bootSnd: 0, shelf: 0, cam: 0, vol: 3, volT0: -9, lastInput: 0, sortAt: -9, fade: 0,
+  toast: null, irisOpen: null, titleT: -9, titleDir: 0, shoot: null, nextShoot: 0,
+  menu: { open: false, y: -150, sel: 0 }, det: null, lau: null, game: null, ret: null, att: null
+};
+const cur = () => SH[S.shelf];
+const curGame = () => cur().games[cur().sel];
+
+/* ---------- sound: square and triangle blips, like the speaker’s 8-bit DAC ---------- */
+let AC = null, master = null;
+function audioUnlock() {
+  try {
+    if (!AC) { AC = new (window.AudioContext || window.webkitAudioContext)(); master = AC.createGain(); master.connect(AC.destination); setVol(); }
+    else if (AC.state === 'suspended') AC.resume();
+  } catch (e) { AC = null; }
+}
+function setVol() { if (master) master.gain.value = settings.sound === 'on' ? [0, 0.05, 0.1, 0.17, 0.26][S.vol] : 0; }
+function tone(f, d, type = 'square', at = 0, v = 1, slide = null) {
+  if (!AC) return;
+  const t = AC.currentTime + at, o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + d);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t + d + 0.03);
+}
+function noise(d, at = 0, v = 0.5, f0 = 1800, f1 = 400) {
+  if (!AC) return;
+  const t = AC.currentTime + at, len = Math.max(1, Math.floor(AC.sampleRate * d)), buf = AC.createBuffer(1, len, AC.sampleRate), ch = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
+  const src = AC.createBufferSource(), bp = AC.createBiquadFilter(), g = AC.createGain();
+  src.buffer = buf; bp.type = 'bandpass'; bp.frequency.setValueAtTime(f0, t); bp.frequency.exponentialRampToValueAtTime(f1, t + d);
+  g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  src.connect(bp); bp.connect(g); g.connect(master); src.start(t); src.stop(t + d + 0.02);
+}
+const JINGLE = [[523, 0], [659, 0.1], [784, 0.2], [1047, 0.3], [988, 0.45], [1047, 0.55]];
+const sfx = {
+  tick: d => tone(d > 0 ? 1320 : 1180, 0.035, 'square', 0, 0.45),
+  bump: () => tone(150, 0.1, 'triangle', 0, 0.9, 90),
+  shelf: () => { noise(0.2, 0, 0.5, 500, 2600); tone(520, 0.09, 'triangle', 0.03, 0.5, 820); },
+  open: () => { tone(660, 0.06, 'square', 0, 0.45); tone(990, 0.09, 'square', 0.05, 0.45); },
+  back: () => { tone(880, 0.06, 'square', 0, 0.4); tone(587, 0.09, 'square', 0.05, 0.4); },
+  fav: on => (on ? [784, 988, 1175, 1568] : [1175, 988, 784]).forEach((f, i) => tone(f, 0.07, 'square', i * 0.055, 0.42)),
+  sort: () => [0, 1, 2, 3].forEach(i => { tone(700 + i * 90, 0.03, 'square', i * 0.045, 0.35); noise(0.03, i * 0.045, 0.25, 3000, 1500); }),
+  clunk: () => { noise(0.08, 0, 0.9, 1800, 300); tone(110, 0.14, 'triangle', 0, 1, 60); },
+  jingle: () => JINGLE.forEach(([f, a], i) => { const d = i === 5 ? 0.38 : 0.1; tone(f, d, 'square', a, 0.4); tone(f / 2, d, 'triangle', a, 0.6); }),
+  unjingle: () => [[1047, 0], [988, 0.1], [784, 0.2], [659, 0.3], [523, 0.42]].forEach(([f, a], i) => { const d = i === 4 ? 0.32 : 0.1; tone(f, d, 'square', a, 0.36); tone(f / 2, d, 'triangle', a, 0.5); }),
+  pop: () => { tone(240, 0.14, 'triangle', 0, 0.9, 760); noise(0.05, 0, 0.5, 2400, 900); },
+  whoosh: () => noise(0.28, 0, 0.35, 500, 3200),
+  saved: () => { tone(1320, 0.05, 'square', 0, 0.32); tone(1760, 0.09, 'square', 0.06, 0.32); },
+  letter: i => tone([523, 587, 659, 784, 1047][i] || 1047, 0.1, 'square', 0, 0.42),
+  vol: () => tone(880, 0.05, 'square', 0, 0.6)
+};
+
+/* ---------- particles ---------- */
+const P = [];
+function burst(x, y, on, dmg) {
+  for (let i = 0; i < (on ? 7 : 4); i++) P.push({ x, y, vx: (Math.random() - 0.5) * 60, vy: -40 - Math.random() * 50, life: 0.9 + Math.random() * 0.4, age: 0, kind: on ? 'heart' : 'puff', c: dmg ? (on ? DMGS[3] : DMGS[2]) : (on ? '#ff4a6a' : '#9aa3c0') });
+}
+function sparkles(x, y) { for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; P.push({ x, y, vx: Math.cos(a) * 70, vy: Math.sin(a) * 50 - 25, life: 0.7, age: 0, kind: 'spark', c: '#fff3b0' }); } }
+function drawParticles() {
+  for (const p of P) {
+    if (p.age > p.life * 0.65 && ((p.age * 20) | 0) % 2) continue;
+    const x = Math.round(p.x), y = Math.round(p.y);
+    if (p.kind === 'heart') heart(ctx, x - 2, y - 2, p.c);
+    else if (p.kind === 'spark') { ctx.fillStyle = p.c; ctx.fillRect(x - 1, y, 3, 1); ctx.fillRect(x, y - 1, 1, 3); }
+    else { ctx.fillStyle = p.c; ctx.fillRect(x, y, 2, 2); }
+  }
+}
+
+/* ---------- actions ---------- */
+function moveSel(d) {
+  const sh = cur(), ni = sh.sel + d;
+  if (ni < 0 || ni >= sh.games.length) { sh.scrollV = (sh.scrollV || 0) + d * 3.2; sfx.bump(); return; }
+  sh.sel = ni; S.titleT = T; S.titleDir = d; sfx.tick(d);
+}
+function switchShelf(d) {
+  const ni = S.shelf + d;
+  if (ni < 0 || ni >= SH.length) { S.camV = (S.camV || 0) + d * 2.4; sfx.bump(); return; }
+  S.shelf = ni; S.titleT = T; S.titleDir = 0; sfx.shelf();
+}
+function toggleFav(gm, where) {
+  gm.fav = !gm.fav;
+  const dmg = isDMG(gm.sys);
+  if (where === 'detail') { const b = boxRect(gm); burst(b.x + b.w - 10, b.y + b.h - 10, gm.fav, dmg); }
+  else burst(160, CY - (getCart(gm).height >> 1) + 8, gm.fav, dmg);
+  sfx.fav(gm.fav);
+}
+function cycleSort() {
+  const sh = cur(), g = sh.games[sh.sel];
+  sh.sort = (sh.sort + 1) % SORTS.length;
+  sh.games.sort(SORTS[sh.sort].cmp);
+  sh.sel = sh.games.indexOf(g);
+  S.sortAt = T; S.toast = { text: SORTS[sh.sort].label, t0: T }; sfx.sort();
+}
+function detailOpts(gm) {
+  if (S.det && S.det.confirm) return [{ id: 'over-yes', label: 'Start over' }, { id: 'cancel', label: 'Keep my save' }];
+  const o = gm.save != null ? [{ id: 'resume', label: 'Resume' }, { id: 'over', label: 'Start over' }] : [{ id: 'play', label: 'Start' }];
+  o.push({ id: 'fav', label: gm.fav ? 'Remove from favorites' : 'Add to favorites' });
+  return o;
+}
+function openDetail() { S.scene = 'detail'; S.det = { t0: T, closing: false, tc: 0, opt: 0, optY: 0, px: 330, confirm: false }; sfx.open(); }
+function closeDetail() { if (S.det.closing) return; S.det.closing = true; S.det.tc = T; sfx.back(); }
+function startLaunch(gm, mode) { S.scene = 'launch'; S.lau = { t0: T, gm, sh: cur(), mode, clunk: false, led: false }; tone(440, 0.08, 'square', 0, 0.4, 880); }
+function enterGame() { S.scene = 'game'; S.game = { t0: T, gm: S.lau.gm, mode: S.lau.mode, quit: null }; }
+function quitGame() { if (S.game.quit) return; S.game.quit = T; tone(660, 0.06, 'square', 0, 0.35); }
+function finishQuit() {
+  // quitting always writes a save state, so the next launch picks up right here
+  const gm = S.game.gm;
+  gm.min += Math.max(1, Math.round((S.game.quit - S.game.t0) / 60)); gm.last = 0; gm.save = 0;
+  S.scene = 'return'; S.ret = { t0: T, gm, sh: cur(), off: false, pop: false, fly: false };
+}
+function startShelf() {
+  S.scene = 'shelf'; S.fade = 1; S.lastInput = T; S.titleT = T + 0.3; S.titleDir = 1;
+  SH.forEach(sh => sh.games.forEach((gm, j) => { gm.pos = j + 4 + j * 0.7; gm.posV = 0; }));
+}
+function enterAttract() { const sh = cur(); S.scene = 'attract'; S.att = { sh, i: sh.sel, prev: null, ts: T }; }
+function exitAttract() { const a = S.att; a.sh.sel = a.i; S.scene = 'shelf'; S.fade = 0.8; S.titleT = T; S.titleDir = 0; S.lastInput = T; }
+
+/* ---------- menu ---------- */
+const MENU = [
+  { label: 'Sounds', key: 'sound', opts: [['on', 'On'], ['off', 'Off']] },
+  { label: 'Background motion', key: 'motion', opts: [['on', 'On'], ['off', 'Off']] },
+  { label: 'Game Boy shelf', key: 'gbGreen', opts: [[true, 'Classic green'], [false, 'Full color']] },
+  { label: 'Attract mode', key: 'attract', opts: [['20', 'After 20 s'], ['60', 'After 1 min'], ['off', 'Off']] }
+];
+function menuInput(b) {
+  const m = S.menu;
+  if (b === 'b' || b === 'menu') { m.open = false; sfx.back(); return; }
+  if (b === 'up') { m.sel = (m.sel + MENU.length - 1) % MENU.length; sfx.tick(-1); }
+  else if (b === 'down') { m.sel = (m.sel + 1) % MENU.length; sfx.tick(1); }
+  else if (b === 'left' || b === 'right' || b === 'a') {
+    const it = MENU[m.sel], d = b === 'left' ? -1 : 1;
+    const idx = it.opts.findIndex(o => o[0] === settings[it.key]);
+    settings[it.key] = it.opts[(idx + d + it.opts.length) % it.opts.length][0];
+    if (it.key === 'sound') setVol();
+    if (it.key === 'gbGreen') rebuild();
+    sfx.tick(d);
+  }
+}
+
+/* ---------- input ---------- */
+function press(b) {
+  T = performance.now() / 1000;
+  audioUnlock();
+  S.lastInput = T;
+  if (b === 'volume') { S.vol = (S.vol + 1) % 5; setVol(); S.volT0 = T; sfx.vol(); return; }
+  if (S.scene === 'attract') { exitAttract(); return; }
+  if (S.menu.open) { menuInput(b); return; }
+  if (S.scene === 'boot') { startShelf(); return; }
+  if (S.scene === 'shelf') {
+    if (b === 'left') moveSel(-1); else if (b === 'right') moveSel(1);
+    else if (b === 'up') switchShelf(-1); else if (b === 'down') switchShelf(1);
+    else if (b === 'a') openDetail(); else if (b === 'select') toggleFav(curGame(), 'shelf');
+    else if (b === 'start') cycleSort(); else if (b === 'menu') { S.menu.open = true; sfx.open(); }
+    else if (b === 'b') sfx.bump();
+    return;
+  }
+  if (S.scene === 'detail') {
+    const d = S.det, gm = curGame(), opts = detailOpts(gm);
+    if (d.closing) return;
+    if (b === 'up' || b === 'down') { d.opt = (d.opt + (b === 'up' ? -1 : 1) + opts.length) % opts.length; sfx.tick(1); }
+    else if (b === 'a') {
+      const o = opts[d.opt];
+      if (o.id === 'fav') toggleFav(gm, 'detail');
+      else if (o.id === 'over') { d.confirm = true; d.opt = 1; sfx.open(); }
+      else if (o.id === 'cancel') { d.confirm = false; d.opt = 1; sfx.back(); }
+      else startLaunch(gm, o.id === 'over-yes' ? 'over' : o.id);
+    }
+    else if (b === 'b') { if (d.confirm) { d.confirm = false; d.opt = 1; sfx.back(); } else closeDetail(); }
+    else if (b === 'select') toggleFav(gm, 'detail');
+    else if (b === 'menu') { S.menu.open = true; sfx.open(); }
+    return;
+  }
+  if (S.scene === 'game' && (b === 'b' || b === 'menu')) quitGame();
+}
+const held = {};
+const btnEls = {};
+document.querySelectorAll('[data-btn]').forEach(el => { (btnEls[el.dataset.btn] = btnEls[el.dataset.btn] || []).push(el); });
+function btnDown(b) { if (held[b]) return; T = performance.now() / 1000; held[b] = { t: T, next: T + 0.3 }; (btnEls[b] || []).forEach(e => e.classList.add('is-pressed')); press(b); }
+function btnUp(b) { delete held[b]; (btnEls[b] || []).forEach(e => e.classList.remove('is-pressed')); }
+const KEYS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', KeyX: 'a', Space: 'a', KeyZ: 'b', Backspace: 'b', Enter: 'start', ShiftLeft: 'select', ShiftRight: 'select', Escape: 'menu', KeyM: 'menu', KeyV: 'volume' };
+addEventListener('keydown', e => {
+  const b = KEYS[e.code]; if (!b) return;
+  const tg = e.target && e.target.tagName;
+  if ((tg === 'BUTTON' || tg === 'INPUT') && (e.code === 'Space' || e.code === 'Enter')) return;
+  e.preventDefault(); if (e.repeat) return; btnDown(b);
+});
+addEventListener('keyup', e => { const b = KEYS[e.code]; if (b) btnUp(b); });
+addEventListener('blur', () => Object.keys(held).forEach(btnUp));
+document.querySelectorAll('[data-btn]').forEach(el => {
+  const b = el.dataset.btn;
+  el.addEventListener('pointerdown', e => { e.preventDefault(); try { el.setPointerCapture(e.pointerId); } catch (_) {} btnDown(b); });
+  const up = () => btnUp(b);
+  el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('lostpointercapture', up);
+  el.addEventListener('click', e => { if (e.detail === 0) { btnDown(b); btnUp(b); } });
+  el.addEventListener('contextmenu', e => e.preventDefault());
+});
+
+/* ---------- detail view: the cartridge flips over into its box ---------- */
+function cartRect(sh) { const home = sh.kind === 'home', w = home ? 132 : 112, h = home ? 148 : 128; return { x: 160 - w / 2, y: CY - 4 - h / 2, w, h }; }
+function detP() { const d = S.det; return d.closing ? 1 - clamp01((T - d.tc) / 0.4) : clamp01((T - d.t0) / 0.45); }
+function drawFlip(gm, sh, p, dx = 0) {
+  const cr = cartRect(sh), BOX = boxRect(gm);
+  if (p < 0.5) {
+    const q = easeInOut(p / 0.5);
+    const cx = lerp(cr.x + cr.w / 2, BOX.x + BOX.w / 2, q) + dx, cy = lerp(cr.y + cr.h / 2, BOX.y + BOX.h / 2, q) - Math.sin(q * Math.PI) * 14;
+    const w = Math.round(lerp(cr.w, BOX.w, q) * (1 - q)), h = Math.round(lerp(cr.h, BOX.h, q));
+    if (w >= 1) ctx.drawImage(getCart(gm), Math.round(cx - w / 2), Math.round(cy - h / 2), w, h);
+    return;
+  }
+  const q = easeOut((p - 0.5) / 0.5), w = Math.max(1, Math.round(BOX.w * q)), x = Math.round(BOX.x + BOX.w / 2 - w / 2) + dx;
+  ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(x + 4, BOX.y + 4, w, BOX.h);
+  ctx.drawImage(getBox(gm), x, BOX.y, w, BOX.h);
+  if (p >= 1 && motionOn()) {
+    const gp = ((T * 70) % 420) - 80;
+    ctx.save(); ctx.beginPath(); ctx.rect(x, BOX.y, w, BOX.h); ctx.clip();
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    for (let y = 0; y < BOX.h; y++) ctx.fillRect(x + Math.round(gp - y * 0.5), BOX.y + y, 7, 1);
+    ctx.restore();
+  }
+}
+function drawPanel(gm, px, optY, opt, confirm) {
+  if (px >= W) return;
+  ctx.fillStyle = 'rgba(10,12,26,0.9)'; ctx.fillRect(px, 30, W - px - 6, 184);
+  ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fillRect(px, 30, W - px - 6, 1);
+  const x = px + 7, maxW = W - px - 20; let y = 37;
+  const big = wrap(gm.title, maxW, 2);
+  if (big.length <= 2) big.forEach(l => { text(ctx, l, x, y, '#fff3d6', { scale: 2 }); y += 18; });
+  else { wrap(gm.title, maxW).forEach(l => { text(ctx, l, x, y, '#fff3d6'); y += 10; }); y += 4; }
+  y += 1; text(ctx, SYSLONG[gm.sys], x, y, '#8f99b8'); y += 13;
+  text(ctx, gm.min ? `Played ${fmtMin(gm.min)}` : 'Not played yet', x, y, '#dfe5f2'); y += 14;
+  if (confirm) {
+    wrap('Starting over replaces your save the next time you quit.', maxW).forEach(l => { text(ctx, l, x, y, '#ffd25a'); y += 10; });
+  } else if (gm.save != null) {
+    // where you left off: the firmware stores a small screenshot with each save state
+    const th = getArtV(gm), fy = getArt(gm).artFocus != null ? getArt(gm).artFocus : 40, sy = Math.max(0, Math.min(44, Math.round(fy - 30)));
+    ctx.fillStyle = '#3a4472'; ctx.fillRect(x - 1, y - 1, 50, 38);
+    ctx.drawImage(th, 8, sy, 48, 36, x, y, 48, 36);
+    ctx.fillStyle = 'rgba(6,8,18,0.75)'; ctx.fillRect(x + 1, y + 26, 11, 9); text(ctx, '▶', x + 4, y + 27, '#ffffff');
+    text(ctx, 'Left off', x + 56, y + 8, '#8f99b8');
+    text(ctx, fmtDays(gm.save), x + 56, y + 19, '#dfe5f2');
+  } else text(ctx, 'No save yet', x, y, '#8f99b8');
+  const opts = detailOpts(gm), oy0 = 210 - opts.length * 15, hy = Math.round(oy0 + Math.min(optY, opts.length - 1) * 15);
+  ctx.fillStyle = '#283058'; ctx.fillRect(px + 3, hy - 3, W - px - 12, 13);
+  ctx.fillStyle = '#ffd25a'; ctx.fillRect(px + 3, hy - 3, 2, 13);
+  opts.forEach((o, i) => text(ctx, o.label, x + 10, oy0 + i * 15, i === opt ? '#ffffff' : '#aab3cc'));
+  text(ctx, '▶', x + (motionOn() ? Math.round((Math.sin(T * 6) + 1) * 0.8) : 0), hy, '#ffd25a');
+}
+function renderDetail() {
+  const d = S.det, p = detP();
+  ctx.fillStyle = 'rgb(6,8,18)'; ctx.globalAlpha = 0.68 * Math.min(1, p * 1.6); ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
+  drawFlip(curGame(), cur(), p);
+  drawPanel(curGame(), Math.round(d.px), d.optY, d.opt, d.confirm);
+}
+
+/* ---------- launch and return: into the console, and back out again ---------- */
+const LS = home => home ? 0.62 : 0.6;
+function consoleGeom(sh, gm) {
+  const home = sh.kind === 'home', spr = getCart(gm), s = LS(home), dw = Math.round(spr.width * s), dh = Math.round(spr.height * s), ct = home ? 128 : 96;
+  return { home, spr, dw, dh, ct, insert: home ? ct + 7 + 40 - dh : ct + 44 - dh };
+}
+function drawConsoleAndCart(G, cy, cartX, cartY, dw, dh, on, lt, gm, clip) {
+  if (G.home) {
+    drawHomeConsole(160, cy, on);
+    ctx.save(); if (clip) { ctx.beginPath(); ctx.rect(-4, -10, W + 8, cy + 7 + 10); ctx.clip(); }
+    ctx.drawImage(G.spr, Math.round(cartX - dw / 2), Math.round(cartY), dw, dh); ctx.restore();
+  } else {
+    ctx.drawImage(G.spr, Math.round(cartX - dw / 2), Math.round(cartY), dw, dh);
+    drawPocketConsole(160, cy, on, lt, gm);
+  }
+}
+function renderLaunch() {
+  const L = S.lau, t = T - L.t0, sh = L.sh, gm = L.gm, G = consoleGeom(sh, gm);
+  let ox = 0, oy = 0;
+  if (t > 1.15 && t < 1.32 && motionOn()) { ox = Math.random() < 0.5 ? -2 : 2; oy = Math.random() < 0.5 ? -1 : 1; }
+  ctx.setTransform(1, 0, 0, 1, ox, oy);
+  renderShelfScene({ hideSel: true });
+  ctx.fillStyle = 'rgb(6,8,18)'; ctx.globalAlpha = lerp(0.68, 0.9, clamp01(t / 0.4)); ctx.fillRect(-4, -4, W + 8, H + 8); ctx.globalAlpha = 1;
+  if (t < 0.35) { const e = easeIn(t / 0.35); drawFlip(gm, sh, 1, -Math.round(e * 170)); drawPanel(gm, Math.round(panelX(gm) + e * 180), S.det.optY, S.det.opt, false); }
+  const cy = Math.round(lerp(H + 10, G.ct, easeOutBack(clamp01((t - 0.3) / 0.45))));
+  let yc;
+  if (t < 0.6) yc = -300;
+  else if (t < 1.15) yc = lerp(-G.dh - 10, G.insert, easeInQuad((t - 0.6) / 0.55));
+  else { const k = t - 1.15; yc = G.insert - Math.abs(Math.sin(k * 18)) * 4 * Math.exp(-k * 9); }
+  drawConsoleAndCart(G, cy, 160, yc, G.dw, G.dh, t > 1.35, t - 1.35, gm, true);
+  drawParticles();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  if (t > 1.9) iris(160, G.home ? cy + 7 : cy + 46, Math.round((1 - easeInQuad(clamp01((t - 1.9) / 0.6))) * 230));
+}
+function renderReturn() {
+  // the launch, played backwards: power down, the cartridge pops out and flies home
+  const R = S.ret, t = T - R.t0, sh = R.sh, gm = R.gm, G = consoleGeom(sh, gm), cr = cartRect(sh);
+  renderShelfScene({ hideSel: true });
+  const dim = t < 1.15 ? 0.9 : lerp(0.9, 0, easeInOut(clamp01((t - 1.15) / 0.6)));
+  ctx.fillStyle = 'rgb(6,8,18)'; ctx.globalAlpha = dim; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
+  const cy = t < 1.0 ? G.ct : Math.round(lerp(G.ct, H + 20, easeIn(clamp01((t - 1.0) / 0.45))));
+  const popH = 58, top0 = G.insert;
+  let cx = 160, ctop = top0, dw = G.dw, dh = G.dh, clip = true;
+  if (t >= 0.8 && t < 1.15) ctop = top0 - easeOutBack(clamp01((t - 0.8) / 0.35)) * popH;
+  else if (t >= 1.15) {
+    const q = easeInOut(clamp01((t - 1.15) / 0.6)), s = lerp(LS(G.home), 1, q);
+    dw = Math.round(G.spr.width * s); dh = Math.round(G.spr.height * s);
+    const cyc = lerp(top0 - popH + G.dh / 2, cr.y + cr.h / 2, q) - Math.sin(q * Math.PI) * 10;
+    ctop = cyc - dh / 2; clip = false;
+  }
+  const lt = t < 0.55 ? 1 : 0.3 * (1 - clamp01((t - 0.55) / 0.25));
+  if (G.home || t < 1.15) drawConsoleAndCart(G, cy, cx, ctop, dw, dh, t < 0.55, lt, gm, clip);
+  else { drawPocketConsole(160, cy, false, 0, gm); ctx.drawImage(G.spr, Math.round(cx - dw / 2), Math.round(ctop), dw, dh); }
+  drawParticles();
+  if (t < 0.55) iris(160, G.home ? cy + 7 : cy + 46, Math.round(easeOut(t / 0.55) * 230));
+}
+function led(x, y, on) {
+  if (on) { ctx.fillStyle = 'rgba(255,90,90,0.35)'; ctx.fillRect(x - 2, y - 1, 7, 4); ctx.fillRect(x - 1, y - 2, 5, 6); ctx.fillStyle = '#ff5a5a'; }
+  else ctx.fillStyle = '#4a1c1c';
+  ctx.fillRect(x, y, 3, 2);
+}
+function drawHomeConsole(cx, y, on) {
+  const x = cx - 88;
+  ctx.fillStyle = '#1a1c24'; ctx.fillRect(x + 10, y + 64, 14, 3); ctx.fillRect(x + 152, y + 64, 14, 3);
+  ctx.fillStyle = '#5a6072'; ctx.fillRect(x, y, 176, 14); ctx.fillStyle = '#7a8298'; ctx.fillRect(x, y, 176, 1);
+  ctx.fillStyle = '#3a3f4e'; ctx.fillRect(cx - 50, y + 3, 100, 1); ctx.fillRect(cx - 50, y + 10, 100, 1);
+  ctx.fillStyle = '#0c0d12'; ctx.fillRect(cx - 48, y + 4, 96, 6);
+  ctx.fillStyle = '#3f4454'; ctx.fillRect(x, y + 14, 176, 50); ctx.fillStyle = '#2c303c'; ctx.fillRect(x, y + 62, 176, 2);
+  ctx.fillStyle = '#d9475b'; ctx.fillRect(x, y + 20, 176, 3);
+  ctx.fillStyle = '#2a2e3a'; ctx.fillRect(x + 16, y + 34, 26, 10); ctx.fillRect(x + 48, y + 34, 26, 10);
+  ctx.fillStyle = '#525868'; ctx.fillRect(x + 16, y + 34, 26, 1); ctx.fillRect(x + 48, y + 34, 26, 1);
+  ctx.fillStyle = '#2a2e3a'; for (let i = 0; i < 6; i++) ctx.fillRect(x + 118 + i * 8, y + 30, 3, 22);
+  led(x + 18, y + 52, on);
+}
+function drawPocketConsole(cx, y, on, lt, gm) {
+  // a generic little handheld of our own design
+  const x = cx - 56;
+  ctx.fillStyle = '#3e4a72'; ctx.fillRect(x + 3, y, 106, 146); ctx.fillRect(x, y + 3, 112, 140); ctx.fillRect(x + 1, y + 1, 110, 144);
+  ctx.fillStyle = '#56649a'; ctx.fillRect(x + 3, y + 1, 106, 1);
+  ctx.fillStyle = '#2a3252'; ctx.fillRect(x + 20, y, 72, 3);
+  ctx.fillStyle = '#1e2236'; ctx.fillRect(x + 10, y + 12, 92, 70);
+  const lit = clamp01(lt / 0.3);
+  ctx.fillStyle = lit > 0 ? css(q565(lerpC(hx('#26304a'), hx('#bfe3ff'), lit))) : '#26304a';
+  ctx.fillRect(x + 16, y + 18, 80, 58);
+  if (lt > 0.35) text(ctx, gm.title.split(' ').map(w => w[0]).join('').slice(0, 3).toUpperCase(), cx, y + 39, '#26304a', { scale: 2, align: 'center' });
+  led(x + 50, y + 85, on);
+  ctx.fillStyle = '#1e2236'; ctx.fillRect(x + 14, y + 104, 22, 7); ctx.fillRect(x + 21, y + 97, 8, 21);
+  disc(ctx, x + 76, y + 107, 6, '#ffd25a'); disc(ctx, x + 94, y + 107, 6, '#ffd25a');
+  ctx.fillStyle = '#2a3252'; for (let i = 0; i < 4; i++) ctx.fillRect(x + 44 + i * 7, y + 130, 3, 3);
+}
+
+function iris(cx, cy, r) {
+  ctx.fillStyle = '#000';
+  if (r <= 0) { ctx.fillRect(0, 0, W, H); return; }
+  for (let y = 0; y < H; y++) {
+    const dy = y - cy;
+    if (Math.abs(dy) >= r) { ctx.fillRect(0, y, W, 1); continue; }
+    const hw = Math.floor(Math.sqrt(r * r - dy * dy)), l = Math.max(0, cx - hw), rr = Math.min(W, cx + hw + 1);
+    if (l > 0) ctx.fillRect(0, y, l, 1);
+    if (rr < W) ctx.fillRect(rr, y, W - rr, 1);
+  }
+}
+
+
+/* ---------- attract mode ---------- */
+const attA = mk(W, H), attB = mk(W, H);
+function drawAttractFrame(g, gm, tt) {
+  const avg = avgColor(gm);
+  g.fillStyle = css(q565(lerpC(avg, [0, 0, 0], 0.65))); g.fillRect(0, 0, W, H);
+  g.fillStyle = css(q565(lerpC(avg, [0, 0, 0], 0.5)));
+  for (let y = 0; y < H; y += 2) for (let x = (y >> 1) & 1; x < W; x += 4) g.fillRect(x, y, 1, 1);
+  const bx = getBox(gm), dw = Math.round(bx.width * 240 / bx.height), ax = ((W - dw) >> 1) + (reduceMotion ? 0 : Math.round(Math.sin(tt * 0.5) * 8));
+  g.drawImage(bx, ax, 0, dw, 240);
+  g.fillStyle = 'rgba(6,8,16,0.78)'; g.fillRect(0, 200, W, 40);
+  text(g, gm.title, 160, 207, '#fff3d6', { scale: 2, align: 'center' });
+  if (((T * 1.4) | 0) % 2 === 0) text(g, 'Press any button', 160, 228, '#a8b2d8', { align: 'center' });
+}
+function renderAttract() {
+  const a = S.att, gms = a.sh.games, tt = T - a.ts;
+  drawAttractFrame(attB.g, gms[a.i], tt);
+  if (a.prev !== null && tt < 0.7) {
+    drawAttractFrame(attA.g, gms[a.prev], tt + 5.5);
+    ctx.drawImage(attA, 0, 0);
+    const p = tt / 0.7;
+    for (let by = 0; by < H / 8; by++) for (let bx = 0; bx < W / 8; bx++) if (bay(bx, by) < p) ctx.drawImage(attB, bx * 8, by * 8, 8, 8, bx * 8, by * 8, 8, 8);
+  } else ctx.drawImage(attB, 0, 0);
+}
+
+/* ---------- overlays ---------- */
+function drawToast() {
+  if (!S.toast) return;
+  const t = T - S.toast.t0; if (t > 1.9) { S.toast = null; return; }
+  const y = Math.round(t < 0.2 ? lerp(-12, 20, easeOutBack(t / 0.2)) : t > 1.65 ? lerp(20, -12, easeIn((t - 1.65) / 0.25)) : 20);
+  const tw = textWidth(S.toast.text) + 14, x = 160 - (tw >> 1);
+  ctx.fillStyle = '#ffd25a'; ctx.fillRect(x + 1, y, tw - 2, 12); ctx.fillRect(x, y + 1, tw, 10);
+  text(ctx, S.toast.text, 160, y + 2, '#2a2010', { align: 'center' });
+}
+function drawVolume() {
+  const t = T - S.volT0; if (t > 1.5 || t < 0) return;
+  const y = Math.round(t < 0.15 ? lerp(-24, 20, easeOut(t / 0.15)) : t > 1.3 ? lerp(20, -24, easeIn((t - 1.3) / 0.2)) : 20), x = 118;
+  ctx.fillStyle = '#141a34'; ctx.fillRect(x, y, 84, 20); ctx.fillStyle = '#3a4472'; ctx.fillRect(x, y, 84, 1); ctx.fillRect(x, y + 19, 84, 1);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 7, y + 8, 3, 5); for (let i = 0; i < 4; i++) ctx.fillRect(x + 10 + i, y + 7 - i, 1, 7 + i * 2);
+  if (S.vol === 0) text(ctx, '×', x + 16, y + 6, '#ff7a8a');
+  for (let i = 0; i < 4; i++) { const h = 4 + i * 2; ctx.fillStyle = i < S.vol ? '#ffd25a' : '#3a4472'; ctx.fillRect(x + 28 + i * 13, y + 15 - h, 9, h); }
+}
+function drawMenu() {
+  const m = S.menu; if (m.y < -138) return;
+  const pw = 240, ph = 26 + MENU.length * 16 + 16, px = 40, py = Math.round(m.y);
+  ctx.fillStyle = 'rgb(4,6,14)'; ctx.globalAlpha = 0.55 * clamp01((m.y + 140) / 180); ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
+  ctx.fillStyle = '#141a34'; ctx.fillRect(px, py, pw, ph);
+  ctx.fillStyle = '#3a4472'; ctx.fillRect(px, py + ph - 1, pw, 1); ctx.fillRect(px, py, 1, ph); ctx.fillRect(px + pw - 1, py, 1, ph);
+  ctx.fillStyle = '#ffd25a'; ctx.fillRect(px, py, pw, 2);
+  text(ctx, 'Settings', px + 10, py + 8, '#fff3d6', { scale: 2 });
+  MENU.forEach((it, i) => {
+    const y = py + 30 + i * 16, sel = i === m.sel;
+    if (sel) { ctx.fillStyle = '#262e5a'; ctx.fillRect(px + 4, y - 4, pw - 8, 14); }
+    text(ctx, it.label, px + 10, y, sel ? '#ffffff' : '#aab3cc');
+    const v = (it.opts.find(o => o[0] === settings[it.key]) || it.opts[0])[1];
+    text(ctx, sel ? `◀ ${v} ▶` : v, px + pw - 10, y, sel ? '#ffd25a' : '#dfe4f0', { align: 'right' });
+  });
+  text(ctx, 'Press B to close', px + pw / 2, py + ph - 12, '#7a84a8', { align: 'center' });
+}
+
+
+/* ---------- fit the screen to the window, keeping pixels square ---------- */
+function fit() {
+  const wide = innerWidth >= 1000;
+  const availW = (wide ? innerWidth - 400 : innerWidth - 40) - 72, availH = innerHeight - 320;
+  let s = Math.min(availW / 320, availH / 240, 2);
+  s = s >= 2 ? 2 : s >= 1.5 ? 1.5 : s >= 1 ? Math.floor(s * 4) / 4 : Math.max(0.8, s);
+  document.documentElement.style.setProperty('--sw', Math.round(320 * s) + 'px');
+  document.documentElement.style.setProperty('--sh', Math.round(240 * s) + 'px');
+}
+addEventListener('resize', fit); fit();
+
+
+/* ---------- the stand-in for the emulator ---------- */
+function renderGame() {
+  const G = S.game, t = T - G.t0;
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+  const msg = `${G.mode === 'resume' ? 'Resuming' : 'Starting'} ${G.gm.title}…`, x0 = 160 - (textWidth(msg) >> 1);
+  text(ctx, msg.slice(0, Math.min(msg.length, Math.floor(t * 30))), x0, 88, '#ffffff');
+  const bar = (q, y) => {
+    ctx.fillStyle = '#3a4472'; ctx.fillRect(99, y, 122, 1); ctx.fillRect(99, y + 7, 122, 1); ctx.fillRect(99, y, 1, 8); ctx.fillRect(220, y, 1, 8);
+    ctx.fillStyle = '#ffd25a'; for (let i = 0; i < Math.floor(q * 20); i++) ctx.fillRect(101 + i * 6, y + 2, 5, 4);
+  };
+  bar(clamp01((t - 0.3) / 1.2), 104);
+  if (G.quit) {
+    const q = clamp01((T - G.quit) / 0.7);
+    text(ctx, q < 1 ? 'Saving your progress…' : 'Saved', 160, 144, '#dfe5f2', { align: 'center' });
+    bar(q, 158);
+  } else if (t > 1.7) {
+    text(ctx, 'The emulator takes over from here.', 160, 140, '#8f99b8', { align: 'center' });
+    text(ctx, 'Quitting saves your spot automatically.', 160, 151, '#8f99b8', { align: 'center' });
+    if (((T * 1.6) | 0) % 2 === 0) text(ctx, 'Press B to quit', 160, 178, '#ffd25a', { align: 'center' });
+  }
+}
+
+/* ---------- boot ---------- */
+let bootBg = null;
+function makeBootBg() {
+  TINT = null;
+  const c = mk(W, H); gradient(c.g, 0, 0, W, H, ['#05061a', '#0c0b24', '#16102e']);
+  const R = rng(7); for (let k = 0; k < 80; k++) { c.g.fillStyle = col(R() < 0.3 ? '#ffffff' : '#6a74a8'); c.g.fillRect((R() * W) | 0, (R() * H) | 0, 1, 1); }
+  return c;
+}
+function renderBoot() {
+  const t = T - S.bootT0;
+  ctx.drawImage(bootBg, 0, 0);
+  const word = 'Shelf', sc = 4; let x = 160 - (textWidth(word, sc) >> 1);
+  for (let i = 0; i < word.length; i++) {
+    const ch = word[i], gw = glyph(ch).w * sc, ti = t - (0.25 + i * 0.13);
+    if (ti >= 0) {
+      const y = ti < 0.5 ? Math.round(lerp(-40, 82, easeOutBounce(ti / 0.5))) : 82;
+      text(ctx, ch, x + 2, y + 2, '#2a1c3a', { scale: sc });
+      text(ctx, ch, x, y, '#ffffff', { scale: sc });
+    }
+    x += gw + sc;
+  }
+  if (t > 1.15) { ctx.globalAlpha = clamp01((t - 1.15) / 0.4); text(ctx, 'Your games, ready to play.', 160, 130, '#8a94c8', { align: 'center' }); ctx.globalAlpha = 1; }
+  if (t > 2.05) { ctx.fillStyle = '#000'; ctx.globalAlpha = clamp01((t - 2.05) / 0.3); ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
+}
+
+/* ---------- loop ---------- */
+function update(dt) {
+  for (const b of ['left', 'right', 'up', 'down']) { const h = held[b]; if (h && T >= h.next) { press(b); h.next = T + (T - h.t > 1.2 ? 0.055 : 0.095); } }
+  const cs = cur();
+  for (const sh of SH) {
+    spring(sh, 'scroll', sh.sel, dt, 200, 25);
+    sh.games.forEach((gm, j) => { spring(gm, 'pos', j, dt, 150, 21); spring(gm, 'lift', (sh === cs && j === sh.sel) ? 4 : 0, dt, 260, 22); });
+  }
+  spring(S, 'cam', S.shelf, dt, 140, 19);
+  spring(S.menu, 'y', S.menu.open ? 40 : -150, dt, 240, 24);
+  for (let i = P.length - 1; i >= 0; i--) { const p = P[i]; p.age += dt; p.vy += 50 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.97; if (p.age > p.life) P.splice(i, 1); }
+  if (S.scene === 'boot') {
+    const ti = T - S.bootT0 - (0.25 + S.bootSnd * 0.13);
+    if (S.bootSnd < 5 && ti >= 0.18) { sfx.letter(S.bootSnd); S.bootSnd++; }
+    if (T - S.bootT0 > 2.4) startShelf();
+  }
+  if (S.scene === 'detail') {
+    spring(S.det, 'px', S.det.closing ? W + 12 : panelX(curGame()), dt, 220, 24);
+    spring(S.det, 'optY', S.det.opt, dt, 300, 26);
+    if (S.det.closing && T - S.det.tc > 0.4) S.scene = 'shelf';
+  }
+  if (S.scene === 'launch') {
+    const L = S.lau, t = T - L.t0, home = L.sh.kind === 'home';
+    if (t >= 1.15 && !L.clunk) { L.clunk = true; sfx.clunk(); }
+    if (t >= 1.35 && !L.led) { L.led = true; sfx.jingle(); sparkles(160, home ? 135 : 112); }
+    if (t >= 2.5) enterGame();
+  }
+  if (S.scene === 'game' && S.game.quit && T - S.game.quit > 1.0) finishQuit();
+  if (S.scene === 'return') {
+    const R = S.ret, t = T - R.t0, G = consoleGeom(R.sh, R.gm);
+    if (t >= 0.55 && !R.off) { R.off = true; sfx.unjingle(); }
+    if (t >= 0.8 && !R.pop) { R.pop = true; sfx.pop(); sparkles(160, G.home ? G.ct + 7 : G.ct + 2); }
+    if (t >= 1.15 && !R.fly) { R.fly = true; sfx.whoosh(); }
+    if (t >= 1.8) { S.scene = 'shelf'; R.gm.lift = 4; S.titleT = T; S.titleDir = 0; S.lastInput = T; S.toast = { text: 'Progress saved', t0: T }; sfx.saved(); }
+  }
+  if (S.scene === 'attract' && T - S.att.ts > 5.5) { S.att.prev = S.att.i; S.att.i = (S.att.i + 1) % S.att.sh.games.length; S.att.ts = T; }
+  if (S.scene === 'shelf' && !S.menu.open && settings.attract !== 'off' && T - S.lastInput > +settings.attract && Math.abs(S.cam - S.shelf) < 0.01) enterAttract();
+  if (S.scene === 'shelf' && motionOn() && T > S.nextShoot) { S.shoot = { t0: T, x: 30 + Math.random() * 170, y: 18 + Math.random() * 50 }; S.nextShoot = T + 7 + Math.random() * 9; }
+  if (S.irisOpen && T - S.irisOpen.t0 > 0.6) S.irisOpen = null;
+  S.fade = Math.max(0, S.fade - dt * 2.2);
+}
+function shelfHints() { const gm = curGame(); return [['A', 'Open'], ['Select', gm && gm.fav ? 'Unfavorite' : 'Favorite'], ['Start', 'Sort'], ['Menu', 'Settings']]; }
+function render() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  switch (S.scene) {
+    case 'boot': renderBoot(); break;
+    case 'shelf': renderShelfScene(); drawTopBar(); drawParticles(); drawHints(shelfHints()); break;
+    case 'detail': renderShelfScene({ hideSel: true }); renderDetail(); drawTopBar(); drawParticles(); drawHints(S.det.confirm ? [['A', 'Choose'], ['B', 'Cancel']] : [['A', 'Choose'], ['B', 'Back'], ['Select', '♥']]); break;
+    case 'launch': renderLaunch(); break;
+    case 'game': renderGame(); if (!S.game.quit) drawHints([['B', 'Quit and save']]); break;
+    case 'return': renderReturn(); break;
+    case 'attract': renderAttract(); break;
+  }
+  drawToast(); drawVolume(); drawMenu();
+  if (S.fade > 0) { ctx.fillStyle = '#000'; ctx.globalAlpha = Math.min(1, S.fade); ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
+}
+const lock = document.getElementById('lock30');
+let last = performance.now();
+function frame(now) {
+  requestAnimationFrame(frame);
+  if (lock.checked && now - last < 1000 / 30 - 2) return;
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now; T = now / 1000;
+  update(dt); render();
+}
+T = performance.now() / 1000;
+rebuild();
+bootBg = makeBootBg();
+S.bootT0 = T; S.lastInput = T; S.nextShoot = T + 4;
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

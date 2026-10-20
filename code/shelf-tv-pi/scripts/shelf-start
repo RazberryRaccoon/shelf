@@ -1,0 +1,8 @@
+#!/bin/bash
+# Starts the Shelf session, through a minimal X server if RetroArch needs one (see install.sh).
+APP="$HOME/shelf/app"
+if [ "$(cat "$APP/display-mode" 2>/dev/null)" = "x11" ]; then
+    exec startx "$APP/scripts/shelf-session.sh" -- -nocursor
+else
+    exec "$APP/scripts/shelf-session.sh"
+fi

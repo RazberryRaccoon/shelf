@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Shelf for TV, prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Unbounded:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  color-scheme: light;
+  /* the page around the TV picture */
+  --page: #dfe2ec;
+  --page-text: #3a3f58;
+  /* the TV picture itself is always a night sky */
+  --ink: #070b1e;
+  --deep: #0d1330;
+  --star: #eef1ff;
+  --dust: #9aa2cc;
+  --faint: rgba(238, 241, 255, 0.55);
+  --line: rgba(238, 241, 255, 0.14);
+  --glass: rgba(14, 20, 52, 0.62);
+  --accent: #b3a6ff;
+  --display: "Unbounded", "Segoe UI", system-ui, sans-serif;
+  --body: "Manrope", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { color-scheme: dark; --page: #000; --page-text: #8a90b0; }
+}
+:root[data-theme="dark"] { color-scheme: dark; --page: #000; --page-text: #8a90b0; }
