@@ -21,6 +21,8 @@ that we've learned … and make an Android game launcher that's the best it can 
 
 - Prototype v2 is built: both parts of the v1 review (models, consoles and the Museum; then the launch animation,
   music, emulators and the rest). Waiting on the user's review; see `docs/ROADMAP.md`.
+- In progress: remaking consoles and cartridges in Blender, one console at a time (GBA first), then UI ideas
+  (gallery, orbit, cover-driven color, print, physical UI) to explore with style frames.
 - After that: set up the Android project and GitHub Actions build → build it in vertical slices.
 - The user asked to "talk it through" before building anything new. Propose, confirm, then build.
 
@@ -76,6 +78,8 @@ that we've learned … and make an Android game launcher that's the best it can 
 - `prototypes/`: the three working browser prototypes. Open in a desktop browser, or at
   `https://razberryraccoon.github.io/shelf/prototypes/` (GitHub Pages, updates about a minute after a merge).
 - `prototype-source/`: the prototypes split into the parts they were built from, with a build script.
+- `tools/models/`: Blender scripts that build consoles and cartridges from the user's reference photos (see its
+  README). Output goes to `prototype-source/models/`. GBA done; the rest still use the code-built models.
 - `code/`: the Odroid GO firmware integration and the Raspberry Pi C app.
 - `downloads/`: the zips linked from the README. Rebuild them with `bash scripts/make-downloads.sh` whenever
   `code/` or `prototypes/` change, and commit the result.

@@ -30,16 +30,16 @@ function shader(vs, fs) {
 let MESH, BG, STARS, PLANET, FIELDS;
 function initGL() {
   MESH = shader(`
-attribute vec3 aPos; attribute vec3 aNor; attribute vec2 aUV;
-uniform mat4 uVP, uM; uniform float uGrow; varying vec3 vN, vW, vL; varying vec2 vUV;
-void main() { vL = aPos; vec4 w = uM * vec4(aPos + aNor * uGrow * aUV.y, 1.0); vW = w.xyz; vN = mat3(uM) * aNor; vUV = aUV; gl_Position = uVP * w; }`, `
+attribute vec3 aPos; attribute vec3 aNor; attribute vec2 aUV, aUV2;
+uniform mat4 uVP, uM; uniform float uGrow; varying vec3 vN, vW, vL; varying vec2 vUV, vUV2;
+void main() { vL = aPos; vUV2 = aUV2; vec4 w = uM * vec4(aPos + aNor * uGrow * aUV.y, 1.0); vW = w.xyz; vN = mat3(uM) * aNor; vUV = aUV; gl_Position = uVP * w; }`, `
 #ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
 #else
 precision mediump float;
 #endif
-varying vec3 vN, vW, vL; varying vec2 vUV;
-uniform sampler2D uTex; uniform float uTexOn, uAlpha, uSpec, uBright, uMode, uTime, uGrain, uGloss; uniform vec3 uColor, uRim, uEye, uEmit;
+varying vec3 vN, vW, vL; varying vec2 vUV, vUV2;
+uniform sampler2D uTex, uAO; uniform float uTexOn, uAlpha, uSpec, uBright, uMode, uTime, uGrain, uGloss, uAOOn; uniform vec3 uColor, uRim, uEye, uEmit;
 float hsh(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 45.164))) * 43758.5453); }
 float vnoise(vec3 p) {   // smooth value noise, for a fine molded-plastic texture
   vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -57,7 +57,8 @@ void main() {
   if (uMode > 0.5) { gl_FragColor = vec4(uColor, tc.a * uAlpha); return; }
   vec3 n = normalize(vN);
   vec3 base = uTexOn > 0.5 ? tc.rgb : uColor;
-  float specK = uSpec;
+  float specK = uSpec, ao = mix(1.0, texture2D(uAO, vUV2).r, uAOOn);   // soft shadows baked in Blender
+  base *= ao; specK *= 0.4 + 0.6 * ao;
   if (uGrain > 0.001) {
     vec3 q = vL * 140.0; float g1 = vnoise(q), g2 = vnoise(q + 31.7), g3 = vnoise(q + 63.1);
     n = normalize(n + (vec3(g1, g2, g3) - 0.5) * 0.09 * uGrain);
@@ -129,10 +130,10 @@ void main() {
 }
 
 /* ---------- buffers ---------- */
-function mesh(pos, nor, uv, idx) {
-  const b = k => { const x = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, x); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(k), gl.STATIC_DRAW); return x; };
+function mesh(pos, nor, uv, idx, uv2) {
+  const b = k => { const x = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, x); gl.bufferData(gl.ARRAY_BUFFER, k instanceof Float32Array ? k : new Float32Array(k), gl.STATIC_DRAW); return x; };
   const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idx), gl.STATIC_DRAW);
-  return { p: b(pos), n: b(nor), t: b(uv), i: ib, count: idx.length };
+  return { p: b(pos), n: b(nor), t: b(uv), t2: uv2 ? b(uv2) : null, i: ib, count: idx.length };
 }
 // A flat shape (convex, counter-clockwise) pushed out to a given depth, with smooth sides on rounded corners.
 function extrude(pts, depth) {
@@ -245,6 +246,8 @@ function bindMesh(m) {
   gl.bindBuffer(gl.ARRAY_BUFFER, m.p); gl.vertexAttribPointer(a.aPos, 3, gl.FLOAT, false, 0, 0);
   gl.bindBuffer(gl.ARRAY_BUFFER, m.n); gl.vertexAttribPointer(a.aNor, 3, gl.FLOAT, false, 0, 0);
   gl.bindBuffer(gl.ARRAY_BUFFER, m.t); gl.vertexAttribPointer(a.aUV, 2, gl.FLOAT, false, 0, 0);
+  if (m.t2) { gl.enableVertexAttribArray(a.aUV2); gl.bindBuffer(gl.ARRAY_BUFFER, m.t2); gl.vertexAttribPointer(a.aUV2, 2, gl.FLOAT, false, 0, 0); }
+  else { gl.disableVertexAttribArray(a.aUV2); gl.vertexAttrib2f(a.aUV2, 0, 0); }
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, m.i);
 }
 function drawPart(m, model, o) {
@@ -254,7 +257,8 @@ function drawPart(m, model, o) {
   gl.uniform1f(u.uTexOn, o.tex ? 1 : 0);
   if (o.tex) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, o.tex); gl.uniform1i(u.uTex, 0); }
   gl.uniform3fv(u.uColor, o.col || [1, 1, 1]); gl.uniform1f(u.uAlpha, (o.alpha == null ? 1 : o.alpha) * UNDER); gl.uniform1f(u.uSpec, o.spec || 0);
-  gl.uniform1f(u.uBright, o.bright == null ? 1 : o.bright); gl.uniform1f(u.uGrain, o.grain || 0); gl.uniform1f(u.uGloss, o.gloss || 0); gl.uniform3fv(u.uEmit, o.emit || [0, 0, 0]); gl.uniform1f(u.uMode, o.hull ? 2 : o.mask ? 1 : 0); gl.uniform1f(u.uGrow, o.grow || 0);
+  gl.uniform1f(u.uBright, o.bright == null ? 1 : o.bright); gl.uniform1f(u.uGrain, o.grain || 0); gl.uniform1f(u.uGloss, o.gloss || 0);
+  gl.uniform1f(u.uAOOn, o.ao ? 1 : 0); if (o.ao) { gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, o.ao); gl.uniform1i(u.uAO, 1); gl.activeTexture(gl.TEXTURE0); } gl.uniform3fv(u.uEmit, o.emit || [0, 0, 0]); gl.uniform1f(u.uMode, o.hull ? 2 : o.mask ? 1 : 0); gl.uniform1f(u.uGrow, o.grow || 0);
   bindMesh(m); gl.drawElements(gl.TRIANGLES, m.count, gl.UNSIGNED_SHORT, 0);
 }
 function beginMeshes() {
@@ -264,7 +268,7 @@ function beginMeshes() {
   gl.uniformMatrix4fv(MESH.u.uVP, false, VP); gl.uniform3fv(MESH.u.uEye, EYE); gl.uniform3fv(MESH.u.uRim, RIM); gl.uniform1f(MESH.u.uTime, S.time);
   gl.enable(gl.DEPTH_TEST); gl.enable(gl.CULL_FACE); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 }
-function endMeshes() { if (NODRAW) return; const a = MESH.a; gl.disableVertexAttribArray(a.aNor); gl.disableVertexAttribArray(a.aUV); gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); }
+function endMeshes() { if (NODRAW) return; const a = MESH.a; gl.disableVertexAttribArray(a.aNor); gl.disableVertexAttribArray(a.aUV); gl.disableVertexAttribArray(a.aUV2); gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); }
 /* ---------- the backdrop ---------- */
 const MOOD = { cur: 'home', prev: 'home', t: 1 };
 function moodColors(key) { return SYS[key] ? SYS[key] : { planet: ['#e6dcff', '#8b78e6', '#2b1f66'], neb: ['#2a1a5e', '#0d0b2c'], accent: getComputedStyle(stage).getPropertyValue('--theme-accent').trim() || '#c2b6ff' }; }

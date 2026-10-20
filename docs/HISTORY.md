@@ -197,3 +197,17 @@
   about half, like the real ones.
 - PSP: the UMD now sits on the back under a raised door (like the real PSP's bulge), and the door swings up
   past its hinge so the disc never passes through it.
+
+**Models in Blender (started with the Game Boy Advance):**
+- The user asked about reusing another frontend's models; declined (the developer's paid work, and this repo is
+  public). Agreed instead: build models in Blender from the user's reference photos.
+- `tools/models/`: Blender scripts run through the `bpy` module (no Blender install needed). They build the
+  model, bake soft shadows into a grayscale texture, and export positions, normals, two sets of UVs and indices
+  per material. The prototype embeds them (`MODEL_DATA`, joined in by `build.sh`) and `r4g.js` loads them.
+- Game Boy Advance console: rounded outline with gray shoulder buttons wrapping the top corners, back grips,
+  battery cover, screws, glossy bezel, D-pad in its well, A and B in rings, Start and Select with their pads,
+  speaker slots, and a slot open at the top and back so an inserted cartridge's back shows. Cartridge: chamfered
+  top corners, the bottom tab with 32 gold contacts in its opening, recessed label, raised top band, back screws.
+- Lessons: Blender's default ambient occlusion distance (1 unit = 100 mm here) blacks everything out; use about
+  8 mm. Smoothed normals next to rounded edges streak across big flat faces; the exporter uses each large
+  face's own flat direction. `r2.js` opens the script tag, so generated data has to come after it.

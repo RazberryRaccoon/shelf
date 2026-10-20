@@ -1,8 +1,11 @@
 /* ---------- consoles: stylized after each real console's shape and proportions, no logos ---------- */
 // Front faces +z and the top faces +y. `slot` is where the media goes in, for the launch animation.
 const consoleMeshes = {};
+const BLENDER_SLOTS = { gba: { kind: 'hand', x: 0, y: .41, z: -.046 } };   // where the media goes in each Blender-built console
 function consoleModel(sys) {
   if (consoleMeshes[sys]) return consoleMeshes[sys];
+  const bm = BLENDER_SLOTS[sys] && blenderModel(sys + '_console', { slot: BLENDER_SLOTS[sys] });
+  if (bm) return (consoleMeshes[sys] = bm);
   const B = Builder(), at = (x, y, z, rx = 0, ry = 0, rz = 0) => M4.trs(x, y, z, rx, ry, rz, 1);
   const on = (g, M, m) => B.add(g, M, m);
   const face = (g, x, y, z, m, rz = 0) => on(g, at(x, y, z, 0, 0, rz), m);                  // on a front face
