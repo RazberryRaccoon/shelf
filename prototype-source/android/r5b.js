@@ -154,13 +154,13 @@ function closeSettings() {
 // Launching: the game's console rises into view, the media flies in and clicks into its slot, the power light comes
 // on with a jingle, and the screen fades into the game. Coming back plays the same thing in reverse.
 // On Android, Shelf plays the launch before handing off to the emulator, and the return when it comes back to the front.
-const KIND = {   // how media goes into each kind of slot: direction (console space), turn, and how much of it goes in
-  top:   { dir: [0, -1, 0], rx: 0, turn: 0, deep: .55 },
-  hand:  { dir: [0, -1, 0], rx: 0, turn: Math.PI, deep: .8 },
-  front: { dir: [0, 0, -1], rx: -Math.PI / 2, turn: Math.PI, deep: .78 },
-  edge:  { dir: [0, 0, 1], rx: -Math.PI / 2, turn: 0, deep: .97 },
-  back:  { dir: [0, 0, 1], rx: 0, turn: Math.PI, deep: 0, thin: true },
-  lid:   { dir: [0, -1, 0], rx: -Math.PI / 2, turn: 0, deep: 1, thin: true },
+const KIND = {   // how media goes into each kind of slot: direction (console space), turn, and how much of it is left sticking out
+  top:   { dir: [0, -1, 0], rx: 0, turn: 0, outside: .55 },
+  hand:  { dir: [0, -1, 0], rx: 0, turn: Math.PI, outside: .02 },
+  front: { dir: [0, 0, -1], rx: -Math.PI / 2, turn: Math.PI, outside: .04 },
+  edge:  { dir: [0, 0, 1], rx: -Math.PI / 2, turn: 0, outside: .03 },
+  back:  { dir: [0, 0, 1], rx: 0, turn: Math.PI, outside: 0, thin: true },
+  lid:   { dir: [0, -1, 0], rx: -Math.PI / 2, turn: 0, outside: 1, thin: true },
 };
 // Each kind's launch, in seconds: when the media flies to the slot and goes in, when a hinged part opens and
 // closes, when the console turns its back to you, when the power comes on, and when the screen starts to fade.
@@ -180,9 +180,9 @@ function consolePose(sys) {
 }
 function mediaPath(sys, cp) {   // the media's pose just outside the slot, and fully in
   const m = consoleModel(sys), sl = m.slot, K = KIND[sl.kind], c = CART[sys], CM = M4.trs(cp.x, cp.y, cp.z, 0, cp.ry, 0, cp.s);
-  const at = apply(CM, [sl.x, sl.y, sl.z]), cy = Math.cos(cp.ry), sy = Math.sin(cp.ry), deep = sl.deep != null ? sl.deep : K.deep;
+  const at = apply(CM, [sl.x, sl.y, sl.z]), cy = Math.cos(cp.ry), sy = Math.sin(cp.ry), outside = sl.outside != null ? sl.outside : K.outside;
   const d = [K.dir[0] * cy + K.dir[2] * sy, K.dir[1], -K.dir[0] * sy + K.dir[2] * cy];
-  const len = (K.thin ? c.d : c.h) * cp.s, inn = at.map((v, i) => v + d[i] * (len / 2 - len * deep)), out = at.map((v, i) => v - d[i] * (len / 2 + .9 + (K.thin ? .3 : 0)));
+  const len = (K.thin ? c.d : c.h) * cp.s, inn = at.map((v, i) => v + d[i] * (len / 2 - len * outside)), out = at.map((v, i) => v - d[i] * (len / 2 + .9 + (K.thin ? .3 : 0)));
   return { out, inn, rx: K.rx, ry: cp.ry + K.turn, s: cp.s, kind: sl.kind };
 }
 function mediaPoseNow(from, g) {   // where the media is on screen right now, so it can fly from there
