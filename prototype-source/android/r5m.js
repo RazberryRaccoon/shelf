@@ -85,6 +85,7 @@ function museumInput(a) {
     if (a === 'up' && U.i === 0) { S.top.on = true; S.top.i = TOP.indexOf('museum'); sfx.move(); return refreshMuseum(); }
     if (a === 'up' || a === 'down') { const k = clamp(U.i + (a === 'up' ? -1 : 1), 0, n - 1); if (k !== U.i) { pickExhibit(k, U.ex); sfx.move(); } }
     else if (a === 'right' || a === 'a') { U.zone = 'stage'; sfx.move(); refreshMuseum(); }
+    else if (a === 'b') { sfx.back(); enterTab('home'); }
     return;
   }
   if (a === 'left' || a === 'right') U.yawT += (a === 'left' ? -1 : 1) * .4;

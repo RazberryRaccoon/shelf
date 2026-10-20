@@ -64,16 +64,26 @@ Every step after the first has a **Back** option (B also goes back). The welcome
 test data** option for testing, which walks through every step with test values; it's for development builds only.
 The on-screen keyboard is **QWERTY**, with staggered rows like a real keyboard.
 
-## 5. Home tab: the cartridges you carry
+## 5. Layout and Home
 
+- **Home is the base screen.** The top bar has the profile on the left (opens the Profile settings), a row of
+  round icon buttons in the middle (**Library**, **Apps**, **Museum**, **Settings**; the focused one fills in
+  and shows its name), and status on the right. No tabs.
+- Library, Apps and the Museum **slide up from the bottom as a sheet** that covers Home completely; B slides it
+  back down. The recent-games row is never visible while a sheet is up, and only comes back once it's fully down.
+  Settings rises from the bottom as its own full screen.
 - A row of the 10 most recent games as their media: cartridges, discs, cards. The selected one is anchored
-  on the left, larger, and glowing; the rest recede to the right. A tile at the end opens the Library.
-- **A plays or resumes immediately.** Down reaches three cards: **Open the box**, **Achievements**, **Saves**.
+  on the left, larger, and glowing; the rest recede to the right.
+- **A plays or resumes immediately. Down opens the game's page in place:** the open case slides in from the left,
+  the cartridge or disc lifts into its tray, the rest of the row moves up into a small strip under the top bar,
+  and the details rise from the bottom once the cartridge is in. Up (or B) plays it backwards.
+- **From the Library:** the sheet slides down out of the way while the box grows and opens, and the details
+  appear on the right. Closing reverses it: the box closes and shrinks back into its place as the sheet rises.
 - Below the row: title, console chip, last played, play time, and whether A will resume or play.
 - Everything floats very gently (about 3 px over about 8 seconds, each item out of step with its neighbors)
   and casts a soft shadow. The selected item floats a little higher. No swaying or rotating.
 
-## 6. Library tab: the shelf of boxes
+## 6. Library: the shelf of boxes
 
 - **Grid:** 5 columns of closed boxes in a framed panel, with a rail on the left (All games, each console,
   then Collections: Favorites, In progress, and the user's own). Sort: Recently played, A to Z, Release year.
@@ -155,7 +165,7 @@ These carry over from Shelf for TV.
 - **Standalone emulators** keep their own saves. Shelf only notes when you last played and for how long. The
   Saves section of the game page says so and has a button that opens that emulator, where the saves are.
 
-## 10. Apps tab
+## 10. Apps
 
 - **App drawer:** a grid of every installed app, with an optional filter to hide emulators.
 - **Y on an app** offers **Mark as game**, App info and Cancel.
@@ -294,9 +304,9 @@ plastic color, shadow color, and the 3D rim light.
 
 ## 16b. Museum
 
-- A tab that treats the consoles as exhibits: a timeline of every supported console, oldest first.
+- A screen that treats the consoles as exhibits: a timeline of every supported console, oldest first.
 - **Exhibits:** the console, its media and its box (closed and open), turned with the D-pad or by dragging.
-  While looking at an exhibit, L and R switch between them; in the list they switch tabs as usual.
+  While looking at an exhibit, L and R switch between them.
 - **Info:** maker, North American release, units sold, processor, media, and a few facts.
 - Models follow the real silhouettes and sizes, stylized, with no logos.
 
@@ -308,4 +318,4 @@ plastic color, shadow color, and the 3D rim light.
 - Multi-disc PlayStation games.
 - Cloud sync.
 - Controller remapping.
-- Exact transitions between tabs.
+- Exact transitions between screens.
