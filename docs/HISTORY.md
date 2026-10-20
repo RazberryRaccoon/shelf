@@ -164,3 +164,9 @@
 - Up and down move between the rows of buttons on the game page.
 - The Genesis manual glow was drawn without the case's tab offset; fixed (the cartridge and tray had the same
   offset problem).
+- Opening a box from Home, redone after review ("horrible… it should look like the cartridge/CD is being put in
+  the case"): the open box slides in from the left while the media lifts off Home and hovers over the tray, then
+  lowers straight in with a soft click. Closing lifts it out, slides the box away to the left, and floats the
+  media back to its spot.
+- Bug found while testing: the disc well in the PlayStation case was a rounded square, which cut the disc into a
+  square. The frame builder now spreads points along straight edges so round holes stay round.

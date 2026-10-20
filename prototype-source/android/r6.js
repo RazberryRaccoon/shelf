@@ -255,10 +255,14 @@ function drawGamePage(dt, t) {
   const G0 = S.game, g = byId[G0.id], o = pose('case', {}), m = caseModel(g.sys), [W0, H0] = [m.W, m.H];
   const sOpen = Math.min(620 / (2 * W0 * PX), 520 / (H0 * PX)), s = G0.turn ? Math.min(sOpen * 1.35, 430 / (Math.max(W0, H0) * PX)) : sOpen;
   const [cxw, cyw] = pw(345, 392), openT = G0.turn ? 0 : 1;
-  const home = G0.from === 'home' && (G0.fly || G0.closing), offRight = cxw + m.W / 2 * s + 9;
-  if (G0.closing && G0.from === 'home') {   // the reverse of opening from Home: the cartridge flies back, the box slides out to the right
-    const C = G0.closing; C.t += dt; approach(o, { x: offRight }, dt, 4);
-    if (C.t > .8) { G0.closing = null; S.skipHome = null; $('#s-game').classList.remove('closing'); return enterTab(G0.then); }
+  // Opening from Home: the open box slides in from the left while the cartridge lifts off Home and hovers over the
+  // tray, then it lowers straight in. Closing to Home is the reverse: up out of the tray, box out to the left, back to Home.
+  const home = G0.from === 'home' && (G0.fly || G0.closing), tx = cxw + m.W / 2 * s, offLeft = tx - 9;
+  const trayAt = M4.mul(M4.trs(tx, cyw, 0, -.18, 0, 0, s), M4.trs(0, m.by, m.mediaZ, 0, 0, 0, 1)), at0 = M => { const p = apply(M, [0, 0, 0]); return { x: p[0], y: p[1], z: p[2], rx: -.18, ry: 0, s }; };
+  const restPose = at0(trayAt), hoverPose = at0(M4.mul(trayAt, M4.trs(0, 0, .6, 0, 0, 0, 1)));
+  if (G0.closing && G0.from === 'home') {
+    const C = G0.closing; C.t += dt; o.x = lerp(tx, offLeft, Math.pow(clamp((C.t - .3) / .5, 0, 1), 2));
+    if (C.t > .85) { G0.closing = null; S.skipHome = null; $('#s-game').classList.remove('closing'); return enterTab(G0.then); }
   } else if (G0.closing) {   // close the cover first, then glide back to where the box came from
     const C = G0.closing; C.t += dt; approach(o, { open: 0 }, dt, 8);
     const T = C.t > .25 ? closeGameTarget(g) : null;
@@ -271,22 +275,26 @@ function drawGamePage(dt, t) {
   } else {
     approach(o, { open: openT }, dt, 5.5);
     approach(o, { x: cxw + (m.W / 2) * s * o.open, y: cyw, z: 0, s, alpha: 1, bright: 1, rx: G0.turn ? G0.rx : -.18, ry: G0.turn ? G0.ry : 0 }, dt, 6);
+    if (G0.fly) o.x = lerp(offLeft, tx, easeOut(G0.fly.t / .6));
   }
   if (home) {   // Home stays visible underneath while the box arrives or leaves
     S.skipHome = g.id; drawHome(dt, t);
     if (G0.fly) G0.fly.t += dt;
-    drawScrim(G0.fly ? ease(G0.fly.t / .6) : 1 - ease(G0.closing.t / .7));
+    drawScrim(G0.fly ? ease(G0.fly.t / .6) : 1 - ease((G0.closing.t - .25) / .55));
   }
   setCamera(0, CAMZ, 0); beginMeshes();
   const q = S.seq && S.seq.g === g ? S.seq : null;
   drawCase(g, o, o.open, 0, !!q || home);   // while launching, coming back or flying to and from Home, the media is drawn on its own
   const M = M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s), top = m.D / 2 - m.ct, d = CART[g.sys].d, trayM = M4.mul(M, M4.trs(0, m.by, m.mediaZ, 0, 0, 0, 1));
-  if (home && !q) {   // the cartridge between its spot on Home and the box's tray
-    const tp = apply(trayM, [0, 0, 0]), tray = { x: tp[0], y: tp[1], z: tp[2], rx: o.rx, ry: o.ry, s: o.s }, h = anim.get('home:' + g.id);
-    const there = h ? { x: h.x, y: h.y, z: 0, rx: h.rx, ry: h.ry, s: h.s } : tray, k = G0.fly ? ease(G0.fly.t / .75) : 1 - ease(G0.closing.t / .7);
-    const from = G0.fly ? (G0.fly.from || there) : there, P0 = lerpPose(from, tray, k);
+  if (home && !q) {   // the cartridge between its spot on Home, the air over the tray, and the tray
+    const h = anim.get('home:' + g.id), there = h ? { x: h.x, y: h.y, z: 0, rx: h.rx, ry: h.ry, s: h.s } : hoverPose;
+    let P0;
+    if (G0.fly) { const t1 = G0.fly.t, from = G0.fly.from || there;
+      P0 = t1 < .6 ? lerpPose(from, hoverPose, ease(t1 / .6)) : lerpPose(hoverPose, restPose, ease((t1 - .6) / .3));
+      if (t1 > .88 && !G0.fly.click) { G0.fly.click = 1; thud(0, .09); }
+    } else { const t1 = G0.closing.t; P0 = t1 < .3 ? lerpPose(restPose, hoverPose, ease(t1 / .3)) : lerpPose(hoverPose, there, ease((t1 - .3) / .5)); }
     drawCartM(g, M4.trs(P0.x, P0.y, P0.z, P0.rx, P0.ry, 0, P0.s), { alpha: 1, bright: 1, s: P0.s });
-    if (G0.fly && G0.fly.t > .8) { G0.fly = null; S.skipHome = null; }
+    if (G0.fly && G0.fly.t > .95) { G0.fly = null; S.skipHome = null; }
   }
   const mc = moodColors(MOOD.cur), c1 = hexRgb(mc.accent), c2 = hexRgb(mc.planet[0]);
   if (!G0.turn && !G0.closing && o.open > .9 && !q) {

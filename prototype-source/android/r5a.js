@@ -172,9 +172,9 @@ function openGame(id, fromKey, from) {
   const g = byId[id]; S.game = { id, zone: 'actions', i: 0, from: from || S.tab, turn: false, rx: 0, ry: 0 };
   const f = anim.get(fromKey), bp = pose('case', {});
   Object.assign(bp, f ? { x: f.x, y: f.y, z: f.z || 0, rx: f.rx || 0, ry: f.ry || 0, s: f.s, alpha: 1, open: 0, lift: 0 } : { x: 0, y: 0, z: 0, s: .5, alpha: 0, open: 0 });
-  if (fromKey && fromKey.startsWith('home:')) {   // from Home: the open box slides in from the right edge and the cartridge flies into its tray
+  if (fromKey && fromKey.startsWith('home:')) {   // from Home: the open box slides in from the left, and the cartridge is put into it
     const m = caseModel(g.sys), s = Math.min(620 / (2 * m.W * PX), 520 / (m.H * PX)), [cx, cy] = pw(345, 392);
-    Object.assign(bp, { x: cx + m.W / 2 * s + 9, y: cy, z: 0, rx: -.18, ry: 0, s, alpha: 1, open: 1 });
+    Object.assign(bp, { x: cx + m.W / 2 * s - 9, y: cy, z: 0, rx: -.18, ry: 0, s, alpha: 1, open: 1 });
     S.game.fly = { t: 0, from: f ? { x: f.x, y: f.y, z: 0, rx: f.rx, ry: f.ry, s: f.s } : null };
   }
   S.screen = 'game'; show('game'); $('#s-game').classList.remove('closing'); setMood(g.sys); sfx.select(); fillGame(); $('#gpin').classList.add('enter');

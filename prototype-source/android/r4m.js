@@ -108,7 +108,12 @@ function latheGeo(prof, seg = 32) {
 }
 // a flat frame between two centered outlines (an outer and an inner rounded shape)
 function frameGeo(outer, inner, t) {
-  const O = ccw(outer), n = O.length, G = geo(), h = t / 2, IN = ccw(inner);
+  let O = ccw(outer); const IN = ccw(inner), G = geo(), h = t / 2;
+  if (IN.length !== O.length) {   // spread points along the outer edges too, so a round inner outline stays round
+    const D = []; O.forEach((p, i) => { const q = O[(i + 1) % O.length], k = Math.max(1, Math.ceil(Math.hypot(q[0] - p[0], q[1] - p[1]) / .03)); for (let j = 0; j < k; j++) D.push([lerp(p[0], q[0], j / k), lerp(p[1], q[1], j / k)]); });
+    O = D;
+  }
+  const n = O.length;
   const hit = (dx, dy) => {   // where a ray from the middle crosses the inner outline (both outlines are centered and convex)
     let best = 0; for (let i = 0; i < IN.length; i++) { const p = IN[i], q = IN[(i + 1) % IN.length], ex = q[0] - p[0], ey = q[1] - p[1], den = dx * ey - dy * ex;
       if (Math.abs(den) < 1e-12) continue; const u = (p[0] * ey - p[1] * ex) / den, v = (p[0] * dy - p[1] * dx) / den; if (u > 0 && v >= -1e-9 && v <= 1 + 1e-9) best = u; }
