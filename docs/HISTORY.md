@@ -130,3 +130,6 @@
 - Game Boy Advance: firmer corners, and the shoulder buttons sit on the top edge instead of floating off it.
 - Box art inset so it never runs past the case's rounded edges: front art inside the cover's rim, spine and
   back art inside the bevels, hinge knuckles flush with the spine.
+- Box art corners: the art was drawn as sharp-cornered rectangles on cases with rounded corners, so its corners
+  hung past the curve. Art is now drawn with matching rounded corners, and the spine art stops before the rounded
+  corners. The grip ridges on DS and keep-case covers were removed because they poked through the art.
