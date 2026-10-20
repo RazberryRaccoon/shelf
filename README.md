@@ -15,9 +15,9 @@ Shelf has been built three times, each one learning from the last:
 | **Shelf for Odroid GO** | Odroid GO (320×240 handheld) | ✅ **Finished and working** on the device. NES, Game Boy and Game Boy Color. | [Launcher + tools](https://github.com/RazberryRaccoon/shelf/raw/main/downloads/shelf-odroid-go.zip) |
 
 The prototypes can also be tried straight in the browser, no download needed:
-[Android](https://raw.githack.com/RazberryRaccoon/shelf/main/prototypes/shelf-android.html) ·
-[TV](https://raw.githack.com/RazberryRaccoon/shelf/main/prototypes/shelf-tv.html) ·
-[Odroid GO](https://raw.githack.com/RazberryRaccoon/shelf/main/prototypes/shelf-odroid-launcher.html)
+[Android](https://razberryraccoon.github.io/shelf/prototypes/shelf-android.html) ·
+[TV](https://razberryraccoon.github.io/shelf/prototypes/shelf-tv.html) ·
+[Odroid GO](https://razberryraccoon.github.io/shelf/prototypes/shelf-odroid-launcher.html)
 (use Chrome or Edge on a computer).
 
 ---
