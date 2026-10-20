@@ -174,3 +174,7 @@
   disappearing; it fades forward again while the box closes, so nothing pops in. The fade is applied to the
   objects themselves (`UNDER` in `r6.js`), not a dark sheet over everything, which is what made Home's dimming
   jump before. The tab's panels (rail, cards, top bar) fade the same way.
+- The faded Library or Home panels showed through the open box: the HTML panels sit above the 3D canvas, so
+  anything faded but visible there draws on top of the box. Behind an open box the panels now hide completely
+  and fade back in once the box is out of the way; the 3D boxes and cartridges stay, translucent, under a dark
+  veil that also darkens the backdrop and planet (`drawShade`).
