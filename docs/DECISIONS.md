@@ -159,3 +159,12 @@ Summarized from the first part of the conversation; the full transcript is kept 
   In the prototype it's a fourth tab, with the consoles in release order.
 - **Emulator support** will use ES-DE's published Android emulator list as the reference, plus an "Other app"
   option, per-console defaults, per-game overrides and "Ask every time".
+
+### Prototype v2, part 2 (built)
+
+- "Add in a button that skips the setup, just for debugging… not literally skip all the setup, but instead just
+  choose dummy data to get through it quickly." Built as **Quick setup with test data** on the welcome step.
+- Notes 1–9 from the v1 review, as proposed and agreed: QWERTY keyboard; Back in setup; the console launch and
+  return animations; saves that open the emulator; the box closing on Back and the game panel sliding in from the
+  right with its sections following one after another; more room around wide boxes in the Library; four menu
+  music tracks; the full emulator list with per-console defaults, per-game choice, Ask every time and Other app.

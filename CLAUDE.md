@@ -19,9 +19,8 @@ that we've learned … and make an Android game launcher that's the best it can 
 
 ## Where things stand
 
-- The user reviewed prototype v1 (nine notes, in `docs/DECISIONS.md`). Part 1 of the revision, detailed models
-  with real silhouettes, eleven consoles and the new Museum tab, is built. Part 2 (the other notes) comes next;
-  see `docs/ROADMAP.md`.
+- Prototype v2 is built: both parts of the v1 review (models, consoles and the Museum; then the launch animation,
+  music, emulators and the rest). Waiting on the user's review; see `docs/ROADMAP.md`.
 - After that: set up the Android project and GitHub Actions build → build it in vertical slices.
 - The user asked to "talk it through" before building anything new. Propose, confirm, then build.
 
@@ -74,7 +73,8 @@ that we've learned … and make an Android game launcher that's the best it can 
 - `docs/HISTORY.md`: what was built in each project, what broke, and what we learned.
 - `docs/RESEARCH.md`: facts with sources (label and box sizes, RetroArch on Android, ScreenScraper, RetroAchievements).
 - `docs/ROADMAP.md`: the plan for the real Android app, and open questions.
-- `prototypes/`: the three working browser prototypes. Open in a desktop browser.
+- `prototypes/`: the three working browser prototypes. Open in a desktop browser, or at
+  `https://razberryraccoon.github.io/shelf/prototypes/` (GitHub Pages, updates about a minute after a merge).
 - `prototype-source/`: the prototypes split into the parts they were built from, with a build script.
 - `code/`: the Odroid GO firmware integration and the Raspberry Pi C app.
 - `downloads/`: the zips linked from the README. Rebuild them with `bash scripts/make-downloads.sh` whenever

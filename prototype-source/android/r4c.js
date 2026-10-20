@@ -109,12 +109,15 @@ function consoleModel(sys) {
       const S0 = shellM('#c6c4bf'), D0 = shellM('#a9a7a1');
       on(slabG(rrect(2.7, 1.88, .08), .6, .05), IDENT, S0);
       up(ringG(.722, .745, .004, 72), -.25, .3, -.05, shellM('#8e8c86'));
-      up(latheGeo([[0, .035], [.66, .035], [.71, .015], [.72, 0], [0, 0]], 72), -.25, .3, -.05, shellM('#cbc9c4'));
+      up(discG(.7, .01, 64), -.25, .296, -.05, shellM('#2a2a2e', { spec: .2 }));   // the well under the lid, with its spindle
+      up(latheGeo([[0, .03], [.05, .03], [.06, 0], [0, 0]], 24), -.25, .3, -.05, shellM('#d9dbe0', { spec: .7 }));
       up(domeG(.15, .035), .92, .3, -.36, D0);
       [[.72, .42], [1.06, .42]].forEach(([x, z]) => up(domeG(.09, .03), x, .3, z, D0));
       up(discG(.02, .006), .89, .301, .2, led('#3dff6a'));
       [-.6, -.2].forEach(x => { face(barG(.3, .12, .008, .03), x, -.15, .94, DARK); face(barG(.28, .05, .008, .01), x, .05, .94, DARK); });
-      slot = { kind: 'lid', x: -.25, y: .32, z: -.05 }; extra.lid = { x: -.25, z: -.05, r: .72 }; break;
+      slot = { kind: 'lid', x: -.25, y: .32, z: -.05 };
+      const L = Builder(); L.add(latheGeo([[0, .035], [.66, .035], [.71, .015], [.72, 0], [0, 0]], 72), at(0, 0, .72, -Math.PI / 2), shellM('#cbc9c4'));
+      extra.lid = { model: L.build(), hinge: [-.25, .3, -.77] }; break;
     }
     case 'ds': {    // the original two-screen clamshell, shown open
       const S0 = shellM('#c4c7cf', { spec: .5, gloss: .2 }), P0 = shellM('#2c2e35', { spec: .3 }), K = shellM('#d3d5dc', { spec: .5 });
@@ -130,7 +133,7 @@ function consoleModel(sys) {
       on(barG(1.42, .78, .004, .1), M4.mul(T, at(0, 0, .066)), P0);
       on(scr(.62, .46), M4.mul(T, at(0, 0, .069)), SCREEN);
       [-1, 1].forEach(s => { for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) on(discG(.01, .002), M4.mul(T, at(s * .55 + (i - 1) * .03, .05 + (j - 1) * .03, .069)), DARK); });
-      slot = { kind: 'back', x: 0, y: 0, z: -.43 }; break;
+      slot = { kind: 'edge', x: 0, y: 0, z: -.43 }; break;
     }
     case 'psp': {   // a glossy black oval with a wide screen in the middle
       const S0 = shellM('#16171b', { spec: .8, gloss: .55 }), z = .115, K = shellM('#2c2d33', { spec: .5 });
@@ -161,4 +164,7 @@ function consoleModel(sys) {
   }
   return (consoleMeshes[sys] = B.build(Object.assign({ slot }, extra)));
 }
-function drawConsole(sys, M, st) { drawParts(consoleModel(sys), M, st); }
+function drawConsole(sys, M, st) {
+  const m = consoleModel(sys); drawParts(m, M, st);
+  if (m.lid) { const [hx, hy, hz] = m.lid.hinge; drawParts(m.lid.model, M4.mul(M, M4.trs(hx, hy, hz, -(st.lid || 0) * 1.7, 0, 0, 1)), st); }   // the PlayStation's lid opens on its back hinge
+}

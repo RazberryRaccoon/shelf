@@ -2,11 +2,8 @@
 
 ## Next: finish the design
 
-1. **Prototype v1 feedback is in** (see `DECISIONS.md`). Part 1, the models and the Museum, is built; waiting on the user's review.
-2. **Part 2 of the revision:** QWERTY keyboard, Back in setup, the console launch and return animations
-   (consoles and their `slot`s are ready), saves that open the emulator, the case closing and the game panel
-   sliding in, Library spacing for wide boxes, menu music with track choice, and the full emulator list.
-3. **Revise the prototype** until the user is happy. Keep it a single HTML file, test every screen headlessly, and publish or hand it over.
+1. **Prototype v2 is built** (both parts of the v1 review). Waiting on the user's review.
+2. **Revise the prototype** until the user is happy. Keep it a single HTML file, test every screen headlessly, and publish or hand it over.
 3. **Verify the unconfirmed measurements:** the DS case, PSP case, DS card label and keep case (see `RESEARCH.md`).
 
 ## Then: the real app (GitHub Actions builds, sideloaded onto the Retroid Pocket 3+)

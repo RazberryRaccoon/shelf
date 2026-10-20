@@ -33,14 +33,18 @@ function openDlg(title, items, onPick, i = 0) { S.dlg = { open: true, title, ite
 function closeDlg() { S.dlg.open = false; renderDlg(); }
 function renderDlg() {
   const d = S.dlg, el = $('#dlg'); el.classList.toggle('open', !!d.open); if (!d.open) return;
-  el.innerHTML = `<h3>${esc(d.title)}</h3>` + d.items.map((it, i) => `<div class="ditem ${i === d.i ? 'focus' : ''}">${it.check != null ? `<span class="chk ${it.check ? 'on' : ''}"></span>` : ''}<span>${esc(it.label)}</span>${it.sub ? `<small>${esc(it.sub)}</small>` : ''}</div>`).join('');
+  el.innerHTML = `<h3>${esc(d.title)}</h3><div class="dlist">` + d.items.map((it, i) => `<div class="ditem ${i === d.i ? 'focus' : ''}">${it.check != null ? `<span class="chk ${it.check ? 'on' : ''}"></span>` : ''}<span>${esc(it.label)}</span>${it.sub ? `<small>${esc(it.sub)}</small>` : ''}</div>`).join('') + '</div>';
+  const L = el.querySelector('.dlist'), f = L.querySelector('.focus'); if (f) L.scrollTop = clamp(f.offsetTop - L.clientHeight / 2 + f.offsetHeight / 2, 0, L.scrollHeight);   // long lists keep the choice in view
 }
-const KB_ROWS = [[...'ABCDEFGHIJ'], [...'KLMNOPQRST'], [...'UVWXYZ', "'", '&', '-', '!'], [...'1234567890'], ['Space', 'Delete', 'Done']];
-function openKb(title, value, onDone) { S.kb = { open: true, title, value, r: 0, c: 0, onDone }; renderKb(); sfx.select(); }
+const KB_ROWS = [[...'1234567890'], [...'QWERTYUIOP'], [...'ASDFGHJKL'], [...'ZXCVBNM'], ['&', "'", '-', '!', 'Space', 'Delete', 'Done']];
+const KB_OFF = [0, 0, .5, 1.5, 0], kbW = key => key === 'Space' ? 3 : key.length > 1 ? 1.5 : 1;   // rows staggered like a real keyboard, in key widths
+function kbCenter(r, c) { let x = KB_OFF[r]; for (let i = 0; i < c; i++) x += kbW(KB_ROWS[r][i]); return x + kbW(KB_ROWS[r][c]) / 2; }
+function kbNearest(r, x) { let best = 0, d = 1e9; KB_ROWS[r].forEach((_, c) => { const e = Math.abs(kbCenter(r, c) - x); if (e < d) { d = e; best = c; } }); return best; }
+function openKb(title, value, onDone) { S.kb = { open: true, title, value, r: 1, c: 0, onDone }; renderKb(); sfx.select(); }
 function renderKb() {
   const k = S.kb, el = $('#kb'); el.classList.toggle('open', !!k.open); if (!k.open) return;
   el.innerHTML = `<h3>${esc(k.title)}</h3><div class="kbfield">${esc(k.value)}<i class="caret"></i></div>` + KB_ROWS.map((row, r) =>
-    `<div class="kbrow">${row.map((key, c) => `<span class="key ${key.length > 1 ? 'wide' : ''} ${r === k.r && c === k.c ? 'focus' : ''}">${key}</span>`).join('')}</div>`).join('');
+    `<div class="kbrow" style="padding-left:${KB_OFF[r] * 59}px">${row.map((key, c) => `<span class="key ${key.length > 1 ? 'wide' : ''} ${r === k.r && c === k.c ? 'focus' : ''}" style="width:${kbW(key) * 59 - 7}px">${key}</span>`).join('')}</div>`).join('');
 }
 function kbType(ch) {   // capitalizes the start of each word, like a title
   const k = S.kb; if (k.value.length >= 28) return;

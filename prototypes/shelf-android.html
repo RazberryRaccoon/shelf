@@ -164,6 +164,29 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .dur { position: absolute; right: 5px; bottom: 5px; padding: 0 5px; border-radius: 5px; background: rgba(7,11,30,.8); color: #fff; font-size: 10px; font-weight: 800; }
 .managed { padding: 12px 14px; border-radius: 14px; background: var(--panel2); font-size: 12.5px; color: var(--fg2); line-height: 1.45; }
 .managed b { color: var(--fg); }
+.managed { display: flex; align-items: center; justify-content: space-between; gap: 14px; transition: box-shadow .2s; }
+.managed.focus { box-shadow: 0 0 0 2px var(--sel); }
+.managed .act { flex: none; }
+/* the game panel slides in from the right, its sections following one after another */
+#s-game .gp { transform: translateX(90px); opacity: 0; transition: transform .55s cubic-bezier(.2,.8,.2,1), opacity .4s ease; }
+#s-game.on .gp { transform: none; opacity: 1; transition-delay: .1s; }
+#s-game.on.closing .gp { transform: translateX(90px); opacity: 0; transition-delay: 0s; transition-duration: .4s, .3s; }
+@keyframes gpRise { from { opacity: 0; transform: translateX(26px); } }
+.gpin.enter > * { animation: gpRise .5s cubic-bezier(.2,.8,.2,1) both; }
+.gpin.enter > :nth-child(1) { animation-delay: 0.165s; }
+.gpin.enter > :nth-child(2) { animation-delay: 0.210s; }
+.gpin.enter > :nth-child(3) { animation-delay: 0.255s; }
+.gpin.enter > :nth-child(4) { animation-delay: 0.300s; }
+.gpin.enter > :nth-child(5) { animation-delay: 0.345s; }
+.gpin.enter > :nth-child(6) { animation-delay: 0.390s; }
+.gpin.enter > :nth-child(7) { animation-delay: 0.435s; }
+.gpin.enter > :nth-child(8) { animation-delay: 0.480s; }
+.gpin.enter > :nth-child(9) { animation-delay: 0.525s; }
+.gpin.enter > :nth-child(10) { animation-delay: 0.570s; }
+.gpin.enter > :nth-child(11) { animation-delay: 0.615s; }
+.gpin.enter > :nth-child(12) { animation-delay: 0.660s; }
+.gpin.enter > :nth-child(13) { animation-delay: 0.705s; }
+.gpin.enter > :nth-child(14) { animation-delay: 0.750s; }
 .achcard { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: var(--panel2); font-size: 12.5px; color: var(--fg2); white-space: nowrap; transition: box-shadow .2s; }
 .achcard.focus { box-shadow: 0 0 0 2px var(--sel); }
 .achcard .bar { width: 110px; }
@@ -278,6 +301,8 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .setup .opt small { font-weight: 600; color: var(--fg2); font-size: 12.5px; }
 .setup .opt.focus { box-shadow: 0 0 0 2px var(--sel); }
 .setup .opt.primary { background: var(--accent); color: #0b0d18; justify-content: center; }
+.setup .opt.debug { background: none; border: 1.5px dashed var(--fg3); color: var(--fg2); font-size: 12.5px; padding: 8px 16px; justify-content: center; }
+.setup .opt.back { background: none; color: var(--fg2); justify-content: center; padding: 8px 16px; }
 .setup .opt.primary.focus { box-shadow: 0 0 0 2px var(--sel), 0 0 0 5px var(--accent); }
 .found { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 22px; margin: 0 0 18px; font-size: 13px; color: var(--fg2); }
 .found b { color: var(--fg); }
@@ -286,6 +311,8 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .dialog, .kb { position: absolute; left: 50%; top: 50%; z-index: 8; border-radius: 22px; background: var(--panel); border: 1px solid var(--line); backdrop-filter: blur(0px);
   box-shadow: 0 0 0 3000px var(--scrim), 0 24px 70px var(--shadow); opacity: 0; visibility: hidden; transform: translate(-50%, -46%); transition: opacity .2s, transform .2s, visibility 0s linear .2s; }
 .dialog { width: 470px; padding: 22px 18px 16px; }
+.dlist { position: relative; max-height: 520px; overflow-y: auto; scrollbar-width: none; }
+.dlist::-webkit-scrollbar { display: none; }
 .dialog.open, .kb.open { opacity: 1; visibility: visible; transform: translate(-50%, -50%); transition: opacity .2s, transform .2s, visibility 0s; }
 .dialog h3, .kb h3 { margin: 0 0 12px 10px; font-family: var(--display); font-weight: 500; font-size: 18px; }
 .dialog p.dl { margin: -4px 10px 12px; font-size: 13px; color: var(--fg2); line-height: 1.45; }
@@ -300,7 +327,7 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .caret { display: inline-block; width: 2px; height: 20px; margin-left: 2px; vertical-align: -3px; background: var(--accent); animation: blink 1s steps(2) infinite; }
 @keyframes blink { 50% { opacity: 0; } }
 .kbrow { display: flex; gap: 7px; margin-bottom: 7px; }
-.key { flex: 1; display: grid; place-items: center; height: 42px; border-radius: 10px; background: var(--chip); font-size: 17px; font-weight: 700; }
+.key { flex: none; display: grid; place-items: center; height: 42px; border-radius: 10px; background: var(--chip); font-size: 17px; font-weight: 700; }
 .key.wide { font-size: 14px; } .key.focus { background: var(--sel); color: var(--selfg); }
 .toast { position: absolute; left: 50%; top: 18px; padding: 9px 22px; border-radius: 20px; background: var(--sel); color: var(--selfg); z-index: 9; font-size: 14px; font-weight: 800;
   transform: translate(-50%, -90px); transition: transform .4s cubic-bezier(.2,.8,.2,1); white-space: nowrap; }
@@ -418,6 +445,27 @@ const PLAT = {
 };
 const SYS_ORDER = ['nes', 'snes', 'n64', 'genesis', 'gb', 'gbc', 'gba', 'ps1', 'ds', 'psp', 'android'];
 for (const k of SYS_ORDER) Object.assign(PLAT[k], shades(PLAT[k].accent));
+// Every emulator Shelf can launch for each console: RetroArch cores and standalone apps. The list follows the
+// Android configuration of ES-DE, another frontend, which documents how to launch each one. The first is the default.
+const EMU_LIST = {
+  nes:     { cores: ['Mesen', 'FCEUmm', 'Nestopia UE', 'QuickNES'], apps: ['NES.emu', 'Nesoid'] },
+  snes:    { cores: ['Snes9x', 'bsnes', 'bsnes-hd', 'Snes9x 2010', 'Mesen-S', 'Beetle Supafaust'], apps: ['Snes9x EX+'] },
+  n64:     { first: 'Mupen64Plus FZ', cores: ['Mupen64Plus-Next', 'ParaLLEl N64'], apps: ['Mupen64Plus FZ', 'Mupen64Plus AE'] },
+  genesis: { cores: ['Genesis Plus GX', 'PicoDrive', 'BlastEm'], apps: ['MD.emu', 'Pizza Boy SC'] },
+  gb:      { cores: ['Gambatte', 'SameBoy', 'Gearboy', 'mGBA', 'TGB Dual'], apps: ['Pizza Boy GBC', 'My OldBoy!', 'GBC.emu', 'Linkboy', 'SkyEmu'] },
+  gbc:     { cores: ['Gambatte', 'SameBoy', 'Gearboy', 'mGBA', 'TGB Dual'], apps: ['Pizza Boy GBC', 'My OldBoy!', 'GBC.emu', 'Linkboy', 'SkyEmu'] },
+  gba:     { cores: ['mGBA', 'gpSP', 'VBA-M', 'VBA Next'], apps: ['Pizza Boy GBA', 'My Boy!', 'GBA.emu', 'Linkboy', 'NooDS', 'SkyEmu'] },
+  ps1:     { first: 'DuckStation', cores: ['SwanStation', 'Beetle PSX HW', 'Beetle PSX', 'PCSX ReARMed'], apps: ['DuckStation', 'ePSXe', 'FPseNG', 'FPse'] },
+  ds:      { first: 'melonDS', cores: ['melonDS DS', 'melonDS', 'DeSmuME', 'DeSmuME 2015', 'NooDS'], apps: ['melonDS', 'DraStic', 'NooDS', 'SkyEmu'] },
+  psp:     { first: 'PPSSPP', cores: ['PPSSPP'], apps: ['PPSSPP', 'PPSSPP Gold'] },
+};
+for (const k in EMU_LIST) { const e = EMU_LIST[k], all = [...e.cores.map(c => 'RetroArch: ' + c), ...e.apps]; PLAT[k].emus = e.first ? [e.first, ...all.filter(x => x !== e.first)] : all; }
+// what this (pretend) handheld has installed
+const INSTALLED_CORES = new Set(['Mesen', 'Snes9x', 'Mupen64Plus-Next', 'Genesis Plus GX', 'Gambatte', 'mGBA', 'SwanStation', 'melonDS DS', 'PPSSPP']);
+const INSTALLED_APPS = new Set(['RetroArch', 'DuckStation', 'melonDS', 'PPSSPP', 'Mupen64Plus FZ']);
+const emuInstalled = e => e.startsWith('RetroArch: ') ? INSTALLED_CORES.has(e.slice(11)) : INSTALLED_APPS.has(e) || e.startsWith('Other app');
+const emuName = e => e.replace('RetroArch: ', 'RetroArch, ').replace('Other app: ', '');
+const emuApp = e => e.startsWith('RetroArch') ? 'RetroArch' : e.replace('Other app: ', '');
 const SYS = PLAT;   // the art generators use SYS
 const isRA = emu => emu.startsWith('RetroArch');
 
@@ -478,6 +526,7 @@ const P = { name: '', colors: ['#ffd38a', '#e8834a', '#6a2a1e'], setup: false, r
     filter: 'None', layout: 'Nintendo', homeLauncher: true, showApps: 'All apps' },
   emu: {}, gameEmu: {}, art: { source: 'ScreenScraper', ss: 'player_one', videos: true, manuals: true, backs: true, region: 'USA' } };
 for (const k of SYS_ORDER) P.emu[k] = PLAT[k].emus[0];
+P.pf = {}; SYS_ORDER.forEach(k => P.pf[k] = { filter: 'None', ask: false });
 [['Aurora Quest', 2 * HOUR, 1312, 38, 3], ['Glass Cathedral', 22 * HOUR, 640, 20, 2], ['Kite Kingdom', 2 * DAY, 905, 41, 2], ['Lantern Knight', 3 * DAY, 248, 14, 1],
  ['Paper Planets', 4 * DAY, 300, 12, 1], ['Neon Drift', 6 * DAY, 210, 9, 1], ['Starfall Tactics', 8 * DAY, 422, 20, 2], ['Moonlight Dash', 9 * DAY, 120, 0, 0], ['Pocket Golem', 12 * DAY, 75, 6, 1], ['Crystal Critters', 15 * DAY, 640, 27, 2]]
   .forEach(([title, ago, mins, earned, slots], i) => {
@@ -485,7 +534,7 @@ for (const k of SYS_ORDER) P.emu[k] = PLAT[k].emus[0];
     P.played[g.id] = { last: NOW - ago, minutes: mins, earned, fav: i % 3 === 0, slots: [0, 1, 2, 3].map(k => k < slots ? { ts: NOW - ago - k * DAY * 2.3, seed: hash(g.id + k) } : null), lastSlot: 0 };
   });
 P.collections.push({ id: 'couch', name: 'Couch co-op', games: ['Orbit Golf', 'Neon Coast', 'Skyline Racer', 'Vector Rally'].map(t => GAMES.find(g => g.title === t).id) });
-const emuFor = g => P.gameEmu[g.id] || P.emu[g.sys];
+const emuFor = g => (S.onceEmu && S.onceEmu.id === g.id && S.onceEmu.e) || P.gameEmu[g.id] || P.emu[g.sys];
 function agoText(ts) {
   const d = NOW - ts;
   if (d < HOUR) return 'Just now';
@@ -520,6 +569,7 @@ const sfx = {
   tab: () => tone(880, 0.08, 0.025, 'triangle'),
   insert: () => { thud(0, 0.16); tone(220, 0.08, 0.04, 'triangle', 0.02); },
   power: () => [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, 1.4, 0.022, 'sine', i * 0.07)),
+  off: () => [783.99, 587.33, 392].forEach((f, i) => tone(f, .5, 0.018, 'sine', i * 0.08)),
   saved: () => { tone(784, 0.14, 0.03); tone(1175, 0.24, 0.028, 'sine', 0.09); },
 };
 
@@ -577,6 +627,80 @@ function railMatch(k, g) {
   if (k.startsWith('col:')) { const c = P.collections.find(x => 'col:' + x.id === k); return !!c && c.games.includes(g.id); }
   return true;
 }
+/* ================= menu music: four original tracks, played live (the real app ships them as audio files) ================= */
+P.prefs.music = { on: true, track: 'orbit', vol: 'Medium' };
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+let NOISE = null;
+function voice(t, f, dur, o) {   // one note: an oscillator (or two, detuned), an envelope and an optional filter
+  const a = AC, g = a.createGain(), end = t + dur + (o.rel || .3);
+  let dest = g;
+  if (o.cut) { const fl = a.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = o.cut; fl.Q.value = .3; fl.connect(g); dest = fl; }
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(o.gain, t + (o.att || .01));
+  if (o.decay) g.gain.exponentialRampToValueAtTime(.0001, t + o.decay); else { g.gain.setValueAtTime(o.gain, t + dur); g.gain.linearRampToValueAtTime(0, end); }
+  g.connect(MUS.out);
+  (o.detune ? [-o.detune, o.detune] : [0]).forEach(dc => {
+    const os = a.createOscillator(); os.type = o.type || 'sine'; os.frequency.value = f; os.detune.value = dc;
+    if (o.fm) { const m = a.createOscillator(), mg = a.createGain(); m.frequency.value = f * o.fm; mg.gain.setValueAtTime(f * 1.2, t); mg.gain.exponentialRampToValueAtTime(f * .05, t + .6); m.connect(mg).connect(os.frequency); m.start(t); m.stop(end); }
+    os.connect(dest); os.start(t); os.stop(end + .05);
+  });
+}
+const V = {   // the instruments
+  pad: (t, n, d) => n.forEach(m => voice(t, mtof(m), d, { type: 'sawtooth', gain: .006, att: 1.2, rel: 1.6, cut: 820, detune: 7 })),
+  bell: (t, m) => { voice(t, mtof(m), 0, { gain: .018, decay: 2.4 }); voice(t, mtof(m) * 2.76, 0, { gain: .004, decay: 1.1 }); },
+  keys: (t, n, d) => n.forEach(m => voice(t, mtof(m), d, { gain: .011, fm: 1, decay: 1.6 + d * .3 })),
+  pluck: (t, m, cut = 2200) => voice(t, mtof(m), 0, { type: 'triangle', gain: .02, decay: .55, cut }),
+  bass: (t, m, d) => voice(t, mtof(m), d, { gain: .045, att: .03, rel: .35 }),
+  kick: t => { const a = AC, o = a.createOscillator(), g = a.createGain(); o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(45, t + .12);
+    g.gain.setValueAtTime(.06, t); g.gain.exponentialRampToValueAtTime(.0001, t + .25); o.connect(g).connect(MUS.out); o.start(t); o.stop(t + .3); },
+  hat: (t, k = 1) => { const a = AC; if (!NOISE) { NOISE = a.createBuffer(1, a.sampleRate * .05, a.sampleRate); const d = NOISE.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+    const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(); f.type = 'highpass'; f.frequency.value = 7000;
+    g.gain.setValueAtTime(.008 * k, t); g.gain.exponentialRampToValueAtTime(.0001, t + .045); s.buffer = NOISE; s.connect(f).connect(g).connect(MUS.out); s.start(t); },
+};
+// each track plays one bar at a time: bar(n, start time, seconds per beat)
+const TRACKS = {
+  orbit: { name: 'Orbit', bpm: 64, mood: 'Slow pads and gentle bells, for the space theme.', bar(n, t, b) {
+    const C = [[50, 57, 62, 66, 69], [52, 59, 64, 68, 71], [47, 54, 59, 62, 66], [43, 50, 55, 59, 62]][n % 4];
+    V.pad(t, C.slice(1), b * 4); V.bass(t, C[0] - 12, b * 3.6);
+    (n % 2 ? [[0, 4], [1.5, 2], [3, 3]] : [[.5, 3], [2, 4], [2.75, 1]]).forEach(([at, i]) => V.bell(t + at * b, C[i] + 12)); } },
+  afternoon: { name: 'Afternoon', bpm: 84, mood: 'Soft electric piano and a light beat.', bar(n, t, b) {
+    const C = [[53, 57, 60, 64], [52, 55, 59, 62], [50, 53, 57, 60], [55, 59, 62, 65, 69]][n % 4], root = [41, 40, 38, 43][n % 4];
+    V.keys(t, C, b * 1.5); V.keys(t + b * 2.5, C.slice(1), b);
+    V.bass(t, root, b * 1.4); V.bass(t + b * 2, root, b * .9); V.bass(t + b * 3, root + 7, b * .8);
+    V.kick(t); V.kick(t + b * 2); for (let i = 0; i < 8; i++) V.hat(t + i * b / 2, i % 2 ? .6 : 1);
+    if (n % 4 === 1 || n % 4 === 3) [[0, 76], [.5, 77], [1, 79], [2.5, 76]].forEach(([at, m]) => V.pluck(t + at * b, m, 3000)); } },
+  tidepool: { name: 'Tidepool', bpm: 56, mood: 'Warm, slow and minimal.', bar(n, t, b) {
+    const C = [[57, 60, 64, 71], [53, 57, 60, 64], [48, 55, 60, 64], [55, 59, 62, 64]][n % 4];
+    V.pad(t, C, b * 4); V.bass(t, C[0] - 24, b * 3.8);
+    [0, 1, 2, 3].forEach(i => V.pluck(t + i * b, C[(i + n) % C.length] + 12, 1300)); } },
+  lanterns: { name: 'Lanterns', bpm: 92, mood: 'A little more melodic, with plucked strings.', bar(n, t, b) {
+    const C = [[48, 52, 55, 60], [45, 48, 52, 57], [41, 45, 48, 53], [43, 47, 50, 55]][n % 4];
+    [0, 1, 2, 3, 2, 1, 2, 3].forEach((k, i) => V.pluck(t + i * b / 2, C[k] + 12, 2600));
+    V.bass(t, C[0] - 12, b * 2); V.bass(t + b * 2.5, C[0] - 12, b * 1.2);
+    const mel = [[76, 74, 72, 74], [76, 79, 76, 74], [72, 69, 72, 74], [74, 71, 67, 71]][n % 4];
+    if (n % 8 >= 4) mel.forEach((m, i) => V.bell(t + i * b, m)); } },
+};
+const TRACK_KEYS = Object.keys(TRACKS), MUSIC_VOL = { Low: .35, Medium: .6, High: .9 };
+const MUS = { out: null, timer: 0, playing: null, bar: 0, next: 0, duck: 1, bars: 0 };
+function musicEnsure() {   // starts after the first button press, since browsers only allow sound after one
+  const a = AC; if (!a || MUS.timer) return;
+  MUS.out = a.createGain(); MUS.out.gain.value = 0; MUS.out.connect(a.destination);
+  MUS.timer = setInterval(musicTick, 120); musicTick();
+}
+function musicTrack() { const k = P.prefs.music.track; return k === 'shuffle' ? (MUS.shuffled || (MUS.shuffled = TRACK_KEYS[Math.floor(Math.random() * TRACK_KEYS.length)])) : k; }
+function musicTick() {
+  const a = AC, M = P.prefs.music; if (!a || !MUS.out) return;
+  const want = M.on ? MUSIC_VOL[M.vol] * MUS.duck : 0;
+  MUS.out.gain.setTargetAtTime(want, a.currentTime, MUS.duck < 1 ? .25 : .8);
+  if (!M.on && MUS.out.gain.value < .001) { MUS.playing = null; return; }
+  const k = musicTrack();
+  if (k !== MUS.playing) { MUS.playing = k; MUS.bar = 0; MUS.next = Math.max(MUS.next, a.currentTime + .15); }
+  const T = TRACKS[k], b = 60 / T.bpm;
+  while (MUS.next < a.currentTime + .6) {
+    T.bar(MUS.bar, MUS.next, b); MUS.next += b * 4; MUS.bar++;
+    if (M.track === 'shuffle' && MUS.bar % 16 === 0) MUS.shuffled = TRACK_KEYS[(TRACK_KEYS.indexOf(k) + 1 + Math.floor(Math.random() * (TRACK_KEYS.length - 1))) % TRACK_KEYS.length];
+  }
+}
+function musicDuck() { MUS.duck = S.screen === 'launch' || S.screen === 'play' ? 0 : S.screen === 'media' ? .2 : 1; }   // quiet while a game runs or a video plays
 /* ================= procedural art ================= */
 function pal(g) {
   const r = rng(hash(g.id + 'pal')), h = Math.floor(r() * 360);
@@ -1842,12 +1966,15 @@ function consoleModel(sys) {
       const S0 = shellM('#c6c4bf'), D0 = shellM('#a9a7a1');
       on(slabG(rrect(2.7, 1.88, .08), .6, .05), IDENT, S0);
       up(ringG(.722, .745, .004, 72), -.25, .3, -.05, shellM('#8e8c86'));
-      up(latheGeo([[0, .035], [.66, .035], [.71, .015], [.72, 0], [0, 0]], 72), -.25, .3, -.05, shellM('#cbc9c4'));
+      up(discG(.7, .01, 64), -.25, .296, -.05, shellM('#2a2a2e', { spec: .2 }));   // the well under the lid, with its spindle
+      up(latheGeo([[0, .03], [.05, .03], [.06, 0], [0, 0]], 24), -.25, .3, -.05, shellM('#d9dbe0', { spec: .7 }));
       up(domeG(.15, .035), .92, .3, -.36, D0);
       [[.72, .42], [1.06, .42]].forEach(([x, z]) => up(domeG(.09, .03), x, .3, z, D0));
       up(discG(.02, .006), .89, .301, .2, led('#3dff6a'));
       [-.6, -.2].forEach(x => { face(barG(.3, .12, .008, .03), x, -.15, .94, DARK); face(barG(.28, .05, .008, .01), x, .05, .94, DARK); });
-      slot = { kind: 'lid', x: -.25, y: .32, z: -.05 }; extra.lid = { x: -.25, z: -.05, r: .72 }; break;
+      slot = { kind: 'lid', x: -.25, y: .32, z: -.05 };
+      const L = Builder(); L.add(latheGeo([[0, .035], [.66, .035], [.71, .015], [.72, 0], [0, 0]], 72), at(0, 0, .72, -Math.PI / 2), shellM('#cbc9c4'));
+      extra.lid = { model: L.build(), hinge: [-.25, .3, -.77] }; break;
     }
     case 'ds': {    // the original two-screen clamshell, shown open
       const S0 = shellM('#c4c7cf', { spec: .5, gloss: .2 }), P0 = shellM('#2c2e35', { spec: .3 }), K = shellM('#d3d5dc', { spec: .5 });
@@ -1863,7 +1990,7 @@ function consoleModel(sys) {
       on(barG(1.42, .78, .004, .1), M4.mul(T, at(0, 0, .066)), P0);
       on(scr(.62, .46), M4.mul(T, at(0, 0, .069)), SCREEN);
       [-1, 1].forEach(s => { for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) on(discG(.01, .002), M4.mul(T, at(s * .55 + (i - 1) * .03, .05 + (j - 1) * .03, .069)), DARK); });
-      slot = { kind: 'back', x: 0, y: 0, z: -.43 }; break;
+      slot = { kind: 'edge', x: 0, y: 0, z: -.43 }; break;
     }
     case 'psp': {   // a glossy black oval with a wide screen in the middle
       const S0 = shellM('#16171b', { spec: .8, gloss: .55 }), z = .115, K = shellM('#2c2d33', { spec: .5 });
@@ -1894,7 +2021,10 @@ function consoleModel(sys) {
   }
   return (consoleMeshes[sys] = B.build(Object.assign({ slot }, extra)));
 }
-function drawConsole(sys, M, st) { drawParts(consoleModel(sys), M, st); }
+function drawConsole(sys, M, st) {
+  const m = consoleModel(sys); drawParts(m, M, st);
+  if (m.lid) { const [hx, hy, hz] = m.lid.hinge; drawParts(m.lid.model, M4.mul(M, M4.trs(hx, hy, hz, -(st.lid || 0) * 1.7, 0, 0, 1)), st); }   // the PlayStation's lid opens on its back hinge
+}
 /* ================= state ================= */
 const S = {
   screen: 'setup', tab: 'home', top: { on: false, i: 0 },
@@ -1920,7 +2050,7 @@ function approach(o, t, dt, rate = 9) { const k = 1 - Math.exp(-dt * rate); for 
 const motion = () => P.prefs.motion;
 const rec = id => P.played[id];
 function ensureRec(g) { if (!P.played[g.id]) P.played[g.id] = { last: 0, minutes: 0, earned: 0, fav: false, slots: [null, null, null, null], lastSlot: 0 }; return P.played[g.id]; }
-const BOXK = .8;   // boxes in the Library: 1 unit (100 mm) = .8 x PX pixels, so every box keeps its true size relative to the others
+const BOXK = .76;   // boxes in the Library: 1 unit (100 mm) = .76 x PX pixels, so every box keeps its true size relative to the others
 function mediaScale(sys, px) { const c = CART[sys]; return px / PX / Math.max(c.w, c.h); }
 
 /* ================= small DOM helpers ================= */
@@ -1946,12 +2076,13 @@ const PROFILE_COLORS = [['#ffd38a', '#e8834a', '#6a2a1e'], ['#bff3ff', '#3fa4d9'
 const SETUP_STEPS = 6;
 function setupOpts() {
   const s = S.setup.step;
-  if (s === 0) return [{ k: 'next', label: 'Get started', primary: true }];
-  if (s === 1) return [{ k: 'name', label: 'Your name', value: P.name || 'Choose' }, ...PROFILE_COLORS.map((c, i) => ({ k: 'color', i, label: ['Amber', 'Sky', 'Orchid', 'Fern', 'Rose'][i], color: c })), { k: 'next', label: 'Continue', primary: true }];
-  if (s === 2) return [...Object.keys(THEMES).map(t => ({ k: 'theme', t, label: THEMES[t].name })), { k: 'next', label: 'Continue', primary: true }];
-  if (s === 3) return [{ k: 'folder', label: 'Add another folder' }, { k: 'next', label: 'Continue', primary: true }];
-  if (s === 4) return [{ k: 'ss', label: 'ScreenScraper', value: P.art.ss ? 'Signed in' : 'Sign in' }, { k: 'ra', label: 'RetroAchievements', value: P.ra ? 'Signed in' : 'Sign in' }, { k: 'next', label: 'Continue', primary: true }];
-  return [{ k: 'launcher', label: 'Use Shelf as my home screen', primary: true }, { k: 'skip', label: 'Not now' }];
+  const back = { k: 'back', label: 'Back', back: true };
+  if (s === 0) return [{ k: 'next', label: 'Get started', primary: true }, { k: 'quick', label: 'Quick setup with test data (for testing)', debug: true }];
+  if (s === 1) return [{ k: 'name', label: 'Your name', value: P.name || 'Choose' }, ...PROFILE_COLORS.map((c, i) => ({ k: 'color', i, label: ['Amber', 'Sky', 'Orchid', 'Fern', 'Rose'][i], color: c })), { k: 'next', label: 'Continue', primary: true }, back];
+  if (s === 2) return [...Object.keys(THEMES).map(t => ({ k: 'theme', t, label: THEMES[t].name })), { k: 'next', label: 'Continue', primary: true }, back];
+  if (s === 3) return [{ k: 'folder', label: 'Add another folder' }, { k: 'next', label: 'Continue', primary: true }, back];
+  if (s === 4) return [{ k: 'ss', label: 'ScreenScraper', value: P.art.ss ? 'Signed in' : 'Sign in' }, { k: 'ra', label: 'RetroAchievements', value: P.ra ? 'Signed in' : 'Sign in' }, { k: 'next', label: 'Continue', primary: true }, back];
+  return [{ k: 'launcher', label: 'Use Shelf as my home screen', primary: true }, { k: 'skip', label: 'Not now' }, back];
 }
 function fillSetup() {
   const s = S.setup.step, opts = setupOpts(); S.setup.i = clamp(S.setup.i, 0, opts.length - 1);
@@ -1971,11 +2102,13 @@ function fillSetup() {
     const cur = (o.k === 'theme' && P.prefs.theme === o.t) || (o.k === 'color' && P.colors === o.color);
     const T = o.t && THEMES[o.t], sw = o.color ? `<span style="width:20px;height:20px;border-radius:50%;background:${avatarCss(o.color)}"></span>`
       : T ? `<span style="width:34px;height:20px;border-radius:6px;border:1px solid var(--line);background:${T.space ? 'radial-gradient(circle at 70% 130%, #8b78e6 0, #2a1a5e 45%, #070b1e 80%)' : `linear-gradient(135deg, ${T.top}, ${T.c[0]} 55%, ${T.c[1]})`}"></span>` : '';
-    return `<div class="opt ${o.primary ? 'primary' : ''} ${i === S.setup.i ? 'focus' : ''}"><span style="display:flex;gap:10px;align-items:center">${sw}${o.label}${cur ? ' ✓' : ''}</span>${o.value ? `<small>${esc(o.value)}</small>` : ''}</div>`;
+    return `<div class="opt ${o.primary ? 'primary' : ''} ${o.debug ? 'debug' : ''} ${o.back ? 'back' : ''} ${i === S.setup.i ? 'focus' : ''}"><span style="display:flex;gap:10px;align-items:center">${sw}${o.label}${cur ? ' ✓' : ''}</span>${o.value ? `<small>${esc(o.value)}</small>` : ''}</div>`;
   }).join('') + `</div><div class="dots">${Array.from({ length: SETUP_STEPS }, (_, i) => `<i class="${i <= s ? 'on' : ''}"></i>`).join('')}</div>`;
 }
 function setupAct() {
   const o = setupOpts()[S.setup.i]; sfx.select();
+  if (o.k === 'back') { S.setup.step--; S.setup.i = 0; return fillSetup(); }
+  if (o.k === 'quick') return quickSetup();
   if (o.k === 'name') return openKb('Your name', P.name, v => { P.name = v; fillSetup(); });
   if (o.k === 'color') { P.colors = o.color; return fillSetup(); }
   if (o.k === 'theme') { applyTheme(o.t); return fillSetup(); }
@@ -1984,6 +2117,15 @@ function setupAct() {
   if (o.k === 'ra') { P.ra = P.ra ? null : 'player_one'; return fillSetup(); }
   if (o.k === 'next') { if (S.setup.step === 1 && !P.name) return openKb('Your name', '', v => { P.name = v; S.setup.step++; S.setup.i = 0; fillSetup(); }); S.setup.step++; S.setup.i = 0; return fillSetup(); }
   P.prefs.homeLauncher = o.k === 'launcher'; finishSetup();
+}
+function quickSetup() {   // for testing: goes through every step with test data, instead of skipping setup
+  const fill = [() => { P.name = 'Tester'; P.colors = PROFILE_COLORS[1]; }, () => applyTheme(P.prefs.theme), () => { }, () => { P.art.ss = 'tester'; P.art.source = 'ScreenScraper'; P.ra = 'tester'; }, () => { P.prefs.homeLauncher = true; }];
+  let k = 0; S.setup.quick = true;
+  const next = () => {
+    if (k < fill.length) { fill[k](); S.setup.step = k + 1; S.setup.i = setupOpts().findIndex(o => o.primary); fillSetup(); k++; setTimeout(next, 260); }
+    else { S.setup.quick = false; finishSetup(); }
+  };
+  next();
 }
 function finishSetup() { P.setup = true; paintProfile(); enterTab('home'); toast(`Welcome, ${P.name}`); }
 function enterSetup() { S.screen = 'setup'; show('setup'); setMood('home'); fillSetup(); }
@@ -2058,21 +2200,32 @@ function openGame(id, fromKey, from) {
   const f = anim.get(fromKey), bp = pose('case', {});
   Object.assign(bp, f ? { x: f.x, y: f.y, z: f.z || 0, rx: f.rx || 0, ry: f.ry || 0, s: f.s, alpha: 1, open: 0, lift: 0 } : { x: 0, y: 0, z: 0, s: .5, alpha: 0, open: 0 });
   if (fromKey && fromKey.startsWith('home:')) bp.s = (f ? f.s : .5) * Math.max(CART[g.sys].w, CART[g.sys].h) / Math.max(BOX[g.sys][0], BOX[g.sys][1]);
-  S.screen = 'game'; show('game'); setMood(g.sys); sfx.select(); fillGame();
+  S.screen = 'game'; show('game'); $('#s-game').classList.remove('closing'); setMood(g.sys); sfx.select(); fillGame(); $('#gpin').classList.add('enter');
+}
+function closeGame() {   // the box closes, goes back where it came from, and that screen comes back around it
+  const G0 = S.game; if (G0.closing) return;
+  G0.closing = { t: 0 }; G0.turn = false; sfx.back(); $('#gpin').classList.remove('enter');
+  $('#s-game').classList.add('closing'); $('#objLabel').classList.remove('on'); $('#turnHint').classList.remove('on');
+}
+function closeGameTarget(g) {   // the pose the closed box shrinks back to
+  const G0 = S.game, c = CART[g.sys], [bw, bh] = BOX[g.sys];
+  if (G0.from === 'library') { const l = anim.get('lib:' + g.id); if (l) return { x: l.x, y: l.y, z: l.z, rx: l.rx, ry: l.ry, s: l.s, alpha: 1 }; }
+  if (G0.from === 'home') { const h = anim.get('home:' + g.id); if (h) return { x: h.x, y: h.y, z: h.z, rx: h.rx, ry: h.ry, s: h.s * Math.max(c.w, c.h) / Math.max(bw, bh), alpha: 0 }; }
+  return null;
 }
 function gameActions() {
   const g = byId[S.game.id], r = rec(g.id), ra = isRA(emuFor(g)), saved = ra && r && r.slots.some(Boolean) && !P.prefs.hardcore;
-  return [saved ? 'Resume' : 'Play', ...(saved ? ['New game'] : []), 'Close the box', 'Game settings', 'col', 'fav'];
+  return [saved ? 'Resume' : 'Play', ...(saved ? ['New game'] : []), ...(g.sys === 'android' ? [] : ['emu']), 'Close the box', 'Game settings', 'col', 'fav'];
 }
 function fillGame() {
   const g = byId[S.game.id], s = PLAT[g.sys], r = rec(g.id), G0 = S.game, emu = emuFor(g), ra = isRA(emu);
   const acts = gameActions(), slots = r ? r.slots : [null, null, null, null], last = r ? r.lastSlot : -1, media = mediaFor(g);
   let h = `<div class="gp-sys">${s.long}</div><h2>${esc(g.title)}</h2>
-    <div class="facts">${[['Released', g.year], ['Developer', g.dev], ['Genre', g.genre], ['Players', g.players], ['Plays with', emu.replace('RetroArch: ', 'RetroArch, ')]].map(([a, b]) => `<div>${a}<b>${b}</b></div>`).join('')}</div>
-    <div class="actions" data-z="actions">${acts.map((a, i) => `<div class="act ${i === 0 ? 'primary' : ''} ${G0.zone === 'actions' && G0.i === i ? 'focus' : ''}">${a === 'fav' ? `${r && r.fav ? '★' : '☆'} <i class="btn">Y</i>` : a === 'col' ? 'Add to collection' : a}</div>`).join('')}</div>`;
+    <div class="facts">${[['Released', g.year], ['Developer', g.dev], ['Genre', g.genre], ['Players', g.players]].map(([a, b]) => `<div>${a}<b>${b}</b></div>`).join('')}</div>
+    <div class="actions" data-z="actions">${acts.map((a, i) => `<div class="act ${i === 0 ? 'primary' : ''} ${G0.zone === 'actions' && G0.i === i ? 'focus' : ''}">${a === 'fav' ? `${r && r.fav ? '★' : '☆'} <i class="btn">Y</i>` : a === 'col' ? 'Add to collection' : a === 'emu' ? `Plays with ${esc(emuName(emu))}` : a}</div>`).join('')}</div>`;
   h += `<h3 data-z="saves">Saves${ra ? '<small>Slots are kept per game</small>' : ''}</h3>`;
   h += ra ? `<div class="slots">${slots.map((sl, i) => `<div class="slot ${G0.zone === 'saves' && G0.i === i ? 'focus' : ''}">${sl ? '<canvas></canvas>' : '<div class="none">New game</div>'}${sl && i === last ? '<span class="tag">Last played</span>' : ''}<p>${sl ? agoText(sl.ts) : `Slot ${i + 1}`}</p></div>`).join('')}</div>`
-    : `<div class="managed ${G0.zone === 'saves' ? 'focus' : ''}">${g.sys === 'android' ? 'This app keeps its own saves.' : `<b>${emu}</b> keeps this game’s saves. Shelf’s save slots work with RetroArch; you can switch in Game settings.`}</div>`;
+    : `<div class="managed ${G0.zone === 'saves' ? 'focus' : ''}"><span>${g.sys === 'android' ? 'This app keeps its own saves.' : `<b>${esc(emuName(emu))}</b> keeps this game’s saves. Shelf’s save slots work with RetroArch.`}</span><span class="act ${G0.zone === 'saves' ? 'focus' : ''}">Open ${esc(g.sys === 'android' ? g.title : emuApp(emu))}</span></div>`;
   h += `<h3 data-z="media">Media<small>${media.length} items</small></h3><div class="mrow"><div class="mstrip" id="gMedia">${mediaStrip(g, media, G0.zone === 'media' ? G0.i : -1, 'mthumb')}</div></div>`;
   if (g.sys !== 'android') {
     const A = achievements(g), e = P.ra ? achFor(P, g) : {}, got = A.list.filter(a => e[a.id]), pts = got.reduce((t, a) => t + a.pts, 0), pct = Math.round(got.length / A.list.length * 100);
@@ -2090,17 +2243,18 @@ function fillGame() {
 function artCredit() { return usingSS() ? 'Art, manuals and details from ScreenScraper.' : 'Art from RetroArch’s thumbnail database. Details from Wikipedia.'; }
 function gameAction() {
   const g = byId[S.game.id], r = rec(g.id), G0 = S.game;
-  if (G0.zone === 'ach') return P.ra ? openAch(g.id) : openSettings(5);
+  if (G0.zone === 'ach') return P.ra ? openAch(g.id) : openSettings(CATS.indexOf('Achievements'));
   if (G0.zone === 'media') return openMedia(G0.i);
-  if (G0.zone === 'saves') { if (!isRA(emuFor(g))) return toast('Change the emulator in Game settings to use save slots'); return startLaunch(g, G0.i, !!(r && r.slots[G0.i])); }
+  if (G0.zone === 'saves') { const e = emuFor(g); if (!isRA(e)) { sfx.select(); return toast(`Opens ${g.sys === 'android' ? g.title : emuApp(e)}, where this game’s saves are`); } return launchGame(g, G0.i, !!(r && r.slots[G0.i])); }
   if (G0.zone === 'manual') { if (hasManual(g)) return openManual(); return toast(usingSS() ? 'ScreenScraper doesn’t have a manual for this game' : 'Manuals come from ScreenScraper. Sign in under Settings, Art and info.'); }
-  if (G0.zone === 'cart') return startLaunch(g, r ? r.lastSlot : 0, !!(r && r.slots.some(Boolean)));
+  if (G0.zone === 'cart') return launchGame(g, r ? r.lastSlot : 0, !!(r && r.slots.some(Boolean)));
   const a = gameActions()[G0.i];
-  if (a === 'Resume') return startLaunch(g, r.lastSlot, true);
-  if (a === 'Play') return startLaunch(g, r ? Math.max(0, r.slots.findIndex(x => !x)) : 0, false);
+  if (a === 'Resume') return launchGame(g, r.lastSlot, true);
+  if (a === 'Play') return launchGame(g, r ? Math.max(0, r.slots.findIndex(x => !x)) : 0, false);
   if (a === 'New game') { const free = r.slots.findIndex(x => !x); G0.zone = 'saves'; G0.i = free < 0 ? 0 : free; fillGame(); return toast(free < 0 ? 'All four slots are used. Choose one to replace.' : 'Choose a slot for the new game'); }
   if (a === 'Close the box') { G0.turn = true; G0.rx = .12; G0.ry = .5; sfx.select(); return fillGame(); }
   if (a === 'Game settings') return openGameSettings(g.id);
+  if (a === 'emu') return pickEmulator(g.sys, P.gameEmu[g.id] || null, v => { if (v) P.gameEmu[g.id] = v; else delete P.gameEmu[g.id]; fillGame(); toast(`${g.title} plays with ${emuName(emuFor(g))}`); }, { withDefault: true, title: `${g.title}: play with` });
   if (a === 'col') return addToCollection(g);
   toggleFav(g);
 }
@@ -2134,10 +2288,27 @@ function markAsGame(app) {
 function unmarkGame(name) { ANDROID_GAMES.delete(name); sfx.back(); toast(`${name} is back in Apps`); }
 
 /* ================= settings ================= */
-const CATS = ['Profile', 'Appearance', 'Platforms', 'Emulators', 'Art and info', 'Achievements', 'Controls', 'Home screen and apps', 'About'];
-const INSTALLED = { 'RetroArch': 'Installed, 9 cores', 'DuckStation': 'Installed', 'melonDS': 'Installed', 'PPSSPP': 'Installed', 'Mupen64Plus FZ': 'Installed' };
-const ALL_EMUS = ['RetroArch', 'DuckStation', 'melonDS', 'PPSSPP', 'Mupen64Plus FZ', 'DraStic', 'Snes9x EX+', 'MD.emu', 'Pizza Boy GBC', 'Pizza Boy GBA'];
-P.pf = {}; SYS_ORDER.forEach(k => P.pf[k] = { filter: 'None' }); P.gf = {}; P.hidden = new Set();
+const CATS = ['Profile', 'Appearance', 'Sound', 'Platforms', 'Emulators', 'Art and info', 'Achievements', 'Controls', 'Home screen and apps', 'About'];
+const ALL_EMUS = ['RetroArch', ...new Set(Object.values(EMU_LIST).flatMap(e => e.apps))];
+P.gf = {}; P.hidden = new Set();
+// choosing an emulator: every one Shelf knows for this console, installed or not, plus any other app
+function pickEmulator(sys, current, onPick, o = {}) {
+  const items = [];
+  if (o.withDefault) items.push({ label: `Default (${emuName(P.emu[sys])})`, v: null });
+  PLAT[sys].emus.forEach(e => items.push({ label: emuName(e), v: e, sub: e.startsWith('RetroArch') ? (emuInstalled(e) ? 'RetroArch core' : 'Core downloads on first use') : emuInstalled(e) ? 'Installed' : 'Not installed' }));
+  if (!o.once) items.push({ label: 'Other app…', v: 'other', sub: 'Any installed app' });
+  const at = Math.max(0, items.findIndex(it => it.v === current));
+  openDlg(o.title || `${PLAT[sys].name}: play with`, items, i => {
+    const it = items[i]; closeDlg();
+    if (it.v === 'other') { toast('Opens Android’s app picker. Shown here: Lemuroid.'); return onPick('Other app: Lemuroid'); }
+    if (it.v && !it.v.startsWith('RetroArch') && !emuInstalled(it.v)) return toast(`Opens ${it.v} in the app store`);
+    onPick(it.v);
+  }, at);
+}
+function launchGame(g, slot, resume) {   // asks which emulator first, if that console is set to ask every time
+  if (g.sys !== 'android' && P.pf[g.sys].ask && !P.gameEmu[g.id]) return pickEmulator(g.sys, P.emu[g.sys], e => { S.onceEmu = { id: g.id, e }; startLaunch(g, slot, resume && isRA(e)); }, { once: true, title: `Play ${g.title} with` });
+  startLaunch(g, slot, resume);
+}
 function settingsModel() {
   const Q = P.prefs, tog = (label, key, desc, obj = Q) => ({ label, desc, value: obj[key] ? 'On' : 'Off', act: () => { obj[key] = !obj[key]; } });
   const cyc = (label, obj, key, vals, desc, names) => ({ label, desc, value: names ? names[obj[key]] : obj[key], act: () => { obj[key] = vals[(vals.indexOf(obj[key]) + 1) % vals.length]; } });
@@ -2150,7 +2321,7 @@ function settingsModel() {
       action('Move back to Apps', '', 'Takes it out of the Library. It stays installed.', () => { unmarkGame(g.title); S.set.game = null; enterTab('apps'); return true; }),
       action('Box art', 'Choose', 'Pick other art from the game databases, or make a box from the icon.', () => toast('Shows other art to choose from')),
       tog('Show on Home', 'show', 'Include it in your recently played cartridges.', { get show() { return !P.hidden.has(g.id); }, set show(v) { v ? P.hidden.delete(g.id) : P.hidden.add(g.id); } })] : [
-      { label: 'Emulator', desc: own ? 'Chosen for this game.' : `Using the ${PLAT[g.sys].name} default. Choose to override it.`, value: own ? own : `Default (${P.emu[g.sys]})`, act: () => { const i = opts.indexOf(own || null); const n = opts[(i + 1) % opts.length]; if (n) P.gameEmu[g.id] = n; else delete P.gameEmu[g.id]; } },
+      { label: 'Emulator', desc: own ? 'Chosen for this game.' : `Using the ${PLAT[g.sys].name} default. Choose to override it.`, value: own ? emuName(own) : `Default (${emuName(P.emu[g.sys])})`, act: () => { pickEmulator(g.sys, own || null, v => { if (v) P.gameEmu[g.id] = v; else delete P.gameEmu[g.id]; fillSettings(); }, { withDefault: true, title: `${g.title}: play with` }); return true; } },
       info('Saves', isRA(emu) ? 'Shelf’s slots' : `Kept by ${emu}`, isRA(emu) ? 'Four save slots with screenshots, per game.' : 'Standalone emulators keep their own saves.'),
       { label: 'Screen filter', desc: 'Overrides the platform’s filter.', value: gf.filter || `Default (${P.pf[g.sys].filter})`, act: () => { const v = [null, 'None', 'Scanlines', 'LCD grid'], i = v.indexOf(gf.filter); gf.filter = v[(i + 1) % v.length]; } },
       action('Box art', 'Choose', 'Pick other box art from ScreenScraper.', () => toast('Shows other box art to choose from')),
@@ -2161,7 +2332,8 @@ function settingsModel() {
     const k = S.set.sub, pl = PLAT[k], emu = P.emu[k];
     return CATS.map(c => c === 'Platforms' ? { cat: pl.long, intro: `${GAMES.filter(g => g.sys === k && inLibrary(g)).length} games. Press B to go back to all platforms.`, items: k === 'android' ? [
       info('Launching', 'Opens the app', 'Android games open in their own app.'), info('Box', 'Keep case', 'A generic keep case at Blu-ray size.')] : [
-      { label: 'Default emulator', desc: 'Used by every game on this platform unless a game chooses its own.', value: emu.replace('RetroArch: ', 'RetroArch, '), act: () => { const e = pl.emus; P.emu[k] = e[(e.indexOf(emu) + 1) % e.length]; } },
+      { label: 'Default emulator', desc: `Used by every game on this platform unless a game chooses its own. ${pl.emus.length} to choose from.`, value: emuName(emu), act: () => { pickEmulator(k, emu, v => { P.emu[k] = v; fillSettings(); }); return true; } },
+      tog('Ask every time', 'ask', 'Choose the emulator each time you play, unless a game has its own.', P.pf[k]),
       info('Saves', isRA(emu) ? 'Shelf’s slots' : `Kept by ${emu}`, isRA(emu) ? 'RetroArch saves into Shelf’s four slots per game.' : 'Standalone emulators keep their own saves.'),
       cyc('Screen filter', P.pf[k], 'filter', ['None', 'Scanlines', 'LCD grid'], 'A filter over the game picture, when the emulator supports one.'),
       info('Game folder', `ROMs/${k}`, 'Where Shelf looks for this platform’s games.'),
@@ -2179,14 +2351,18 @@ function settingsModel() {
         { label: 'themes', themes: true },
         tog('Accent follows the console', 'accentFollows', 'The accent color and one background field take on each console’s color.'),
         cyc('Case color', Q, 'caseTint', [false, true], 'The plastic of the modern cases.', { false: 'Neutral', true: 'Console color' }),
-        tog('Background motion', 'motion', 'Drifting backgrounds, twinkling stars and the slow float of boxes and cartridges.'),
-        tog('Interface sounds', 'sound', 'Soft clicks when you move and choose.')] };
+        tog('Background motion', 'motion', 'Drifting backgrounds, twinkling stars and the slow float of boxes and cartridges.')] };
+      case 'Sound': { const M = P.prefs.music, names = Object.fromEntries([...TRACK_KEYS.map(k => [k, TRACKS[k].name]), ['shuffle', 'Shuffle']]); return { cat: 'Sound', intro: 'Music plays quietly in the menus and stops while you play.', items: [
+        tog('Menu music', 'on', 'Original tracks written for Shelf.', M),
+        cyc('Track', M, 'track', [...TRACK_KEYS, 'shuffle'], M.track === 'shuffle' ? 'A different track every so often.' : TRACKS[M.track].mood, names),
+        cyc('Music volume', M, 'vol', ['Low', 'Medium', 'High'], 'Interface sounds stay at their own level.'),
+        tog('Interface sounds', 'sound', 'Soft clicks when you move and choose.')] }; }
       case 'Platforms': return { cat: 'Platforms', intro: 'Choose a platform for its default emulator, filters and folders.', items: SYS_ORDER.map(k =>
-        nav(PLAT[k].long, k === 'android' ? 'Apps' : P.emu[k].replace('RetroArch: ', 'RetroArch, '), `${GAMES.filter(g => g.sys === k && inLibrary(g)).length} games`, () => { S.set.sub = k; S.set.i = 0; })) };
+        nav(PLAT[k].long, k === 'android' ? 'Apps' : P.pf[k].ask ? 'Ask every time' : emuName(P.emu[k]), `${GAMES.filter(g => g.sys === k && inLibrary(g)).length} games`, () => { S.set.sub = k; S.set.i = 0; })) };
       case 'Emulators': return { cat: 'Emulators', intro: 'Emulators found on this handheld. Shelf launches them for you.', items: [
-        ...ALL_EMUS.map(e => INSTALLED[e] ? info(e, INSTALLED[e], e === 'RetroArch' ? 'Shelf manages save slots and achievements through RetroArch.' : 'A standalone emulator. It keeps its own saves.')
-          : action(e, 'Get it', 'Not installed.', () => toast(`Opens ${e} in the app store`))),
-        action('Look for emulators again', '', 'After installing or removing one.', () => toast('Found 5 emulators'))] };
+        ...ALL_EMUS.map(e => INSTALLED_APPS.has(e) ? info(e, e === 'RetroArch' ? `Installed, ${INSTALLED_CORES.size} cores` : 'Installed', e === 'RetroArch' ? 'Shelf manages save slots and achievements through RetroArch. Other cores download when first used.' : `A standalone emulator for ${SYS_ORDER.filter(k => (PLAT[k].emus || []).includes(e)).map(k => PLAT[k].name).join(', ')}. It keeps its own saves.`)
+          : action(e, 'Get it', `Not installed. Plays ${SYS_ORDER.filter(k => (PLAT[k].emus || []).includes(e)).map(k => PLAT[k].name).join(', ')}.`, () => toast(`Opens ${e} in the app store`))),
+        action('Look for emulators again', '', 'After installing or removing one.', () => toast(`Found ${INSTALLED_APPS.size} emulators`))] };
       case 'Art and info': { const A = P.art, ss = A.source === 'ScreenScraper'; return { cat: 'Art and info', intro: 'Box art, manuals, media and details are downloaded for you. Cartridge labels too, where the source has them.', items: [
         { label: 'Source', value: A.source, desc: ss ? 'The most complete: boxes, manuals, videos and details.' : 'RetroArch’s databases and Wikipedia. No account needed.', act: () => { A.source = ss ? 'Free sources' : 'ScreenScraper'; } },
         ...(ss ? [action('ScreenScraper account', A.ss || 'Sign in', A.ss ? 'Signed in.' : 'A free account from screenscraper.fr.', () => { A.ss = A.ss ? null : 'player_one'; })] : []),
@@ -2239,16 +2415,81 @@ function closeSettings() {
 }
 
 /* ================= launching, playing, coming back ================= */
-function startLaunch(g, slot, resume) {
-  S.seq = { kind: 'launch', g, slot, resume, t: 0, from: S.screen, flags: {} };
-  sfx.select();
+// Launching: the game's console rises into view, the media flies in and clicks into its slot, the power light comes
+// on with a jingle, and the screen fades into the game. Coming back plays the same thing in reverse.
+// On Android, Shelf plays the launch before handing off to the emulator, and the return when it comes back to the front.
+const KIND = {   // how media goes into each kind of slot: direction (console space), turn, and how much of it goes in
+  top:   { dir: [0, -1, 0], rx: 0, turn: 0, deep: .55 },
+  hand:  { dir: [0, -1, 0], rx: 0, turn: Math.PI, deep: .6 },
+  front: { dir: [0, 0, -1], rx: -Math.PI / 2, turn: Math.PI, deep: .78 },
+  edge:  { dir: [0, 0, 1], rx: -Math.PI / 2, turn: 0, deep: .7 },
+  back:  { dir: [0, 0, 1], rx: 0, turn: Math.PI, deep: 0, thin: true },
+  lid:   { dir: [0, -1, 0], rx: -Math.PI / 2, turn: 0, deep: 1, thin: true },
+};
+function consolePose(sys) {
+  const m = consoleModel(sys), dx = m.hi[0] - m.lo[0], dy = m.hi[1] - m.lo[1], hand = !!PLAT[sys].hand;
+  const s = Math.min(3.3 / dx, (hand ? 2.6 : 1.9) / dy);
+  return { x: 0, y: hand ? -.3 : -.55, z: 0, ry: hand ? -.28 : -.38, s };
+}
+function mediaPath(sys, cp) {   // the media's pose just outside the slot, and fully in
+  const m = consoleModel(sys), sl = m.slot, K = KIND[sl.kind], c = CART[sys], CM = M4.trs(cp.x, cp.y, cp.z, 0, cp.ry, 0, cp.s);
+  const at = apply(CM, [sl.x, sl.y, sl.z]), cy = Math.cos(cp.ry), sy = Math.sin(cp.ry);
+  const d = [K.dir[0] * cy + K.dir[2] * sy, K.dir[1], -K.dir[0] * sy + K.dir[2] * cy];
+  const len = (K.thin ? c.d : c.h) * cp.s, inn = at.map((v, i) => v + d[i] * (len / 2 - len * K.deep)), out = at.map((v, i) => v - d[i] * (len / 2 + .9 + (K.thin ? .3 : 0)));
+  return { out, inn, rx: K.rx, ry: cp.ry + K.turn, s: cp.s, kind: sl.kind };
+}
+function mediaPoseNow(from, g) {   // where the media is on screen right now, so it can fly from there
+  if (from === 'home') { const o = anim.get('home:' + g.id); if (o) return { x: o.x, y: o.y, z: o.z, rx: o.rx, ry: o.ry, s: o.s }; }
+  if (from === 'game') { const o = anim.get('case'), m = caseModel(g.sys); if (o) {
+    const p = apply(M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s), [0, 0, m.top + CART[g.sys].d / 2 + .004]); return { x: p[0], y: p[1], z: p[2], rx: o.rx, ry: o.ry, s: o.s }; } }
+  return { x: 0, y: -6, z: 0, rx: 0, ry: 0, s: 1 };
+}
+function homeSlotPose(g) { const [x, y] = pw(270, 238); return { x, y, z: .5, rx: -.1, ry: -.2, s: mediaScale(g.sys, 236) }; }
+function startLaunch(g, slot, resume, from = S.screen) {
+  const cp = consolePose(g.sys);
+  S.seq = { kind: 'launch', g, slot, resume, t: 0, from, under: from === 'apps' ? null : from, flags: {}, cp, start: mediaPoseNow(from, g) };
+  S.screen = 'launch'; show('none'); S.top.on = false; sfx.select();
 }
 function seqUpdate(dt) {
-  const q = S.seq; q.t += dt;
+  const q = S.seq; q.t += dt; const t = q.t, F = q.flags, kind = consoleModel(q.g.sys).slot.kind;
   if (q.kind === 'launch') {
-    if (q.t > .55 && !q.flags.fade) { q.flags.fade = 1; const fl = $('#flash'); fl.style.transition = 'opacity .35s ease-in'; fl.style.opacity = 1; sfx.insert(); }
-    if (q.t > .95) { S.seq = null; startPlay(q.g, q.slot, q.resume, q.from); }
-  } else if (q.t > .9) { S.seq = null; }
+    const click = kind === 'lid' ? 1.5 : kind === 'front' ? 1.38 : 1.35;
+    if (t > click && !F.click) { F.click = 1; sfx.insert(); }
+    if (t > 1.7 && !F.power) { F.power = 1; sfx.power(); }
+    if (t > 2.35 && !F.fade) { F.fade = 1; const fl = $('#flash'); fl.style.transition = 'opacity .45s ease-in'; fl.style.opacity = 1; }
+    if (t > 2.85) { S.seq = null; startPlay(q.g, q.slot, q.resume, q.from); }
+  } else {
+    if (t > .3 && !F.off) { F.off = 1; sfx.off(); }
+    if (t > .52 && !F.click) { F.click = 1; sfx.insert(); }
+    if (t > 1.65) finishReturn(q);
+  }
+}
+function seqTimes(q) {   // every moving part of the sequence, as 0..1 progress values at time t
+  const t = q.t, L = q.kind === 'launch', lid = consoleModel(q.g.sys).slot.kind === 'lid';
+  if (L) return { rise: easeOut((t - .1) / .8), fly: ease((t - .15) / .85), ins: ease((t - 1.0) / (lid ? .3 : .35)), press: ease((t - 1.38) / .1),
+    lidOpen: lid ? ease((t - .2) / .4) * (1 - ease((t - 1.3) / .22)) : 0, power: clamp((t - 1.7) / .15, 0, 1), cam: ease((t - .05) / .85), close: ease((t - 1.75) / .9), scrim: ease(t / .45) };
+  return { rise: 1 - ease((t - 1.0) / .55), fly: 1 - ease((t - .95) / .65), ins: 1 - ease((t - .55) / .4), press: 1 - ease((t - .5) / .08),
+    lidOpen: lid ? ease((t - .38) / .2) * (1 - ease((t - .95) / .3)) : 0, power: 1 - clamp((t - .3) / .2, 0, 1), cam: 1 - ease((t - .95) / .6), close: 1 - ease(t / .9), scrim: 1 - ease((t - 1.0) / .6) };
+}
+function drawLaunch(dt) {
+  const q = S.seq, g = q.g, T = seqTimes(q), hand = !!PLAT[g.sys].hand, cp = q.cp, path = mediaPath(g.sys, cp);
+  if (q.under && T.scrim < .999) { if (q.under === 'home') drawHome(dt, S.time); else if (q.under === 'game') drawGamePage(dt, S.time); }
+  if (!NODRAW) { setFlat(); beginMeshes(); const b = hexRgb(getComputedStyle(stage).getPropertyValue('--bg').trim() || '#070b1e');
+    drawPlate('scrim', panelArt, 667, 375, 1500, 900, 3, b, T.scrim * .92); endMeshes(); gl.clear(gl.DEPTH_BUFFER_BIT); }
+  // the camera starts where the screen's own camera is, rises to look down at the console, then moves in close
+  const camY = lerp(0, hand ? .8 : 2.3, T.cam), look = lerp(0, -.3, T.cam), camZ = lerp(CAMZ, hand ? 6.2 : 7.2, T.close);
+  setCamera(camY, camZ, look); beginMeshes();
+  const C = { ...cp, y: lerp(-7, cp.y, T.rise) }, M = M4.trs(C.x, C.y, C.z, 0, C.ry, 0, C.s);
+  drawConsole(g.sys, M, { alpha: 1, bright: 1, s: C.s, detail: .6, power: T.power, lid: T.lidOpen });
+  const st = q.kind === 'launch' ? q.start : q.dest, aim = { x: path.out[0], y: path.out[1] + (C.y - cp.y), z: path.out[2] };
+  let pos = [lerp(st.x, aim.x, T.fly), lerp(st.y, aim.y, T.fly), lerp(st.z, aim.z, T.fly)];
+  if (T.fly >= 1) pos = path.out.map((v, i) => lerp(v, path.inn[i], T.ins) + (i === 1 ? C.y - cp.y : 0));
+  if (path.kind === 'front') pos[1] -= .05 * cp.s * T.press;
+  let dry = path.ry - st.ry; while (dry > Math.PI) dry -= 2 * Math.PI; while (dry < -Math.PI) dry += 2 * Math.PI;
+  const rx = lerp(st.rx, path.rx, T.fly), ry = st.ry + dry * T.fly, s = lerp(st.s, path.s, T.fly);
+  q.now = { x: pos[0], y: pos[1], z: pos[2], rx, ry, s };
+  drawCartM(g, M4.trs(pos[0], pos[1], pos[2], rx, ry, 0, s), { alpha: 1, bright: 1, s, detail: .6 });
+  endMeshes();
 }
 function startPlay(g, slot, resume, from) {
   const r = ensureRec(g), emu = emuFor(g);
@@ -2268,12 +2509,20 @@ function homeFromPlay() {
   if (ra) { r.slots[p.slot] = { ts: Date.now(), seed: p.seed, scroll: Math.floor(p.scroll) }; r.lastSlot = p.slot; }
   r.last = Date.now(); r.minutes += Math.max(1, Math.round(p.t / 60));
   P.recent = [g.id, ...P.recent.filter(x => x !== g.id)];
+  const to = p.from === 'game' ? 'game' : 'home';
+  if (to === 'home') { S.tab = 'home'; S.home.i = 0; S.home.zone = 'row'; refreshHome(); } else fillGame();
+  S.seq = { kind: 'return', g, t: 0, flags: {}, under: to, cp: consolePose(g.sys), saved: ra, emu };
+  S.seq.dest = to === 'home' ? homeSlotPose(g) : mediaPoseNow('game', g);
+  S.screen = 'launch'; show('none');
   const fl = $('#flash'); fl.style.transition = 'none'; fl.style.opacity = 1;
   requestAnimationFrame(() => { fl.style.transition = 'opacity .5s ease'; fl.style.opacity = 0; });
-  S.seq = { kind: 'return', g, t: 0, flags: {} };
-  if (p.from === 'home') { S.home.i = 0; S.home.zone = 'row'; enterTab('home'); }
+}
+function finishReturn(q) {
+  const g = q.g; S.seq = null; S.onceEmu = null;
+  if (q.under === 'home') { S.screen = 'home'; show('home'); Object.assign(pose('home:' + g.id, {}), q.now || homeSlotPose(g), { alpha: 1, bright: 1 }); refreshHome(); }
   else { S.screen = 'game'; show('game'); fillGame(); }
-  sfx.saved(); toast(ra ? `Saved to slot ${p.slot + 1}` : g.sys === 'android' ? `Back from ${g.title}` : `Back from ${emu}`);
+  renderTop();
+  sfx.saved(); toast(q.saved ? `Saved to slot ${(rec(g.id).lastSlot) + 1}` : g.sys === 'android' ? `Back from ${g.title}` : `Back from ${q.emu}`);
 }
 /* ================= achievements page ================= */
 const ACH_FILTERS = ['All', 'Earned', 'Locked'];
@@ -2310,14 +2559,18 @@ function openDlg(title, items, onPick, i = 0) { S.dlg = { open: true, title, ite
 function closeDlg() { S.dlg.open = false; renderDlg(); }
 function renderDlg() {
   const d = S.dlg, el = $('#dlg'); el.classList.toggle('open', !!d.open); if (!d.open) return;
-  el.innerHTML = `<h3>${esc(d.title)}</h3>` + d.items.map((it, i) => `<div class="ditem ${i === d.i ? 'focus' : ''}">${it.check != null ? `<span class="chk ${it.check ? 'on' : ''}"></span>` : ''}<span>${esc(it.label)}</span>${it.sub ? `<small>${esc(it.sub)}</small>` : ''}</div>`).join('');
+  el.innerHTML = `<h3>${esc(d.title)}</h3><div class="dlist">` + d.items.map((it, i) => `<div class="ditem ${i === d.i ? 'focus' : ''}">${it.check != null ? `<span class="chk ${it.check ? 'on' : ''}"></span>` : ''}<span>${esc(it.label)}</span>${it.sub ? `<small>${esc(it.sub)}</small>` : ''}</div>`).join('') + '</div>';
+  const L = el.querySelector('.dlist'), f = L.querySelector('.focus'); if (f) L.scrollTop = clamp(f.offsetTop - L.clientHeight / 2 + f.offsetHeight / 2, 0, L.scrollHeight);   // long lists keep the choice in view
 }
-const KB_ROWS = [[...'ABCDEFGHIJ'], [...'KLMNOPQRST'], [...'UVWXYZ', "'", '&', '-', '!'], [...'1234567890'], ['Space', 'Delete', 'Done']];
-function openKb(title, value, onDone) { S.kb = { open: true, title, value, r: 0, c: 0, onDone }; renderKb(); sfx.select(); }
+const KB_ROWS = [[...'1234567890'], [...'QWERTYUIOP'], [...'ASDFGHJKL'], [...'ZXCVBNM'], ['&', "'", '-', '!', 'Space', 'Delete', 'Done']];
+const KB_OFF = [0, 0, .5, 1.5, 0], kbW = key => key === 'Space' ? 3 : key.length > 1 ? 1.5 : 1;   // rows staggered like a real keyboard, in key widths
+function kbCenter(r, c) { let x = KB_OFF[r]; for (let i = 0; i < c; i++) x += kbW(KB_ROWS[r][i]); return x + kbW(KB_ROWS[r][c]) / 2; }
+function kbNearest(r, x) { let best = 0, d = 1e9; KB_ROWS[r].forEach((_, c) => { const e = Math.abs(kbCenter(r, c) - x); if (e < d) { d = e; best = c; } }); return best; }
+function openKb(title, value, onDone) { S.kb = { open: true, title, value, r: 1, c: 0, onDone }; renderKb(); sfx.select(); }
 function renderKb() {
   const k = S.kb, el = $('#kb'); el.classList.toggle('open', !!k.open); if (!k.open) return;
   el.innerHTML = `<h3>${esc(k.title)}</h3><div class="kbfield">${esc(k.value)}<i class="caret"></i></div>` + KB_ROWS.map((row, r) =>
-    `<div class="kbrow">${row.map((key, c) => `<span class="key ${key.length > 1 ? 'wide' : ''} ${r === k.r && c === k.c ? 'focus' : ''}">${key}</span>`).join('')}</div>`).join('');
+    `<div class="kbrow" style="padding-left:${KB_OFF[r] * 59}px">${row.map((key, c) => `<span class="key ${key.length > 1 ? 'wide' : ''} ${r === k.r && c === k.c ? 'focus' : ''}" style="width:${kbW(key) * 59 - 7}px">${key}</span>`).join('')}</div>`).join('');
 }
 function kbType(ch) {   // capitalizes the start of each word, like a title
   const k = S.kb; if (k.value.length >= 28) return;
@@ -2572,11 +2825,11 @@ function drawMuseum(dt) {
 })();
 /* ================= input ================= */
 function act(a) {
-  audio();
+  audio(); musicEnsure();
   if (a === 'home') { closeDlg(); S.kb.open = false; renderKb(); if (S.screen === 'play') return homeFromPlay(); if (S.screen === 'setup' || S.seq) return; S.home.i = 0; S.home.zone = 'row'; sfx.tab(); return enterTab('home'); }
   if (S.kb.open) {
     const k = S.kb; if (a !== 'a') k.typed = false;
-    if (a === 'up' || a === 'down') { const r = clamp(k.r + (a === 'up' ? -1 : 1), 0, KB_ROWS.length - 1); if (r !== k.r) { k.c = Math.min(Math.round(k.c * (KB_ROWS[r].length - 1) / Math.max(1, KB_ROWS[k.r].length - 1)), KB_ROWS[r].length - 1); k.r = r; sfx.move(); renderKb(); } }
+    if (a === 'up' || a === 'down') { const r = clamp(k.r + (a === 'up' ? -1 : 1), 0, KB_ROWS.length - 1); if (r !== k.r) { k.c = kbNearest(r, kbCenter(k.r, k.c)); k.r = r; sfx.move(); renderKb(); } }
     else if (a === 'left' || a === 'right') { k.c = (k.c + (a === 'left' ? -1 : 1) + KB_ROWS[k.r].length) % KB_ROWS[k.r].length; sfx.move(); renderKb(); }
     else if (a === 'a') kbPress(); else if (a === 'y') { k.value = k.value.slice(0, -1); renderKb(); } else if (a === 'b') { k.open = false; renderKb(); sfx.back(); }
     return;
@@ -2588,6 +2841,7 @@ function act(a) {
   if (S.seq) return;
   const sc = S.screen;
   if (sc === 'setup') {
+    if (S.setup.quick) return;
     const n = setupOpts().length;
     if (['up', 'down', 'left', 'right'].includes(a)) { const k = clamp(S.setup.i + (a === 'up' || a === 'left' ? -1 : 1), 0, n - 1); if (k !== S.setup.i) { S.setup.i = k; sfx.move(); fillSetup(); } }
     else if (a === 'a') setupAct(); else if (a === 'b' && S.setup.step > 0) { S.setup.step--; S.setup.i = 0; sfx.back(); fillSetup(); }
@@ -2618,13 +2872,13 @@ function homeInput(a) {
     if (a === 'left' || a === 'right') { const k = clamp(H0.i + (a === 'left' ? -1 : 1), 0, items.length - 1); if (k !== H0.i) { H0.i = k; H0.card = 0; sfx.move(); refreshHome(); } }
     else if (a === 'up') { S.top.on = true; S.top.i = 0; sfx.move(); refreshHome(); }
     else if (a === 'down' && id !== '__all') { H0.zone = 'cards'; H0.card = 0; sfx.move(); refreshHome(); }
-    else if (a === 'a') { if (id === '__all') { sfx.select(); enterTab('library'); } else { const g = byId[id], r = rec(id); startLaunch(g, r.lastSlot, isRA(emuFor(g)) && r.slots.some(Boolean)); } }
+    else if (a === 'a') { if (id === '__all') { sfx.select(); enterTab('library'); } else { const g = byId[id], r = rec(id); launchGame(g, r.lastSlot, isRA(emuFor(g)) && r.slots.some(Boolean)); } }
     else if (a === 'y' && id !== '__all') toggleFav(byId[id]);
   } else {
     if (a === 'left' || a === 'right') { const k = clamp(H0.card + (a === 'left' ? -1 : 1), 0, 2); if (k !== H0.card) { H0.card = k; sfx.move(); refreshHome(); } }
     else if (a === 'up' || a === 'b') { H0.zone = 'row'; sfx.move(); refreshHome(); }
     else if (a === 'a') { const c = homeCards(id)[H0.card].k, g = byId[id];
-      if (c === 'box') openGame(id, 'home:' + id, 'home'); else if (c === 'ach') { if (g.sys !== 'android') P.ra ? openAch(id) : openSettings(5); } else { openGame(id, 'home:' + id, 'home'); S.game.zone = isRA(emuFor(g)) ? 'saves' : 'actions'; S.game.i = 0; fillGame(); } }
+      if (c === 'box') openGame(id, 'home:' + id, 'home'); else if (c === 'ach') { if (g.sys !== 'android') P.ra ? openAch(id) : openSettings(CATS.indexOf('Achievements')); } else { openGame(id, 'home:' + id, 'home'); S.game.zone = isRA(emuFor(g)) ? 'saves' : 'actions'; S.game.i = 0; fillGame(); } }
   }
 }
 function libInput(a) {
@@ -2660,8 +2914,10 @@ function appsInput(a) {
   else if (a === 'y') return appOptions();
   refreshApps();
 }
-function startPlayDirect(g) { S.seq = { kind: 'launch', g, slot: 0, resume: false, t: .5, from: 'apps', flags: {} }; }
+function startPlayDirect(g) { startLaunch(g, 0, false, 'apps'); }
 function gameInput(a) {
+  if (S.game.closing) return;
+  $('#gpin').classList.remove('enter');
   const G0 = S.game, g = byId[G0.id], acts = gameActions(), ra = isRA(emuFor(g)), nMedia = mediaFor(g).length;
   if (G0.turn) {   // turning the closed box
     if (a === 'left' || a === 'right') { G0.ry += (a === 'left' ? -1 : 1) * .45; sfx.move(); }
@@ -2672,7 +2928,7 @@ function gameInput(a) {
     return;
   }
   if (a === 'y') return toggleFav(g);
-  if (a === 'b') { if (G0.zone !== 'actions') { G0.zone = 'actions'; G0.i = 0; fillGame(); return sfx.back(); } sfx.back(); return enterTab(G0.from); }
+  if (a === 'b') { if (G0.zone !== 'actions') { G0.zone = 'actions'; G0.i = 0; fillGame(); return sfx.back(); } return closeGame(); }
   const go = (zone, i = 0) => { G0.zone = zone; G0.i = i; sfx.move(); };
   const z = G0.zone;
   if (z === 'manual') { if (a === 'right') go('cart'); else if (a === 'a') return gameAction(); }
@@ -2756,7 +3012,7 @@ function planetTarget() {
   }
 }
 function drawHome(dt, t) {
-  const items = homeItems(), H0 = S.home, rowFocus = H0.zone === 'row' && !S.top.on, q = S.seq && S.seq.from === 'home' ? S.seq : null;
+  const items = homeItems(), H0 = S.home, rowFocus = H0.zone === 'row' && !S.top.on, q = S.seq;
   approach(H0, { f: H0.i }, dt, 8);
   setFlat(); beginMeshes();
   const drawn = [];
@@ -2771,8 +3027,8 @@ function drawHome(dt, t) {
     const g = byId[id], o = pose('home:' + id, { s: 0, y: 3 }), [x, y] = pw(xpx, ypx);
     approach(o, { x, z: foc ? .5 : 0, ry: -.2, rx: -.1, s: mediaScale(g.sys, foc ? 236 : 150), alpha, bright: foc ? 1.02 : .72, glow: foc && rowFocus ? 1 : 0 }, dt, 10);
     approach(o, { y }, dt, foc ? 7 : 10);
-    let M = M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s);
-    if (q && foc) { const k = easeOut(q.t / .9); M = M4.trs(o.x * (1 - k), o.y + k * .6, o.z + k * 3, o.rx * (1 - k), o.ry * (1 - k), 0, o.s * (1 + k * .8)); }
+    const M = M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s);
+    if (q && q.g.id === id) return;   // it's in the launch scene
     const hpx = CART[g.sys].h / 2 * o.s * PX;
     if (o.alpha > .01) { shadowUnder(xpx, ypx - bob + hpx + (foc ? 24 : 12), Math.max(CART[g.sys].w, .5) * o.s * PX * .9, o.alpha, foc); drawn.push([g, M, o, foc]); }
   });
@@ -2784,7 +3040,7 @@ function drawLibrary(dt, t) {
   const L = S.lib, cols = 5, row = Math.floor(L.i / cols), onGrid = L.zone === 'grid' && !S.top.on;
   const lastRow = Math.max(0, Math.floor((L.list.length - 1) / cols)), top = .58, bottom = .49;
   approach(L, { rowF: clamp(row, top, Math.max(top, lastRow - bottom)) }, dt, 9);
-  const CY = 420, ROW = 300, cx = c => 350 + c * 212.5, s0 = BOXK, still = !motion();
+  const CY = 420, ROW = 300, cx = c => 363 + c * 206, s0 = BOXK, still = !motion();
   setFlat(); beginMeshes();
   drawPlate('gridpanel', panelArt, 775, 420, 1062, 600, 0, lightTheme() ? [1, 1, 1] : [.035, .045, .11], lightTheme() ? .4 : .55);
   clipRect(245, 121, 1305, 719);
@@ -2807,18 +3063,25 @@ function drawGamePage(dt, t) {
   const G0 = S.game, g = byId[G0.id], o = pose('case', {}), m = caseModel(g.sys), [W0, H0] = [m.W, m.H];
   const sOpen = Math.min(620 / (2 * W0 * PX), 520 / (H0 * PX)), s = G0.turn ? Math.min(sOpen * 1.35, 430 / (Math.max(W0, H0) * PX)) : sOpen;
   const [cxw, cyw] = pw(345, 392), openT = G0.turn ? 0 : 1;
-  approach(o, { open: openT }, dt, 5.5);
-  approach(o, { x: cxw + (m.W / 2) * s * o.open, y: cyw, z: 0, s, alpha: 1, bright: 1, rx: G0.turn ? G0.rx : -.18, ry: G0.turn ? G0.ry : 0 }, dt, 6);
-  setCamera(0, CAMZ, 0); beginMeshes();
-  const q = S.seq && S.seq.g === g ? S.seq : null, fromHere = q && (q.kind === 'return' || q.from === 'game');
-  drawCase(g, o, o.open, 0, !!fromHere);
-  const M = M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s), top = m.D / 2 - m.ct, d = CART[g.sys].d, trayM = M4.mul(M, M4.trs(0, 0, top + d / 2 + .004, 0, 0, 0, 1));
-  if (fromHere) {   // the cartridge lifting out of the tray to play, or settling back in
-    const k = q.kind === 'launch' ? easeOut(q.t / .9) : 1 - easeOut(q.t / .7);
-    drawCartM(g, M4.mul(trayM, M4.trs(0, k * .5, k * 4, 0, 0, 0, 1 + k * .6)), { alpha: 1, bright: 1 });
+  if (G0.closing) {   // close the cover first, then glide back to where the box came from
+    const C = G0.closing; C.t += dt; approach(o, { open: 0 }, dt, 8);
+    const T = C.t > .25 ? closeGameTarget(g) : null;
+    if (T) approach(o, T, dt, 7); else approach(o, { x: cxw, y: cyw, rx: -.08, ry: 0 }, dt, 6);
+    if (C.t > .95 || (!closeGameTarget(g) && C.t > .5)) {
+      G0.closing = null; $('#s-game').classList.remove('closing');
+      if (G0.from === 'library') Object.assign(pose('lib:' + g.id, {}), { x: o.x, y: o.y, z: o.z, rx: o.rx, ry: o.ry, s: o.s });
+      return enterTab(TABS.includes(G0.from) ? G0.from : 'home');
+    }
+  } else {
+    approach(o, { open: openT }, dt, 5.5);
+    approach(o, { x: cxw + (m.W / 2) * s * o.open, y: cyw, z: 0, s, alpha: 1, bright: 1, rx: G0.turn ? G0.rx : -.18, ry: G0.turn ? G0.ry : 0 }, dt, 6);
   }
+  setCamera(0, CAMZ, 0); beginMeshes();
+  const q = S.seq && S.seq.g === g ? S.seq : null;
+  drawCase(g, o, o.open, 0, !!q);   // while launching or coming back, the media is in the launch scene
+  const M = M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s), top = m.D / 2 - m.ct, d = CART[g.sys].d, trayM = M4.mul(M, M4.trs(0, 0, top + d / 2 + .004, 0, 0, 0, 1));
   const mc = moodColors(MOOD.cur), c1 = hexRgb(mc.accent), c2 = hexRgb(mc.planet[0]);
-  if (!G0.turn && o.open > .9 && !q) {
+  if (!G0.turn && !G0.closing && o.open > .9 && !q) {
     if (G0.zone === 'cart') drawCartGlowM(g, trayM, o.s, c1, c2);
     if (G0.zone === 'manual') { const CM = M4.mul(M, coverMatrix(m, o.open)), [mw, mh] = m.manualSize;
       if (!m.manRing) m.manRing = ringMesh(shape(mw, mh, [.012, .012, .012, .012]));
@@ -2826,7 +3089,7 @@ function drawGamePage(dt, t) {
   }
   endMeshes();
   if (!NODRAW) {   // a label over the object you're on
-    const L = $('#objLabel'), on = !G0.turn && o.open > .9 && (G0.zone === 'cart' || G0.zone === 'manual') && !q;
+    const L = $('#objLabel'), on = !G0.turn && !G0.closing && o.open > .9 && (G0.zone === 'cart' || G0.zone === 'manual') && !q;
     L.classList.toggle('on', on);
     if (on) {
       const CM = M4.mul(M, coverMatrix(m, o.open)), pt = G0.zone === 'cart' ? apply(trayM, [0, (CART[g.sys].h) / 2 + .08, 0]) : apply(CM, [0, m.manualSize[1] / 2 + .08, top]);
@@ -2847,6 +3110,7 @@ function tick(dt) {
   MOOD.t = Math.min(1, MOOD.t + dt / .8);
   for (let i = 0; i < 3; i++) RIM[i] += (RIM_T[i] - RIM[i]) * Math.min(1, dt * 4);
   if (S.seq) seqUpdate(dt);
+  musicDuck();
   if (S.play) playUpdate(dt);
   if (S.screen === 'media') mvUpdate(dt);
   approach(PL, planetTarget(), dt, 3);
@@ -2858,6 +3122,7 @@ function tick(dt) {
   else if (S.screen === 'library') drawLibrary(dt, S.time);
   else if (S.screen === 'game') drawGamePage(dt, S.time);
   else if (S.screen === 'museum') drawMuseum(dt);
+  else if (S.screen === 'launch' && S.seq) drawLaunch(dt);
 }
 async function boot() {
   fit();

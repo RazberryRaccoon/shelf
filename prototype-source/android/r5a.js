@@ -23,7 +23,7 @@ function approach(o, t, dt, rate = 9) { const k = 1 - Math.exp(-dt * rate); for 
 const motion = () => P.prefs.motion;
 const rec = id => P.played[id];
 function ensureRec(g) { if (!P.played[g.id]) P.played[g.id] = { last: 0, minutes: 0, earned: 0, fav: false, slots: [null, null, null, null], lastSlot: 0 }; return P.played[g.id]; }
-const BOXK = .8;   // boxes in the Library: 1 unit (100 mm) = .8 x PX pixels, so every box keeps its true size relative to the others
+const BOXK = .76;   // boxes in the Library: 1 unit (100 mm) = .76 x PX pixels, so every box keeps its true size relative to the others
 function mediaScale(sys, px) { const c = CART[sys]; return px / PX / Math.max(c.w, c.h); }
 
 /* ================= small DOM helpers ================= */
@@ -49,12 +49,13 @@ const PROFILE_COLORS = [['#ffd38a', '#e8834a', '#6a2a1e'], ['#bff3ff', '#3fa4d9'
 const SETUP_STEPS = 6;
 function setupOpts() {
   const s = S.setup.step;
-  if (s === 0) return [{ k: 'next', label: 'Get started', primary: true }];
-  if (s === 1) return [{ k: 'name', label: 'Your name', value: P.name || 'Choose' }, ...PROFILE_COLORS.map((c, i) => ({ k: 'color', i, label: ['Amber', 'Sky', 'Orchid', 'Fern', 'Rose'][i], color: c })), { k: 'next', label: 'Continue', primary: true }];
-  if (s === 2) return [...Object.keys(THEMES).map(t => ({ k: 'theme', t, label: THEMES[t].name })), { k: 'next', label: 'Continue', primary: true }];
-  if (s === 3) return [{ k: 'folder', label: 'Add another folder' }, { k: 'next', label: 'Continue', primary: true }];
-  if (s === 4) return [{ k: 'ss', label: 'ScreenScraper', value: P.art.ss ? 'Signed in' : 'Sign in' }, { k: 'ra', label: 'RetroAchievements', value: P.ra ? 'Signed in' : 'Sign in' }, { k: 'next', label: 'Continue', primary: true }];
-  return [{ k: 'launcher', label: 'Use Shelf as my home screen', primary: true }, { k: 'skip', label: 'Not now' }];
+  const back = { k: 'back', label: 'Back', back: true };
+  if (s === 0) return [{ k: 'next', label: 'Get started', primary: true }, { k: 'quick', label: 'Quick setup with test data (for testing)', debug: true }];
+  if (s === 1) return [{ k: 'name', label: 'Your name', value: P.name || 'Choose' }, ...PROFILE_COLORS.map((c, i) => ({ k: 'color', i, label: ['Amber', 'Sky', 'Orchid', 'Fern', 'Rose'][i], color: c })), { k: 'next', label: 'Continue', primary: true }, back];
+  if (s === 2) return [...Object.keys(THEMES).map(t => ({ k: 'theme', t, label: THEMES[t].name })), { k: 'next', label: 'Continue', primary: true }, back];
+  if (s === 3) return [{ k: 'folder', label: 'Add another folder' }, { k: 'next', label: 'Continue', primary: true }, back];
+  if (s === 4) return [{ k: 'ss', label: 'ScreenScraper', value: P.art.ss ? 'Signed in' : 'Sign in' }, { k: 'ra', label: 'RetroAchievements', value: P.ra ? 'Signed in' : 'Sign in' }, { k: 'next', label: 'Continue', primary: true }, back];
+  return [{ k: 'launcher', label: 'Use Shelf as my home screen', primary: true }, { k: 'skip', label: 'Not now' }, back];
 }
 function fillSetup() {
   const s = S.setup.step, opts = setupOpts(); S.setup.i = clamp(S.setup.i, 0, opts.length - 1);
@@ -74,11 +75,13 @@ function fillSetup() {
     const cur = (o.k === 'theme' && P.prefs.theme === o.t) || (o.k === 'color' && P.colors === o.color);
     const T = o.t && THEMES[o.t], sw = o.color ? `<span style="width:20px;height:20px;border-radius:50%;background:${avatarCss(o.color)}"></span>`
       : T ? `<span style="width:34px;height:20px;border-radius:6px;border:1px solid var(--line);background:${T.space ? 'radial-gradient(circle at 70% 130%, #8b78e6 0, #2a1a5e 45%, #070b1e 80%)' : `linear-gradient(135deg, ${T.top}, ${T.c[0]} 55%, ${T.c[1]})`}"></span>` : '';
-    return `<div class="opt ${o.primary ? 'primary' : ''} ${i === S.setup.i ? 'focus' : ''}"><span style="display:flex;gap:10px;align-items:center">${sw}${o.label}${cur ? ' ✓' : ''}</span>${o.value ? `<small>${esc(o.value)}</small>` : ''}</div>`;
+    return `<div class="opt ${o.primary ? 'primary' : ''} ${o.debug ? 'debug' : ''} ${o.back ? 'back' : ''} ${i === S.setup.i ? 'focus' : ''}"><span style="display:flex;gap:10px;align-items:center">${sw}${o.label}${cur ? ' ✓' : ''}</span>${o.value ? `<small>${esc(o.value)}</small>` : ''}</div>`;
   }).join('') + `</div><div class="dots">${Array.from({ length: SETUP_STEPS }, (_, i) => `<i class="${i <= s ? 'on' : ''}"></i>`).join('')}</div>`;
 }
 function setupAct() {
   const o = setupOpts()[S.setup.i]; sfx.select();
+  if (o.k === 'back') { S.setup.step--; S.setup.i = 0; return fillSetup(); }
+  if (o.k === 'quick') return quickSetup();
   if (o.k === 'name') return openKb('Your name', P.name, v => { P.name = v; fillSetup(); });
   if (o.k === 'color') { P.colors = o.color; return fillSetup(); }
   if (o.k === 'theme') { applyTheme(o.t); return fillSetup(); }
@@ -87,6 +90,15 @@ function setupAct() {
   if (o.k === 'ra') { P.ra = P.ra ? null : 'player_one'; return fillSetup(); }
   if (o.k === 'next') { if (S.setup.step === 1 && !P.name) return openKb('Your name', '', v => { P.name = v; S.setup.step++; S.setup.i = 0; fillSetup(); }); S.setup.step++; S.setup.i = 0; return fillSetup(); }
   P.prefs.homeLauncher = o.k === 'launcher'; finishSetup();
+}
+function quickSetup() {   // for testing: goes through every step with test data, instead of skipping setup
+  const fill = [() => { P.name = 'Tester'; P.colors = PROFILE_COLORS[1]; }, () => applyTheme(P.prefs.theme), () => { }, () => { P.art.ss = 'tester'; P.art.source = 'ScreenScraper'; P.ra = 'tester'; }, () => { P.prefs.homeLauncher = true; }];
+  let k = 0; S.setup.quick = true;
+  const next = () => {
+    if (k < fill.length) { fill[k](); S.setup.step = k + 1; S.setup.i = setupOpts().findIndex(o => o.primary); fillSetup(); k++; setTimeout(next, 260); }
+    else { S.setup.quick = false; finishSetup(); }
+  };
+  next();
 }
 function finishSetup() { P.setup = true; paintProfile(); enterTab('home'); toast(`Welcome, ${P.name}`); }
 function enterSetup() { S.screen = 'setup'; show('setup'); setMood('home'); fillSetup(); }
@@ -161,21 +173,32 @@ function openGame(id, fromKey, from) {
   const f = anim.get(fromKey), bp = pose('case', {});
   Object.assign(bp, f ? { x: f.x, y: f.y, z: f.z || 0, rx: f.rx || 0, ry: f.ry || 0, s: f.s, alpha: 1, open: 0, lift: 0 } : { x: 0, y: 0, z: 0, s: .5, alpha: 0, open: 0 });
   if (fromKey && fromKey.startsWith('home:')) bp.s = (f ? f.s : .5) * Math.max(CART[g.sys].w, CART[g.sys].h) / Math.max(BOX[g.sys][0], BOX[g.sys][1]);
-  S.screen = 'game'; show('game'); setMood(g.sys); sfx.select(); fillGame();
+  S.screen = 'game'; show('game'); $('#s-game').classList.remove('closing'); setMood(g.sys); sfx.select(); fillGame(); $('#gpin').classList.add('enter');
+}
+function closeGame() {   // the box closes, goes back where it came from, and that screen comes back around it
+  const G0 = S.game; if (G0.closing) return;
+  G0.closing = { t: 0 }; G0.turn = false; sfx.back(); $('#gpin').classList.remove('enter');
+  $('#s-game').classList.add('closing'); $('#objLabel').classList.remove('on'); $('#turnHint').classList.remove('on');
+}
+function closeGameTarget(g) {   // the pose the closed box shrinks back to
+  const G0 = S.game, c = CART[g.sys], [bw, bh] = BOX[g.sys];
+  if (G0.from === 'library') { const l = anim.get('lib:' + g.id); if (l) return { x: l.x, y: l.y, z: l.z, rx: l.rx, ry: l.ry, s: l.s, alpha: 1 }; }
+  if (G0.from === 'home') { const h = anim.get('home:' + g.id); if (h) return { x: h.x, y: h.y, z: h.z, rx: h.rx, ry: h.ry, s: h.s * Math.max(c.w, c.h) / Math.max(bw, bh), alpha: 0 }; }
+  return null;
 }
 function gameActions() {
   const g = byId[S.game.id], r = rec(g.id), ra = isRA(emuFor(g)), saved = ra && r && r.slots.some(Boolean) && !P.prefs.hardcore;
-  return [saved ? 'Resume' : 'Play', ...(saved ? ['New game'] : []), 'Close the box', 'Game settings', 'col', 'fav'];
+  return [saved ? 'Resume' : 'Play', ...(saved ? ['New game'] : []), ...(g.sys === 'android' ? [] : ['emu']), 'Close the box', 'Game settings', 'col', 'fav'];
 }
 function fillGame() {
   const g = byId[S.game.id], s = PLAT[g.sys], r = rec(g.id), G0 = S.game, emu = emuFor(g), ra = isRA(emu);
   const acts = gameActions(), slots = r ? r.slots : [null, null, null, null], last = r ? r.lastSlot : -1, media = mediaFor(g);
   let h = `<div class="gp-sys">${s.long}</div><h2>${esc(g.title)}</h2>
-    <div class="facts">${[['Released', g.year], ['Developer', g.dev], ['Genre', g.genre], ['Players', g.players], ['Plays with', emu.replace('RetroArch: ', 'RetroArch, ')]].map(([a, b]) => `<div>${a}<b>${b}</b></div>`).join('')}</div>
-    <div class="actions" data-z="actions">${acts.map((a, i) => `<div class="act ${i === 0 ? 'primary' : ''} ${G0.zone === 'actions' && G0.i === i ? 'focus' : ''}">${a === 'fav' ? `${r && r.fav ? '★' : '☆'} <i class="btn">Y</i>` : a === 'col' ? 'Add to collection' : a}</div>`).join('')}</div>`;
+    <div class="facts">${[['Released', g.year], ['Developer', g.dev], ['Genre', g.genre], ['Players', g.players]].map(([a, b]) => `<div>${a}<b>${b}</b></div>`).join('')}</div>
+    <div class="actions" data-z="actions">${acts.map((a, i) => `<div class="act ${i === 0 ? 'primary' : ''} ${G0.zone === 'actions' && G0.i === i ? 'focus' : ''}">${a === 'fav' ? `${r && r.fav ? '★' : '☆'} <i class="btn">Y</i>` : a === 'col' ? 'Add to collection' : a === 'emu' ? `Plays with ${esc(emuName(emu))}` : a}</div>`).join('')}</div>`;
   h += `<h3 data-z="saves">Saves${ra ? '<small>Slots are kept per game</small>' : ''}</h3>`;
   h += ra ? `<div class="slots">${slots.map((sl, i) => `<div class="slot ${G0.zone === 'saves' && G0.i === i ? 'focus' : ''}">${sl ? '<canvas></canvas>' : '<div class="none">New game</div>'}${sl && i === last ? '<span class="tag">Last played</span>' : ''}<p>${sl ? agoText(sl.ts) : `Slot ${i + 1}`}</p></div>`).join('')}</div>`
-    : `<div class="managed ${G0.zone === 'saves' ? 'focus' : ''}">${g.sys === 'android' ? 'This app keeps its own saves.' : `<b>${emu}</b> keeps this game’s saves. Shelf’s save slots work with RetroArch; you can switch in Game settings.`}</div>`;
+    : `<div class="managed ${G0.zone === 'saves' ? 'focus' : ''}"><span>${g.sys === 'android' ? 'This app keeps its own saves.' : `<b>${esc(emuName(emu))}</b> keeps this game’s saves. Shelf’s save slots work with RetroArch.`}</span><span class="act ${G0.zone === 'saves' ? 'focus' : ''}">Open ${esc(g.sys === 'android' ? g.title : emuApp(emu))}</span></div>`;
   h += `<h3 data-z="media">Media<small>${media.length} items</small></h3><div class="mrow"><div class="mstrip" id="gMedia">${mediaStrip(g, media, G0.zone === 'media' ? G0.i : -1, 'mthumb')}</div></div>`;
   if (g.sys !== 'android') {
     const A = achievements(g), e = P.ra ? achFor(P, g) : {}, got = A.list.filter(a => e[a.id]), pts = got.reduce((t, a) => t + a.pts, 0), pct = Math.round(got.length / A.list.length * 100);
@@ -193,17 +216,18 @@ function fillGame() {
 function artCredit() { return usingSS() ? 'Art, manuals and details from ScreenScraper.' : 'Art from RetroArch’s thumbnail database. Details from Wikipedia.'; }
 function gameAction() {
   const g = byId[S.game.id], r = rec(g.id), G0 = S.game;
-  if (G0.zone === 'ach') return P.ra ? openAch(g.id) : openSettings(5);
+  if (G0.zone === 'ach') return P.ra ? openAch(g.id) : openSettings(CATS.indexOf('Achievements'));
   if (G0.zone === 'media') return openMedia(G0.i);
-  if (G0.zone === 'saves') { if (!isRA(emuFor(g))) return toast('Change the emulator in Game settings to use save slots'); return startLaunch(g, G0.i, !!(r && r.slots[G0.i])); }
+  if (G0.zone === 'saves') { const e = emuFor(g); if (!isRA(e)) { sfx.select(); return toast(`Opens ${g.sys === 'android' ? g.title : emuApp(e)}, where this game’s saves are`); } return launchGame(g, G0.i, !!(r && r.slots[G0.i])); }
   if (G0.zone === 'manual') { if (hasManual(g)) return openManual(); return toast(usingSS() ? 'ScreenScraper doesn’t have a manual for this game' : 'Manuals come from ScreenScraper. Sign in under Settings, Art and info.'); }
-  if (G0.zone === 'cart') return startLaunch(g, r ? r.lastSlot : 0, !!(r && r.slots.some(Boolean)));
+  if (G0.zone === 'cart') return launchGame(g, r ? r.lastSlot : 0, !!(r && r.slots.some(Boolean)));
   const a = gameActions()[G0.i];
-  if (a === 'Resume') return startLaunch(g, r.lastSlot, true);
-  if (a === 'Play') return startLaunch(g, r ? Math.max(0, r.slots.findIndex(x => !x)) : 0, false);
+  if (a === 'Resume') return launchGame(g, r.lastSlot, true);
+  if (a === 'Play') return launchGame(g, r ? Math.max(0, r.slots.findIndex(x => !x)) : 0, false);
   if (a === 'New game') { const free = r.slots.findIndex(x => !x); G0.zone = 'saves'; G0.i = free < 0 ? 0 : free; fillGame(); return toast(free < 0 ? 'All four slots are used. Choose one to replace.' : 'Choose a slot for the new game'); }
   if (a === 'Close the box') { G0.turn = true; G0.rx = .12; G0.ry = .5; sfx.select(); return fillGame(); }
   if (a === 'Game settings') return openGameSettings(g.id);
+  if (a === 'emu') return pickEmulator(g.sys, P.gameEmu[g.id] || null, v => { if (v) P.gameEmu[g.id] = v; else delete P.gameEmu[g.id]; fillGame(); toast(`${g.title} plays with ${emuName(emuFor(g))}`); }, { withDefault: true, title: `${g.title}: play with` });
   if (a === 'col') return addToCollection(g);
   toggleFav(g);
 }

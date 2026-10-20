@@ -60,6 +60,10 @@ Sources and caveats are in `RESEARCH.md`. The DS and PSP case sizes and the DS l
 5. Sign-ins: ScreenScraper and RetroAchievements, both optional.
 6. "Make Shelf your home screen?" (Android's default-home prompt).
 
+Every step after the first has a **Back** option (B also goes back). The welcome step has a **Quick setup with
+test data** option for testing, which walks through every step with test values; it's for development builds only.
+The on-screen keyboard is **QWERTY**, with staggered rows like a real keyboard.
+
 ## 5. Home tab: the cartridges you carry
 
 - A row of the 10 most recent games as their media: cartridges, discs, cards. The selected one is anchored
@@ -134,14 +138,21 @@ These carry over from Shelf for TV.
 
 ## 9. Playing and coming back
 
-- **Launch animation:** the cartridge lifts out of the tray, rises toward you, and the screen fades to
-  black. No white flash.
+- **Launch animation:** the game's console rises into view, the media flies from where it was (Home or the
+  open box) to the console's slot and clicks in (cartridges into the top or front, Game Boy cartridges into the
+  back, the DS card into the back edge, the PlayStation disc under its opening lid, the UMD into the back). The
+  power light comes on with a short jingle, the camera eases in, and the screen fades to black. No white flash.
+  Shelf plays this before handing off to the emulator.
+- **Coming back:** the reverse. The power light goes off, the media pops out and flies back to the first spot
+  on Home or into its box's tray, and the screen it came from fades back in around it. It plays whenever Shelf
+  returns to the front after a game, including through Android's app switcher.
 - **Starting the game:** see §16 for how each emulator is launched.
 - **Coming back:** the Home button (Shelf is the home launcher) brings Shelf forward. If RetroArch is still
   running a game, Shelf tells it to save and quit through RetroArch's network commands, then shows a short
   "Saved to slot N" message. The cartridge settles back into its tray, or into the first spot on Home if
   you launched from there.
-- **Standalone emulators** keep their own saves. Shelf only notes when you last played and for how long.
+- **Standalone emulators** keep their own saves. Shelf only notes when you last played and for how long. The
+  Saves section of the game page says so and has a button that opens that emulator, where the saves are.
 
 ## 10. Apps tab
 
@@ -265,10 +276,26 @@ plastic color, shadow color, and the 3D rim light.
 - **Build:** a Gradle project in a GitHub repository, with a **GitHub Actions** workflow that builds the APK.
   The user downloads the build output and sideloads it. The user chose this over installing Android Studio.
 
+## 16a. Choosing emulators
+
+- **Every known emulator for each console** is offered, RetroArch cores and standalone apps, following ES-DE's
+  Android configuration (for example 9 for PlayStation, 9 for DS, 10 for Game Boy). Installed ones are marked;
+  choosing one that isn't installed opens its store page. RetroArch cores download on first use.
+- **Per console:** a default emulator, and an **Ask every time** option.
+- **Per game:** the game page's "Plays with" button (and Game settings) overrides the console's default.
+- **Other app…** picks any installed app, so nothing is unsupported.
+
+## 16c. Menu music
+
+- Four original tracks: Orbit (pads and bells), Afternoon (soft electric piano and a light beat), Tidepool
+  (warm and minimal) and Lanterns (plucked strings, a little melody). Settings › Sound: on or off, track or
+  Shuffle, volume. It fades out while a game launches or plays, and dips while a video plays.
+
 ## 16b. Museum
 
 - A tab that treats the consoles as exhibits: a timeline of every supported console, oldest first.
 - **Exhibits:** the console, its media and its box (closed and open), turned with the D-pad or by dragging.
+  While looking at an exhibit, L and R switch between them; in the list they switch tabs as usual.
 - **Info:** maker, North American release, units sold, processor, media, and a few facts.
 - Models follow the real silhouettes and sizes, stylized, with no logos.
 
