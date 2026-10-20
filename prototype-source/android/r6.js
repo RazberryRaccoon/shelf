@@ -252,6 +252,10 @@ function drawScrim(alpha) {   // the theme's background over everything drawn so
   if (NODRAW) return; if (alpha <= .001) return gl.clear(gl.DEPTH_BUFFER_BIT); setFlat(); beginMeshes(); const b = hexRgb(getComputedStyle(stage).getPropertyValue('--bg').trim() || '#070b1e');
   drawPlate('scrim', panelArt, 667, 375, 1500, 900, 3, b, alpha * .94); endMeshes(); gl.clear(gl.DEPTH_BUFFER_BIT);
 }
+function drawShade(alpha) {   // darkens everything drawn so far
+  if (NODRAW) return; if (alpha <= .001) return gl.clear(gl.DEPTH_BUFFER_BIT);
+  setFlat(); beginMeshes(); drawPlate('scrim', panelArt, 667, 375, 1500, 900, 3, [0, 0, .01], alpha); endMeshes(); gl.clear(gl.DEPTH_BUFFER_BIT);
+}
 function drawGamePage(dt, t) {
   const G0 = S.game, g = byId[G0.id], o = pose('case', {}), m = caseModel(g.sys), [W0, H0] = [m.W, m.H];
   const sOpen = Math.min(620 / (2 * W0 * PX), 520 / (H0 * PX)), s = G0.turn ? Math.min(sOpen * 1.35, 430 / (Math.max(W0, H0) * PX)) : sOpen;
@@ -283,10 +287,11 @@ function drawGamePage(dt, t) {
   approach(G0, { dim: G0.closing ? 0 : 1 }, dt, G0.closing ? 4.5 : 5);
   const under = G0.closing ? G0.then : G0.from;
   if (under === 'home' || under === 'library') {
-    S.skipId = g.id; UNDER = 1 - .86 * G0.dim;
+    S.skipId = g.id; UNDER = 1 - .55 * G0.dim;
     under === 'home' ? drawHome(dt, t) : drawLibrary(dt, t);
-    UNDER = 1; if (!NODRAW) gl.clear(gl.DEPTH_BUFFER_BIT);
+    UNDER = 1;
   }
+  drawShade(G0.dim * (lightTheme() ? .32 : .58));   // and a dark veil over the whole background, planet and all
   setCamera(0, CAMZ, 0); beginMeshes();
   const q = S.seq && S.seq.g === g ? S.seq : null;
   drawCase(g, o, o.open, 0, !!q || home);   // while launching, coming back or flying to and from Home, the media is drawn on its own

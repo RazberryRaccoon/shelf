@@ -189,7 +189,7 @@ function closeGame(then) {   // the box closes, goes back where it came from, an
   const G0 = S.game; if (G0.closing) return;
   G0.closing = { t: 0 }; G0.then = then || G0.from; G0.turn = false; G0.fly = null; sfx.back(); $('#gpin').classList.remove('enter');
   $('#s-game').classList.add('closing'); $('#objLabel').classList.remove('on'); $('#turnHint').classList.remove('on');
-  if (TABS.includes(G0.then)) { if (G0.then === 'home') refreshHome(); else if (G0.then === 'library') refreshLibrary(false); riseUnder(G0.then); }
+  if (TABS.includes(G0.then)) { if (G0.then === 'home') refreshHome(); else if (G0.then === 'library') refreshLibrary(false); setTimeout(() => { if (S.screen === 'game' && S.game.closing) riseUnder(G0.then); }, 320); }   // once the box is out of the way
 }
 function closeGameTarget(g) {   // the pose the closed box shrinks back to
   const G0 = S.game, c = CART[g.sys], [bw, bh] = BOX[g.sys];

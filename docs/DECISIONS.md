@@ -172,3 +172,5 @@ Summarized from the first part of the conversation; the full transcript is kept 
 - Opening a box from Home: "The box should come in from the LEFT, and exit from the left too… it should look like
   the cartridge/CD is being put in the case."
 - Behind an open box: "It should always be in the back, just really dimmed dark," and fade back in as the box closes.
+- Then: "I don't want the stuff in the background to just dim, I want… a dark color overlay too? So it gets more
+  translucent and also the whole background darkens."
