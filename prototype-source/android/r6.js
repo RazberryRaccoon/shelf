@@ -1,10 +1,10 @@
 /* ================= input ================= */
 function act(a) {
-  audio();
+  audio(); musicEnsure();
   if (a === 'home') { closeDlg(); S.kb.open = false; renderKb(); if (S.screen === 'play') return homeFromPlay(); if (S.screen === 'setup' || S.seq) return; S.home.i = 0; S.home.zone = 'row'; sfx.tab(); return enterTab('home'); }
   if (S.kb.open) {
     const k = S.kb; if (a !== 'a') k.typed = false;
-    if (a === 'up' || a === 'down') { const r = clamp(k.r + (a === 'up' ? -1 : 1), 0, KB_ROWS.length - 1); if (r !== k.r) { k.c = Math.min(Math.round(k.c * (KB_ROWS[r].length - 1) / Math.max(1, KB_ROWS[k.r].length - 1)), KB_ROWS[r].length - 1); k.r = r; sfx.move(); renderKb(); } }
+    if (a === 'up' || a === 'down') { const r = clamp(k.r + (a === 'up' ? -1 : 1), 0, KB_ROWS.length - 1); if (r !== k.r) { k.c = kbNearest(r, kbCenter(k.r, k.c)); k.r = r; sfx.move(); renderKb(); } }
     else if (a === 'left' || a === 'right') { k.c = (k.c + (a === 'left' ? -1 : 1) + KB_ROWS[k.r].length) % KB_ROWS[k.r].length; sfx.move(); renderKb(); }
     else if (a === 'a') kbPress(); else if (a === 'y') { k.value = k.value.slice(0, -1); renderKb(); } else if (a === 'b') { k.open = false; renderKb(); sfx.back(); }
     return;
@@ -16,6 +16,7 @@ function act(a) {
   if (S.seq) return;
   const sc = S.screen;
   if (sc === 'setup') {
+    if (S.setup.quick) return;
     const n = setupOpts().length;
     if (['up', 'down', 'left', 'right'].includes(a)) { const k = clamp(S.setup.i + (a === 'up' || a === 'left' ? -1 : 1), 0, n - 1); if (k !== S.setup.i) { S.setup.i = k; sfx.move(); fillSetup(); } }
     else if (a === 'a') setupAct(); else if (a === 'b' && S.setup.step > 0) { S.setup.step--; S.setup.i = 0; sfx.back(); fillSetup(); }
@@ -46,13 +47,13 @@ function homeInput(a) {
     if (a === 'left' || a === 'right') { const k = clamp(H0.i + (a === 'left' ? -1 : 1), 0, items.length - 1); if (k !== H0.i) { H0.i = k; H0.card = 0; sfx.move(); refreshHome(); } }
     else if (a === 'up') { S.top.on = true; S.top.i = 0; sfx.move(); refreshHome(); }
     else if (a === 'down' && id !== '__all') { H0.zone = 'cards'; H0.card = 0; sfx.move(); refreshHome(); }
-    else if (a === 'a') { if (id === '__all') { sfx.select(); enterTab('library'); } else { const g = byId[id], r = rec(id); startLaunch(g, r.lastSlot, isRA(emuFor(g)) && r.slots.some(Boolean)); } }
+    else if (a === 'a') { if (id === '__all') { sfx.select(); enterTab('library'); } else { const g = byId[id], r = rec(id); launchGame(g, r.lastSlot, isRA(emuFor(g)) && r.slots.some(Boolean)); } }
     else if (a === 'y' && id !== '__all') toggleFav(byId[id]);
   } else {
     if (a === 'left' || a === 'right') { const k = clamp(H0.card + (a === 'left' ? -1 : 1), 0, 2); if (k !== H0.card) { H0.card = k; sfx.move(); refreshHome(); } }
     else if (a === 'up' || a === 'b') { H0.zone = 'row'; sfx.move(); refreshHome(); }
     else if (a === 'a') { const c = homeCards(id)[H0.card].k, g = byId[id];
-      if (c === 'box') openGame(id, 'home:' + id, 'home'); else if (c === 'ach') { if (g.sys !== 'android') P.ra ? openAch(id) : openSettings(5); } else { openGame(id, 'home:' + id, 'home'); S.game.zone = isRA(emuFor(g)) ? 'saves' : 'actions'; S.game.i = 0; fillGame(); } }
+      if (c === 'box') openGame(id, 'home:' + id, 'home'); else if (c === 'ach') { if (g.sys !== 'android') P.ra ? openAch(id) : openSettings(CATS.indexOf('Achievements')); } else { openGame(id, 'home:' + id, 'home'); S.game.zone = isRA(emuFor(g)) ? 'saves' : 'actions'; S.game.i = 0; fillGame(); } }
   }
 }
 function libInput(a) {
@@ -88,8 +89,10 @@ function appsInput(a) {
   else if (a === 'y') return appOptions();
   refreshApps();
 }
-function startPlayDirect(g) { S.seq = { kind: 'launch', g, slot: 0, resume: false, t: .5, from: 'apps', flags: {} }; }
+function startPlayDirect(g) { startLaunch(g, 0, false, 'apps'); }
 function gameInput(a) {
+  if (S.game.closing) return;
+  $('#gpin').classList.remove('enter');
   const G0 = S.game, g = byId[G0.id], acts = gameActions(), ra = isRA(emuFor(g)), nMedia = mediaFor(g).length;
   if (G0.turn) {   // turning the closed box
     if (a === 'left' || a === 'right') { G0.ry += (a === 'left' ? -1 : 1) * .45; sfx.move(); }
@@ -100,7 +103,7 @@ function gameInput(a) {
     return;
   }
   if (a === 'y') return toggleFav(g);
-  if (a === 'b') { if (G0.zone !== 'actions') { G0.zone = 'actions'; G0.i = 0; fillGame(); return sfx.back(); } sfx.back(); return enterTab(G0.from); }
+  if (a === 'b') { if (G0.zone !== 'actions') { G0.zone = 'actions'; G0.i = 0; fillGame(); return sfx.back(); } return closeGame(); }
   const go = (zone, i = 0) => { G0.zone = zone; G0.i = i; sfx.move(); };
   const z = G0.zone;
   if (z === 'manual') { if (a === 'right') go('cart'); else if (a === 'a') return gameAction(); }
@@ -184,7 +187,7 @@ function planetTarget() {
   }
 }
 function drawHome(dt, t) {
-  const items = homeItems(), H0 = S.home, rowFocus = H0.zone === 'row' && !S.top.on, q = S.seq && S.seq.from === 'home' ? S.seq : null;
+  const items = homeItems(), H0 = S.home, rowFocus = H0.zone === 'row' && !S.top.on, q = S.seq;
   approach(H0, { f: H0.i }, dt, 8);
   setFlat(); beginMeshes();
   const drawn = [];
@@ -199,8 +202,8 @@ function drawHome(dt, t) {
     const g = byId[id], o = pose('home:' + id, { s: 0, y: 3 }), [x, y] = pw(xpx, ypx);
     approach(o, { x, z: foc ? .5 : 0, ry: -.2, rx: -.1, s: mediaScale(g.sys, foc ? 236 : 150), alpha, bright: foc ? 1.02 : .72, glow: foc && rowFocus ? 1 : 0 }, dt, 10);
     approach(o, { y }, dt, foc ? 7 : 10);
-    let M = M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s);
-    if (q && foc) { const k = easeOut(q.t / .9); M = M4.trs(o.x * (1 - k), o.y + k * .6, o.z + k * 3, o.rx * (1 - k), o.ry * (1 - k), 0, o.s * (1 + k * .8)); }
+    const M = M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s);
+    if (q && q.g.id === id) return;   // it's in the launch scene
     const hpx = CART[g.sys].h / 2 * o.s * PX;
     if (o.alpha > .01) { shadowUnder(xpx, ypx - bob + hpx + (foc ? 24 : 12), Math.max(CART[g.sys].w, .5) * o.s * PX * .9, o.alpha, foc); drawn.push([g, M, o, foc]); }
   });
@@ -212,7 +215,7 @@ function drawLibrary(dt, t) {
   const L = S.lib, cols = 5, row = Math.floor(L.i / cols), onGrid = L.zone === 'grid' && !S.top.on;
   const lastRow = Math.max(0, Math.floor((L.list.length - 1) / cols)), top = .58, bottom = .49;
   approach(L, { rowF: clamp(row, top, Math.max(top, lastRow - bottom)) }, dt, 9);
-  const CY = 420, ROW = 300, cx = c => 350 + c * 212.5, s0 = BOXK, still = !motion();
+  const CY = 420, ROW = 300, cx = c => 363 + c * 206, s0 = BOXK, still = !motion();
   setFlat(); beginMeshes();
   drawPlate('gridpanel', panelArt, 775, 420, 1062, 600, 0, lightTheme() ? [1, 1, 1] : [.035, .045, .11], lightTheme() ? .4 : .55);
   clipRect(245, 121, 1305, 719);
@@ -235,18 +238,25 @@ function drawGamePage(dt, t) {
   const G0 = S.game, g = byId[G0.id], o = pose('case', {}), m = caseModel(g.sys), [W0, H0] = [m.W, m.H];
   const sOpen = Math.min(620 / (2 * W0 * PX), 520 / (H0 * PX)), s = G0.turn ? Math.min(sOpen * 1.35, 430 / (Math.max(W0, H0) * PX)) : sOpen;
   const [cxw, cyw] = pw(345, 392), openT = G0.turn ? 0 : 1;
-  approach(o, { open: openT }, dt, 5.5);
-  approach(o, { x: cxw + (m.W / 2) * s * o.open, y: cyw, z: 0, s, alpha: 1, bright: 1, rx: G0.turn ? G0.rx : -.18, ry: G0.turn ? G0.ry : 0 }, dt, 6);
-  setCamera(0, CAMZ, 0); beginMeshes();
-  const q = S.seq && S.seq.g === g ? S.seq : null, fromHere = q && (q.kind === 'return' || q.from === 'game');
-  drawCase(g, o, o.open, 0, !!fromHere);
-  const M = M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s), top = m.D / 2 - m.ct, d = CART[g.sys].d, trayM = M4.mul(M, M4.trs(0, 0, top + d / 2 + .004, 0, 0, 0, 1));
-  if (fromHere) {   // the cartridge lifting out of the tray to play, or settling back in
-    const k = q.kind === 'launch' ? easeOut(q.t / .9) : 1 - easeOut(q.t / .7);
-    drawCartM(g, M4.mul(trayM, M4.trs(0, k * .5, k * 4, 0, 0, 0, 1 + k * .6)), { alpha: 1, bright: 1 });
+  if (G0.closing) {   // close the cover first, then glide back to where the box came from
+    const C = G0.closing; C.t += dt; approach(o, { open: 0 }, dt, 8);
+    const T = C.t > .25 ? closeGameTarget(g) : null;
+    if (T) approach(o, T, dt, 7); else approach(o, { x: cxw, y: cyw, rx: -.08, ry: 0 }, dt, 6);
+    if (C.t > .95 || (!closeGameTarget(g) && C.t > .5)) {
+      G0.closing = null; $('#s-game').classList.remove('closing');
+      if (G0.from === 'library') Object.assign(pose('lib:' + g.id, {}), { x: o.x, y: o.y, z: o.z, rx: o.rx, ry: o.ry, s: o.s });
+      return enterTab(TABS.includes(G0.from) ? G0.from : 'home');
+    }
+  } else {
+    approach(o, { open: openT }, dt, 5.5);
+    approach(o, { x: cxw + (m.W / 2) * s * o.open, y: cyw, z: 0, s, alpha: 1, bright: 1, rx: G0.turn ? G0.rx : -.18, ry: G0.turn ? G0.ry : 0 }, dt, 6);
   }
+  setCamera(0, CAMZ, 0); beginMeshes();
+  const q = S.seq && S.seq.g === g ? S.seq : null;
+  drawCase(g, o, o.open, 0, !!q);   // while launching or coming back, the media is in the launch scene
+  const M = M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s), top = m.D / 2 - m.ct, d = CART[g.sys].d, trayM = M4.mul(M, M4.trs(0, 0, top + d / 2 + .004, 0, 0, 0, 1));
   const mc = moodColors(MOOD.cur), c1 = hexRgb(mc.accent), c2 = hexRgb(mc.planet[0]);
-  if (!G0.turn && o.open > .9 && !q) {
+  if (!G0.turn && !G0.closing && o.open > .9 && !q) {
     if (G0.zone === 'cart') drawCartGlowM(g, trayM, o.s, c1, c2);
     if (G0.zone === 'manual') { const CM = M4.mul(M, coverMatrix(m, o.open)), [mw, mh] = m.manualSize;
       if (!m.manRing) m.manRing = ringMesh(shape(mw, mh, [.012, .012, .012, .012]));
@@ -254,7 +264,7 @@ function drawGamePage(dt, t) {
   }
   endMeshes();
   if (!NODRAW) {   // a label over the object you're on
-    const L = $('#objLabel'), on = !G0.turn && o.open > .9 && (G0.zone === 'cart' || G0.zone === 'manual') && !q;
+    const L = $('#objLabel'), on = !G0.turn && !G0.closing && o.open > .9 && (G0.zone === 'cart' || G0.zone === 'manual') && !q;
     L.classList.toggle('on', on);
     if (on) {
       const CM = M4.mul(M, coverMatrix(m, o.open)), pt = G0.zone === 'cart' ? apply(trayM, [0, (CART[g.sys].h) / 2 + .08, 0]) : apply(CM, [0, m.manualSize[1] / 2 + .08, top]);
@@ -275,6 +285,7 @@ function tick(dt) {
   MOOD.t = Math.min(1, MOOD.t + dt / .8);
   for (let i = 0; i < 3; i++) RIM[i] += (RIM_T[i] - RIM[i]) * Math.min(1, dt * 4);
   if (S.seq) seqUpdate(dt);
+  musicDuck();
   if (S.play) playUpdate(dt);
   if (S.screen === 'media') mvUpdate(dt);
   approach(PL, planetTarget(), dt, 3);
@@ -286,6 +297,7 @@ function tick(dt) {
   else if (S.screen === 'library') drawLibrary(dt, S.time);
   else if (S.screen === 'game') drawGamePage(dt, S.time);
   else if (S.screen === 'museum') drawMuseum(dt);
+  else if (S.screen === 'launch' && S.seq) drawLaunch(dt);
 }
 async function boot() {
   fit();

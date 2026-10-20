@@ -43,6 +43,27 @@ const PLAT = {
 };
 const SYS_ORDER = ['nes', 'snes', 'n64', 'genesis', 'gb', 'gbc', 'gba', 'ps1', 'ds', 'psp', 'android'];
 for (const k of SYS_ORDER) Object.assign(PLAT[k], shades(PLAT[k].accent));
+// Every emulator Shelf can launch for each console: RetroArch cores and standalone apps. The list follows the
+// Android configuration of ES-DE, another frontend, which documents how to launch each one. The first is the default.
+const EMU_LIST = {
+  nes:     { cores: ['Mesen', 'FCEUmm', 'Nestopia UE', 'QuickNES'], apps: ['NES.emu', 'Nesoid'] },
+  snes:    { cores: ['Snes9x', 'bsnes', 'bsnes-hd', 'Snes9x 2010', 'Mesen-S', 'Beetle Supafaust'], apps: ['Snes9x EX+'] },
+  n64:     { first: 'Mupen64Plus FZ', cores: ['Mupen64Plus-Next', 'ParaLLEl N64'], apps: ['Mupen64Plus FZ', 'Mupen64Plus AE'] },
+  genesis: { cores: ['Genesis Plus GX', 'PicoDrive', 'BlastEm'], apps: ['MD.emu', 'Pizza Boy SC'] },
+  gb:      { cores: ['Gambatte', 'SameBoy', 'Gearboy', 'mGBA', 'TGB Dual'], apps: ['Pizza Boy GBC', 'My OldBoy!', 'GBC.emu', 'Linkboy', 'SkyEmu'] },
+  gbc:     { cores: ['Gambatte', 'SameBoy', 'Gearboy', 'mGBA', 'TGB Dual'], apps: ['Pizza Boy GBC', 'My OldBoy!', 'GBC.emu', 'Linkboy', 'SkyEmu'] },
+  gba:     { cores: ['mGBA', 'gpSP', 'VBA-M', 'VBA Next'], apps: ['Pizza Boy GBA', 'My Boy!', 'GBA.emu', 'Linkboy', 'NooDS', 'SkyEmu'] },
+  ps1:     { first: 'DuckStation', cores: ['SwanStation', 'Beetle PSX HW', 'Beetle PSX', 'PCSX ReARMed'], apps: ['DuckStation', 'ePSXe', 'FPseNG', 'FPse'] },
+  ds:      { first: 'melonDS', cores: ['melonDS DS', 'melonDS', 'DeSmuME', 'DeSmuME 2015', 'NooDS'], apps: ['melonDS', 'DraStic', 'NooDS', 'SkyEmu'] },
+  psp:     { first: 'PPSSPP', cores: ['PPSSPP'], apps: ['PPSSPP', 'PPSSPP Gold'] },
+};
+for (const k in EMU_LIST) { const e = EMU_LIST[k], all = [...e.cores.map(c => 'RetroArch: ' + c), ...e.apps]; PLAT[k].emus = e.first ? [e.first, ...all.filter(x => x !== e.first)] : all; }
+// what this (pretend) handheld has installed
+const INSTALLED_CORES = new Set(['Mesen', 'Snes9x', 'Mupen64Plus-Next', 'Genesis Plus GX', 'Gambatte', 'mGBA', 'SwanStation', 'melonDS DS', 'PPSSPP']);
+const INSTALLED_APPS = new Set(['RetroArch', 'DuckStation', 'melonDS', 'PPSSPP', 'Mupen64Plus FZ']);
+const emuInstalled = e => e.startsWith('RetroArch: ') ? INSTALLED_CORES.has(e.slice(11)) : INSTALLED_APPS.has(e) || e.startsWith('Other app');
+const emuName = e => e.replace('RetroArch: ', 'RetroArch, ').replace('Other app: ', '');
+const emuApp = e => e.startsWith('RetroArch') ? 'RetroArch' : e.replace('Other app: ', '');
 const SYS = PLAT;   // the art generators use SYS
 const isRA = emu => emu.startsWith('RetroArch');
 
@@ -103,6 +124,7 @@ const P = { name: '', colors: ['#ffd38a', '#e8834a', '#6a2a1e'], setup: false, r
     filter: 'None', layout: 'Nintendo', homeLauncher: true, showApps: 'All apps' },
   emu: {}, gameEmu: {}, art: { source: 'ScreenScraper', ss: 'player_one', videos: true, manuals: true, backs: true, region: 'USA' } };
 for (const k of SYS_ORDER) P.emu[k] = PLAT[k].emus[0];
+P.pf = {}; SYS_ORDER.forEach(k => P.pf[k] = { filter: 'None', ask: false });
 [['Aurora Quest', 2 * HOUR, 1312, 38, 3], ['Glass Cathedral', 22 * HOUR, 640, 20, 2], ['Kite Kingdom', 2 * DAY, 905, 41, 2], ['Lantern Knight', 3 * DAY, 248, 14, 1],
  ['Paper Planets', 4 * DAY, 300, 12, 1], ['Neon Drift', 6 * DAY, 210, 9, 1], ['Starfall Tactics', 8 * DAY, 422, 20, 2], ['Moonlight Dash', 9 * DAY, 120, 0, 0], ['Pocket Golem', 12 * DAY, 75, 6, 1], ['Crystal Critters', 15 * DAY, 640, 27, 2]]
   .forEach(([title, ago, mins, earned, slots], i) => {
@@ -110,7 +132,7 @@ for (const k of SYS_ORDER) P.emu[k] = PLAT[k].emus[0];
     P.played[g.id] = { last: NOW - ago, minutes: mins, earned, fav: i % 3 === 0, slots: [0, 1, 2, 3].map(k => k < slots ? { ts: NOW - ago - k * DAY * 2.3, seed: hash(g.id + k) } : null), lastSlot: 0 };
   });
 P.collections.push({ id: 'couch', name: 'Couch co-op', games: ['Orbit Golf', 'Neon Coast', 'Skyline Racer', 'Vector Rally'].map(t => GAMES.find(g => g.title === t).id) });
-const emuFor = g => P.gameEmu[g.id] || P.emu[g.sys];
+const emuFor = g => (S.onceEmu && S.onceEmu.id === g.id && S.onceEmu.e) || P.gameEmu[g.id] || P.emu[g.sys];
 function agoText(ts) {
   const d = NOW - ts;
   if (d < HOUR) return 'Just now';
@@ -145,6 +167,7 @@ const sfx = {
   tab: () => tone(880, 0.08, 0.025, 'triangle'),
   insert: () => { thud(0, 0.16); tone(220, 0.08, 0.04, 'triangle', 0.02); },
   power: () => [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, 1.4, 0.022, 'sine', i * 0.07)),
+  off: () => [783.99, 587.33, 392].forEach((f, i) => tone(f, .5, 0.018, 'sine', i * 0.08)),
   saved: () => { tone(784, 0.14, 0.03); tone(1175, 0.24, 0.028, 'sine', 0.09); },
 };
 

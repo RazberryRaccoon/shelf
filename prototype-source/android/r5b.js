@@ -24,10 +24,27 @@ function markAsGame(app) {
 function unmarkGame(name) { ANDROID_GAMES.delete(name); sfx.back(); toast(`${name} is back in Apps`); }
 
 /* ================= settings ================= */
-const CATS = ['Profile', 'Appearance', 'Platforms', 'Emulators', 'Art and info', 'Achievements', 'Controls', 'Home screen and apps', 'About'];
-const INSTALLED = { 'RetroArch': 'Installed, 9 cores', 'DuckStation': 'Installed', 'melonDS': 'Installed', 'PPSSPP': 'Installed', 'Mupen64Plus FZ': 'Installed' };
-const ALL_EMUS = ['RetroArch', 'DuckStation', 'melonDS', 'PPSSPP', 'Mupen64Plus FZ', 'DraStic', 'Snes9x EX+', 'MD.emu', 'Pizza Boy GBC', 'Pizza Boy GBA'];
-P.pf = {}; SYS_ORDER.forEach(k => P.pf[k] = { filter: 'None' }); P.gf = {}; P.hidden = new Set();
+const CATS = ['Profile', 'Appearance', 'Sound', 'Platforms', 'Emulators', 'Art and info', 'Achievements', 'Controls', 'Home screen and apps', 'About'];
+const ALL_EMUS = ['RetroArch', ...new Set(Object.values(EMU_LIST).flatMap(e => e.apps))];
+P.gf = {}; P.hidden = new Set();
+// choosing an emulator: every one Shelf knows for this console, installed or not, plus any other app
+function pickEmulator(sys, current, onPick, o = {}) {
+  const items = [];
+  if (o.withDefault) items.push({ label: `Default (${emuName(P.emu[sys])})`, v: null });
+  PLAT[sys].emus.forEach(e => items.push({ label: emuName(e), v: e, sub: e.startsWith('RetroArch') ? (emuInstalled(e) ? 'RetroArch core' : 'Core downloads on first use') : emuInstalled(e) ? 'Installed' : 'Not installed' }));
+  if (!o.once) items.push({ label: 'Other app…', v: 'other', sub: 'Any installed app' });
+  const at = Math.max(0, items.findIndex(it => it.v === current));
+  openDlg(o.title || `${PLAT[sys].name}: play with`, items, i => {
+    const it = items[i]; closeDlg();
+    if (it.v === 'other') { toast('Opens Android’s app picker. Shown here: Lemuroid.'); return onPick('Other app: Lemuroid'); }
+    if (it.v && !it.v.startsWith('RetroArch') && !emuInstalled(it.v)) return toast(`Opens ${it.v} in the app store`);
+    onPick(it.v);
+  }, at);
+}
+function launchGame(g, slot, resume) {   // asks which emulator first, if that console is set to ask every time
+  if (g.sys !== 'android' && P.pf[g.sys].ask && !P.gameEmu[g.id]) return pickEmulator(g.sys, P.emu[g.sys], e => { S.onceEmu = { id: g.id, e }; startLaunch(g, slot, resume && isRA(e)); }, { once: true, title: `Play ${g.title} with` });
+  startLaunch(g, slot, resume);
+}
 function settingsModel() {
   const Q = P.prefs, tog = (label, key, desc, obj = Q) => ({ label, desc, value: obj[key] ? 'On' : 'Off', act: () => { obj[key] = !obj[key]; } });
   const cyc = (label, obj, key, vals, desc, names) => ({ label, desc, value: names ? names[obj[key]] : obj[key], act: () => { obj[key] = vals[(vals.indexOf(obj[key]) + 1) % vals.length]; } });
@@ -40,7 +57,7 @@ function settingsModel() {
       action('Move back to Apps', '', 'Takes it out of the Library. It stays installed.', () => { unmarkGame(g.title); S.set.game = null; enterTab('apps'); return true; }),
       action('Box art', 'Choose', 'Pick other art from the game databases, or make a box from the icon.', () => toast('Shows other art to choose from')),
       tog('Show on Home', 'show', 'Include it in your recently played cartridges.', { get show() { return !P.hidden.has(g.id); }, set show(v) { v ? P.hidden.delete(g.id) : P.hidden.add(g.id); } })] : [
-      { label: 'Emulator', desc: own ? 'Chosen for this game.' : `Using the ${PLAT[g.sys].name} default. Choose to override it.`, value: own ? own : `Default (${P.emu[g.sys]})`, act: () => { const i = opts.indexOf(own || null); const n = opts[(i + 1) % opts.length]; if (n) P.gameEmu[g.id] = n; else delete P.gameEmu[g.id]; } },
+      { label: 'Emulator', desc: own ? 'Chosen for this game.' : `Using the ${PLAT[g.sys].name} default. Choose to override it.`, value: own ? emuName(own) : `Default (${emuName(P.emu[g.sys])})`, act: () => { pickEmulator(g.sys, own || null, v => { if (v) P.gameEmu[g.id] = v; else delete P.gameEmu[g.id]; fillSettings(); }, { withDefault: true, title: `${g.title}: play with` }); return true; } },
       info('Saves', isRA(emu) ? 'Shelf’s slots' : `Kept by ${emu}`, isRA(emu) ? 'Four save slots with screenshots, per game.' : 'Standalone emulators keep their own saves.'),
       { label: 'Screen filter', desc: 'Overrides the platform’s filter.', value: gf.filter || `Default (${P.pf[g.sys].filter})`, act: () => { const v = [null, 'None', 'Scanlines', 'LCD grid'], i = v.indexOf(gf.filter); gf.filter = v[(i + 1) % v.length]; } },
       action('Box art', 'Choose', 'Pick other box art from ScreenScraper.', () => toast('Shows other box art to choose from')),
@@ -51,7 +68,8 @@ function settingsModel() {
     const k = S.set.sub, pl = PLAT[k], emu = P.emu[k];
     return CATS.map(c => c === 'Platforms' ? { cat: pl.long, intro: `${GAMES.filter(g => g.sys === k && inLibrary(g)).length} games. Press B to go back to all platforms.`, items: k === 'android' ? [
       info('Launching', 'Opens the app', 'Android games open in their own app.'), info('Box', 'Keep case', 'A generic keep case at Blu-ray size.')] : [
-      { label: 'Default emulator', desc: 'Used by every game on this platform unless a game chooses its own.', value: emu.replace('RetroArch: ', 'RetroArch, '), act: () => { const e = pl.emus; P.emu[k] = e[(e.indexOf(emu) + 1) % e.length]; } },
+      { label: 'Default emulator', desc: `Used by every game on this platform unless a game chooses its own. ${pl.emus.length} to choose from.`, value: emuName(emu), act: () => { pickEmulator(k, emu, v => { P.emu[k] = v; fillSettings(); }); return true; } },
+      tog('Ask every time', 'ask', 'Choose the emulator each time you play, unless a game has its own.', P.pf[k]),
       info('Saves', isRA(emu) ? 'Shelf’s slots' : `Kept by ${emu}`, isRA(emu) ? 'RetroArch saves into Shelf’s four slots per game.' : 'Standalone emulators keep their own saves.'),
       cyc('Screen filter', P.pf[k], 'filter', ['None', 'Scanlines', 'LCD grid'], 'A filter over the game picture, when the emulator supports one.'),
       info('Game folder', `ROMs/${k}`, 'Where Shelf looks for this platform’s games.'),
@@ -69,14 +87,18 @@ function settingsModel() {
         { label: 'themes', themes: true },
         tog('Accent follows the console', 'accentFollows', 'The accent color and one background field take on each console’s color.'),
         cyc('Case color', Q, 'caseTint', [false, true], 'The plastic of the modern cases.', { false: 'Neutral', true: 'Console color' }),
-        tog('Background motion', 'motion', 'Drifting backgrounds, twinkling stars and the slow float of boxes and cartridges.'),
-        tog('Interface sounds', 'sound', 'Soft clicks when you move and choose.')] };
+        tog('Background motion', 'motion', 'Drifting backgrounds, twinkling stars and the slow float of boxes and cartridges.')] };
+      case 'Sound': { const M = P.prefs.music, names = Object.fromEntries([...TRACK_KEYS.map(k => [k, TRACKS[k].name]), ['shuffle', 'Shuffle']]); return { cat: 'Sound', intro: 'Music plays quietly in the menus and stops while you play.', items: [
+        tog('Menu music', 'on', 'Original tracks written for Shelf.', M),
+        cyc('Track', M, 'track', [...TRACK_KEYS, 'shuffle'], M.track === 'shuffle' ? 'A different track every so often.' : TRACKS[M.track].mood, names),
+        cyc('Music volume', M, 'vol', ['Low', 'Medium', 'High'], 'Interface sounds stay at their own level.'),
+        tog('Interface sounds', 'sound', 'Soft clicks when you move and choose.')] }; }
       case 'Platforms': return { cat: 'Platforms', intro: 'Choose a platform for its default emulator, filters and folders.', items: SYS_ORDER.map(k =>
-        nav(PLAT[k].long, k === 'android' ? 'Apps' : P.emu[k].replace('RetroArch: ', 'RetroArch, '), `${GAMES.filter(g => g.sys === k && inLibrary(g)).length} games`, () => { S.set.sub = k; S.set.i = 0; })) };
+        nav(PLAT[k].long, k === 'android' ? 'Apps' : P.pf[k].ask ? 'Ask every time' : emuName(P.emu[k]), `${GAMES.filter(g => g.sys === k && inLibrary(g)).length} games`, () => { S.set.sub = k; S.set.i = 0; })) };
       case 'Emulators': return { cat: 'Emulators', intro: 'Emulators found on this handheld. Shelf launches them for you.', items: [
-        ...ALL_EMUS.map(e => INSTALLED[e] ? info(e, INSTALLED[e], e === 'RetroArch' ? 'Shelf manages save slots and achievements through RetroArch.' : 'A standalone emulator. It keeps its own saves.')
-          : action(e, 'Get it', 'Not installed.', () => toast(`Opens ${e} in the app store`))),
-        action('Look for emulators again', '', 'After installing or removing one.', () => toast('Found 5 emulators'))] };
+        ...ALL_EMUS.map(e => INSTALLED_APPS.has(e) ? info(e, e === 'RetroArch' ? `Installed, ${INSTALLED_CORES.size} cores` : 'Installed', e === 'RetroArch' ? 'Shelf manages save slots and achievements through RetroArch. Other cores download when first used.' : `A standalone emulator for ${SYS_ORDER.filter(k => (PLAT[k].emus || []).includes(e)).map(k => PLAT[k].name).join(', ')}. It keeps its own saves.`)
+          : action(e, 'Get it', `Not installed. Plays ${SYS_ORDER.filter(k => (PLAT[k].emus || []).includes(e)).map(k => PLAT[k].name).join(', ')}.`, () => toast(`Opens ${e} in the app store`))),
+        action('Look for emulators again', '', 'After installing or removing one.', () => toast(`Found ${INSTALLED_APPS.size} emulators`))] };
       case 'Art and info': { const A = P.art, ss = A.source === 'ScreenScraper'; return { cat: 'Art and info', intro: 'Box art, manuals, media and details are downloaded for you. Cartridge labels too, where the source has them.', items: [
         { label: 'Source', value: A.source, desc: ss ? 'The most complete: boxes, manuals, videos and details.' : 'RetroArch’s databases and Wikipedia. No account needed.', act: () => { A.source = ss ? 'Free sources' : 'ScreenScraper'; } },
         ...(ss ? [action('ScreenScraper account', A.ss || 'Sign in', A.ss ? 'Signed in.' : 'A free account from screenscraper.fr.', () => { A.ss = A.ss ? null : 'player_one'; })] : []),
@@ -129,16 +151,81 @@ function closeSettings() {
 }
 
 /* ================= launching, playing, coming back ================= */
-function startLaunch(g, slot, resume) {
-  S.seq = { kind: 'launch', g, slot, resume, t: 0, from: S.screen, flags: {} };
-  sfx.select();
+// Launching: the game's console rises into view, the media flies in and clicks into its slot, the power light comes
+// on with a jingle, and the screen fades into the game. Coming back plays the same thing in reverse.
+// On Android, Shelf plays the launch before handing off to the emulator, and the return when it comes back to the front.
+const KIND = {   // how media goes into each kind of slot: direction (console space), turn, and how much of it goes in
+  top:   { dir: [0, -1, 0], rx: 0, turn: 0, deep: .55 },
+  hand:  { dir: [0, -1, 0], rx: 0, turn: Math.PI, deep: .6 },
+  front: { dir: [0, 0, -1], rx: -Math.PI / 2, turn: Math.PI, deep: .78 },
+  edge:  { dir: [0, 0, 1], rx: -Math.PI / 2, turn: 0, deep: .7 },
+  back:  { dir: [0, 0, 1], rx: 0, turn: Math.PI, deep: 0, thin: true },
+  lid:   { dir: [0, -1, 0], rx: -Math.PI / 2, turn: 0, deep: 1, thin: true },
+};
+function consolePose(sys) {
+  const m = consoleModel(sys), dx = m.hi[0] - m.lo[0], dy = m.hi[1] - m.lo[1], hand = !!PLAT[sys].hand;
+  const s = Math.min(3.3 / dx, (hand ? 2.6 : 1.9) / dy);
+  return { x: 0, y: hand ? -.3 : -.55, z: 0, ry: hand ? -.28 : -.38, s };
+}
+function mediaPath(sys, cp) {   // the media's pose just outside the slot, and fully in
+  const m = consoleModel(sys), sl = m.slot, K = KIND[sl.kind], c = CART[sys], CM = M4.trs(cp.x, cp.y, cp.z, 0, cp.ry, 0, cp.s);
+  const at = apply(CM, [sl.x, sl.y, sl.z]), cy = Math.cos(cp.ry), sy = Math.sin(cp.ry);
+  const d = [K.dir[0] * cy + K.dir[2] * sy, K.dir[1], -K.dir[0] * sy + K.dir[2] * cy];
+  const len = (K.thin ? c.d : c.h) * cp.s, inn = at.map((v, i) => v + d[i] * (len / 2 - len * K.deep)), out = at.map((v, i) => v - d[i] * (len / 2 + .9 + (K.thin ? .3 : 0)));
+  return { out, inn, rx: K.rx, ry: cp.ry + K.turn, s: cp.s, kind: sl.kind };
+}
+function mediaPoseNow(from, g) {   // where the media is on screen right now, so it can fly from there
+  if (from === 'home') { const o = anim.get('home:' + g.id); if (o) return { x: o.x, y: o.y, z: o.z, rx: o.rx, ry: o.ry, s: o.s }; }
+  if (from === 'game') { const o = anim.get('case'), m = caseModel(g.sys); if (o) {
+    const p = apply(M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s), [0, 0, m.top + CART[g.sys].d / 2 + .004]); return { x: p[0], y: p[1], z: p[2], rx: o.rx, ry: o.ry, s: o.s }; } }
+  return { x: 0, y: -6, z: 0, rx: 0, ry: 0, s: 1 };
+}
+function homeSlotPose(g) { const [x, y] = pw(270, 238); return { x, y, z: .5, rx: -.1, ry: -.2, s: mediaScale(g.sys, 236) }; }
+function startLaunch(g, slot, resume, from = S.screen) {
+  const cp = consolePose(g.sys);
+  S.seq = { kind: 'launch', g, slot, resume, t: 0, from, under: from === 'apps' ? null : from, flags: {}, cp, start: mediaPoseNow(from, g) };
+  S.screen = 'launch'; show('none'); S.top.on = false; sfx.select();
 }
 function seqUpdate(dt) {
-  const q = S.seq; q.t += dt;
+  const q = S.seq; q.t += dt; const t = q.t, F = q.flags, kind = consoleModel(q.g.sys).slot.kind;
   if (q.kind === 'launch') {
-    if (q.t > .55 && !q.flags.fade) { q.flags.fade = 1; const fl = $('#flash'); fl.style.transition = 'opacity .35s ease-in'; fl.style.opacity = 1; sfx.insert(); }
-    if (q.t > .95) { S.seq = null; startPlay(q.g, q.slot, q.resume, q.from); }
-  } else if (q.t > .9) { S.seq = null; }
+    const click = kind === 'lid' ? 1.5 : kind === 'front' ? 1.38 : 1.35;
+    if (t > click && !F.click) { F.click = 1; sfx.insert(); }
+    if (t > 1.7 && !F.power) { F.power = 1; sfx.power(); }
+    if (t > 2.35 && !F.fade) { F.fade = 1; const fl = $('#flash'); fl.style.transition = 'opacity .45s ease-in'; fl.style.opacity = 1; }
+    if (t > 2.85) { S.seq = null; startPlay(q.g, q.slot, q.resume, q.from); }
+  } else {
+    if (t > .3 && !F.off) { F.off = 1; sfx.off(); }
+    if (t > .52 && !F.click) { F.click = 1; sfx.insert(); }
+    if (t > 1.65) finishReturn(q);
+  }
+}
+function seqTimes(q) {   // every moving part of the sequence, as 0..1 progress values at time t
+  const t = q.t, L = q.kind === 'launch', lid = consoleModel(q.g.sys).slot.kind === 'lid';
+  if (L) return { rise: easeOut((t - .1) / .8), fly: ease((t - .15) / .85), ins: ease((t - 1.0) / (lid ? .3 : .35)), press: ease((t - 1.38) / .1),
+    lidOpen: lid ? ease((t - .2) / .4) * (1 - ease((t - 1.3) / .22)) : 0, power: clamp((t - 1.7) / .15, 0, 1), cam: ease((t - .05) / .85), close: ease((t - 1.75) / .9), scrim: ease(t / .45) };
+  return { rise: 1 - ease((t - 1.0) / .55), fly: 1 - ease((t - .95) / .65), ins: 1 - ease((t - .55) / .4), press: 1 - ease((t - .5) / .08),
+    lidOpen: lid ? ease((t - .38) / .2) * (1 - ease((t - .95) / .3)) : 0, power: 1 - clamp((t - .3) / .2, 0, 1), cam: 1 - ease((t - .95) / .6), close: 1 - ease(t / .9), scrim: 1 - ease((t - 1.0) / .6) };
+}
+function drawLaunch(dt) {
+  const q = S.seq, g = q.g, T = seqTimes(q), hand = !!PLAT[g.sys].hand, cp = q.cp, path = mediaPath(g.sys, cp);
+  if (q.under && T.scrim < .999) { if (q.under === 'home') drawHome(dt, S.time); else if (q.under === 'game') drawGamePage(dt, S.time); }
+  if (!NODRAW) { setFlat(); beginMeshes(); const b = hexRgb(getComputedStyle(stage).getPropertyValue('--bg').trim() || '#070b1e');
+    drawPlate('scrim', panelArt, 667, 375, 1500, 900, 3, b, T.scrim * .92); endMeshes(); gl.clear(gl.DEPTH_BUFFER_BIT); }
+  // the camera starts where the screen's own camera is, rises to look down at the console, then moves in close
+  const camY = lerp(0, hand ? .8 : 2.3, T.cam), look = lerp(0, -.3, T.cam), camZ = lerp(CAMZ, hand ? 6.2 : 7.2, T.close);
+  setCamera(camY, camZ, look); beginMeshes();
+  const C = { ...cp, y: lerp(-7, cp.y, T.rise) }, M = M4.trs(C.x, C.y, C.z, 0, C.ry, 0, C.s);
+  drawConsole(g.sys, M, { alpha: 1, bright: 1, s: C.s, detail: .6, power: T.power, lid: T.lidOpen });
+  const st = q.kind === 'launch' ? q.start : q.dest, aim = { x: path.out[0], y: path.out[1] + (C.y - cp.y), z: path.out[2] };
+  let pos = [lerp(st.x, aim.x, T.fly), lerp(st.y, aim.y, T.fly), lerp(st.z, aim.z, T.fly)];
+  if (T.fly >= 1) pos = path.out.map((v, i) => lerp(v, path.inn[i], T.ins) + (i === 1 ? C.y - cp.y : 0));
+  if (path.kind === 'front') pos[1] -= .05 * cp.s * T.press;
+  let dry = path.ry - st.ry; while (dry > Math.PI) dry -= 2 * Math.PI; while (dry < -Math.PI) dry += 2 * Math.PI;
+  const rx = lerp(st.rx, path.rx, T.fly), ry = st.ry + dry * T.fly, s = lerp(st.s, path.s, T.fly);
+  q.now = { x: pos[0], y: pos[1], z: pos[2], rx, ry, s };
+  drawCartM(g, M4.trs(pos[0], pos[1], pos[2], rx, ry, 0, s), { alpha: 1, bright: 1, s, detail: .6 });
+  endMeshes();
 }
 function startPlay(g, slot, resume, from) {
   const r = ensureRec(g), emu = emuFor(g);
@@ -158,10 +245,18 @@ function homeFromPlay() {
   if (ra) { r.slots[p.slot] = { ts: Date.now(), seed: p.seed, scroll: Math.floor(p.scroll) }; r.lastSlot = p.slot; }
   r.last = Date.now(); r.minutes += Math.max(1, Math.round(p.t / 60));
   P.recent = [g.id, ...P.recent.filter(x => x !== g.id)];
+  const to = p.from === 'game' ? 'game' : 'home';
+  if (to === 'home') { S.tab = 'home'; S.home.i = 0; S.home.zone = 'row'; refreshHome(); } else fillGame();
+  S.seq = { kind: 'return', g, t: 0, flags: {}, under: to, cp: consolePose(g.sys), saved: ra, emu };
+  S.seq.dest = to === 'home' ? homeSlotPose(g) : mediaPoseNow('game', g);
+  S.screen = 'launch'; show('none');
   const fl = $('#flash'); fl.style.transition = 'none'; fl.style.opacity = 1;
   requestAnimationFrame(() => { fl.style.transition = 'opacity .5s ease'; fl.style.opacity = 0; });
-  S.seq = { kind: 'return', g, t: 0, flags: {} };
-  if (p.from === 'home') { S.home.i = 0; S.home.zone = 'row'; enterTab('home'); }
+}
+function finishReturn(q) {
+  const g = q.g; S.seq = null; S.onceEmu = null;
+  if (q.under === 'home') { S.screen = 'home'; show('home'); Object.assign(pose('home:' + g.id, {}), q.now || homeSlotPose(g), { alpha: 1, bright: 1 }); refreshHome(); }
   else { S.screen = 'game'; show('game'); fillGame(); }
-  sfx.saved(); toast(ra ? `Saved to slot ${p.slot + 1}` : g.sys === 'android' ? `Back from ${g.title}` : `Back from ${emu}`);
+  renderTop();
+  sfx.saved(); toast(q.saved ? `Saved to slot ${(rec(g.id).lastSlot) + 1}` : g.sys === 'android' ? `Back from ${g.title}` : `Back from ${q.emu}`);
 }

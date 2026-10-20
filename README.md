@@ -38,7 +38,7 @@ console, cartridge and box up close, with facts about each console. It's fixed a
 plan for the real app is in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 **Trying the prototype:** open the browser link above, or download the zip, unzip it and double-click
-`shelf-android.html`. First-run setup comes first.
+`shelf-android.html`. First-run setup comes first; **Quick setup with test data** gets through it fast.
 
 | Key | Button |
 |---|---|

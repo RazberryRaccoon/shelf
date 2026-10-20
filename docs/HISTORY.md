@@ -135,3 +135,18 @@
   corners. The grip ridges on DS and keep-case covers were removed because they poked through the art.
 - The raised rim around each cover was four straight bars with square corners that stuck out past the case's
   rounded corners. It's now one frame with rounded corners that follow the case (`frameGeo` in `r4m.js`).
+
+**Prototype v2, part 2:** the rest of the v1 review (see `DECISIONS.md`).
+- **Launch and return** (`r5b.js`): a launch scene drawn over the screen it came from. Each console's `slot`
+  kind (top, hand, front, edge, back, lid) decides how its media goes in. The PlayStation lid is its own part
+  so it can open.
+- **Music** (`r2m.js`): four tracks generated live with Web Audio, scheduled a bar at a time. The real app should
+  ship them as recorded audio files.
+- **Emulators:** the full list per console from ES-DE's Android configuration, a picker dialog that scrolls,
+  per-console defaults and Ask every time, per-game choice from the game page.
+- **Game page:** closes the box and glides it back to the Library or Home on Back; the panel slides in, its
+  sections staggered.
+- **Library:** boxes slightly smaller (BOXK .76) and columns pulled in, so wide boxes clear the frame.
+- **Tested:** headless screenshots of quick setup, the keyboard, the emulator picker, the box closing, the
+  Sound and platform settings, the saves card, and launches for SNES, PlayStation (lid), NES (front slot),
+  Game Boy, DS and PSP, plus the return to Home. Not tested: how the music sounds (headless has no audio).
