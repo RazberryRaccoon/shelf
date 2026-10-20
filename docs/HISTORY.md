@@ -191,3 +191,9 @@
   like the real ones, instead of sticking out.
 - Bug: a flat screen with full shine turned solid white when it faced the light; screens are less shiny now.
 - Settings › Appearance: up and down move between the two rows of themes.
+- Bug: the slot setting called `deep` actually meant how much of the media is left *outside* the slot, so the
+  previous round's "deeper" Game Boy values pushed the cartridges further out. Renamed to `outside` and fixed:
+  handheld cartridges, the NES cartridge and the DS card now go fully in; SNES, N64 and Genesis still show
+  about half, like the real ones.
+- PSP: the UMD now sits on the back under a raised door (like the real PSP's bulge), and the door swings up
+  past its hinge so the disc never passes through it.
