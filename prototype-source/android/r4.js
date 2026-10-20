@@ -33,9 +33,19 @@ function initGL() {
 attribute vec3 aPos; attribute vec3 aNor; attribute vec2 aUV;
 uniform mat4 uVP, uM; uniform float uGrow; varying vec3 vN, vW, vL; varying vec2 vUV;
 void main() { vL = aPos; vec4 w = uM * vec4(aPos + aNor * uGrow * aUV.y, 1.0); vW = w.xyz; vN = mat3(uM) * aNor; vUV = aUV; gl_Position = uVP * w; }`, `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
 precision mediump float;
+#endif
 varying vec3 vN, vW, vL; varying vec2 vUV;
-uniform sampler2D uTex; uniform float uTexOn, uAlpha, uSpec, uBright, uMode, uTime; uniform vec3 uColor, uRim, uEye, uEmit;
+uniform sampler2D uTex; uniform float uTexOn, uAlpha, uSpec, uBright, uMode, uTime, uGrain, uGloss; uniform vec3 uColor, uRim, uEye, uEmit;
+float hsh(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 45.164))) * 43758.5453); }
+float vnoise(vec3 p) {   // smooth value noise, for a fine molded-plastic texture
+  vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(hsh(i), hsh(i + vec3(1, 0, 0)), f.x), mix(hsh(i + vec3(0, 1, 0)), hsh(i + vec3(1, 1, 0)), f.x), f.y),
+             mix(mix(hsh(i + vec3(0, 0, 1)), hsh(i + vec3(1, 0, 1)), f.x), mix(hsh(i + vec3(0, 1, 1)), hsh(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
 void main() {
   if (uMode > 1.5) {   // selection glow: two colors chasing each other around the outline
     float k = 0.5 + 0.5 * sin(atan(vL.y, vL.x) + 0.8);          // brighter toward the top left, where the light comes from
@@ -47,13 +57,27 @@ void main() {
   if (uMode > 0.5) { gl_FragColor = vec4(uColor, tc.a * uAlpha); return; }
   vec3 n = normalize(vN);
   vec3 base = uTexOn > 0.5 ? tc.rgb : uColor;
-  vec3 L = normalize(vec3(-0.45, 0.75, 0.55));
+  float specK = uSpec;
+  if (uGrain > 0.001) {
+    vec3 q = vL * 140.0; float g1 = vnoise(q), g2 = vnoise(q + 31.7), g3 = vnoise(q + 63.1);
+    n = normalize(n + (vec3(g1, g2, g3) - 0.5) * 0.09 * uGrain);
+    base *= 1.0 + (g1 - 0.5) * 0.035 * uGrain; specK *= 1.0 - 0.25 * uGrain * g2;
+  }
+  vec3 L = normalize(vec3(-0.45, 0.75, 0.55)), L2 = normalize(vec3(0.7, 0.1, 0.6));
   vec3 V = normalize(uEye - vW);
-  float d = max(dot(n, L), 0.0);
-  float s = pow(max(dot(n, normalize(L + V)), 0.0), 36.0) * uSpec;
+  float d = max(dot(n, L), 0.0), d2 = max(dot(n, L2), 0.0);
+  float s = pow(max(dot(n, normalize(L + V)), 0.0), 36.0) * specK + pow(max(dot(n, normalize(L2 + V)), 0.0), 60.0) * specK * 0.25;
   float rim = pow(1.0 - max(dot(n, V), 0.0), 2.5);
-  vec3 c = base * (0.20 + 0.70 * d + 0.30 * max(dot(n, V), 0.0)) * uBright + vec3(s) + uRim * rim * 0.55 + uEmit;
-  gl_FragColor = vec4(c, uAlpha * (uTexOn > 0.5 ? tc.a : 1.0));
+  vec3 c = base * (0.18 + 0.66 * d + 0.12 * d2 + 0.26 * max(dot(n, V), 0.0)) * uBright + vec3(s) + uRim * rim * 0.55 + uEmit;
+  float glossA = 0.0;
+  if (uGloss > 0.001) {   // a soft studio reflection for glossy and clear plastic
+    vec3 R = reflect(-V, n);
+    vec3 env = mix(vec3(0.04, 0.045, 0.07), vec3(0.75, 0.78, 0.9), smoothstep(-0.25, 0.85, R.y)) + vec3(1.2) * pow(max(dot(R, normalize(vec3(-0.35, 0.6, 0.72))), 0.0), 50.0);
+    float fres = 0.05 + 0.95 * pow(1.0 - max(dot(n, V), 0.0), 4.0);
+    c += env * uGloss * fres * 0.7; glossA = clamp(dot(env, vec3(0.33)) * fres * uGloss, 0.0, 1.0);
+  }
+  float a = uAlpha * (uTexOn > 0.5 ? tc.a : 1.0);
+  gl_FragColor = vec4(c, a + (1.0 - a) * glossA * min(1.0, uAlpha * 8.0));
 }`);
   BG = shader(`
 attribute vec2 aP; varying vec2 vUV; void main() { vUV = aP * 0.5 + 0.5; gl_Position = vec4(aP, 0.0, 1.0); }`, `
@@ -208,159 +232,6 @@ function nebula(cols, seed) {
   return c;
 }
 
-/* ---------- media: cartridges, discs and cards (original shell designs; label windows at real label sizes) ---------- */
-const CART = {
-  nes:     { w: 1.20, h: 1.34, d: .17, label: [0, .155, .55, .90], frame: '#5d5955' },
-  snes:    { w: 1.30, h: .95, d: .2, label: [0, .22, .825, .37], frame: '#8f8ca0' },
-  n64:     { w: 1.16, h: .82, d: .2, label: [0, .04, .545, .625], frame: '#3d4049' },
-  genesis: { w: .98, h: 1.34, d: .22, label: [0, .29, .74, .60], frame: '#1e3570' },
-  gb:      { w: .60, h: .66, d: .09, label: [0, -.06, .42, .37], frame: '#9a99a2' },
-  gbc:     { w: .60, h: .66, d: .09, label: [0, -.06, .42, .37], frame: '#17635c' },
-  gba:     { w: .60, h: .38, d: .085, label: [0, .02, .43, .22], frame: '#2a2656' },
-  ds:      { w: .35, h: .33, d: .04, label: [0, -.025, .28, .2], frame: '#2c2e38' },
-};
-CART.android = { w: .42, h: .30, d: .035, label: [0, 0, .34, .22], frame: '#1f2333' };
-CART.ps1 = { w: 1.2, h: 1.2, d: .012, disc: true, r: .6 };
-CART.psp = { w: .66, h: .7, d: .045, umd: true, r: .3 };
-const cartMeshes = {};
-function cartModel(sys) {
-  if (cartMeshes[sys]) return cartMeshes[sys];
-  const c = CART[sys], P = [], f = c.d / 2;
-  const add = (mesh, x, y, z, s, col, o = {}) => P.push(Object.assign({ mesh, m: M4.trs(x, y, z, 0, 0, 0, s), col: hexRgb(col), spec: .3 }, o));
-  const box = (w, h, d, r) => extrude(shape(w, h, [r, r, r, r]), d);
-  let outline;
-  if (c.disc) {   // a compact disc: printed label on top, silver underneath
-    outline = circle(c.r, 64); add(extrude(outline, c.d), 0, 0, 0, 1, '#c9ccd6', { spec: 1 });
-    add(PLANE, 0, 0, f + .001, [c.r * 2 - .02, c.r * 2 - .02, 1], '#ffffff', { label: true, disc: true, spec: .4 });
-    return (cartMeshes[sys] = { parts: P, c, ring: ringMesh(outline) });
-  }
-  if (c.umd) {    // a small disc in an original clear caddy
-    outline = shape(c.w, c.h, [.05, .05, .14, .05]); add(extrude(outline, c.d), 0, 0, 0, 1, '#bfe9ff', { spec: .9, glass: .35 });
-    add(extrude(circle(c.r, 48), .006), 0, -.02, 0, 1, '#d8dce6', { spec: 1 });
-    add(PLANE, 0, -.02, .004, [c.r * 2 - .02, c.r * 2 - .02, 1], '#ffffff', { label: true, disc: true, spec: .4 });
-    add(box(.36, .05, .012, .02), 0, .3, f + .002, 1, '#7fa7c0', { spec: .5 });
-    return (cartMeshes[sys] = { parts: P, c, ring: ringMesh(outline) });
-  }
-  const [lx, ly, lw, lh] = c.label;
-  if (sys === 'nes') {
-    outline = shape(c.w, c.h, [.025, .025, .025, .025]); add(extrude(outline, c.d), 0, 0, 0, 1, '#8e8a86');
-    for (const sx of [-1, 1]) for (let i = 0; i < 6; i++) add(box(.02, .62, .016, .008), sx * (.34 + i * .042), .2, f + .004, 1, '#6f6b67');
-    add(box(.9, .08, .014, .03), 0, -.47, f + .004, 1, '#5d5955');
-    add(extrude(circle(.04, 18), .02), .45, -.57, f + .006, 1, '#ff9db6', { spec: .7 });
-  } else if (sys === 'snes') {
-    outline = shape(c.w, c.h, [.05, .05, .34, .34]); add(extrude(outline, c.d), 0, 0, 0, 1, '#b4b1c2');
-    [-.2, -.25, -.3].forEach(y => add(box(.8, .022, .016, .008), 0, y, f + .004, 1, '#9794a8'));
-    add(box(1.02, .03, .016, .01), 0, -.43, f + .004, 1, '#8f7ee8', { spec: .6 });
-  } else if (sys === 'n64') {   // "Crest": a broad arched top and ribbed side grips
-    outline = shape(c.w, c.h, [.04, .04, .22, .22]); add(extrude(outline, c.d), 0, 0, 0, 1, '#6b6e78', { spec: .4 });
-    for (const sx of [-1, 1]) for (let i = 0; i < 4; i++) add(box(.016, .5, .016, .006), sx * (.38 + i * .04), 0, f + .004, 1, '#575a63');
-    add(box(.7, .035, .014, .012), 0, -.35, f + .004, 1, '#ffd06b', { spec: .6 });
-  } else if (sys === 'genesis') {
-    outline = shape(c.w, c.h, [.03, .03, -.14, -.14]); add(extrude(outline, c.d), 0, 0, 0, 1, '#1f2026', { spec: .75 });
-    [-.42, -.48, -.54].forEach(y => add(box(.5, .028, .016, .01), 0, y, f + .004, 1, '#0b0b0f'));
-  } else if (sys === 'gb') {
-    outline = shape(c.w, c.h, [.1, .1, .1, .1]); add(extrude(outline, c.d), 0, 0, 0, 1, '#bcbbc3');
-    add(extrude(circle(.055, 20), .012), 0, .25, f + .002, 1, '#8f8e97', { spec: .1 });
-  } else if (sys === 'gbc') {
-    add(box(.5, .52, .01, .02), 0, 0, 0, 1, '#1d5b4c', { spec: .4 });
-    [[-.12, .2], [.1, .2]].forEach(([x, y]) => add(box(.12, .06, .02, .005), x, y, .015, 1, '#0e1412', { spec: .5 }));
-    outline = shape(c.w, c.h, [-.07, -.07, -.07, -.07]); add(extrude(outline, c.d), 0, 0, 0, 1, '#38c7bd', { spec: .9, glass: .5 });
-  } else if (sys === 'gba') {
-    outline = shape(c.w, c.h, [.03, .03, .09, .09]); add(extrude(outline, c.d), 0, 0, 0, 1, '#3f3a7a', { spec: .4 });
-    add(box(.44, .07, .06, .015), 0, -c.h / 2 - .03, 0, 1, '#2a2656');
-    for (let i = -2; i <= 2; i++) add(box(.012, .04, .012, .004), i * .07, -c.h / 2 - .03, .034, 1, '#8b84d8');
-  } else if (sys === 'ds') {      // "Chip": a small card with one cut corner
-    outline = shape(c.w, c.h, [.02, .02, -.045, .02]); add(extrude(outline, c.d), 0, 0, 0, 1, '#3a3d48', { spec: .5 });
-    add(box(.22, .02, .006, .004), 0, .135, f + .001, 1, '#ff9a82', { spec: .6 });
-  } else {                        // Android game card: a slim rounded card
-    outline = shape(c.w, c.h, [.035, .035, .035, .035]); add(extrude(outline, c.d), 0, 0, 0, 1, '#262a3a', { spec: .6 });
-  }
-  add(PLANE, lx, ly, f + .003, [lw + .03, lh + .03, 1], c.frame, { spec: .1 });
-  add(PLANE, lx, ly, f + .005, [lw, lh, 1], '#ffffff', { label: true, spec: .25 });
-  return (cartMeshes[sys] = { parts: P, c, ring: ringMesh(outline) });
-}
-const labelAspect = sys => { const c = CART[sys]; return c.disc || c.umd ? 1 : c.label[2] / c.label[3]; };
-function labelTex(g) { const c = CART[g.sys]; return c.disc || c.umd ? tex('disc' + g.id, () => discArt(g), true) : tex('label' + g.id, () => labelArt(g, labelAspect(g.sys)), true); }
-function drawCartM(g, M, st) {
-  if (NODRAW) return;
-  const cm = cartModel(g.sys);
-  for (const p of cm.parts) drawPart(p.mesh, M4.mul(M, p.m), { col: p.col, spec: p.spec, alpha: st.alpha * (p.glass || 1), bright: st.bright,
-    tex: p.label ? labelTex(g) : null, emit: st.glow ? RIM.map(v => v * st.glow * .06) : null });
-}
-
-/* ---------- cases: the originals' sizes; cardboard boxes become modern clamshell cases ---------- */
-const BOX = {}; for (const k in PLAT) BOX[k] = PLAT[k].box;
-const caseMeshes = {};
-function caseColors(sys) {
-  const light = ['light', 'dawn', 'bloom'].includes(P.prefs.theme);
-  const neutral = light ? '#e8eaf0' : '#2b2f3c', inside = light ? '#d7dae2' : '#1d2029';
-  const real = { genesis: ['#17181d', '#101114'], ps1: ['#24262e', '#16171c'], ds: ['#d9dce4', '#c4c8d2'], psp: ['#1f2128', '#15161b'], android: ['#262b3a', '#1b1f2b'] }[sys];
-  let body = real ? real[0] : neutral, inner = real ? real[1] : inside;
-  if (P.prefs.caseTint && !real) { const a = hexRgb(PLAT[sys].accent), b = hexRgb(body); body = '#' + a.map((v, i) => Math.round((v * .35 + b[i] * .65) * 255).toString(16).padStart(2, '0')).join(''); }
-  return { body: hexRgb(body), inner: hexRgb(inner) };
-}
-function caseModel(sys) {
-  if (caseMeshes[sys]) return caseMeshes[sys];
-  const [W, H, D] = BOX[sys], r = sys === 'ps1' ? .012 : .04, ct = Math.min(.03, D * .22);
-  const outline = shape(W, H, [r, r, r, r]);
-  const m = { W, H, D, ct, r,
-    base: extrude(outline, D - ct), cover: extrude(outline, ct), ring: ringMesh(outline),
-    manual: extrude(shape(1, 1, [.012, .012, .012, .012]), 1), clip: extrude(shape(.12, .05, [.015, .015, .015, .015]), .02) };
-  const c = CART[sys];
-  m.manualSize = [W * .8, H * .8];   // the booklet has the box's own shape: landscape for SNES and N64, square for Game Boy, and so on
-  m.mediaSize = c.disc || c.umd ? [c.w, c.h] : [c.w, c.h + (sys === 'gba' ? .1 : 0)];
-  return (caseMeshes[sys] = m);
-}
-// the cover swings open on the spine hinge: 0 is closed, 1 is fully open and lying to the left
-function coverMatrix(m, open) {
-  const hx = -m.W / 2, hz = m.D / 2 - m.ct / 2;
-  return M4.mul(M4.trs(hx, 0, hz, 0, -Math.PI * open, 0, 1), M4.trs(-hx, 0, -hz, 0, 0, 0, 1));
-}
-function drawCase(g, st, open = 0, lift = 0, hideMedia = false) {
-  if (NODRAW) return;
-  const m = caseModel(g.sys), C = caseColors(g.sys), M = M4.trs(st.x, st.y, st.z, st.rx || 0, st.ry || 0, 0, st.s);
-  const [W, H, D] = [m.W, m.H, m.D], top = D / 2 - m.ct, k = 360 / Math.min(W, H);
-  const front = tex('front' + g.id, () => coverFront(g, W * k, H * k)), back = tex('back' + g.id, () => coverBack(g, W * k, H * k));
-  const spine = tex('spine' + g.id, () => spineArt(g, H * k, Math.max(28, D * k)));
-  const o = (extra) => Object.assign({ alpha: st.alpha, bright: st.bright, spec: .35 }, extra);
-  // the base, its back and spine art, and the tray inside
-  drawPart(m.base, M4.mul(M, M4.trs(0, 0, -m.ct / 2, 0, 0, 0, 1)), o({ col: C.body }));
-  drawPart(PLANE, M4.mul(M, M4.trs(0, 0, -D / 2 - .002, 0, Math.PI, 0, [W - .006, H - .006, 1])), o({ tex: back, spec: .5 }));
-  drawPart(PLANE, M4.mul(M, M4.trs(-W / 2 - .002, 0, 0, 0, -Math.PI / 2, 0, [D - .004, H - .006, 1])), o({ tex: spine, spec: .5 }));
-  if (open > .01) {
-    drawPart(PLANE, M4.mul(M, M4.trs(0, 0, top + .001, 0, 0, 0, [W - .05, H - .05, 1])), o({ col: C.inner, spec: .15 }));
-    const [mw, mh] = m.mediaSize;
-    drawPart(PLANE, M4.mul(M, M4.trs(0, 0, top + .002, 0, 0, 0, [mw + .07, mh + .07, 1])), o({ col: C.inner.map(v => v * .72), spec: .1 }));
-    [[0, mh / 2 + .045], [0, -mh / 2 - .045]].forEach(([x, y]) => drawPart(m.clip, M4.mul(M, M4.trs(x, y, top + .01, 0, 0, 0, 1)), o({ col: C.body })));
-    if (!hideMedia) drawCartM(g, M4.mul(M, M4.trs(0, 0, top + CART[g.sys].d / 2 + .004 + lift, 0, 0, 0, 1)), { alpha: st.alpha, bright: st.bright, glow: 0 });
-  }
-  // the cover: front art outside; the manual, held by two clips, inside
-  const CM = M4.mul(M, coverMatrix(m, open));
-  drawPart(m.cover, M4.mul(CM, M4.trs(0, 0, D / 2 - m.ct / 2, 0, 0, 0, 1)), o({ col: C.body }));
-  drawPart(PLANE, M4.mul(CM, M4.trs(0, 0, D / 2 + .002, 0, 0, 0, [W - .006, H - .006, 1])), o({ tex: front, spec: .55 }));
-  if (open > .01) {
-    const [mw, mh] = m.manualSize, inner = D / 2 - m.ct;
-    drawPart(PLANE, M4.mul(CM, M4.trs(0, 0, inner - .001, 0, Math.PI, 0, [W - .05, H - .05, 1])), o({ col: C.inner, spec: .15 }));
-    drawPart(m.manual, M4.mul(CM, M4.trs(0, 0, inner - .009, 0, 0, 0, [mw, mh, .014])), o({ col: [.93, .91, .87], spec: .1 }));
-    const mtex = hasManual(g) ? tex('mancover' + g.id, () => coverFront(g, Math.round(mw * 400), Math.round(mh * 400)), true) : null;
-    drawPart(PLANE, M4.mul(CM, M4.trs(0, 0, inner - .017, 0, Math.PI, 0, [mw - .01, mh - .01, 1])), o(mtex ? { tex: mtex, spec: .2 } : { col: C.inner.map(v => v * .85), spec: .1 }));
-    [mh / 2 - .02, -mh / 2 + .02].forEach(y => drawPart(m.clip, M4.mul(CM, M4.trs(mw / 2 - .02, y, inner - .02, 0, 0, 0, 1)), o({ col: C.body })));
-  }
-}
-function drawCaseGlow(g, st, c1, c2) {
-  if (NODRAW) return;
-  const m = caseModel(g.sys), M = M4.trs(st.x, st.y, st.z, st.rx || 0, st.ry || 0, 0, st.s);
-  gl.disable(gl.CULL_FACE); gl.depthMask(false);
-  drawPart(m.ring, M, { col: c1, emit: c2, alpha: .95 * st.alpha, mask: false, hull: true, grow: 22 / (PX * st.s) });
-  gl.enable(gl.CULL_FACE); gl.depthMask(true);
-}
-function drawCartGlowM(g, M, s, c1, c2, alpha = 1) {
-  if (NODRAW) return;
-  const cm = cartModel(g.sys); gl.disable(gl.CULL_FACE); gl.depthMask(false);
-  drawPart(cm.ring, M, { col: c1, emit: c2, alpha: .95 * alpha, hull: true, grow: 20 / (PX * s) });
-  gl.enable(gl.CULL_FACE); gl.depthMask(true);
-}
-
 /* ---------- drawing ---------- */
 let VP, EYE = [0, 0, CAMZ], RIM = [0.6, 0.5, 1];
 function setCamera(camY = 0, camZ = CAMZ, lookY = 0) {
@@ -383,7 +254,7 @@ function drawPart(m, model, o) {
   gl.uniform1f(u.uTexOn, o.tex ? 1 : 0);
   if (o.tex) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, o.tex); gl.uniform1i(u.uTex, 0); }
   gl.uniform3fv(u.uColor, o.col || [1, 1, 1]); gl.uniform1f(u.uAlpha, o.alpha == null ? 1 : o.alpha); gl.uniform1f(u.uSpec, o.spec || 0);
-  gl.uniform1f(u.uBright, o.bright == null ? 1 : o.bright); gl.uniform3fv(u.uEmit, o.emit || [0, 0, 0]); gl.uniform1f(u.uMode, o.hull ? 2 : o.mask ? 1 : 0); gl.uniform1f(u.uGrow, o.grow || 0);
+  gl.uniform1f(u.uBright, o.bright == null ? 1 : o.bright); gl.uniform1f(u.uGrain, o.grain || 0); gl.uniform1f(u.uGloss, o.gloss || 0); gl.uniform3fv(u.uEmit, o.emit || [0, 0, 0]); gl.uniform1f(u.uMode, o.hull ? 2 : o.mask ? 1 : 0); gl.uniform1f(u.uGrow, o.grow || 0);
   bindMesh(m); gl.drawElements(gl.TRIANGLES, m.count, gl.UNSIGNED_SHORT, 0);
 }
 function beginMeshes() {

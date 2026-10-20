@@ -103,3 +103,22 @@
   - an unreadable hint over the planet
   - accent text too pale on light themes
 - **Status:** published and working. The user moved to Claude Code before reviewing it.
+
+**Prototype v2, part 1 (models):** the user's first review asked for more detailed models with real silhouettes
+(see `DECISIONS.md`).
+- **New geometry tools** (`r4m.js`): outlines with rounded corners, solids with bevelled edges, lathed parts,
+  and merging parts by material so each model is a handful of draw calls.
+- **Shader:** a subtle molded-plastic texture (smooth noise, only up close), a second light, and glossy
+  reflections for clear sleeves, discs and see-through shells.
+- **Rebuilt media:** all eleven, with real outlines (NES ridges, rounded SNES top, arched N64 top with side
+  notches, stepped Genesis, notched Game Boy, clear GBC with the board inside, black-bottomed PS1 disc,
+  rounded UMD caddy), recessed labels, labels folding over the top edge, screws, back labels and gold contacts.
+- **Rebuilt cases:** bevelled shells, a raised rim and clear sleeve on the cover, hinge knuckles, a molded tray
+  with a rim or disc hub, the finger notch, the Genesis hanging tab and a clear PS1 jewel case.
+- **Eleven consoles** (`r4c.js`), each with a `slot` for the coming launch animation.
+- **The Museum tab** (`r5m.js`): a timeline of consoles, an exhibit viewer (console, media, box, open box)
+  you can turn with the D-pad or by dragging, and facts about each console.
+- **Tested:** headless screenshots of every exhibit, Home, Library, the game page, keyboard navigation through
+  the Museum, and the crossfade between exhibits (which found and fixed an exhibit hiding the next one).
+- **Measurements:** the cartridge sizes are best estimates; the reference sites (ConsoleMods, NESdev) couldn't
+  be reached from the build environment. Verify against real cartridges.

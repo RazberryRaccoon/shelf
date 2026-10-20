@@ -129,3 +129,33 @@ Summarized from the first part of the conversation; the full transcript is kept 
 - **Android games:** generic keep case, an original game card, and a cover built from the app's icon when no art is found.
 - **Setup:** six steps (see the spec).
 - **Accent:** follows the console by default; accent text is blended for contrast on light themes.
+
+### Feedback on prototype v1 (October 2026), in order
+
+1. Make the on-screen keyboard QWERTY.
+2. Add a back button to every step of first-run setup.
+3. Bring back the console launch: the media goes into "a version of the console" with a cute sound, and the
+   reverse when returning Home, "if possible" with Android's app switcher. Use the Pi version for inspiration.
+4. **Models:** "too simple, I want them to have more texture and depth and detail. And they still don't look
+   enough like the real cartridges." Not exact copies: "more of the general shape needs to be the same… the
+   outline, the silhouette." Boxes too: "it's all just too minimalist. I'm not going for realism, I still want
+   there to be some simplification and stylization." The same goes for the new console models.
+5. For games whose saves can't be shown in Shelf, the saves area should open the right app.
+6. Close the case when backing out of a game, and make every animation flow into the next state; the game panel
+   shouldn't just pop up (slide in from the right, or something cleverer).
+7. Library: the widest boxes (SNES, N64) sit too close to the frame's left edge.
+8. Menu music: a few original tracks, selectable in Settings.
+9. Support every emulator people might use for each console, standalone or RetroArch core, and make it easy to
+   choose what each game launches with.
+
+**Decisions:**
+- **Models first, as their own update;** the rest of the list follows in a second update.
+- **Silhouettes now follow the real objects** (outline, proportions, the features that make them recognizable).
+  This relaxes the earlier "original shell designs" rule. Still no logos or console-maker branding, and details
+  stay stylized. Accepted because Shelf is a free, personal project; revisit before any public release.
+- **SNES uses the Japanese and European cartridge and console shape** (rounded), as described to the user.
+- **The model viewer becomes a feature, the Museum:** "in the spirit of the tagline of the project… Eventually I
+  want to make that a feature rather than just for debugging. Add in some info about the consoles and fun facts."
+  In the prototype it's a fourth tab, with the consoles in release order.
+- **Emulator support** will use ES-DE's published Android emulator list as the reference, plus an "Other app"
+  option, per-console defaults, per-game overrides and "Ask every time".
