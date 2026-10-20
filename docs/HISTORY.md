@@ -170,3 +170,7 @@
   media back to its spot.
 - Bug found while testing: the disc well in the PlayStation case was a rounded square, which cut the disc into a
   square. The frame builder now spreads points along straight edges so round holes stay round.
+- Behind an open box, the screen it came from (Library or Home) now stays drawn, faded far back, instead of
+  disappearing; it fades forward again while the box closes, so nothing pops in. The fade is applied to the
+  objects themselves (`UNDER` in `r6.js`), not a dark sheet over everything, which is what made Home's dimming
+  jump before. The tab's panels (rail, cards, top bar) fade the same way.

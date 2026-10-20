@@ -48,6 +48,8 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 #ui { position: absolute; inset: 0; }
 .screen { position: absolute; inset: 0; opacity: 0; visibility: hidden; transition: opacity .35s ease, visibility 0s linear .35s; }
 .screen.on { opacity: 1; visibility: visible; transition: opacity .35s ease, visibility 0s; }
+.screen.under, #topbar.under { opacity: .14; visibility: visible; transition: opacity .6s ease, visibility 0s; pointer-events: none; }
+.screen.rise.on, #topbar.rise.on { transition: opacity .85s ease, visibility 0s; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; box-shadow: 0 16px 44px var(--shadow); }
 .btn { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; border: 1.5px solid var(--fg3); font-weight: 800; font-size: 11px; color: var(--fg); vertical-align: middle; }
 .bar { display: inline-block; height: 6px; border-radius: 3px; background: var(--chip); overflow: hidden; vertical-align: middle; }
