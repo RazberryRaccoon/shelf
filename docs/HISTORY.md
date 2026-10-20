@@ -133,3 +133,5 @@
 - Box art corners: the art was drawn as sharp-cornered rectangles on cases with rounded corners, so its corners
   hung past the curve. Art is now drawn with matching rounded corners, and the spine art stops before the rounded
   corners. The grip ridges on DS and keep-case covers were removed because they poked through the art.
+- The raised rim around each cover was four straight bars with square corners that stuck out past the case's
+  rounded corners. It's now one frame with rounded corners that follow the case (`frameGeo` in `r4m.js`).

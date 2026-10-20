@@ -105,6 +105,22 @@ function latheGeo(prof, seg = 32) {
   }
   return G;
 }
+// a flat frame between two outlines with the same number of points (an outer and an inner rounded rectangle)
+function frameGeo(outer, inner, t) {
+  const O = ccw(outer), I = ccw(inner), n = O.length, G = geo(), h = t / 2;
+  if (I.length !== n) throw new Error('frameGeo needs matching outlines');
+  const quad = (a, b, c, d, nn) => { const base = G.p.length / 3; [a, b, c, d].forEach((p, k) => { G.p.push(...p); G.n.push(...(Array.isArray(nn[0]) ? nn[k] : nn)); G.t.push(0, 0); }); G.i.push(base, base + 1, base + 2, base, base + 2, base + 3); };
+  const en = (P, i) => { const q = P[(i + 1) % n], dx = q[0] - P[i][0], dy = q[1] - P[i][1], l = Math.hypot(dx, dy) || 1; return [dy / l, -dx / l, 0]; };
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n, o0 = O[i], o1 = O[j], i0 = I[i], i1 = I[j];
+    quad([o0[0], o0[1], h], [o1[0], o1[1], h], [i1[0], i1[1], h], [i0[0], i0[1], h], [0, 0, 1]);
+    quad([o0[0], o0[1], -h], [i0[0], i0[1], -h], [i1[0], i1[1], -h], [o1[0], o1[1], -h], [0, 0, -1]);
+    quad([o0[0], o0[1], h], [o0[0], o0[1], -h], [o1[0], o1[1], -h], [o1[0], o1[1], h], en(O, i));
+    const ni = en(I, i).map(v => -v);
+    quad([i0[0], i0[1], h], [i1[0], i1[1], h], [i1[0], i1[1], -h], [i0[0], i0[1], -h], ni);
+  }
+  return G;
+}
 const barG = (w, h, t, r = .004, bev = .003) => solidGeo(rrect(w, h, Math.min(r, w / 2 - 1e-4, h / 2 - 1e-4), 3), t, bev, 2);
 const discG = (r, t, seg = 32) => latheGeo([[0, t / 2], [r, t / 2], [r, -t / 2], [0, -t / 2]], seg);
 const ringG = (r0, r1, t, seg = 40) => latheGeo([[r0, t / 2], [r1, t / 2], [r1, -t / 2], [r0, -t / 2], [r0, t / 2]], seg);
@@ -332,9 +348,8 @@ function caseModel(sys) {
   const Bc = Builder(), [nw, nh] = m.manualSize, cz = D / 2;
   Bc.add(solidGeo(outline, ct, .01, 3), at(0, by, cz - ct / 2), kind === 'jewel' ? clear : body);
   if (kind !== 'jewel') {
-    const rw = .016, rt = .004, iw = W - .02, ih = bh - .02;
-    Bc.add(barG(iw, rw, rt, .003), at(0, by + ih / 2 - rw / 2, cz + rt / 2 - .001), body); Bc.add(barG(iw, rw, rt, .003), at(0, by - ih / 2 + rw / 2, cz + rt / 2 - .001), body);
-    Bc.add(barG(rw, ih, rt, .003), at(-iw / 2 + rw / 2, by, cz + rt / 2 - .001), body); Bc.add(barG(rw, ih, rt, .003), at(iw / 2 - rw / 2, by, cz + rt / 2 - .001), body);
+    const rw = .016, rt = .004, ro = r - .01;   // one rounded frame that follows the case's corners
+    Bc.add(frameGeo(rrect(W - .02, bh - .02, ro, 6), rrect(W - .02 - rw * 2, bh - .02 - rw * 2, Math.max(.004, ro - rw), 6), rt), at(0, by, cz + rt / 2 - .001), body);
   }
   Bc.add(planeGeo(W - .05, bh - .05), at(0, by, top - .001, 0, Math.PI), inner);
   [nh / 2 - .02, -nh / 2 + .02].forEach(y => Bc.add(barG(.12, .05, .02, .015), at(nw / 2 - .02, y, top - .02), body));
