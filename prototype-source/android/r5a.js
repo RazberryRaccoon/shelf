@@ -29,9 +29,15 @@ function mediaScale(sys, px) { const c = CART[sys]; return px / PX / Math.max(c.
 /* ================= small DOM helpers ================= */
 let toastTimer = 0;
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2400); }
-function show(screen) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + screen));
-  $('#topbar').classList.toggle('on', TABS.includes(screen));
+function show(screen, under) {   // under: a tab left visible behind, faded back (behind an open box)
+  document.querySelectorAll('.screen').forEach(s => { s.classList.toggle('on', s.id === 's-' + screen); s.classList.toggle('under', s.id === 's-' + under); s.classList.remove('rise'); });
+  $('#topbar').classList.toggle('on', TABS.includes(screen)); $('#topbar').classList.toggle('under', TABS.includes(under || '')); $('#topbar').classList.remove('rise');
+  if (screen !== 'game') S.skipId = null;
+}
+function riseUnder(tab) {   // bring a faded-back tab forward again, slowly, while the box closes
+  const el = $('#s-' + tab); if (!el) return;
+  document.querySelectorAll('.screen.under').forEach(s => s.classList.remove('under'));
+  el.classList.add('rise', 'on'); $('#topbar').classList.remove('under'); $('#topbar').classList.add('rise', 'on');
 }
 function clockText() { return new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
 function avatarCss(cols) { return `radial-gradient(circle at 35% 30%, ${cols[0]}, ${cols[1]} 55%, ${cols[2]})`; }
@@ -177,12 +183,13 @@ function openGame(id, fromKey, from) {
     Object.assign(bp, { x: cx + m.W / 2 * s - 9, y: cy, z: 0, rx: -.18, ry: 0, s, alpha: 1, open: 1 });
     S.game.fly = { t: 0, from: f ? { x: f.x, y: f.y, z: 0, rx: f.rx, ry: f.ry, s: f.s } : null };
   }
-  S.screen = 'game'; show('game'); $('#s-game').classList.remove('closing'); setMood(g.sys); sfx.select(); fillGame(); $('#gpin').classList.add('enter');
+  S.screen = 'game'; show('game', S.game.from); S.game.dim = 0; $('#s-game').classList.remove('closing'); setMood(g.sys); sfx.select(); fillGame(); $('#gpin').classList.add('enter');
 }
 function closeGame(then) {   // the box closes, goes back where it came from, and that screen comes back around it
   const G0 = S.game; if (G0.closing) return;
   G0.closing = { t: 0 }; G0.then = then || G0.from; G0.turn = false; G0.fly = null; sfx.back(); $('#gpin').classList.remove('enter');
   $('#s-game').classList.add('closing'); $('#objLabel').classList.remove('on'); $('#turnHint').classList.remove('on');
+  if (TABS.includes(G0.then)) { if (G0.then === 'home') refreshHome(); else if (G0.then === 'library') refreshLibrary(false); riseUnder(G0.then); }
 }
 function closeGameTarget(g) {   // the pose the closed box shrinks back to
   const G0 = S.game, c = CART[g.sys], [bw, bh] = BOX[g.sys];

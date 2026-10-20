@@ -253,7 +253,7 @@ function drawPart(m, model, o) {
   gl.uniformMatrix4fv(u.uM, false, model);
   gl.uniform1f(u.uTexOn, o.tex ? 1 : 0);
   if (o.tex) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, o.tex); gl.uniform1i(u.uTex, 0); }
-  gl.uniform3fv(u.uColor, o.col || [1, 1, 1]); gl.uniform1f(u.uAlpha, o.alpha == null ? 1 : o.alpha); gl.uniform1f(u.uSpec, o.spec || 0);
+  gl.uniform3fv(u.uColor, o.col || [1, 1, 1]); gl.uniform1f(u.uAlpha, (o.alpha == null ? 1 : o.alpha) * UNDER); gl.uniform1f(u.uSpec, o.spec || 0);
   gl.uniform1f(u.uBright, o.bright == null ? 1 : o.bright); gl.uniform1f(u.uGrain, o.grain || 0); gl.uniform1f(u.uGloss, o.gloss || 0); gl.uniform3fv(u.uEmit, o.emit || [0, 0, 0]); gl.uniform1f(u.uMode, o.hull ? 2 : o.mask ? 1 : 0); gl.uniform1f(u.uGrow, o.grow || 0);
   bindMesh(m); gl.drawElements(gl.TRIANGLES, m.count, gl.UNSIGNED_SHORT, 0);
 }

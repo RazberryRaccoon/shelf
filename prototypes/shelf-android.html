@@ -48,6 +48,8 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 #ui { position: absolute; inset: 0; }
 .screen { position: absolute; inset: 0; opacity: 0; visibility: hidden; transition: opacity .35s ease, visibility 0s linear .35s; }
 .screen.on { opacity: 1; visibility: visible; transition: opacity .35s ease, visibility 0s; }
+.screen.under, #topbar.under { opacity: .14; visibility: visible; transition: opacity .6s ease, visibility 0s; pointer-events: none; }
+.screen.rise.on, #topbar.rise.on { transition: opacity .85s ease, visibility 0s; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; box-shadow: 0 16px 44px var(--shadow); }
 .btn { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; border: 1.5px solid var(--fg3); font-weight: 800; font-size: 11px; color: var(--fg); vertical-align: middle; }
 .bar { display: inline-block; height: 6px; border-radius: 3px; background: var(--chip); overflow: hidden; vertical-align: middle; }
@@ -1349,7 +1351,7 @@ function drawPart(m, model, o) {
   gl.uniformMatrix4fv(u.uM, false, model);
   gl.uniform1f(u.uTexOn, o.tex ? 1 : 0);
   if (o.tex) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, o.tex); gl.uniform1i(u.uTex, 0); }
-  gl.uniform3fv(u.uColor, o.col || [1, 1, 1]); gl.uniform1f(u.uAlpha, o.alpha == null ? 1 : o.alpha); gl.uniform1f(u.uSpec, o.spec || 0);
+  gl.uniform3fv(u.uColor, o.col || [1, 1, 1]); gl.uniform1f(u.uAlpha, (o.alpha == null ? 1 : o.alpha) * UNDER); gl.uniform1f(u.uSpec, o.spec || 0);
   gl.uniform1f(u.uBright, o.bright == null ? 1 : o.bright); gl.uniform1f(u.uGrain, o.grain || 0); gl.uniform1f(u.uGloss, o.gloss || 0); gl.uniform3fv(u.uEmit, o.emit || [0, 0, 0]); gl.uniform1f(u.uMode, o.hull ? 2 : o.mask ? 1 : 0); gl.uniform1f(u.uGrow, o.grow || 0);
   bindMesh(m); gl.drawElements(gl.TRIANGLES, m.count, gl.UNSIGNED_SHORT, 0);
 }
@@ -2078,9 +2080,15 @@ function mediaScale(sys, px) { const c = CART[sys]; return px / PX / Math.max(c.
 /* ================= small DOM helpers ================= */
 let toastTimer = 0;
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2400); }
-function show(screen) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + screen));
-  $('#topbar').classList.toggle('on', TABS.includes(screen));
+function show(screen, under) {   // under: a tab left visible behind, faded back (behind an open box)
+  document.querySelectorAll('.screen').forEach(s => { s.classList.toggle('on', s.id === 's-' + screen); s.classList.toggle('under', s.id === 's-' + under); s.classList.remove('rise'); });
+  $('#topbar').classList.toggle('on', TABS.includes(screen)); $('#topbar').classList.toggle('under', TABS.includes(under || '')); $('#topbar').classList.remove('rise');
+  if (screen !== 'game') S.skipId = null;
+}
+function riseUnder(tab) {   // bring a faded-back tab forward again, slowly, while the box closes
+  const el = $('#s-' + tab); if (!el) return;
+  document.querySelectorAll('.screen.under').forEach(s => s.classList.remove('under'));
+  el.classList.add('rise', 'on'); $('#topbar').classList.remove('under'); $('#topbar').classList.add('rise', 'on');
 }
 function clockText() { return new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
 function avatarCss(cols) { return `radial-gradient(circle at 35% 30%, ${cols[0]}, ${cols[1]} 55%, ${cols[2]})`; }
@@ -2226,12 +2234,13 @@ function openGame(id, fromKey, from) {
     Object.assign(bp, { x: cx + m.W / 2 * s - 9, y: cy, z: 0, rx: -.18, ry: 0, s, alpha: 1, open: 1 });
     S.game.fly = { t: 0, from: f ? { x: f.x, y: f.y, z: 0, rx: f.rx, ry: f.ry, s: f.s } : null };
   }
-  S.screen = 'game'; show('game'); $('#s-game').classList.remove('closing'); setMood(g.sys); sfx.select(); fillGame(); $('#gpin').classList.add('enter');
+  S.screen = 'game'; show('game', S.game.from); S.game.dim = 0; $('#s-game').classList.remove('closing'); setMood(g.sys); sfx.select(); fillGame(); $('#gpin').classList.add('enter');
 }
 function closeGame(then) {   // the box closes, goes back where it came from, and that screen comes back around it
   const G0 = S.game; if (G0.closing) return;
   G0.closing = { t: 0 }; G0.then = then || G0.from; G0.turn = false; G0.fly = null; sfx.back(); $('#gpin').classList.remove('enter');
   $('#s-game').classList.add('closing'); $('#objLabel').classList.remove('on'); $('#turnHint').classList.remove('on');
+  if (TABS.includes(G0.then)) { if (G0.then === 'home') refreshHome(); else if (G0.then === 'library') refreshLibrary(false); riseUnder(G0.then); }
 }
 function closeGameTarget(g) {   // the pose the closed box shrinks back to
   const G0 = S.game, c = CART[g.sys], [bw, bh] = BOX[g.sys];
@@ -3065,7 +3074,7 @@ function drawHome(dt, t) {
     approach(o, { x, z: foc ? .5 : 0, ry: -.2, rx: -.1, s: mediaScale(g.sys, foc ? 236 : 150), alpha, bright: foc ? 1.02 : .72, glow: foc && rowFocus ? 1 : 0 }, dt, 10);
     approach(o, { y }, dt, foc ? 7 : 10);
     const M = M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s);
-    if ((q && q.g.id === id) || S.skipHome === id) return;   // it's drawn elsewhere: in the launch scene, or flying to its box
+    if ((q && q.g.id === id) || S.skipId === id) return;   // it's drawn elsewhere: in the launch scene, or flying to its box
     const hpx = CART[g.sys].h / 2 * o.s * PX;
     if (o.alpha > .01) { shadowUnder(xpx, ypx - bob + hpx + (foc ? 24 : 12), Math.max(CART[g.sys].w, .5) * o.s * PX * .9, o.alpha, foc); drawn.push([g, M, o, foc]); }
   });
@@ -3089,6 +3098,7 @@ function drawLibrary(dt, t) {
     approach(o, { x, z: foc ? .4 : 0, ry: .3, rx: -.08, s: s0 * (foc ? 1.08 : 1), alpha: clamp(vis, 0, 1) * (1 - .45 * clamp(cut, 0, 1)), bright: foc ? 1.03 : onGrid ? .66 : .82 }, dt, 11);
     approach(o, { y }, dt, foc ? 7 : 11);
     const [bw, bh] = BOX[g.sys];
+    if (S.skipId === g.id) return;   // it's open in front
     if (o.alpha > .01) shadowUnder(cx(c), ypx + bh / 2 * o.s * PX + (foc ? 22 : 12), bw * o.s * PX * .95, o.alpha, foc);
     if (foc) focus = { g, o, c, ypx: ypx - lift, bh }; else if (o.alpha > .01) drawCase(g, o, 0);
   });
@@ -3113,7 +3123,7 @@ function drawGamePage(dt, t) {
   const restPose = at0(trayAt), hoverPose = at0(M4.mul(trayAt, M4.trs(0, 0, .6, 0, 0, 0, 1)));
   if (G0.closing && G0.from === 'home') {
     const C = G0.closing; C.t += dt; o.x = lerp(tx, offLeft, Math.pow(clamp((C.t - .3) / .5, 0, 1), 2));
-    if (C.t > .85) { G0.closing = null; S.skipHome = null; $('#s-game').classList.remove('closing'); return enterTab(G0.then); }
+    if (C.t > .85) { G0.closing = null; S.skipId = null; $('#s-game').classList.remove('closing'); return enterTab(G0.then); }
   } else if (G0.closing) {   // close the cover first, then glide back to where the box came from
     const C = G0.closing; C.t += dt; approach(o, { open: 0 }, dt, 8);
     const T = C.t > .25 ? closeGameTarget(g) : null;
@@ -3128,10 +3138,14 @@ function drawGamePage(dt, t) {
     approach(o, { x: cxw + (m.W / 2) * s * o.open, y: cyw, z: 0, s, alpha: 1, bright: 1, rx: G0.turn ? G0.rx : -.18, ry: G0.turn ? G0.ry : 0 }, dt, 6);
     if (G0.fly) o.x = lerp(offLeft, tx, easeOut(G0.fly.t / .6));
   }
-  if (home) {   // Home stays visible underneath while the box arrives or leaves
-    S.skipHome = g.id; drawHome(dt, t);
-    if (G0.fly) G0.fly.t += dt;
-    drawScrim(G0.fly ? ease(G0.fly.t / .6) : 1 - ease((G0.closing.t - .25) / .55));
+  // The screen the box came from stays behind it, faded far back, and comes forward again as the box closes
+  if (G0.fly) G0.fly.t += dt;
+  approach(G0, { dim: G0.closing ? 0 : 1 }, dt, G0.closing ? 4.5 : 5);
+  const under = G0.closing ? G0.then : G0.from;
+  if (under === 'home' || under === 'library') {
+    S.skipId = g.id; UNDER = 1 - .86 * G0.dim;
+    under === 'home' ? drawHome(dt, t) : drawLibrary(dt, t);
+    UNDER = 1; if (!NODRAW) gl.clear(gl.DEPTH_BUFFER_BIT);
   }
   setCamera(0, CAMZ, 0); beginMeshes();
   const q = S.seq && S.seq.g === g ? S.seq : null;
@@ -3145,7 +3159,7 @@ function drawGamePage(dt, t) {
       if (t1 > .88 && !G0.fly.click) { G0.fly.click = 1; thud(0, .09); }
     } else { const t1 = G0.closing.t; P0 = t1 < .3 ? lerpPose(restPose, hoverPose, ease(t1 / .3)) : lerpPose(hoverPose, there, ease((t1 - .3) / .5)); }
     drawCartM(g, M4.trs(P0.x, P0.y, P0.z, P0.rx, P0.ry, 0, P0.s), { alpha: 1, bright: 1, s: P0.s });
-    if (G0.fly && G0.fly.t > .95) { G0.fly = null; S.skipHome = null; }
+    if (G0.fly && G0.fly.t > .95) G0.fly = null;
   }
   const mc = moodColors(MOOD.cur), c1 = hexRgb(mc.accent), c2 = hexRgb(mc.planet[0]);
   if (!G0.turn && !G0.closing && o.open > .9 && !q) {
@@ -3168,7 +3182,7 @@ function drawGamePage(dt, t) {
 }
 
 /* ================= main loop ================= */
-let last = performance.now(), clockTimer = 0, MANUAL = false, NODRAW = false;
+let last = performance.now(), clockTimer = 0, MANUAL = false, NODRAW = false, UNDER = 1;   // UNDER fades everything drawn behind an open box
 window.__step = (seconds, fps = 30) => { MANUAL = true; const n = Math.max(1, Math.round(seconds * fps)); for (let i = 0; i < n; i++) { NODRAW = i < n - 1; tick(1 / fps); } NODRAW = false; };
 function loop(now) { requestAnimationFrame(loop); const dt = Math.min(.05, (now - last) / 1000); last = now; if (!MANUAL) { try { tick(dt); } catch (e) { console.error(e); } } }
 function tick(dt) {

@@ -214,7 +214,7 @@ function drawHome(dt, t) {
     approach(o, { x, z: foc ? .5 : 0, ry: -.2, rx: -.1, s: mediaScale(g.sys, foc ? 236 : 150), alpha, bright: foc ? 1.02 : .72, glow: foc && rowFocus ? 1 : 0 }, dt, 10);
     approach(o, { y }, dt, foc ? 7 : 10);
     const M = M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s);
-    if ((q && q.g.id === id) || S.skipHome === id) return;   // it's drawn elsewhere: in the launch scene, or flying to its box
+    if ((q && q.g.id === id) || S.skipId === id) return;   // it's drawn elsewhere: in the launch scene, or flying to its box
     const hpx = CART[g.sys].h / 2 * o.s * PX;
     if (o.alpha > .01) { shadowUnder(xpx, ypx - bob + hpx + (foc ? 24 : 12), Math.max(CART[g.sys].w, .5) * o.s * PX * .9, o.alpha, foc); drawn.push([g, M, o, foc]); }
   });
@@ -238,6 +238,7 @@ function drawLibrary(dt, t) {
     approach(o, { x, z: foc ? .4 : 0, ry: .3, rx: -.08, s: s0 * (foc ? 1.08 : 1), alpha: clamp(vis, 0, 1) * (1 - .45 * clamp(cut, 0, 1)), bright: foc ? 1.03 : onGrid ? .66 : .82 }, dt, 11);
     approach(o, { y }, dt, foc ? 7 : 11);
     const [bw, bh] = BOX[g.sys];
+    if (S.skipId === g.id) return;   // it's open in front
     if (o.alpha > .01) shadowUnder(cx(c), ypx + bh / 2 * o.s * PX + (foc ? 22 : 12), bw * o.s * PX * .95, o.alpha, foc);
     if (foc) focus = { g, o, c, ypx: ypx - lift, bh }; else if (o.alpha > .01) drawCase(g, o, 0);
   });
@@ -262,7 +263,7 @@ function drawGamePage(dt, t) {
   const restPose = at0(trayAt), hoverPose = at0(M4.mul(trayAt, M4.trs(0, 0, .6, 0, 0, 0, 1)));
   if (G0.closing && G0.from === 'home') {
     const C = G0.closing; C.t += dt; o.x = lerp(tx, offLeft, Math.pow(clamp((C.t - .3) / .5, 0, 1), 2));
-    if (C.t > .85) { G0.closing = null; S.skipHome = null; $('#s-game').classList.remove('closing'); return enterTab(G0.then); }
+    if (C.t > .85) { G0.closing = null; S.skipId = null; $('#s-game').classList.remove('closing'); return enterTab(G0.then); }
   } else if (G0.closing) {   // close the cover first, then glide back to where the box came from
     const C = G0.closing; C.t += dt; approach(o, { open: 0 }, dt, 8);
     const T = C.t > .25 ? closeGameTarget(g) : null;
@@ -277,10 +278,14 @@ function drawGamePage(dt, t) {
     approach(o, { x: cxw + (m.W / 2) * s * o.open, y: cyw, z: 0, s, alpha: 1, bright: 1, rx: G0.turn ? G0.rx : -.18, ry: G0.turn ? G0.ry : 0 }, dt, 6);
     if (G0.fly) o.x = lerp(offLeft, tx, easeOut(G0.fly.t / .6));
   }
-  if (home) {   // Home stays visible underneath while the box arrives or leaves
-    S.skipHome = g.id; drawHome(dt, t);
-    if (G0.fly) G0.fly.t += dt;
-    drawScrim(G0.fly ? ease(G0.fly.t / .6) : 1 - ease((G0.closing.t - .25) / .55));
+  // The screen the box came from stays behind it, faded far back, and comes forward again as the box closes
+  if (G0.fly) G0.fly.t += dt;
+  approach(G0, { dim: G0.closing ? 0 : 1 }, dt, G0.closing ? 4.5 : 5);
+  const under = G0.closing ? G0.then : G0.from;
+  if (under === 'home' || under === 'library') {
+    S.skipId = g.id; UNDER = 1 - .86 * G0.dim;
+    under === 'home' ? drawHome(dt, t) : drawLibrary(dt, t);
+    UNDER = 1; if (!NODRAW) gl.clear(gl.DEPTH_BUFFER_BIT);
   }
   setCamera(0, CAMZ, 0); beginMeshes();
   const q = S.seq && S.seq.g === g ? S.seq : null;
@@ -294,7 +299,7 @@ function drawGamePage(dt, t) {
       if (t1 > .88 && !G0.fly.click) { G0.fly.click = 1; thud(0, .09); }
     } else { const t1 = G0.closing.t; P0 = t1 < .3 ? lerpPose(restPose, hoverPose, ease(t1 / .3)) : lerpPose(hoverPose, there, ease((t1 - .3) / .5)); }
     drawCartM(g, M4.trs(P0.x, P0.y, P0.z, P0.rx, P0.ry, 0, P0.s), { alpha: 1, bright: 1, s: P0.s });
-    if (G0.fly && G0.fly.t > .95) { G0.fly = null; S.skipHome = null; }
+    if (G0.fly && G0.fly.t > .95) G0.fly = null;
   }
   const mc = moodColors(MOOD.cur), c1 = hexRgb(mc.accent), c2 = hexRgb(mc.planet[0]);
   if (!G0.turn && !G0.closing && o.open > .9 && !q) {
@@ -317,7 +322,7 @@ function drawGamePage(dt, t) {
 }
 
 /* ================= main loop ================= */
-let last = performance.now(), clockTimer = 0, MANUAL = false, NODRAW = false;
+let last = performance.now(), clockTimer = 0, MANUAL = false, NODRAW = false, UNDER = 1;   // UNDER fades everything drawn behind an open box
 window.__step = (seconds, fps = 30) => { MANUAL = true; const n = Math.max(1, Math.round(seconds * fps)); for (let i = 0; i < n; i++) { NODRAW = i < n - 1; tick(1 / fps); } NODRAW = false; };
 function loop(now) { requestAnimationFrame(loop); const dt = Math.min(.05, (now - last) / 1000); last = now; if (!MANUAL) { try { tick(dt); } catch (e) { console.error(e); } } }
 function tick(dt) {
