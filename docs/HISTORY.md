@@ -122,3 +122,11 @@
   the Museum, and the crossfade between exhibits (which found and fixed an exhibit hiding the next one).
 - **Measurements:** the cartridge sizes are best estimates; the reference sites (ConsoleMods, NESdev) couldn't
   be reached from the build environment. Verify against real cartridges.
+
+**Prototype v2, part 1 review fixes:**
+- Museum: once you're looking at an exhibit, L and R switch between console, media, box and open box; back in the
+  list they switch tabs again (user's request).
+- Game Boy speaker slots moved inside the rounded corner; SNES sliders moved off the raised middle section.
+- Game Boy Advance: firmer corners, and the shoulder buttons sit on the top edge instead of floating off it.
+- Box art inset so it never runs past the case's rounded edges: front art inside the cover's rim, spine and
+  back art inside the bevels, hinge knuckles flush with the spine.

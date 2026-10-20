@@ -311,7 +311,7 @@ function caseModel(sys) {
   if (tab) { Bs.add(solidGeo(rrect(tw, tab + .05, [0, 0, .04, .04]), D * .3, .01), at(0, H / 2 - (tab + .05) / 2, -D / 2 + D * .15), body);
     [1, -1].forEach(s => Bs.add(discG(.03, .002), at(0, H / 2 - tab * .5, -D / 2 + D * .15 + s * D * .151), DARK)); }
   const kn = kind === 'jewel' ? clear : body;
-  [-.4, 0, .4].forEach(k => Bs.add(discG(Math.min(.022, D * .12), bh * .14), at(-W / 2 + .008, by + k * bh, top - .002, -Math.PI / 2), kn));
+  [-.4, 0, .4].forEach(k => Bs.add(discG(.01, bh * .14), at(-W / 2 + .011, by + k * bh, top - .002, -Math.PI / 2), kn));   // flush with the spine
   Bs.add(planeGeo(W - .05, bh - .05), at(0, by, top + .001), inner);
   for (const s of [-1, 1]) { Bs.add(barG(.006, D * .55, .012, .002), at(W / 2 - .02, by + s * bh * .34, top + .004), edge); }
   const [mw, mh] = m.mediaSize;
@@ -355,13 +355,13 @@ function drawCase(g, st, open = 0, lift = 0, hideMedia = false) {
   const spine = tex('spine' + g.id, () => spineArt(g, bh * k, Math.max(28, D * k)));
   const o = (extra) => Object.assign({ alpha: al, bright: st.bright, spec: .35 }, extra);
   drawParts(m.base, M, st, x, 'opaque');
-  drawPart(PLANE, M4.mul(M, M4.trs(0, by, -D / 2 - .0015, 0, Math.PI, 0, [W - .02, bh - .02, 1])), o({ tex: back, spec: .5, gloss: .35 }));
-  drawPart(PLANE, M4.mul(M, M4.trs(-W / 2 - .0015, by, -m.ct / 2, 0, -Math.PI / 2, 0, [D - m.ct - .016, bh - .02, 1])), o({ tex: spine, spec: .5, gloss: .35 }));
+  drawPart(PLANE, M4.mul(M, M4.trs(0, by, -D / 2 - .0015, 0, Math.PI, 0, [W - .04, bh - .04, 1])), o({ tex: back, spec: .5, gloss: .35 }));
+  drawPart(PLANE, M4.mul(M, M4.trs(-W / 2 - .0015, by, -m.ct / 2, 0, -Math.PI / 2, 0, [D - m.ct - .034, bh - .04, 1])), o({ tex: spine, spec: .5, gloss: .35 }));
   if (open > .01 && !hideMedia) drawCartM(g, M4.mul(M, M4.trs(0, 0, top + CART[g.sys].d / 2 + .004 + lift, 0, 0, 0, 1)), { alpha: al, bright: st.bright, glow: 0, s: st.s, detail: st.detail });
   drawParts(m.base, M, st, x, 'glass');
   const CM = M4.mul(M, coverMatrix(m, open)), jewel = m.kind === 'jewel';
   drawParts(m.cover, CM, st, x, 'opaque');
-  drawPart(PLANE, M4.mul(CM, M4.trs(0, by, jewel ? D / 2 - .004 : D / 2 + .002, 0, 0, 0, [W - (jewel ? .03 : .036), bh - (jewel ? .03 : .036), 1])), o({ tex: front, spec: .45 }));
+  drawPart(PLANE, M4.mul(CM, M4.trs(0, by, jewel ? D / 2 - .004 : D / 2 + .002, 0, 0, 0, [W - (jewel ? .03 : .044), bh - (jewel ? .03 : .044), 1])), o({ tex: front, spec: .45 }));
   if (open > .01) {
     const [mw, mh] = m.manualSize, inner = top;
     drawPart(m.manual, M4.mul(CM, M4.trs(0, by, inner - .009, 0, 0, 0, [mw, mh, .014])), o({ col: [.93, .91, .87], spec: .1 }));
@@ -369,7 +369,7 @@ function drawCase(g, st, open = 0, lift = 0, hideMedia = false) {
     drawPart(PLANE, M4.mul(CM, M4.trs(0, by, inner - .017, 0, Math.PI, 0, [mw - .01, mh - .01, 1])), o(mtex ? { tex: mtex, spec: .2 } : { col: C.inner.map(v => v * .85), spec: .1 }));
   }
   drawParts(m.cover, CM, st, x, 'glass');
-  if (!jewel) drawPart(PLANE, M4.mul(CM, M4.trs(0, by, D / 2 + .0034, 0, 0, 0, [W - .036, bh - .036, 1])), o({ col: [1, 1, 1], alpha: al * .06, spec: 1, gloss: 1 }));   // the clear sleeve over the art
+  if (!jewel) drawPart(PLANE, M4.mul(CM, M4.trs(0, by, D / 2 + .0034, 0, 0, 0, [W - .05, bh - .05, 1])), o({ col: [1, 1, 1], alpha: al * .06, spec: 1, gloss: 1 }));   // the clear sleeve over the art
 }
 function drawCaseGlow(g, st, c1, c2) {
   if (NODRAW) return;
