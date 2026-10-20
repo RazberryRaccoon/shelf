@@ -178,3 +178,16 @@
   anything faded but visible there draws on top of the box. Behind an open box the panels now hide completely
   and fade back in once the box is out of the way; the 3D boxes and cartridges stay, translucent, under a dark
   veil that also darkens the backdrop and planet (`drawShade`).
+
+**Launch animations, round 3:**
+- Each slot kind now has its own timeline (`TIMELINE` in `r5b.js`): when the media flies and goes in, when a
+  hinged part opens and closes, when the console turns its back to you, when the power comes on. Coming back
+  plays the same timeline backwards, 1.3 times faster, so every launch has a matching return.
+- Consoles can have one hinged part (`lid` in `r4c.js`): the PlayStation lid, the DS top half, the PSP door.
+- PSP: turns around, opens the UMD door on its back, the UMD goes in, the door shuts, it turns back and powers on.
+- DS: starts closed and turned so the back edge faces you; the card goes fully into the slot; it turns back,
+  opens and powers on. Both screens light up softly.
+- Game Boy, Game Boy Color, Game Boy Advance and the Android handheld: the cartridge goes 80–88% of the way in,
+  like the real ones, instead of sticking out.
+- Bug: a flat screen with full shine turned solid white when it faced the light; screens are less shiny now.
+- Settings › Appearance: up and down move between the two rows of themes.

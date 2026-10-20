@@ -169,6 +169,7 @@ function drawParts(model, M, st, x = {}, pass) {
     const col = p.role ? x.roles[p.role] : p.col;
     let emit = st.glow ? RIM.map(v => v * st.glow * .06) : null;
     if (p.led) emit = col.map(v => v * (st.power == null ? 1 : st.power) * .9);
+    if (p.screen && st.screenOn) emit = [.16, .2, .28].map(v => v * st.screenOn);   // screens light up when the power comes on
     drawPart(p.mesh, p.m === IDENT ? M : M4.mul(M, p.m), { col: p.led ? col.map(v => v * .45) : col, spec: p.spec, grain: (p.grain || 0) * detail, gloss: p.gloss || 0,
       alpha: (st.alpha == null ? 1 : st.alpha) * (p.glass || 1), bright: st.bright, tex: p.label && x.tex ? x.tex(p.label) : null, emit });
   }

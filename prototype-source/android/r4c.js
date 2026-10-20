@@ -7,7 +7,7 @@ function consoleModel(sys) {
   const on = (g, M, m) => B.add(g, M, m);
   const face = (g, x, y, z, m, rz = 0) => on(g, at(x, y, z, 0, 0, rz), m);                  // on a front face
   const up = (g, x, y, z, m, ry = 0) => on(g, at(x, y, z, -Math.PI / 2, ry, 0), m);         // on a top face (local +y points to the back)
-  const scr = (w, h) => planeGeo(w, h), SCREEN = { col: '#0c0f14', spec: 1, gloss: .8 };
+  const scr = (w, h) => planeGeo(w, h), SCREEN = { col: '#0c0f14', spec: .18, gloss: .55, screen: true };   // not too shiny: a flat screen facing the light would turn white
   const led = col => ({ col, led: true, spec: .4 });
   const dpad = (x, y, z, s, m) => { face(discG(s * .62, .004), x, y, z + .001, shellM(shadeHex(m.col, .15), { spec: .1 })); face(crossG(s, s * .33, .035), x, y, z + .016, m); };
   const grille = (x, y, z, cols, rows, gap, m) => { for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) face(discG(.011, .002), x + (i - (cols - 1) / 2) * gap, y + (j - (rows - 1) / 2) * gap, z + .0005, m); };
@@ -76,7 +76,7 @@ function consoleModel(sys) {
       for (let i = 0; i < 6; i++) { const k = (i - 2.5) * .04; face(barG(.022, .15, .006, .011), .27 + k * Math.cos(.5), -.54 + k * Math.sin(.5), z + .001, shellM('#9a99a2'), .5); }   // speaker slots, kept inside the rounded corner
       up(barG(.18, .05, .03, .012), -.22, .74, .02, shellM('#9a99a2'));
       up(barG(.62, .12, .004, .01), 0, .741, -.08, DARK);
-      slot = { kind: 'hand', x: 0, y: .74, z: -.08 }; break;
+      slot = { kind: 'hand', x: 0, y: .74, z: -.08, deep: .8 }; break;
     }
     case 'gbc': {   // smaller, see-through color, the screen centered high
       const S0 = shellM('#2fb5a9', { spec: .55, gloss: .3 }), z = .135, B0 = shellM('#26323a', { spec: .4 });
@@ -89,7 +89,7 @@ function consoleModel(sys) {
       [-.07, .08].forEach(x => face(barG(.11, .032, .018, .015), x, -.45, z + .007, shellM('#1f2a30')));
       grille(.24, -.5, z, 3, 2, .04, DARK);
       up(barG(.5, .1, .004, .01), 0, .666, -.07, DARK);
-      slot = { kind: 'hand', x: 0, y: .665, z: -.07 }; break;
+      slot = { kind: 'hand', x: 0, y: .665, z: -.07, deep: .8 }; break;
     }
     case 'gba': {   // wide, with firm corners, the screen between the controls, shoulder buttons along the top edge
       const S0 = shellM('#4e46a8', { spec: .45 }), z = .1225, B0 = shellM('#c5c4d2', { spec: .5 });
@@ -103,7 +103,7 @@ function consoleModel(sys) {
       face(discG(.012, .004), -.36, -.26, z + .005, led('#5bff8a'));
       [-1, 1].forEach(s => on(slabG(rrect(.26, .11, .025), .035, .012), at(s * .47, .41 + .0165, -.06), shellM('#3b3488')));
       up(barG(.62, .1, .004, .01), 0, .411, -.05, DARK);
-      slot = { kind: 'hand', x: 0, y: .41, z: -.05 }; break;
+      slot = { kind: 'hand', x: 0, y: .41, z: -.05, deep: .8 }; break;
     }
     case 'ps1': {   // a low gray box with a round lid on top and three round buttons
       const S0 = shellM('#c6c4bf'), D0 = shellM('#a9a7a1');
@@ -117,7 +117,7 @@ function consoleModel(sys) {
       [-.6, -.2].forEach(x => { face(barG(.3, .12, .008, .03), x, -.15, .94, DARK); face(barG(.28, .05, .008, .01), x, .05, .94, DARK); });
       slot = { kind: 'lid', x: -.25, y: .32, z: -.05 };
       const L = Builder(); L.add(latheGeo([[0, .035], [.66, .035], [.71, .015], [.72, 0], [0, 0]], 72), at(0, 0, .72, -Math.PI / 2), shellM('#cbc9c4'));
-      extra.lid = { model: L.build(), hinge: [-.25, .3, -.77] }; break;
+      extra.lid = { model: L.build(), hinge: [-.25, .3, -.77], closed: 0, open: -1.7, rest: 0 }; break;
     }
     case 'ds': {    // the original two-screen clamshell, shown open
       const S0 = shellM('#c4c7cf', { spec: .5, gloss: .2 }), P0 = shellM('#2c2e35', { spec: .3 }), K = shellM('#d3d5dc', { spec: .5 });
@@ -127,13 +127,17 @@ function consoleModel(sys) {
       up(crossG(.17, .055, .03), -.52, .071, -.03, shellM('#3a3c44'));
       [[.52, -.11], [.52, .05], [.44, -.03], [.6, -.03]].forEach(([x, z]) => up(domeG(.033, .02), x, .071, z, K));
       [[.48, .26], [.56, .26]].forEach(([x, z]) => up(domeG(.018, .01), x, .071, z, K));
-      on(discG(.06, 1.3, 24), at(0, .07, -.43, 0, Math.PI / 2, 0), S0);
-      const T = M4.mul(at(0, .07, -.43, -.35, 0, 0), at(0, .44, 0));
-      on(solidGeo(rrect(1.49, .85, .12, 8), .13, .03), T, S0);
-      on(barG(1.42, .78, .004, .1), M4.mul(T, at(0, 0, .066)), P0);
-      on(scr(.62, .46), M4.mul(T, at(0, 0, .069)), SCREEN);
-      [-1, 1].forEach(s => { for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) on(discG(.01, .002), M4.mul(T, at(s * .55 + (i - 1) * .03, .05 + (j - 1) * .03, .069)), DARK); });
-      slot = { kind: 'edge', x: 0, y: 0, z: -.43 }; break;
+      on(discG(.06, 1.3, 24), at(0, .135, -.43, 0, Math.PI / 2, 0), S0);
+      on(planeGeo(.39, .05), at(0, 0, -.4255, 0, Math.PI, 0), DARK);   // the card slot in the back edge
+      // the top half folds on the hinge: built standing up, closed it lies on the bottom half
+      const L = Builder(), T = at(0, .44, 0);
+      L.add(solidGeo(rrect(1.49, .85, .12, 8), .13, .03), T, S0);
+      L.add(barG(1.42, .78, .004, .1), M4.mul(T, at(0, 0, .066)), P0);
+      L.add(scr(.62, .46), M4.mul(T, at(0, 0, .069)), SCREEN);
+      [-1, 1].forEach(s => { for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) L.add(discG(.01, .002), M4.mul(T, at(s * .55 + (i - 1) * .03, .05 + (j - 1) * .03, .069)), DARK); });
+      extra.lid = { model: L.build(), hinge: [0, .135, -.43], closed: Math.PI / 2, open: -.35, rest: 1 };
+      extra.bounds = [[-.75, -.07, -.75], [.75, .95, .43]];
+      slot = { kind: 'edge', x: 0, y: 0, z: -.425, deep: .97 }; break;
     }
     case 'psp': {   // a glossy black oval with a wide screen in the middle
       const S0 = shellM('#16171b', { spec: .8, gloss: .55 }), z = .115, K = shellM('#2c2d33', { spec: .5 });
@@ -144,7 +148,11 @@ function consoleModel(sys) {
       [[.085, 0], [-.085, 0], [0, .085], [0, -.085]].forEach(([dx, dy]) => face(domeG(.042, .022), .64 + dx, .12 + dy, z, K));
       for (let i = 0; i < 6; i++) face(barG(.07, .024, .012, .012), -.3 + i * .12, -.31, z + .004, K);
       [-1, 1].forEach(s => on(solidGeo(rrect(.4, .05, .02), .12, .02), at(s * .55, .37, -.02, 0, 0, -s * .1), K));
-      face(discG(.3, .004, 48), 0, 0, -z - .002, shellM('#1f2026', { spec: .6 }));
+      // the UMD door on the back, hinged along its top edge, with the well the disc sits in behind it
+      on(planeGeo(.66, .6), at(0, 0, -z - .0008, 0, Math.PI, 0), DARK);
+      const L = Builder(); L.add(solidGeo(rrect(.68, .62, [.06, .06, .22, .22], 8), .012, .004), at(0, -.31, -.006), shellM('#1f2026', { spec: .6, gloss: .3 }));
+      L.add(barG(.2, .03, .004, .01), at(0, -.56, -.013), shellM('#3a3b42'));
+      extra.lid = { model: L.build(), hinge: [0, .31, -z], closed: 0, open: 1.35, rest: 0 };
       slot = { kind: 'back', x: 0, y: 0, z: -z }; break;
     }
     default: {      // Android games: a generic modern handheld
@@ -159,12 +167,17 @@ function consoleModel(sys) {
       face(latheGeo([[0, .04], [.05, .038], [.07, .025], [.075, 0], [0, 0]], 24), .72, -.2, z, shellM('#4a4e5c'));
       [-1, 1].forEach(s => on(solidGeo(rrect(.42, .05, .02), .14, .02), at(s * .62, .41, -.02), shellM('#3b3f4d')));
       up(barG(.5, .06, .004, .01), 0, .411, -.04, DARK);
-      slot = { kind: 'hand', x: 0, y: .41, z: -.04 };
+      slot = { kind: 'hand', x: 0, y: .41, z: -.04, deep: .88 };
     }
   }
-  return (consoleMeshes[sys] = B.build(Object.assign({ slot }, extra)));
+  const built = B.build(Object.assign({ slot }, extra));
+  if (extra.bounds) [built.lo, built.hi] = extra.bounds;   // parts on hinges aren't in the measured size
+  return (consoleMeshes[sys] = built);
 }
 function drawConsole(sys, M, st) {
   const m = consoleModel(sys); drawParts(m, M, st);
-  if (m.lid) { const [hx, hy, hz] = m.lid.hinge; drawParts(m.lid.model, M4.mul(M, M4.trs(hx, hy, hz, -(st.lid || 0) * 1.7, 0, 0, 1)), st); }   // the PlayStation's lid opens on its back hinge
+  if (m.lid) {   // a part on a hinge: the PlayStation's lid, the DS's top half, the PSP's disc door
+    const L = m.lid, [hx, hy, hz] = L.hinge, v = st.lid == null ? L.rest : st.lid;
+    drawParts(L.model, M4.mul(M, M4.trs(hx, hy, hz, lerp(L.closed, L.open, v), 0, 0, 1)), st);
+  }
 }

@@ -174,3 +174,7 @@ Summarized from the first part of the conversation; the full transcript is kept 
 - Behind an open box: "It should always be in the back, just really dimmed dark," and fade back in as the box closes.
 - Then: "I don't want the stuff in the background to just dim, I want… a dark color overlay too? So it gets more
   translucent and also the whole background darkens."
+- Launches: handheld cartridges should "fully go into the console's model… look like the real thing." "The PSP's
+  should open up the back and slot the UMD disk in like the real thing, and the DS should start closed, fit the
+  cartridge fully into the slot, then open up and turn on."
+- Theme picker: vertical selection as well as horizontal.
