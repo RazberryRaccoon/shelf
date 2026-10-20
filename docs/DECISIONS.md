@@ -168,3 +168,6 @@ Summarized from the first part of the conversation; the full transcript is kept 
   return animations; saves that open the emulator; the box closing on Back and the game panel sliding in from the
   right with its sections following one after another; more room around wide boxes in the Library; four menu
   music tracks; the full emulator list with per-console defaults, per-game choice, Ask every time and Other app.
+
+- Opening a box from Home: "The box should come in from the LEFT, and exit from the left too… it should look like
+  the cartridge/CD is being put in the case."
