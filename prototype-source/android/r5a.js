@@ -172,18 +172,22 @@ function openGame(id, fromKey, from) {
   const g = byId[id]; S.game = { id, zone: 'actions', i: 0, from: from || S.tab, turn: false, rx: 0, ry: 0 };
   const f = anim.get(fromKey), bp = pose('case', {});
   Object.assign(bp, f ? { x: f.x, y: f.y, z: f.z || 0, rx: f.rx || 0, ry: f.ry || 0, s: f.s, alpha: 1, open: 0, lift: 0 } : { x: 0, y: 0, z: 0, s: .5, alpha: 0, open: 0 });
-  if (fromKey && fromKey.startsWith('home:')) bp.s = (f ? f.s : .5) * Math.max(CART[g.sys].w, CART[g.sys].h) / Math.max(BOX[g.sys][0], BOX[g.sys][1]);
+  if (fromKey && fromKey.startsWith('home:')) {   // from Home: the open box slides in from the right edge and the cartridge flies into its tray
+    const m = caseModel(g.sys), s = Math.min(620 / (2 * m.W * PX), 520 / (m.H * PX)), [cx, cy] = pw(345, 392);
+    Object.assign(bp, { x: cx + m.W / 2 * s + 9, y: cy, z: 0, rx: -.18, ry: 0, s, alpha: 1, open: 1 });
+    S.game.fly = { t: 0, from: f ? { x: f.x, y: f.y, z: 0, rx: f.rx, ry: f.ry, s: f.s } : null };
+  }
   S.screen = 'game'; show('game'); $('#s-game').classList.remove('closing'); setMood(g.sys); sfx.select(); fillGame(); $('#gpin').classList.add('enter');
 }
-function closeGame() {   // the box closes, goes back where it came from, and that screen comes back around it
+function closeGame(then) {   // the box closes, goes back where it came from, and that screen comes back around it
   const G0 = S.game; if (G0.closing) return;
-  G0.closing = { t: 0 }; G0.turn = false; sfx.back(); $('#gpin').classList.remove('enter');
+  G0.closing = { t: 0 }; G0.then = then || G0.from; G0.turn = false; G0.fly = null; sfx.back(); $('#gpin').classList.remove('enter');
   $('#s-game').classList.add('closing'); $('#objLabel').classList.remove('on'); $('#turnHint').classList.remove('on');
 }
 function closeGameTarget(g) {   // the pose the closed box shrinks back to
   const G0 = S.game, c = CART[g.sys], [bw, bh] = BOX[g.sys];
+  if (G0.then !== G0.from) { const o = anim.get('case'); return { y: o.y - .5, s: o.s * .9, alpha: 0 }; }   // Home pressed: the closed box sinks away
   if (G0.from === 'library') { const l = anim.get('lib:' + g.id); if (l) return { x: l.x, y: l.y, z: l.z, rx: l.rx, ry: l.ry, s: l.s, alpha: 1 }; }
-  if (G0.from === 'home') { const h = anim.get('home:' + g.id); if (h) return { x: h.x, y: h.y, z: h.z, rx: h.rx, ry: h.ry, s: h.s * Math.max(c.w, c.h) / Math.max(bw, bh), alpha: 0 }; }
   return null;
 }
 function gameActions() {

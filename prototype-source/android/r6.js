@@ -1,7 +1,8 @@
 /* ================= input ================= */
 function act(a) {
   audio(); musicEnsure();
-  if (a === 'home') { closeDlg(); S.kb.open = false; renderKb(); if (S.screen === 'play') return homeFromPlay(); if (S.screen === 'setup' || S.seq) return; S.home.i = 0; S.home.zone = 'row'; sfx.tab(); return enterTab('home'); }
+  if (a === 'home') { closeDlg(); S.kb.open = false; renderKb(); if (S.screen === 'play') return homeFromPlay(); if (S.screen === 'setup' || S.seq) return;
+    if (S.screen === 'game') { if (!S.game.closing) { S.game.zone = 'actions'; closeGame('home'); } return; } S.home.i = 0; S.home.zone = 'row'; sfx.tab(); return enterTab('home'); }
   if (S.kb.open) {
     const k = S.kb; if (a !== 'a') k.typed = false;
     if (a === 'up' || a === 'down') { const r = clamp(k.r + (a === 'up' ? -1 : 1), 0, KB_ROWS.length - 1); if (r !== k.r) { k.c = kbNearest(r, kbCenter(k.r, k.c)); k.r = r; sfx.move(); renderKb(); } }
@@ -90,6 +91,14 @@ function appsInput(a) {
   refreshApps();
 }
 function startPlayDirect(g) { startLaunch(g, 0, false, 'apps'); }
+function actRowMove(dir) {   // the buttons wrap onto rows: up and down move to the nearest button in the next row
+  const els = [...$('#gpin .actions').children], cur = els[S.game.i]; if (!cur) return false;
+  const tops = [...new Set(els.map(e => e.offsetTop))].sort((a, b) => a - b), to = tops[tops.indexOf(cur.offsetTop) + dir];
+  if (to == null) return false;
+  const cx = cur.offsetLeft + cur.offsetWidth / 2; let best = S.game.i, bd = 1e9;
+  els.forEach((e, i) => { if (e.offsetTop !== to) return; const d = Math.abs(e.offsetLeft + e.offsetWidth / 2 - cx); if (d < bd) { bd = d; best = i; } });
+  S.game.i = best; return true;
+}
 function gameInput(a) {
   if (S.game.closing) return;
   $('#gpin').classList.remove('enter');
@@ -110,7 +119,8 @@ function gameInput(a) {
   else if (z === 'cart') { if (a === 'left') go('manual'); else if (a === 'right') go('actions'); else if (a === 'a') return gameAction(); }
   else if (z === 'actions') {
     if (a === 'left') { if (G0.i === 0) go('cart'); else { G0.i--; sfx.move(); } } else if (a === 'right') { if (G0.i < acts.length - 1) { G0.i++; sfx.move(); } }
-    else if (a === 'down') go('saves', ra ? (rec(G0.id) || { lastSlot: 0 }).lastSlot : 0); else if (a === 'a') return gameAction();
+    else if (a === 'up') { if (actRowMove(-1)) sfx.move(); }
+    else if (a === 'down') { if (actRowMove(1)) sfx.move(); else go('saves', ra ? (rec(G0.id) || { lastSlot: 0 }).lastSlot : 0); } else if (a === 'a') return gameAction();
   } else if (z === 'saves') {
     if (a === 'left') { if (!ra || G0.i === 0) go('cart'); else { G0.i--; sfx.move(); } } else if (a === 'right' && ra && G0.i < 3) { G0.i++; sfx.move(); }
     else if (a === 'up') go('actions'); else if (a === 'down') go('media'); else if (a === 'a') return gameAction();
@@ -176,7 +186,8 @@ const lightTheme = () => ['light', 'dawn', 'bloom'].includes(P.prefs.theme);
 function shadowUnder(xpx, ypx, wpx, alpha, far) { drawPlate('shadow', shadowArt, xpx, ypx, wpx, far ? 24 : 18, -.8, lightTheme() ? [.25, .2, .35] : [0, 0, .02], alpha * (lightTheme() ? .35 : .55)); }
 const PL = { x: 667, y: 1100, r: 520, a: 1 };
 function planetTarget() {
-  switch (S.screen) {
+  const sc = S.screen === 'game' && S.game.closing ? S.game.then : S.screen === 'game' && S.game.fly ? 'game' : S.screen;
+  switch (sc) {
     case 'setup': return { x: 667, y: 1080, r: 560, a: 1 };
     case 'home': return { x: 1220, y: 900, r: 420, a: 1 };
     case 'library': case 'apps': return { x: 1300, y: 920, r: 380, a: .85 };
@@ -203,7 +214,7 @@ function drawHome(dt, t) {
     approach(o, { x, z: foc ? .5 : 0, ry: -.2, rx: -.1, s: mediaScale(g.sys, foc ? 236 : 150), alpha, bright: foc ? 1.02 : .72, glow: foc && rowFocus ? 1 : 0 }, dt, 10);
     approach(o, { y }, dt, foc ? 7 : 10);
     const M = M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s);
-    if (q && q.g.id === id) return;   // it's in the launch scene
+    if ((q && q.g.id === id) || S.skipHome === id) return;   // it's drawn elsewhere: in the launch scene, or flying to its box
     const hpx = CART[g.sys].h / 2 * o.s * PX;
     if (o.alpha > .01) { shadowUnder(xpx, ypx - bob + hpx + (foc ? 24 : 12), Math.max(CART[g.sys].w, .5) * o.s * PX * .9, o.alpha, foc); drawn.push([g, M, o, foc]); }
   });
@@ -234,40 +245,62 @@ function drawLibrary(dt, t) {
     if (!NODRAW) { const F = $('#lFocus'); F.style.left = cx(focus.c) + 'px'; F.style.top = (focus.ypx + focus.bh / 2 * focus.o.s * PX + 26) + 'px'; } }
   unclip(); endMeshes();
 }
+function lerpPose(a, b, k) { let d = b.ry - a.ry; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+  return { x: lerp(a.x, b.x, k), y: lerp(a.y, b.y, k), z: lerp(a.z, b.z, k), rx: lerp(a.rx, b.rx, k), ry: a.ry + d * k, s: lerp(a.s, b.s, k) }; }
+function drawScrim(alpha) {   // the theme's background over everything drawn so far, so a screen can fade out behind another
+  if (NODRAW) return; if (alpha <= .001) return gl.clear(gl.DEPTH_BUFFER_BIT); setFlat(); beginMeshes(); const b = hexRgb(getComputedStyle(stage).getPropertyValue('--bg').trim() || '#070b1e');
+  drawPlate('scrim', panelArt, 667, 375, 1500, 900, 3, b, alpha * .94); endMeshes(); gl.clear(gl.DEPTH_BUFFER_BIT);
+}
 function drawGamePage(dt, t) {
   const G0 = S.game, g = byId[G0.id], o = pose('case', {}), m = caseModel(g.sys), [W0, H0] = [m.W, m.H];
   const sOpen = Math.min(620 / (2 * W0 * PX), 520 / (H0 * PX)), s = G0.turn ? Math.min(sOpen * 1.35, 430 / (Math.max(W0, H0) * PX)) : sOpen;
   const [cxw, cyw] = pw(345, 392), openT = G0.turn ? 0 : 1;
-  if (G0.closing) {   // close the cover first, then glide back to where the box came from
+  const home = G0.from === 'home' && (G0.fly || G0.closing), offRight = cxw + m.W / 2 * s + 9;
+  if (G0.closing && G0.from === 'home') {   // the reverse of opening from Home: the cartridge flies back, the box slides out to the right
+    const C = G0.closing; C.t += dt; approach(o, { x: offRight }, dt, 4);
+    if (C.t > .8) { G0.closing = null; S.skipHome = null; $('#s-game').classList.remove('closing'); return enterTab(G0.then); }
+  } else if (G0.closing) {   // close the cover first, then glide back to where the box came from
     const C = G0.closing; C.t += dt; approach(o, { open: 0 }, dt, 8);
     const T = C.t > .25 ? closeGameTarget(g) : null;
     if (T) approach(o, T, dt, 7); else approach(o, { x: cxw, y: cyw, rx: -.08, ry: 0 }, dt, 6);
     if (C.t > .95 || (!closeGameTarget(g) && C.t > .5)) {
       G0.closing = null; $('#s-game').classList.remove('closing');
-      if (G0.from === 'library') Object.assign(pose('lib:' + g.id, {}), { x: o.x, y: o.y, z: o.z, rx: o.rx, ry: o.ry, s: o.s });
-      return enterTab(TABS.includes(G0.from) ? G0.from : 'home');
+      if (G0.from === 'library' && G0.then === 'library') Object.assign(pose('lib:' + g.id, {}), { x: o.x, y: o.y, z: o.z, rx: o.rx, ry: o.ry, s: o.s });
+      return enterTab(TABS.includes(G0.then) ? G0.then : 'home');
     }
   } else {
     approach(o, { open: openT }, dt, 5.5);
     approach(o, { x: cxw + (m.W / 2) * s * o.open, y: cyw, z: 0, s, alpha: 1, bright: 1, rx: G0.turn ? G0.rx : -.18, ry: G0.turn ? G0.ry : 0 }, dt, 6);
   }
+  if (home) {   // Home stays visible underneath while the box arrives or leaves
+    S.skipHome = g.id; drawHome(dt, t);
+    if (G0.fly) G0.fly.t += dt;
+    drawScrim(G0.fly ? ease(G0.fly.t / .6) : 1 - ease(G0.closing.t / .7));
+  }
   setCamera(0, CAMZ, 0); beginMeshes();
   const q = S.seq && S.seq.g === g ? S.seq : null;
-  drawCase(g, o, o.open, 0, !!q);   // while launching or coming back, the media is in the launch scene
-  const M = M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s), top = m.D / 2 - m.ct, d = CART[g.sys].d, trayM = M4.mul(M, M4.trs(0, 0, top + d / 2 + .004, 0, 0, 0, 1));
+  drawCase(g, o, o.open, 0, !!q || home);   // while launching, coming back or flying to and from Home, the media is drawn on its own
+  const M = M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s), top = m.D / 2 - m.ct, d = CART[g.sys].d, trayM = M4.mul(M, M4.trs(0, m.by, m.mediaZ, 0, 0, 0, 1));
+  if (home && !q) {   // the cartridge between its spot on Home and the box's tray
+    const tp = apply(trayM, [0, 0, 0]), tray = { x: tp[0], y: tp[1], z: tp[2], rx: o.rx, ry: o.ry, s: o.s }, h = anim.get('home:' + g.id);
+    const there = h ? { x: h.x, y: h.y, z: 0, rx: h.rx, ry: h.ry, s: h.s } : tray, k = G0.fly ? ease(G0.fly.t / .75) : 1 - ease(G0.closing.t / .7);
+    const from = G0.fly ? (G0.fly.from || there) : there, P0 = lerpPose(from, tray, k);
+    drawCartM(g, M4.trs(P0.x, P0.y, P0.z, P0.rx, P0.ry, 0, P0.s), { alpha: 1, bright: 1, s: P0.s });
+    if (G0.fly && G0.fly.t > .8) { G0.fly = null; S.skipHome = null; }
+  }
   const mc = moodColors(MOOD.cur), c1 = hexRgb(mc.accent), c2 = hexRgb(mc.planet[0]);
   if (!G0.turn && !G0.closing && o.open > .9 && !q) {
     if (G0.zone === 'cart') drawCartGlowM(g, trayM, o.s, c1, c2);
     if (G0.zone === 'manual') { const CM = M4.mul(M, coverMatrix(m, o.open)), [mw, mh] = m.manualSize;
       if (!m.manRing) m.manRing = ringMesh(shape(mw, mh, [.012, .012, .012, .012]));
-      gl.disable(gl.CULL_FACE); gl.depthMask(false); drawPart(m.manRing, M4.mul(CM, M4.trs(0, 0, top - .02, 0, Math.PI, 0, 1)), { col: c1, emit: c2, alpha: .95, hull: true, grow: 20 / (PX * o.s) }); gl.enable(gl.CULL_FACE); gl.depthMask(true); }
+      gl.disable(gl.CULL_FACE); gl.depthMask(false); drawPart(m.manRing, M4.mul(CM, M4.trs(0, m.by, top - .016, 0, Math.PI, 0, 1)), { col: c1, emit: c2, alpha: .95, hull: true, grow: 20 / (PX * o.s) }); gl.enable(gl.CULL_FACE); gl.depthMask(true); }
   }
   endMeshes();
   if (!NODRAW) {   // a label over the object you're on
     const L = $('#objLabel'), on = !G0.turn && !G0.closing && o.open > .9 && (G0.zone === 'cart' || G0.zone === 'manual') && !q;
     L.classList.toggle('on', on);
     if (on) {
-      const CM = M4.mul(M, coverMatrix(m, o.open)), pt = G0.zone === 'cart' ? apply(trayM, [0, (CART[g.sys].h) / 2 + .08, 0]) : apply(CM, [0, m.manualSize[1] / 2 + .08, top]);
+      const CM = M4.mul(M, coverMatrix(m, o.open)), pt = G0.zone === 'cart' ? apply(trayM, [0, CART[g.sys].h / 2 + .08, 0]) : apply(CM, [0, m.by + m.manualSize[1] / 2 + .08, top]);
       const [px, py] = project(pt); L.style.left = px + 'px'; L.style.top = (py - 34) + 'px';
       const ra = isRA(emuFor(g)), r = rec(g.id);
       L.textContent = G0.zone === 'cart' ? (ra && r && r.slots.some(Boolean) ? 'Resume' : 'Play') : hasManual(g) ? 'Read the manual' : 'No manual';

@@ -311,6 +311,14 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .dialog, .kb { position: absolute; left: 50%; top: 50%; z-index: 8; border-radius: 22px; background: var(--panel); border: 1px solid var(--line); backdrop-filter: blur(0px);
   box-shadow: 0 0 0 3000px var(--scrim), 0 24px 70px var(--shadow); opacity: 0; visibility: hidden; transform: translate(-50%, -46%); transition: opacity .2s, transform .2s, visibility 0s linear .2s; }
 .dialog { width: 470px; padding: 22px 18px 16px; }
+/* dialogs and the keyboard are solid, and dim everything behind them */
+.dialog, .kb { background: linear-gradient(var(--panel2), var(--panel2)), var(--bg); }
+.dialog.open, .kb.open { box-shadow: 0 0 0 200vmax var(--scrim), 0 24px 60px var(--shadow); }
+/* the game's name while its console loads it */
+#nowLoading { position: absolute; left: 0; right: 0; bottom: 26px; text-align: center; z-index: 6; opacity: 0; transform: translateY(8px); transition: opacity .5s ease, transform .5s cubic-bezier(.2,.8,.2,1); pointer-events: none; }
+#nowLoading.on { opacity: 1; transform: none; }
+#nowLoading small { display: block; font-size: 12.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--acc-t); }
+#nowLoading b { display: block; margin-top: 6px; font-family: var(--display); font-weight: 500; font-size: 30px; color: var(--fg); }
 .dlist { position: relative; max-height: 520px; overflow-y: auto; scrollbar-width: none; }
 .dlist::-webkit-scrollbar { display: none; }
 .dialog.open, .kb.open { opacity: 1; visibility: visible; transform: translate(-50%, -50%); transition: opacity .2s, transform .2s, visibility 0s; }
@@ -396,6 +404,7 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
     <div class="dialog" id="dlg"></div>
     <div class="kb" id="kb"></div>
     <div class="toast" id="toast"></div>
+    <div id="nowLoading"><small>Now loading</small><b></b></div>
     <div id="flash"></div>
   </div>
 </div>
