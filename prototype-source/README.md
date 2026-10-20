@@ -12,6 +12,7 @@ WSL on Windows) to rebuild it.
 | `r2m.js` | Menu music: four tracks played live with Web Audio. |
 | `r3.js` | Generated art: labels, covers, discs, icons and manuals. |
 | `r4.js` | The WebGL renderer: shaders, cameras, textures and backdrops. |
+| `r4g.js` | Loads the models built in Blender (`../models/`, from `tools/models/`). |
 | `r4m.js` | Geometry tools (rounded outlines, bevelled solids, lathe), cartridges, discs, cards and cases. |
 | `r4c.js` | The eleven consoles. |
 | `r5a.js` | Setup, Home, Library and the game page. |

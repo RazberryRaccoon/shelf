@@ -170,7 +170,7 @@ function drawParts(model, M, st, x = {}, pass) {
     let emit = st.glow ? RIM.map(v => v * st.glow * .06) : null;
     if (p.led) emit = col.map(v => v * (st.power == null ? 1 : st.power) * .9);
     if (p.screen && st.screenOn) emit = [.16, .2, .28].map(v => v * st.screenOn);   // screens light up when the power comes on
-    drawPart(p.mesh, p.m === IDENT ? M : M4.mul(M, p.m), { col: p.led ? col.map(v => v * .45) : col, spec: p.spec, grain: (p.grain || 0) * detail, gloss: p.gloss || 0,
+    drawPart(p.mesh, p.m === IDENT ? M : M4.mul(M, p.m), { col: p.led ? col.map(v => v * .45) : col, spec: p.spec, grain: (p.grain || 0) * detail, gloss: p.gloss || 0, ao: p.ao ? p.ao() : null,
       alpha: (st.alpha == null ? 1 : st.alpha) * (p.glass || 1), bright: st.bright, tex: p.label && x.tex ? x.tex(p.label) : null, emit });
   }
 }
@@ -185,7 +185,7 @@ const CART = {
   genesis: { w: 1.00, h: 1.30, d: .18, label: [0, .25, .74, .60], col: '#1d1e23', fold: .07 },
   gb:      { w: .57, h: .65, d: .08, label: [0, -.035, .42, .37], col: '#bdbcc4' },
   gbc:     { w: .57, h: .65, d: .08, label: [0, -.035, .42, .37], col: '#34c3b7' },
-  gba:     { w: .57, h: .345, d: .08, label: [0, -.01, .43, .22], col: '#4a4956' },
+  gba:     { w: .575, h: .345, d: .08, label: [0, -.02, .44, .215], col: '#3b3b42' },
   ds:      { w: .35, h: .33, d: .038, label: [0, -.03, .28, .2], col: '#3b3d47' },
   android: { w: .42, h: .30, d: .035, label: [0, -.02, .34, .2], col: '#262a3a' },
   ps1:     { w: 1.2, h: 1.2, d: .012, disc: true, r: .6 },
@@ -204,7 +204,7 @@ function cartOutline(sys) {
     case 'genesis': return rounded([[-.42, -h, .02], [.42, -h, .02], [.42, -.40, .015], [w, -.32, .015], [w, h, .06], [-w, h, .06], [-w, -.32, .015], [-.42, -.40, .015]]);
     case 'gb': return rounded([[-w, -h, .012], [w, -h, .012], [w, h - .06, .006], [w - .06, h, .006], [-w, h, .025]]);   // the notched corner
     case 'gbc': return rrect(c.w, c.h, [.012, .012, .03, .03]);
-    case 'gba': return rounded([[-w, -h, .01], [w, -h, .01], [w, h, .05], [.12, h, .02], [.07, h + .016, .02], [-.07, h + .016, .02], [-.12, h, .02], [-w, h, .05]]);
+    case 'gba': return rounded([[-w, -h, .012], [-.11, -h, .004], [-.09, -h - .014, .004], [.09, -h - .014, .004], [.11, -h, .004], [w, -h, .012], [w, h - .028, .004], [w - .028, h, .004], [-w + .028, h, .004], [-w, h - .028, .004]]);   // matches the Blender model
     case 'ds': return rounded([[-w, -h, .01], [w, -h, .01], [w, h - .03, .004], [w - .03, h, .004], [-w, h, .012]]);
     case 'psp': return rounded([[-w, -.32, .03], [w, -.32, .03], [w, 0, 0], ...arcPts(0, 0, w, 0, Math.PI, 28).slice(1, -1), [-w, 0, 0]]);
     case 'ps1': return circle(c.r, 72);
@@ -214,6 +214,8 @@ function cartOutline(sys) {
 const cartMeshes = {};
 function cartModel(sys) {
   if (cartMeshes[sys]) return cartMeshes[sys];
+  const bm = blenderModel(sys + '_cart', { c: CART[sys], ring: ringMesh(ccw(cartOutline(sys))) });   // a model built in Blender, where there is one
+  if (bm) return (cartMeshes[sys] = bm);
   const c = CART[sys], B = Builder(), out = cartOutline(sys), f = c.d / 2, h = c.h / 2;
   const S0 = shellM(c.col || '#888'), dk = shellM(shadeHex(c.col || '#888', -.28), { spec: .15 });
   const front = (g, x, y, t, m = S0, rz = 0) => B.add(g, M4.trs(x, y, f + t / 2 - .001, 0, 0, rz, 1), m);
