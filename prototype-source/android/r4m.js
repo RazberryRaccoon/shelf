@@ -335,12 +335,21 @@ function caseModel(sys) {
     const rw = .016, rt = .004, iw = W - .02, ih = bh - .02;
     Bc.add(barG(iw, rw, rt, .003), at(0, by + ih / 2 - rw / 2, cz + rt / 2 - .001), body); Bc.add(barG(iw, rw, rt, .003), at(0, by - ih / 2 + rw / 2, cz + rt / 2 - .001), body);
     Bc.add(barG(rw, ih, rt, .003), at(-iw / 2 + rw / 2, by, cz + rt / 2 - .001), body); Bc.add(barG(rw, ih, rt, .003), at(iw / 2 - rw / 2, by, cz + rt / 2 - .001), body);
-    if (kind === 'keep' || kind === 'ds') for (let i = 0; i < 6; i++) Bc.add(barG(.006, bh * .7, .004, .002), at(-W / 2 + .03 + i * .012, by, cz + .001), edge);   // spine grips
   }
   Bc.add(planeGeo(W - .05, bh - .05), at(0, by, top - .001, 0, Math.PI), inner);
   [nh / 2 - .02, -nh / 2 + .02].forEach(y => Bc.add(barG(.12, .05, .02, .015), at(nw / 2 - .02, y, top - .02), body));
   m.cover = Bc.build();
   return (caseMeshes[sys] = m);
+}
+// a flat piece of art with rounded corners, so it follows the case's own rounded corners instead of overhanging them
+const artPlanes = {};
+function artPlane(w, h, r) {
+  const key = [w, h, r].map(v => v.toFixed(4)).join();
+  if (artPlanes[key]) return artPlanes[key];
+  const pts = ccw(rrect(w, h, Math.min(r, w / 2 - 1e-4, h / 2 - 1e-4), 6)), G = geo();
+  pts.forEach(([x, y]) => { G.p.push(x, y, 0); G.n.push(0, 0, 1); G.t.push(x / w + .5, y / h + .5); });
+  G.i = earcut(pts);
+  return (artPlanes[key] = upload(G));
 }
 // the cover swings open on the spine hinge: 0 is closed, 1 is fully open and lying to the left
 function coverMatrix(m, open) {
@@ -355,13 +364,13 @@ function drawCase(g, st, open = 0, lift = 0, hideMedia = false) {
   const spine = tex('spine' + g.id, () => spineArt(g, bh * k, Math.max(28, D * k)));
   const o = (extra) => Object.assign({ alpha: al, bright: st.bright, spec: .35 }, extra);
   drawParts(m.base, M, st, x, 'opaque');
-  drawPart(PLANE, M4.mul(M, M4.trs(0, by, -D / 2 - .0015, 0, Math.PI, 0, [W - .04, bh - .04, 1])), o({ tex: back, spec: .5, gloss: .35 }));
-  drawPart(PLANE, M4.mul(M, M4.trs(-W / 2 - .0015, by, -m.ct / 2, 0, -Math.PI / 2, 0, [D - m.ct - .034, bh - .04, 1])), o({ tex: spine, spec: .5, gloss: .35 }));
+  drawPart(artPlane(W - .04, bh - .04, m.r), M4.mul(M, M4.trs(0, by, -D / 2 - .0015, 0, Math.PI, 0, 1)), o({ tex: back, spec: .5, gloss: .35 }));
+  drawPart(artPlane(D - m.ct - .034, bh - 2 * m.r - .012, .004), M4.mul(M, M4.trs(-W / 2 - .0015, by, -m.ct / 2, 0, -Math.PI / 2, 0, 1)), o({ tex: spine, spec: .5, gloss: .35 }));
   if (open > .01 && !hideMedia) drawCartM(g, M4.mul(M, M4.trs(0, 0, top + CART[g.sys].d / 2 + .004 + lift, 0, 0, 0, 1)), { alpha: al, bright: st.bright, glow: 0, s: st.s, detail: st.detail });
   drawParts(m.base, M, st, x, 'glass');
   const CM = M4.mul(M, coverMatrix(m, open)), jewel = m.kind === 'jewel';
   drawParts(m.cover, CM, st, x, 'opaque');
-  drawPart(PLANE, M4.mul(CM, M4.trs(0, by, jewel ? D / 2 - .004 : D / 2 + .002, 0, 0, 0, [W - (jewel ? .03 : .044), bh - (jewel ? .03 : .044), 1])), o({ tex: front, spec: .45 }));
+  drawPart(artPlane(W - (jewel ? .03 : .044), bh - (jewel ? .03 : .044), m.r), M4.mul(CM, M4.trs(0, by, jewel ? D / 2 - .004 : D / 2 + .002, 0, 0, 0, 1)), o({ tex: front, spec: .45 }));
   if (open > .01) {
     const [mw, mh] = m.manualSize, inner = top;
     drawPart(m.manual, M4.mul(CM, M4.trs(0, by, inner - .009, 0, 0, 0, [mw, mh, .014])), o({ col: [.93, .91, .87], spec: .1 }));
@@ -369,7 +378,7 @@ function drawCase(g, st, open = 0, lift = 0, hideMedia = false) {
     drawPart(PLANE, M4.mul(CM, M4.trs(0, by, inner - .017, 0, Math.PI, 0, [mw - .01, mh - .01, 1])), o(mtex ? { tex: mtex, spec: .2 } : { col: C.inner.map(v => v * .85), spec: .1 }));
   }
   drawParts(m.cover, CM, st, x, 'glass');
-  if (!jewel) drawPart(PLANE, M4.mul(CM, M4.trs(0, by, D / 2 + .0034, 0, 0, 0, [W - .05, bh - .05, 1])), o({ col: [1, 1, 1], alpha: al * .06, spec: 1, gloss: 1 }));   // the clear sleeve over the art
+  if (!jewel) drawPart(artPlane(W - .05, bh - .05, m.r), M4.mul(CM, M4.trs(0, by, D / 2 + .0034, 0, 0, 0, 1)), o({ col: [1, 1, 1], alpha: al * .06, spec: 1, gloss: 1 }));   // the clear sleeve over the art
 }
 function drawCaseGlow(g, st, c1, c2) {
   if (NODRAW) return;
