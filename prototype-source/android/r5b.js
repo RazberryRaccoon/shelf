@@ -156,11 +156,22 @@ function closeSettings() {
 // On Android, Shelf plays the launch before handing off to the emulator, and the return when it comes back to the front.
 const KIND = {   // how media goes into each kind of slot: direction (console space), turn, and how much of it goes in
   top:   { dir: [0, -1, 0], rx: 0, turn: 0, deep: .55 },
-  hand:  { dir: [0, -1, 0], rx: 0, turn: Math.PI, deep: .6 },
+  hand:  { dir: [0, -1, 0], rx: 0, turn: Math.PI, deep: .8 },
   front: { dir: [0, 0, -1], rx: -Math.PI / 2, turn: Math.PI, deep: .78 },
-  edge:  { dir: [0, 0, 1], rx: -Math.PI / 2, turn: 0, deep: .7 },
+  edge:  { dir: [0, 0, 1], rx: -Math.PI / 2, turn: 0, deep: .97 },
   back:  { dir: [0, 0, 1], rx: 0, turn: Math.PI, deep: 0, thin: true },
   lid:   { dir: [0, -1, 0], rx: -Math.PI / 2, turn: 0, deep: 1, thin: true },
+};
+// Each kind's launch, in seconds: when the media flies to the slot and goes in, when a hinged part opens and
+// closes, when the console turns its back to you, when the power comes on, and when the screen starts to fade.
+// Coming back plays the same timeline backwards, a little faster.
+const TIMELINE = {
+  top:   { fly: [.15, .85], ins: [1.0, .35], click: 1.35, power: 1.7, end: 2.35 },
+  hand:  { fly: [.15, .85], ins: [1.0, .4], click: 1.4, power: 1.75, end: 2.4 },
+  front: { fly: [.15, .85], ins: [1.0, .35], press: [1.38, .1], click: 1.38, power: 1.75, end: 2.4 },
+  lid:   { fly: [.15, .85], ins: [1.0, .3], lid: [[.2, .4], [1.3, .22]], click: 1.5, power: 1.75, end: 2.4 },
+  edge:  { turn: [[.1, .6], [1.45, .55]], fly: [.2, .8], ins: [1.0, .4], click: 1.4, lid: [[2.0, .5]], power: 2.5, end: 3.1 },
+  back:  { turn: [[.1, .6], [1.75, .6]], lid: [[.55, .35], [1.4, .25]], fly: [.3, .75], ins: [1.05, .3], click: 1.62, power: 2.45, end: 3.05 },
 };
 function consolePose(sys) {
   const m = consoleModel(sys), dx = m.hi[0] - m.lo[0], dy = m.hi[1] - m.lo[1], hand = !!PLAT[sys].hand;
@@ -169,9 +180,9 @@ function consolePose(sys) {
 }
 function mediaPath(sys, cp) {   // the media's pose just outside the slot, and fully in
   const m = consoleModel(sys), sl = m.slot, K = KIND[sl.kind], c = CART[sys], CM = M4.trs(cp.x, cp.y, cp.z, 0, cp.ry, 0, cp.s);
-  const at = apply(CM, [sl.x, sl.y, sl.z]), cy = Math.cos(cp.ry), sy = Math.sin(cp.ry);
+  const at = apply(CM, [sl.x, sl.y, sl.z]), cy = Math.cos(cp.ry), sy = Math.sin(cp.ry), deep = sl.deep != null ? sl.deep : K.deep;
   const d = [K.dir[0] * cy + K.dir[2] * sy, K.dir[1], -K.dir[0] * sy + K.dir[2] * cy];
-  const len = (K.thin ? c.d : c.h) * cp.s, inn = at.map((v, i) => v + d[i] * (len / 2 - len * K.deep)), out = at.map((v, i) => v - d[i] * (len / 2 + .9 + (K.thin ? .3 : 0)));
+  const len = (K.thin ? c.d : c.h) * cp.s, inn = at.map((v, i) => v + d[i] * (len / 2 - len * deep)), out = at.map((v, i) => v - d[i] * (len / 2 + .9 + (K.thin ? .3 : 0)));
   return { out, inn, rx: K.rx, ry: cp.ry + K.turn, s: cp.s, kind: sl.kind };
 }
 function mediaPoseNow(from, g) {   // where the media is on screen right now, so it can fly from there
@@ -187,36 +198,36 @@ function startLaunch(g, slot, resume, from = S.screen) {
   S.screen = 'launch'; show('none'); S.top.on = false; sfx.select();
   $('#nowLoading b').textContent = g.title; setTimeout(() => { if (S.seq && S.seq.kind === 'launch') $('#nowLoading').classList.add('on'); }, 350);
 }
+const seqTL = q => TIMELINE[consoleModel(q.g.sys).slot.kind];
+const seqClock = q => q.kind === 'launch' ? q.t : Math.max(0, seqTL(q).end - q.t * 1.3);   // the return runs the launch backwards
 function seqUpdate(dt) {
-  const q = S.seq; q.t += dt; const t = q.t, F = q.flags, kind = consoleModel(q.g.sys).slot.kind;
+  const q = S.seq, L = seqTL(q), F = q.flags, t0 = seqClock(q); q.t += dt; const t = seqClock(q);
+  const crossed = at => q.kind === 'launch' ? t0 < at && t >= at : t0 > at && t <= at;
+  if (crossed(L.click)) sfx.insert();
   if (q.kind === 'launch') {
-    const click = kind === 'lid' ? 1.5 : kind === 'front' ? 1.38 : 1.35;
-    if (t > click && !F.click) { F.click = 1; sfx.insert(); }
-    if (t > 1.7 && !F.power) { F.power = 1; sfx.power(); }
-    if (t > 2.35 && !F.fade) { F.fade = 1; const fl = $('#flash'); fl.style.transition = 'opacity .45s ease-in'; fl.style.opacity = 1; }
-    if (t > 2.85) { S.seq = null; $('#nowLoading').classList.remove('on'); startPlay(q.g, q.slot, q.resume, q.from); }
+    if (crossed(L.power)) sfx.power();
+    if (t > L.end && !F.fade) { F.fade = 1; const fl = $('#flash'); fl.style.transition = 'opacity .45s ease-in'; fl.style.opacity = 1; }
+    if (t > L.end + .5) { S.seq = null; $('#nowLoading').classList.remove('on'); startPlay(q.g, q.slot, q.resume, q.from); }
   } else {
-    if (t > .3 && !F.off) { F.off = 1; sfx.off(); }
-    if (t > .52 && !F.click) { F.click = 1; sfx.insert(); }
-    if (t > 1.65) finishReturn(q);
+    if (crossed(L.power + .15)) sfx.off();
+    if (t <= 0) finishReturn(q);
   }
 }
-function seqTimes(q) {   // every moving part of the sequence, as 0..1 progress values at time t
-  const t = q.t, L = q.kind === 'launch', lid = consoleModel(q.g.sys).slot.kind === 'lid';
-  if (L) return { rise: easeOut((t - .1) / .8), fly: ease((t - .15) / .85), ins: ease((t - 1.0) / (lid ? .3 : .35)), press: ease((t - 1.38) / .1),
-    lidOpen: lid ? ease((t - .2) / .4) * (1 - ease((t - 1.3) / .22)) : 0, power: clamp((t - 1.7) / .15, 0, 1), cam: ease((t - .05) / .85), close: ease((t - 1.75) / .9), scrim: ease(t / .45) };
-  return { rise: 1 - ease((t - 1.0) / .55), fly: 1 - ease((t - .95) / .65), ins: 1 - ease((t - .55) / .4), press: 1 - ease((t - .5) / .08),
-    lidOpen: lid ? ease((t - .38) / .2) * (1 - ease((t - .95) / .3)) : 0, power: 1 - clamp((t - .3) / .2, 0, 1), cam: 1 - ease((t - .95) / .6), close: 1 - ease(t / .9), scrim: 1 - ease((t - 1.0) / .6) };
+function seqTimes(q) {   // every moving part of the sequence, as 0..1 progress values on the launch clock
+  const t = seqClock(q), L = seqTL(q), span = (r, k = ease) => k((t - r[0]) / r[1]);
+  const twice = R => R ? (R.length > 1 ? span(R[0]) * (1 - span(R[1])) : span(R[0])) : 0;   // opens, and closes again if there's a second range
+  return { rise: easeOut((t - .1) / .8), fly: span(L.fly), ins: span(L.ins), press: L.press ? span(L.press) : 0, lid: twice(L.lid), turn: twice(L.turn),
+    power: clamp((t - L.power) / .15, 0, 1), cam: ease((t - .05) / .85), close: ease((t - L.power - .05) / .9), scrim: ease(t / .45) };
 }
 function drawLaunch(dt) {
-  const q = S.seq, g = q.g, T = seqTimes(q), hand = !!PLAT[g.sys].hand, cp = q.cp, path = mediaPath(g.sys, cp);
+  const q = S.seq, g = q.g, T = seqTimes(q), hand = !!PLAT[g.sys].hand, cp = q.cp, path = mediaPath(g.sys, { ...cp, ry: cp.ry + Math.PI * T.turn });
   if (q.under && T.scrim < .999) { if (q.under === 'home') drawHome(dt, S.time); else if (q.under === 'game') drawGamePage(dt, S.time); }
   drawScrim(T.scrim);
   // the camera starts where the screen's own camera is, rises to look down at the console, then moves in close
   const camY = lerp(0, hand ? .8 : 2.3, T.cam), look = lerp(0, -.3, T.cam), camZ = lerp(CAMZ, hand ? 6.2 : 7.2, T.close);
   setCamera(camY, camZ, look); beginMeshes();
-  const C = { ...cp, y: lerp(-7, cp.y, T.rise) }, M = M4.trs(C.x, C.y, C.z, 0, C.ry, 0, C.s);
-  drawConsole(g.sys, M, { alpha: 1, bright: 1, s: C.s, detail: .6, power: T.power, lid: T.lidOpen });
+  const C = { ...cp, y: lerp(-7, cp.y, T.rise), ry: cp.ry + Math.PI * T.turn }, M = M4.trs(C.x, C.y, C.z, 0, C.ry, 0, C.s);
+  drawConsole(g.sys, M, { alpha: 1, bright: 1, s: C.s, detail: .6, power: T.power, screenOn: T.power, lid: T.lid });
   const st = q.kind === 'launch' ? q.start : q.dest, aim = { x: path.out[0], y: path.out[1] + (C.y - cp.y), z: path.out[2] };
   let pos = [lerp(st.x, aim.x, T.fly), lerp(st.y, aim.y, T.fly), lerp(st.z, aim.z, T.fly)];
   if (T.fly >= 1) pos = path.out.map((v, i) => lerp(v, path.inn[i], T.ins) + (i === 1 ? C.y - cp.y : 0));

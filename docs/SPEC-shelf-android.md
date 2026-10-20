@@ -140,7 +140,8 @@ These carry over from Shelf for TV.
 
 - **Launch animation:** the game's console rises into view, the media flies from where it was (Home or the
   open box) to the console's slot and clicks in (cartridges into the top or front, Game Boy cartridges into the
-  back, the DS card into the back edge, the PlayStation disc under its opening lid, the UMD into the back). The
+  back, the DS card fully into the back edge of the closed DS, which then opens; the PlayStation disc under its
+  opening lid; the UMD behind the PSP's back door, with the PSP turning around to show it). The
   power light comes on with a short jingle, the camera eases in, and the screen fades to black. No white flash.
   Shelf plays this before handing off to the emulator.
 - **Coming back:** the reverse. The power light goes off, the media pops out and flies back to the first spot

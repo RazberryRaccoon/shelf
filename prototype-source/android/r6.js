@@ -149,6 +149,8 @@ function setInput(a) {
     else if (a === 'right' || a === 'a') { Z.zone = 'items'; Z.i = 0; sfx.move(); } else if (a === 'b') return closeSettings();
   } else {
     if (it && it.themes && (a === 'left' || a === 'right')) { Z.ti = clamp(Z.ti + (a === 'left' ? -1 : 1), 0, Object.keys(THEMES).length - 1); sfx.move(); }
+    else if (it && it.themes && ((a === 'up' && Z.ti >= 4) || (a === 'down' && Math.floor(Z.ti / 4) < Math.floor((Object.keys(THEMES).length - 1) / 4)))) {   // up and down move between rows of themes
+      Z.ti = a === 'up' ? Z.ti - 4 : Math.min(Z.ti + 4, Object.keys(THEMES).length - 1); sfx.move(); }
     else if (a === 'up' || a === 'down') { const k = clamp(Z.i + (a === 'up' ? -1 : 1), 0, items.length - 1); if (k !== Z.i) { Z.i = k; sfx.move(); } }
     else if (a === 'left' && !Z.game) { Z.zone = 'nav'; sfx.move(); }
     else if (a === 'b') { if (Z.sub) { const k = Z.sub; Z.sub = null; Z.i = SYS_ORDER.indexOf(k); sfx.back(); } else if (Z.game) return closeSettings(); else { Z.zone = 'nav'; sfx.move(); } }
