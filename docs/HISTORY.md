@@ -231,3 +231,6 @@
   away and back). The details wait half a second so the cartridge never crosses them.
 - Lesson: when the sheet finished sliding away, its panels jumped back to the top while fading out; they now stay
   below the screen until the sheet opens again.
+- First notes on it: up closes a game's page; L1/R1 step through Home, Library, Apps and Museum again; Home got a
+  darkened picture of the selected game under the row (a new flat-picture mode in the shader, mode 3, with the fade
+  baked into the texture), and the planet moved to the top half.

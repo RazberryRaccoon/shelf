@@ -87,6 +87,7 @@ function settingsModel() {
         { label: 'themes', themes: true },
         tog('Accent follows the console', 'accentFollows', 'The accent color and one background field take on each console’s color.'),
         cyc('Case color', Q, 'caseTint', [false, true], 'The plastic of the modern cases.', { false: 'Neutral', true: 'Console color' }),
+        cyc('Home background', Q, 'homeArt', ['box', 'title', 'shot', 'cart', 'off'], 'A picture of the selected game under the row on Home, darkened and fading out toward the top.', { box: 'Box art', title: 'Title screen', shot: 'Screenshot', cart: 'Cartridge art', off: 'Off' }),
         tog('Background motion', 'motion', 'Drifting backgrounds, twinkling stars and the slow float of boxes and cartridges.')] };
       case 'Sound': { const M = P.prefs.music, names = Object.fromEntries([...TRACK_KEYS.map(k => [k, TRACKS[k].name]), ['shuffle', 'Shuffle']]); return { cat: 'Sound', intro: 'Music plays quietly in the menus and stops while you play.', items: [
         tog('Menu music', 'on', 'Original tracks written for Shelf.', M),

@@ -113,7 +113,7 @@ function enterSetup() { S.screen = 'setup'; show('setup'); setMood('home'); fill
 
 /* ================= tabs ================= */
 function enterTab(tab) {   // Home is the base; the others slide up over it as a sheet
-  S.tab = tab; S.screen = tab; S.top.on = false; if (SHEETS.includes(tab)) S.sheet.name = tab; show(tab); renderTop();
+  S.tab = tab; S.screen = tab; S.top.on = false; if (SHEETS.includes(tab)) { if (S.sheet.name !== tab && S.sheet.k > .5) S.sheet.cf = 0; S.sheet.name = tab; } show(tab); renderTop();
   if (tab === 'home') refreshHome(); else if (tab === 'library') refreshLibrary(true); else if (tab === 'museum') enterMuseum(); else refreshApps();
 }
 function refreshTab() { S.tab === 'home' ? refreshHome() : S.tab === 'library' ? refreshLibrary(false) : S.tab === 'museum' ? refreshMuseum() : refreshApps(); renderTop(); }

@@ -47,6 +47,7 @@ float vnoise(vec3 p) {   // smooth value noise, for a fine molded-plastic textur
              mix(mix(hsh(i + vec3(0, 0, 1)), hsh(i + vec3(1, 0, 1)), f.x), mix(hsh(i + vec3(0, 1, 1)), hsh(i + vec3(1, 1, 1)), f.x), f.y), f.z);
 }
 void main() {
+  if (uMode > 2.5) { vec4 ft = texture2D(uTex, vUV); gl_FragColor = vec4(ft.rgb * uColor, ft.a * uAlpha); return; }   // a flat picture, tinted
   if (uMode > 1.5) {   // selection glow: two colors chasing each other around the outline
     float k = 0.5 + 0.5 * sin(atan(vL.y, vL.x) + 0.8);          // brighter toward the top left, where the light comes from
     float pulse = 0.86 + 0.14 * sin(uTime * 1.3);                 // the whole ring breathes together, slowly
@@ -258,7 +259,7 @@ function drawPart(m, model, o) {
   if (o.tex) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, o.tex); gl.uniform1i(u.uTex, 0); }
   gl.uniform3fv(u.uColor, o.col || [1, 1, 1]); gl.uniform1f(u.uAlpha, (o.alpha == null ? 1 : o.alpha) * UNDER); gl.uniform1f(u.uSpec, o.spec || 0);
   gl.uniform1f(u.uBright, o.bright == null ? 1 : o.bright); gl.uniform1f(u.uGrain, o.grain || 0); gl.uniform1f(u.uGloss, o.gloss || 0);
-  gl.uniform1f(u.uAOOn, o.ao ? 1 : 0); if (o.ao) { gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, o.ao); gl.uniform1i(u.uAO, 1); gl.activeTexture(gl.TEXTURE0); } gl.uniform3fv(u.uEmit, o.emit || [0, 0, 0]); gl.uniform1f(u.uMode, o.hull ? 2 : o.mask ? 1 : 0); gl.uniform1f(u.uGrow, o.grow || 0);
+  gl.uniform1f(u.uAOOn, o.ao ? 1 : 0); if (o.ao) { gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, o.ao); gl.uniform1i(u.uAO, 1); gl.activeTexture(gl.TEXTURE0); } gl.uniform3fv(u.uEmit, o.emit || [0, 0, 0]); gl.uniform1f(u.uMode, o.flat ? 3 : o.hull ? 2 : o.mask ? 1 : 0); gl.uniform1f(u.uGrow, o.grow || 0);
   bindMesh(m); gl.drawElements(gl.TRIANGLES, m.count, gl.UNSIGNED_SHORT, 0);
 }
 function beginMeshes() {

@@ -120,7 +120,7 @@ const APPS = [
 /* ================= the one profile ================= */
 const NOW = Date.now(), HOUR = 3600e3, DAY = 86400e3;
 const P = { name: '', colors: ['#ffd38a', '#e8834a', '#6a2a1e'], setup: false, recent: [], played: {}, collections: [], ra: 'player_one',
-  prefs: { sound: true, motion: !reduceMotion, theme: 'space', accentFollows: true, caseTint: false, hardcore: false, achPop: true, autosave: true, rewind: false, res: 'native',
+  prefs: { homeArt: 'shot', sound: true, motion: !reduceMotion, theme: 'space', accentFollows: true, caseTint: false, hardcore: false, achPop: true, autosave: true, rewind: false, res: 'native',
     filter: 'None', layout: 'Nintendo', homeLauncher: true, showApps: 'All apps' },
   emu: {}, gameEmu: {}, art: { source: 'ScreenScraper', ss: 'player_one', videos: true, manuals: true, backs: true, region: 'USA' } };
 for (const k of SYS_ORDER) P.emu[k] = PLAT[k].emus[0];
