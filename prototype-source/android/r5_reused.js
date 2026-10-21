@@ -91,6 +91,7 @@ function addToCollection(g) {
 /* ================= media and manuals for a game ================= */
 const usingSS = () => P.art.source === 'ScreenScraper' && !!P.art.ss;
 function mediaFor(g) {
+  if (NATIVE) return [{ kind: 'box', label: 'Box art (made by Shelf)' }];   // real media comes with scraping, in a later version
   const A = P.art, ss = usingSS(), r = rng(hash(g.id + 'media')), out = [];
   if (g.sys === 'android') return [{ kind: 'box', label: 'Store art' }, { kind: 'shot', label: 'Screenshot', seed: hash(g.id + 'shot0'), scroll: 40 }, { kind: 'shot', label: 'Screenshot', seed: hash(g.id + 'shot1'), scroll: 160 }];
   if (ss && A.videos) out.push({ kind: 'video', label: 'Gameplay video', seed: hash(g.id + 'vid'), dur: 30 + Math.floor(r() * 40), scroll: 60 });

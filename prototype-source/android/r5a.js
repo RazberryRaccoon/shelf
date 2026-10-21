@@ -58,10 +58,11 @@ const SETUP_STEPS = 6;
 function setupOpts() {
   const s = S.setup.step;
   const back = { k: 'back', label: 'Back', back: true };
-  if (s === 0) return [{ k: 'next', label: 'Get started', primary: true }, { k: 'quick', label: 'Quick setup with test data (for testing)', debug: true }];
+  if (s === 0) return NATIVE ? [{ k: 'next', label: 'Get started', primary: true }] : [{ k: 'next', label: 'Get started', primary: true }, { k: 'quick', label: 'Quick setup with test data (for testing)', debug: true }];
   if (s === 1) return [{ k: 'name', label: 'Your name', value: P.name || 'Choose' }, ...PROFILE_COLORS.map((c, i) => ({ k: 'color', i, label: ['Amber', 'Sky', 'Orchid', 'Fern', 'Rose'][i], color: c })), { k: 'next', label: 'Continue', primary: true }, back];
   if (s === 2) return [...Object.keys(THEMES).map(t => ({ k: 'theme', t, label: THEMES[t].name })), { k: 'next', label: 'Continue', primary: true }, back];
-  if (s === 3) return [{ k: 'folder', label: 'Add another folder' }, { k: 'next', label: 'Continue', primary: true }, back];
+  if (s === 3) return NATIVE && !ShelfNative.hasStorage() ? [{ k: 'storage', label: 'Allow access to my files', primary: true }, { k: 'next', label: 'Skip for now' }, back]
+    : [{ k: 'folder', label: 'Add another folder' }, { k: 'next', label: 'Continue', primary: true }, back];
   if (s === 4) return [{ k: 'ss', label: 'ScreenScraper', value: P.art.ss ? 'Signed in' : 'Sign in' }, { k: 'ra', label: 'RetroAchievements', value: P.ra ? 'Signed in' : 'Sign in' }, { k: 'next', label: 'Continue', primary: true }, back];
   return [{ k: 'launcher', label: 'Use Shelf as my home screen', primary: true }, { k: 'skip', label: 'Not now' }, back];
 }
@@ -72,13 +73,15 @@ function fillSetup() {
     ['Welcome', 'Shelf', 'A home for your games. Let’s set up this handheld; it takes about a minute.'],
     ['Step 1 of 5', 'Who’s playing?', 'Shelf keeps one profile. Your name and color show at the top of the screen.'],
     ['Step 2 of 5', 'Pick a look', 'You can change it any time in Settings.'],
-    ['Step 3 of 5', `Found ${GAMES.filter(g => g.sys !== 'android').length} games`, 'In Internal storage › ROMs and SD card › ROMs, sorted into consoles by folder and file type.'],
+    NATIVE && !ShelfNative.hasStorage() ? ['Step 3 of 5', 'Let Shelf find your games', 'Shelf looks in the ROMs folder on internal storage and the SD card. Android asks you to allow access to all files; switch it on, then come back.']
+      : ['Step 3 of 5', `Found ${GAMES.filter(g => g.sys !== 'android').length} games`, 'In Internal storage › ROMs and SD card › ROMs, sorted into consoles by folder and file type.'],
     ['Step 4 of 5', 'Art, manuals and achievements', 'Sign in to download box art, manuals and videos, and to earn achievements. Both are free, and both can wait.'],
     ['Step 5 of 5', 'Make Shelf your home screen?', 'Then the Home button always brings you back here, and Shelf can save a game in RetroArch before you leave it. Your apps are one button away.'],
   ][s];
   let extra = '';
-  if (s === 3) extra = `<div class="found">${counts.map(([n, c]) => `<div class="ok">${n} <b>${c}</b></div>`).join('')}</div>
-    <div class="found"><div class="ok">RetroArch <b>with 9 cores</b></div><div class="ok">DuckStation</div><div class="ok">melonDS</div><div class="ok">PPSSPP</div><div class="ok">Mupen64Plus FZ</div></div>`;
+  if (s === 3 && !(NATIVE && !ShelfNative.hasStorage())) extra = `<div class="found">${counts.filter(([, c]) => c || !NATIVE).map(([n, c]) => `<div class="ok">${n} <b>${c}</b></div>`).join('')}</div>
+    <div class="found">${NATIVE ? (NATIVE_EMUS.length ? NATIVE_EMUS.map(e => `<div class="ok">${e}</div>`).join('') : '<div>No emulators found yet. RetroArch is a good start.</div>')
+      : '<div class="ok">RetroArch <b>with 9 cores</b></div><div class="ok">DuckStation</div><div class="ok">melonDS</div><div class="ok">PPSSPP</div><div class="ok">Mupen64Plus FZ</div>'}</div>`;
   $('#setup').innerHTML = `<div class="step">${head[0]}</div><h1>${head[1]}</h1><p class="lead">${head[2]}</p>${extra}<div class="opts">` + opts.map((o, i) => {
     const cur = (o.k === 'theme' && P.prefs.theme === o.t) || (o.k === 'color' && P.colors === o.color);
     const T = o.t && THEMES[o.t], sw = o.color ? `<span style="width:20px;height:20px;border-radius:50%;background:${avatarCss(o.color)}"></span>`
@@ -93,11 +96,13 @@ function setupAct() {
   if (o.k === 'name') return openKb('Your name', P.name, v => { P.name = v; fillSetup(); });
   if (o.k === 'color') { P.colors = o.color; return fillSetup(); }
   if (o.k === 'theme') { applyTheme(o.t); return fillSetup(); }
-  if (o.k === 'folder') return toast('Opens Android’s folder picker');
+  if (o.k === 'storage') return ShelfNative.requestStorage();   // Shelf rescans when you come back
+  if (o.k === 'folder') return toast(NATIVE ? 'For now, put games in a ROMs folder, one folder per console' : 'Opens Android’s folder picker');
+  if (NATIVE && (o.k === 'ss' || o.k === 'ra')) return toast('Signing in comes in a later version');
   if (o.k === 'ss') { P.art.ss = P.art.ss ? null : 'player_one'; P.art.source = P.art.ss ? 'ScreenScraper' : 'Free sources'; return fillSetup(); }
   if (o.k === 'ra') { P.ra = P.ra ? null : 'player_one'; return fillSetup(); }
   if (o.k === 'next') { if (S.setup.step === 1 && !P.name) return openKb('Your name', '', v => { P.name = v; S.setup.step++; S.setup.i = 0; fillSetup(); }); S.setup.step++; S.setup.i = 0; return fillSetup(); }
-  P.prefs.homeLauncher = o.k === 'launcher'; finishSetup();
+  P.prefs.homeLauncher = o.k === 'launcher'; if (NATIVE && o.k === 'launcher') ShelfNative.openHomeSettings(); finishSetup();
 }
 function quickSetup() {   // for testing: goes through every step with test data, instead of skipping setup
   const fill = [() => { P.name = 'Tester'; P.colors = PROFILE_COLORS[1]; }, () => applyTheme(P.prefs.theme), () => { }, () => { P.art.ss = 'tester'; P.art.source = 'ScreenScraper'; P.ra = 'tester'; }, () => { P.prefs.homeLauncher = true; }];
@@ -108,7 +113,7 @@ function quickSetup() {   // for testing: goes through every step with test data
   };
   next();
 }
-function finishSetup() { P.setup = true; paintProfile(); enterTab('home'); toast(`Welcome, ${P.name}`); }
+function finishSetup() { P.setup = true; if (NATIVE) nativeSave(); paintProfile(); enterTab('home'); toast(`Welcome, ${P.name}`); }
 function enterSetup() { S.screen = 'setup'; show('setup'); setMood('home'); fillSetup(); }
 
 /* ================= tabs ================= */
@@ -117,13 +122,17 @@ function enterTab(tab) {   // Home is the base; the others slide up over it as a
   if (tab === 'home') refreshHome(); else if (tab === 'library') refreshLibrary(true); else if (tab === 'museum') enterMuseum(); else refreshApps();
 }
 function refreshTab() { S.tab === 'home' ? refreshHome() : S.tab === 'library' ? refreshLibrary(false) : S.tab === 'museum' ? refreshMuseum() : refreshApps(); renderTop(); }
-const homeItems = () => P.recent.filter(id => inLibrary(byId[id]) && !(P.hidden && P.hidden.has(id))).slice(0, HOME_MAX);
+const homeItems = () => {
+  const ok = id => byId[id] && inLibrary(byId[id]) && !(P.hidden && P.hidden.has(id)), list = P.recent.filter(ok).slice(0, HOME_MAX);
+  if (NATIVE && list.length < HOME_MAX) GAMES.filter(g => g.sys !== 'android' && !list.includes(g.id) && ok(g.id)).slice(0, HOME_MAX - list.length).forEach(g => list.push(g.id));   // until you've played a few, Home fills up with your games
+  return list;
+};
 function refreshHome() {
   const items = homeItems(), H0 = S.home; H0.i = clamp(H0.i, 0, Math.max(0, items.length - 1)); H0.zone = 'row';
   const id = items[H0.i];
   if (!id) { setMood('home'); $('#hTitle').textContent = 'Nothing played yet'; $('#hMeta').innerHTML = '<span>Your Library is in the top bar</span>'; return renderTop(); }
-  const g = byId[id], r = rec(id), emu = emuFor(g); setMood(g.sys); $('#hTitle').textContent = g.title;
-  $('#hMeta').innerHTML = `<span class="chip"><i></i>${PLAT[g.sys].name}</span><span>${agoText(r.last)}</span><span>${playedText(r.minutes)}</span><span>${isRA(emu) && r.slots.some(Boolean) ? 'A to resume' : 'A to play'}</span><span>▼ More</span>`;
+  const g = byId[id], r = rec(id) || { last: 0, minutes: 0, slots: [] }, emu = emuFor(g); setMood(g.sys); $('#hTitle').textContent = g.title;
+  $('#hMeta').innerHTML = `<span class="chip"><i></i>${PLAT[g.sys].name}</span>${r.last ? `<span>${agoText(r.last)}</span>` : ''}<span>${playedText(r.minutes)}</span><span>${isRA(emu) && r.slots.some(Boolean) ? 'A to resume' : 'A to play'}</span><span>▼ More</span>`;
   renderTop();
 }
 
@@ -150,7 +159,7 @@ function refreshLibrary(rebuild) {
   const empty = !L.list.length; $('#libEmpty').style.display = empty ? 'block' : 'none';
   $('#libEmpty').textContent = RI[L.rail].custom ? 'No games here yet. Open any game’s box and choose Add to collection.' : 'Nothing here yet.';
   const onGrid = L.zone === 'grid' && !S.top.on && !empty; $('#lFocus').classList.toggle('on', onGrid);
-  if (onGrid) { const g = L.list[L.i], r = P.played[g.id]; $('#lFocus b').textContent = g.title; $('#lFocus span').textContent = `${PLAT[g.sys].name}, ${g.year}` + (r && r.last ? `, ${agoText(r.last).toLowerCase()}` : ''); setMood(g.sys); }
+  if (onGrid) { const g = L.list[L.i], r = P.played[g.id]; $('#lFocus b').textContent = g.title; $('#lFocus span').textContent = joinKnown(PLAT[g.sys].name, g.year) + (r && r.last ? `, ${agoText(r.last).toLowerCase()}` : ''); setMood(g.sys); }
   else setMood(PLAT[RI[L.rail].k] ? RI[L.rail].k : 'home');
   renderTop();
 }
@@ -187,11 +196,11 @@ function fillGame() {
   const g = byId[S.game.id], s = PLAT[g.sys], r = rec(g.id), G0 = S.game, emu = emuFor(g), ra = isRA(emu);
   const acts = gameActions(), slots = r ? r.slots : [null, null, null, null], last = r ? r.lastSlot : -1, media = mediaFor(g);
   let h = `<div class="gp-sys">${s.long}</div><h2>${esc(g.title)}</h2>
-    <div class="facts">${[['Released', g.year], ['Developer', g.dev], ['Genre', g.genre], ['Players', g.players]].map(([a, b]) => `<div>${a}<b>${b}</b></div>`).join('')}</div>
+    <div class="facts">${[['Released', g.year], ['Developer', g.dev], ['Genre', g.genre], ['Players', g.players]].filter(([, b]) => b).map(([a, b]) => `<div>${a}<b>${b}</b></div>`).join('')}</div>
     <div class="actions" data-z="actions">${acts.map((a, i) => `<div class="act ${i === 0 ? 'primary' : ''} ${G0.zone === 'actions' && G0.i === i ? 'focus' : ''}">${a === 'fav' ? `${r && r.fav ? '★' : '☆'} <i class="btn">Y</i>` : a === 'col' ? 'Add to collection' : a === 'emu' ? `Plays with ${esc(emuName(emu))}` : a}</div>`).join('')}</div>`;
   h += `<h3 data-z="saves">Saves${ra ? '<small>Slots are kept per game</small>' : ''}</h3>`;
   h += ra ? `<div class="slots">${slots.map((sl, i) => `<div class="slot ${G0.zone === 'saves' && G0.i === i ? 'focus' : ''}">${sl ? '<canvas></canvas>' : '<div class="none">New game</div>'}${sl && i === last ? '<span class="tag">Last played</span>' : ''}<p>${sl ? agoText(sl.ts) : `Slot ${i + 1}`}</p></div>`).join('')}</div>`
-    : `<div class="managed ${G0.zone === 'saves' ? 'focus' : ''}"><span>${g.sys === 'android' ? 'This app keeps its own saves.' : `<b>${esc(emuName(emu))}</b> keeps this game’s saves. Shelf’s save slots work with RetroArch.`}</span><span class="act ${G0.zone === 'saves' ? 'focus' : ''}">Open ${esc(g.sys === 'android' ? g.title : emuApp(emu))}</span></div>`;
+    : `<div class="managed ${G0.zone === 'saves' ? 'focus' : ''}"><span>${g.sys === 'android' ? 'This app keeps its own saves.' : `<b>${esc(emuName(emu))}</b> keeps this game’s saves.${NATIVE ? '' : ' Shelf’s save slots work with RetroArch.'}`}</span><span class="act ${G0.zone === 'saves' ? 'focus' : ''}">Open ${esc(g.sys === 'android' ? g.title : emuApp(emu))}</span></div>`;
   h += `<h3 data-z="media">Media<small>${media.length} items</small></h3><div class="mrow"><div class="mstrip" id="gMedia">${mediaStrip(g, media, G0.zone === 'media' ? G0.i : -1, 'mthumb')}</div></div>`;
   if (g.sys !== 'android') {
     const A = achievements(g), e = P.ra ? achFor(P, g) : {}, got = A.list.filter(a => e[a.id]), pts = got.reduce((t, a) => t + a.pts, 0), pct = Math.round(got.length / A.list.length * 100);
@@ -206,12 +215,12 @@ function fillGame() {
   $('#gpin').style.transform = `translateY(${-off}px)`;
   $('#turnHint').classList.toggle('on', G0.turn);
 }
-function artCredit() { return usingSS() ? 'Art, manuals and details from ScreenScraper.' : 'Art from RetroArch’s thumbnail database. Details from Wikipedia.'; }
+function artCredit() { if (NATIVE) return 'Box art made by Shelf, until art downloads arrive in a later version.'; return usingSS() ? 'Art, manuals and details from ScreenScraper.' : 'Art from RetroArch’s thumbnail database. Details from Wikipedia.'; }
 function gameAction() {
   const g = byId[S.game.id], r = rec(g.id), G0 = S.game;
   if (G0.zone === 'ach') return P.ra ? openAch(g.id) : openSettings(CATS.indexOf('Achievements'));
   if (G0.zone === 'media') return openMedia(G0.i);
-  if (G0.zone === 'saves') { const e = emuFor(g); if (!isRA(e)) { sfx.select(); return toast(`Opens ${g.sys === 'android' ? g.title : emuApp(e)}, where this game’s saves are`); } return launchGame(g, G0.i, !!(r && r.slots[G0.i])); }
+  if (G0.zone === 'saves') { const e = emuFor(g); if (!isRA(e)) { sfx.select(); if (NATIVE) return nativeOpenEmu(g, e); return toast(`Opens ${g.sys === 'android' ? g.title : emuApp(e)}, where this game’s saves are`); } return launchGame(g, G0.i, !!(r && r.slots[G0.i])); }
   if (G0.zone === 'manual') { if (hasManual(g)) return openManual(); return toast(usingSS() ? 'ScreenScraper doesn’t have a manual for this game' : 'Manuals come from ScreenScraper. Sign in under Settings, Art and info.'); }
   if (G0.zone === 'cart') return launchGame(g, r ? r.lastSlot : 0, !!(r && r.slots.some(Boolean)));
   const a = gameActions()[G0.i];

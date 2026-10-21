@@ -112,7 +112,7 @@ function coverFront(g, w, h) {
   ctx.fillText(s.long, band * .45, band / 2);
   drawTitle(ctx, g.title, w / 2, band + h * .05, w * .84, Math.min(w, h) * .11);
   ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = `600 ${Math.min(w, h) * .035}px Manrope, sans-serif`; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
-  ctx.fillText(g.dev, w - w * .05, h - h * .04);
+  ctx.fillText(g.dev || '', w - w * .05, h - h * .04);
   return c;
 }
 function coverBack(g, w, h) {   // sized by the box's shorter side, so wide boxes (SNES, N64) fit as well as tall ones
@@ -127,12 +127,12 @@ function coverBack(g, w, h) {   // sized by the box's shorter side, so wide boxe
   y += shh + m * .8;
   const lh = u * .052; ctx.font = `500 ${u * .036}px Manrope, sans-serif`; ctx.fillStyle = 'rgba(255,255,255,.85)';
   for (const l of wrap(ctx, g.desc, w - m * 2)) { if (y + lh > by - u * .03) break; ctx.fillText(l, m, y); y += lh; }   // stop before the barcode
-  y += m * .3; if (y + lh < by - u * .03) { ctx.fillStyle = s.accent; ctx.font = `700 ${u * .034}px Manrope, sans-serif`; ctx.fillText(`${g.genre}, ${g.players}`, m, y); }
+  y += m * .3; if (y + lh < by - u * .03) { ctx.fillStyle = s.accent; ctx.font = `700 ${u * .034}px Manrope, sans-serif`; ctx.fillText(joinKnown(g.genre, g.players), m, y); }
   const bw = Math.min(w * .3, u * .32), bh = u * .08;
   ctx.fillStyle = '#fff'; ctx.fillRect(w - m - bw, by, bw, bh);
   ctx.fillStyle = '#111'; const br = rng(hash(g.id + 'bar'));
   for (let x = w - m - bw + 4; x < w - m - 4; x += 3) if (br() > .45) ctx.fillRect(x, by + bh * .12, br() > .5 ? 2 : 1, bh * .76);
-  ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = `500 ${u * .03}px Manrope, sans-serif`; ctx.fillText(`${g.dev}, ${g.year}`, m, by + bh * .3);
+  ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = `500 ${u * .03}px Manrope, sans-serif`; ctx.fillText(joinKnown(g.dev, g.year), m, by + bh * .3);
   return c;
 }
 function spineArt(g, len, thick) {   // drawn upright: len tall, thick wide
@@ -239,7 +239,7 @@ function titleFrame(g, out) {   // a pretend title screen at the console's resol
   tx.fillStyle = col(`hsl(${(p.h + 180) % 360},90%,70%)`, 0); tx.fillText(g.title.toUpperCase(), w / 2, 20);
   x.imageSmoothingEnabled = false; x.drawImage(t, 0, 0, w, 40, 0, h * .22, w, 40 * 1.6);
   x.font = `bold ${Math.round(w / 26)}px Manrope, sans-serif`; x.textAlign = 'center'; x.fillStyle = col('#ffffff', 0); x.fillText('PRESS START', w / 2, h * .72);
-  x.font = `${Math.round(w / 34)}px Manrope, sans-serif`; x.fillStyle = col('rgba(255,255,255,.7)', 1); x.fillText(`© ${g.year} ${g.dev.toUpperCase()}`, w / 2, h * .86);
+  x.font = `${Math.round(w / 34)}px Manrope, sans-serif`; x.fillStyle = col('rgba(255,255,255,.7)', 1); x.fillText(g.dev ? `© ${g.year} ${g.dev.toUpperCase()}` : '', w / 2, h * .86);
   return c;
 }
 const mediaCache = new Map();

@@ -1,6 +1,6 @@
 /* ================= Apps ================= */
 const iconUrls = new Map();
-const iconUrl = app => { if (!iconUrls.has(app.name)) iconUrls.set(app.name, appIcon(app).toDataURL()); return iconUrls.get(app.name); };
+const iconUrl = app => { if (app.iconData) return app.iconData; if (!iconUrls.has(app.name)) iconUrls.set(app.name, appIcon(app).toDataURL()); return iconUrls.get(app.name); };
 function refreshApps() {
   S.apps.i = clamp(S.apps.i, 0, APPS.length - 1); setMood('home');
   $('#appCount').textContent = `${APPS.length} apps on this handheld`;
@@ -19,9 +19,9 @@ function appOptions() {
 function markAsGame(app) {
   let g = GAMES.find(x => x.sys === 'android' && x.title === app.name);
   if (!g) { g = G('android', app.name, 2024, 'From the app store', 'Game', '1 player', 0, `${app.name} on your handheld. Shelf found its art in a game database, or made a box from its icon.`); GAMES.push(g); byId[g.id] = g; }
-  ANDROID_GAMES.add(app.name); sfx.saved(); toast(`${app.name} is now in your Library, under Android`);
+  g.pkg = app.pkg; ANDROID_GAMES.add(app.name); if (NATIVE) nativeSave(); sfx.saved(); toast(`${app.name} is now in your Library, under Android`);
 }
-function unmarkGame(name) { ANDROID_GAMES.delete(name); sfx.back(); toast(`${name} is back in Apps`); }
+function unmarkGame(name) { ANDROID_GAMES.delete(name); if (NATIVE) nativeSave(); sfx.back(); toast(`${name} is back in Apps`); }
 
 /* ================= settings ================= */
 const CATS = ['Profile', 'Appearance', 'Sound', 'Platforms', 'Emulators', 'Art and info', 'Achievements', 'Controls', 'Home screen and apps', 'About'];
@@ -87,7 +87,7 @@ function settingsModel() {
         { label: 'themes', themes: true },
         tog('Accent follows the console', 'accentFollows', 'The accent color and one background field take on each console’s color.'),
         cyc('Case color', Q, 'caseTint', [false, true], 'The plastic of the modern cases.', { false: 'Neutral', true: 'Console color' }),
-        cyc('Home background', Q, 'homeArt', ['box', 'title', 'shot', 'cart', 'off'], 'A picture of the selected game under the row on Home, darkened and fading out toward the top.', { box: 'Box art', title: 'Title screen', shot: 'Screenshot', cart: 'Cartridge art', off: 'Off' }),
+        cyc('Home background', Q, 'homeArt', NATIVE ? ['box', 'cart', 'off'] : ['box', 'title', 'shot', 'cart', 'off'], 'A picture of the selected game under the row on Home, darkened and fading out toward the top.', { box: 'Box art', title: 'Title screen', shot: 'Screenshot', cart: 'Cartridge art', off: 'Off' }),
         tog('Background motion', 'motion', 'Drifting backgrounds, twinkling stars and the slow float of boxes and cartridges.')] };
       case 'Sound': { const M = P.prefs.music, names = Object.fromEntries([...TRACK_KEYS.map(k => [k, TRACKS[k].name]), ['shuffle', 'Shuffle']]); return { cat: 'Sound', intro: 'Music plays quietly in the menus and stops while you play.', items: [
         tog('Menu music', 'on', 'Original tracks written for Shelf.', M),
@@ -241,6 +241,12 @@ function drawLaunch(dt) {
 }
 function startPlay(g, slot, resume, from) {
   const r = ensureRec(g), emu = emuFor(g);
+  if (NATIVE) {   // hand the game to the emulator; Shelf waits in the dark until you come back (__nativeResume)
+    S.play = { g, slot, from, t: 0, native: true, start: Date.now() }; S.screen = 'play'; show('play');
+    const fl = $('#flash'); fl.style.transition = 'opacity .5s ease-out'; fl.style.opacity = 0;
+    const err = nativeLaunch(g, emu); if (err) { S.launchErr = err; setTimeout(homeFromPlay, 60); }
+    return;
+  }
   S.play = { g, slot, from, t: 0, seed: hash(g.id + 'play'), scroll: resume && r.slots[slot] ? (r.slots[slot].scroll || 120) : 0 };
   S.screen = 'play'; show('play');
   const gc = $('#gamecv'), [w, h] = PLAT[g.sys].res; gc.width = w; gc.height = h;
@@ -250,13 +256,14 @@ function startPlay(g, slot, resume, from) {
   tag.classList.add('show'); setTimeout(() => tag.classList.remove('show'), 3500);
   const fl = $('#flash'); fl.style.transition = 'opacity .5s ease-out'; fl.style.opacity = 0;
 }
-function playUpdate(dt) { const p = S.play; p.t += dt; p.scroll += dt * 40; gameFrame(p.g, p.seed, Math.floor(p.scroll), $('#gamecv')); }
+function playUpdate(dt) { const p = S.play; if (p.native) return; p.t += dt; p.scroll += dt * 40; gameFrame(p.g, p.seed, Math.floor(p.scroll), $('#gamecv')); }
 function homeFromPlay() {
   const p = S.play; if (!p) return; S.play = null;
   const g = p.g, r = ensureRec(g), emu = emuFor(g), ra = isRA(emu) && P.prefs.autosave && !P.prefs.hardcore;
   if (ra) { r.slots[p.slot] = { ts: Date.now(), seed: p.seed, scroll: Math.floor(p.scroll) }; r.lastSlot = p.slot; }
-  r.last = Date.now(); r.minutes += Math.max(1, Math.round(p.t / 60));
-  P.recent = [g.id, ...P.recent.filter(x => x !== g.id)];
+  if (!S.launchErr) { r.last = Date.now(); r.minutes += Math.max(1, Math.round((p.native ? (Date.now() - p.start) / 1000 : p.t) / 60)); }
+  if (NATIVE) nativeSave();
+  if (!S.launchErr) P.recent = [g.id, ...P.recent.filter(x => x !== g.id)];
   const to = p.from === 'game' ? 'game' : 'home';
   if (to === 'home') { S.tab = 'home'; S.home.i = 0; S.home.zone = 'row'; refreshHome(); } else fillGame();
   S.seq = { kind: 'return', g, t: 0, flags: {}, under: to, cp: consolePose(g.sys), saved: ra, emu };
@@ -270,5 +277,6 @@ function finishReturn(q) {
   if (q.under === 'home') { S.screen = 'home'; show('home'); Object.assign(pose('home:' + g.id, {}), q.now || homeSlotPose(g), { alpha: 1, bright: 1 }); refreshHome(); }
   else { S.screen = 'game'; show('game'); fillGame(); }
   renderTop();
+  if (S.launchErr) { toast(S.launchErr); S.launchErr = null; return; }
   sfx.saved(); toast(q.saved ? `Saved to slot ${(rec(g.id).lastSlot) + 1}` : g.sys === 'android' ? `Back from ${g.title}` : `Back from ${q.emu}`);
 }
