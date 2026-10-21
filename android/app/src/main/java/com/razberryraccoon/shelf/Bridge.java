@@ -55,6 +55,29 @@ public class Bridge {
         });
     }
 
+    /** Opens an app's page in the Play Store (Android System WebView, to update it). */
+    @JavascriptInterface
+    public void openStore(String pkg) {
+        ui.post(() -> {
+            act.launchedOut = true;
+            try { act.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + pkg))); }
+            catch (ActivityNotFoundException e) {
+                act.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=" + pkg)));
+            }
+        });
+    }
+
+    /** The device, its Android version and Shelf's version, for Settings › About. */
+    @JavascriptInterface
+    public String info() {
+        String version = "";
+        try { version = act.getPackageManager().getPackageInfo(act.getPackageName(), 0).versionName; } catch (Exception ignored) { }
+        try {
+            return new org.json.JSONObject().put("model", android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL)
+                    .put("android", android.os.Build.VERSION.RELEASE).put("version", version).toString();
+        } catch (org.json.JSONException e) { return "{}"; }
+    }
+
     @JavascriptInterface
     public void openHomeSettings() {
         ui.post(() -> {

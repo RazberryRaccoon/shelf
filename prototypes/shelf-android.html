@@ -45,9 +45,9 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
   --line: rgba(232,234,238,.09); --chip: rgba(232,234,238,.08); --sel: #e8eaee; --selfg: #1d2128; --shadow: rgba(0,0,0,.35); --scrim: rgba(20,23,28,.7); --theme-accent: #f0a35a; }
 #stage[data-t="bloom"] { --bg: #f3effc; --fg: #261d3d; --fg2: #6f6488; --fg3: rgba(38,29,61,.5); --panel: rgba(255,255,255,.7); --panel2: rgba(38,29,61,.05);
   --line: rgba(38,29,61,.1); --chip: rgba(38,29,61,.07); --sel: #261d3d; --selfg: #fff; --shadow: rgba(90,60,140,.18); --scrim: rgba(243,239,252,.7); --theme-accent: #a052e0; }
-#gl { position: absolute; inset: 0; width: 1334px; height: 750px; display: block; }
-#ui { position: absolute; inset: 0; }
-.screen { position: absolute; inset: 0; opacity: 0; visibility: hidden; transition: opacity .35s ease, visibility 0s linear .35s; }
+#gl { position: absolute; top: 0; right: 0; bottom: 0; left: 0; width: 1334px; height: 750px; display: block; }
+#ui { position: absolute; top: 0; right: 0; bottom: 0; left: 0; }
+.screen { position: absolute; top: 0; right: 0; bottom: 0; left: 0; opacity: 0; visibility: hidden; transition: opacity .35s ease, visibility 0s linear .35s; }
 .screen.on { opacity: 1; visibility: visible; transition: opacity .35s ease, visibility 0s; }
 .screen.under, #topbar.under { opacity: 0; visibility: visible; transition: opacity .4s ease, visibility 0s; pointer-events: none; }   /* the panels sit above the 3D view, so behind an open box they hide */
 .screen.rise.on, #topbar.rise.on { transition: opacity .6s ease, visibility 0s; }
@@ -277,7 +277,7 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .ach-side { position: absolute; left: 28px; top: 28px; width: 340px; bottom: 28px; padding: 26px 26px; }
 .ach-side h2 { margin: 4px 0 0; font-family: var(--display); font-weight: 500; font-size: 22px; line-height: 1.15; }
 .ring { position: relative; width: 140px; height: 140px; margin: 22px 0 18px; border-radius: 50%; display: grid; place-items: center; }
-.ring::before { content: ""; position: absolute; inset: 12px; border-radius: 50%; background: var(--bg); }
+.ring::before { content: ""; position: absolute; top: 12px; right: 12px; bottom: 12px; left: 12px; border-radius: 50%; background: var(--bg); }
 .ring span { position: relative; text-align: center; font-family: var(--display); font-size: 30px; }
 .ring span small { display: block; font-family: var(--body); font-size: 12px; color: var(--fg2); }
 .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 12px; font-size: 12px; color: var(--fg2); }
@@ -310,6 +310,7 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .setup p.lead { margin: 0 0 18px; font-size: 14.5px; color: var(--fg2); line-height: 1.5; }
 .setup .opts { display: flex; flex-direction: column; gap: 6px; }
 .setup .opt { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 11px 16px; border-radius: 14px; background: var(--panel2); font-size: 14px; font-weight: 700; transition: box-shadow .2s, background .2s; }
+.setup .optlabel { display: flex; gap: 10px; align-items: center; }
 .setup .opt small { font-weight: 600; color: var(--fg2); font-size: 12.5px; }
 .setup .opt.focus { box-shadow: 0 0 0 2px var(--sel); }
 .setup .opt.primary { background: var(--accent); color: #0b0d18; justify-content: center; }
@@ -353,7 +354,7 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
   padding: 9px 22px; border-radius: 20px; background: var(--sel); color: var(--selfg); z-index: 9; font-size: 14px; font-weight: 800;
   transform: translate(-50%, 90px); transition: transform .4s cubic-bezier(.2,.8,.2,1); white-space: nowrap; }
 .toast.show { transform: translate(-50%, 0); }
-#flash { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 7; }
+#flash { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: #000; opacity: 0; pointer-events: none; z-index: 7; }
 .keys { position: fixed; left: 0; right: 0; bottom: 6px; text-align: center; font-size: 12px; color: var(--page-text); }
 @media (prefers-reduced-motion: reduce) { .screen, .toast, .card, .mstrip, .gpin, .dialog, .kb { transition-duration: .01s; } }
 </style>
@@ -436,6 +437,43 @@ function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^=
 function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; }
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ================= older web engines ================= */
+// Android's built-in web engine (Android System WebView) can be years old on a handheld that hasn't updated it.
+// Shelf fills in the two things it uses that older engines lack: spacing in flex rows (gap, Chrome 84) and
+// rounded rectangles on a canvas (roundRect, Chrome 99).
+const ENGINE = +((navigator.userAgent.match(/Chrome\/(\d+)/) || [])[1] || 0);   // the engine's Chrome version, 0 if unknown
+(function compat() {
+  const C = CanvasRenderingContext2D.prototype;
+  if (!C.roundRect) C.roundRect = function (x, y, w, h, r) {
+    r = Math.max(0, Math.min(Array.isArray(r) ? r[0] || 0 : r || 0, Math.abs(w) / 2, Math.abs(h) / 2));
+    this.moveTo(x + r, y); this.arcTo(x + w, y, x + w, y + h, r); this.arcTo(x + w, y + h, x, y + h, r);
+    this.arcTo(x, y + h, x, y, r); this.arcTo(x, y, x + w, y, r); this.closePath();
+  };
+  const force = /[?&]compat\b/.test(location.search);   // ?compat tests this path in a current browser
+  const probe = document.createElement('div');
+  probe.style.cssText = 'display:flex;flex-direction:column;row-gap:1px;position:absolute;visibility:hidden';
+  probe.append(document.createElement('div'), document.createElement('div'));
+  document.body.append(probe); const flexGap = probe.scrollHeight === 1; probe.remove();
+  if (flexGap && !force) return;
+  // no flex gap: give each flex row's children margins instead, rule by rule
+  const extra = [];
+  for (const sheet of document.styleSheets) {
+    let rules; try { rules = sheet.cssRules; } catch (e) { continue; }
+    for (const r of rules) {
+      const st = r.style; if (!st || !/flex/.test(st.display) || !(st.gap || st.rowGap || st.columnGap)) continue;
+      const row = st.rowGap || st.gap.split(' ')[0], col = st.columnGap || st.gap.split(' ').pop();
+      const column = /column/.test(st.flexDirection), wrap = /wrap/.test(st.flexWrap);
+      if (force) { st.rowGap = '0'; st.columnGap = '0'; }
+      for (const sel of r.selectorText.split(',')) {
+        if (wrap) extra.push(`${sel} > * { margin: 0 ${col} ${row} 0; }`);
+        else extra.push(`${sel} > * + * { margin-${column ? 'top' : 'left'}: ${column ? row : col}; }`,
+          `${sel} > *:only-child { margin-${column ? 'bottom' : 'right'}: ${column ? row : col}; }`);   // an icon or dot followed by plain text
+      }
+    }
+  }
+  const tag = document.createElement('style'); tag.textContent = extra.join('\n'); document.head.append(tag);
+})();
 const NATIVE = typeof ShelfNative !== 'undefined';   // running inside the Android app, with real games, apps and emulators
 const joinKnown = (...xs) => xs.filter(Boolean).join(', ');   // real games may not have every detail yet
 
@@ -2182,7 +2220,7 @@ const SETUP_STEPS = 6;
 function setupOpts() {
   const s = S.setup.step;
   const back = { k: 'back', label: 'Back', back: true };
-  if (s === 0) return NATIVE ? [{ k: 'next', label: 'Get started', primary: true }] : [{ k: 'next', label: 'Get started', primary: true }, { k: 'quick', label: 'Quick setup with test data (for testing)', debug: true }];
+  if (s === 0) return NATIVE ? [{ k: 'next', label: 'Get started', primary: true }, ...(ENGINE && ENGINE < WEBVIEW_OK ? [{ k: 'webview', label: 'Update Android’s web engine first (recommended)' }] : [])] : [{ k: 'next', label: 'Get started', primary: true }, { k: 'quick', label: 'Quick setup with test data (for testing)', debug: true }];
   if (s === 1) return [{ k: 'name', label: 'Your name', value: P.name || 'Choose' }, ...PROFILE_COLORS.map((c, i) => ({ k: 'color', i, label: ['Amber', 'Sky', 'Orchid', 'Fern', 'Rose'][i], color: c })), { k: 'next', label: 'Continue', primary: true }, back];
   if (s === 2) return [...Object.keys(THEMES).map(t => ({ k: 'theme', t, label: THEMES[t].name })), { k: 'next', label: 'Continue', primary: true }, back];
   if (s === 3) return NATIVE && !ShelfNative.hasStorage() ? [{ k: 'storage', label: 'Allow access to my files', primary: true }, { k: 'next', label: 'Skip for now' }, back]
@@ -2194,7 +2232,7 @@ function fillSetup() {
   const s = S.setup.step, opts = setupOpts(); S.setup.i = clamp(S.setup.i, 0, opts.length - 1);
   const counts = SYS_ORDER.filter(k => k !== 'android').map(k => [PLAT[k].name, GAMES.filter(g => g.sys === k).length]);
   const head = [
-    ['Welcome', 'Shelf', 'A home for your games. Let’s set up this handheld; it takes about a minute.'],
+    ['Welcome', 'Shelf', 'A home for your games. Let’s set up this handheld; it takes about a minute.' + (NATIVE && ENGINE && ENGINE < WEBVIEW_OK ? ` This handheld’s web engine, which draws Shelf, is from a few years ago (Chrome ${ENGINE}). Shelf works with it, but updating it from the Play Store makes everything smoother.` : '')],
     ['Step 1 of 5', 'Who’s playing?', 'Shelf keeps one profile. Your name and color show at the top of the screen.'],
     ['Step 2 of 5', 'Pick a look', 'You can change it any time in Settings.'],
     NATIVE && !ShelfNative.hasStorage() ? ['Step 3 of 5', 'Let Shelf find your games', 'Shelf looks in the ROMs folder on internal storage and the SD card. Android asks you to allow access to all files; switch it on, then come back.']
@@ -2210,7 +2248,7 @@ function fillSetup() {
     const cur = (o.k === 'theme' && P.prefs.theme === o.t) || (o.k === 'color' && P.colors === o.color);
     const T = o.t && THEMES[o.t], sw = o.color ? `<span style="width:20px;height:20px;border-radius:50%;background:${avatarCss(o.color)}"></span>`
       : T ? `<span style="width:34px;height:20px;border-radius:6px;border:1px solid var(--line);background:${T.space ? 'radial-gradient(circle at 70% 130%, #8b78e6 0, #2a1a5e 45%, #070b1e 80%)' : `linear-gradient(135deg, ${T.top}, ${T.c[0]} 55%, ${T.c[1]})`}"></span>` : '';
-    return `<div class="opt ${o.primary ? 'primary' : ''} ${o.debug ? 'debug' : ''} ${o.back ? 'back' : ''} ${i === S.setup.i ? 'focus' : ''}"><span style="display:flex;gap:10px;align-items:center">${sw}${o.label}${cur ? ' ✓' : ''}</span>${o.value ? `<small>${esc(o.value)}</small>` : ''}</div>`;
+    return `<div class="opt ${o.primary ? 'primary' : ''} ${o.debug ? 'debug' : ''} ${o.back ? 'back' : ''} ${i === S.setup.i ? 'focus' : ''}"><span class="optlabel">${sw}${o.label}${cur ? ' ✓' : ''}</span>${o.value ? `<small>${esc(o.value)}</small>` : ''}</div>`;
   }).join('') + `</div><div class="dots">${Array.from({ length: SETUP_STEPS }, (_, i) => `<i class="${i <= s ? 'on' : ''}"></i>`).join('')}</div>`;
 }
 function setupAct() {
@@ -2220,6 +2258,7 @@ function setupAct() {
   if (o.k === 'name') return openKb('Your name', P.name, v => { P.name = v; fillSetup(); });
   if (o.k === 'color') { P.colors = o.color; return fillSetup(); }
   if (o.k === 'theme') { applyTheme(o.t); return fillSetup(); }
+  if (o.k === 'webview') return ShelfNative.openStore('com.google.android.webview');
   if (o.k === 'storage') return ShelfNative.requestStorage();   // Shelf rescans when you come back
   if (o.k === 'folder') return toast(NATIVE ? 'For now, put games in a ROMs folder, one folder per console' : 'Opens Android’s folder picker');
   if (NATIVE && (o.k === 'ss' || o.k === 'ra')) return toast('Signing in comes in a later version');
@@ -2481,7 +2520,10 @@ function settingsModel() {
         tog('Use Shelf as the home screen', 'homeLauncher', 'The Home button always brings you here.'),
         cyc('Apps tab shows', Q, 'showApps', ['All apps', 'Hide emulators'], 'Emulators can stay out of the way, since Shelf launches them.'),
         info('Android games', `${ANDROID_GAMES.size} marked`, 'In Apps, press Y on a game and choose Mark as game.')] };
-      default: return { cat: 'About', intro: 'Shelf for Android, prototype.', items: [info('Device', 'Retroid Pocket 3+', 'Android 11, Unisoc T618.'), info('Storage', '61.2 of 116 GB', 'Games, art, manuals and media.', 53), info('Version', '0.1 prototype', '')] };
+      default: if (NATIVE) { const d = nativeInfo(); return { cat: 'About', intro: `Shelf for Android, version ${d.version}.`, items: [
+        info('Device', d.model, `Android ${d.android}.`), info('Games found', `${GAMES.filter(g => g.sys !== 'android').length}`, 'In the ROMs folders on internal storage and SD cards.'),
+        action('Web engine', ENGINE ? `Chrome ${ENGINE}` : 'Unknown', ENGINE && ENGINE < WEBVIEW_OK ? 'Android System WebView, which draws Shelf, is out of date. Update it for smoother menus.' : 'Android System WebView, which draws Shelf. Opens it in the Play Store.', () => ShelfNative.openStore('com.google.android.webview'))] }; }
+        return { cat: 'About', intro: 'Shelf for Android, prototype.', items: [info('Device', 'Retroid Pocket 3+', 'Android 11, Unisoc T618.'), info('Storage', '61.2 of 116 GB', 'Games, art, manuals and media.', 53), info('Version', '0.1 prototype', '')] };
     }
   }
 }
@@ -2995,6 +3037,8 @@ function nativeLaunch(g, emu) {   // '' when the emulator opened, otherwise what
   const ra = emu.startsWith('RetroArch: ');
   return ShelfNative.launch(JSON.stringify({ emu: ra ? 'RetroArch' : emuApp(emu), core: ra ? CORE_FILES[emu.slice(11)] || '' : '', path: g.path, sys: g.sys })) || '';
 }
+const WEBVIEW_OK = 100;   // older engines get a suggestion to update Android System WebView
+function nativeInfo() { try { return JSON.parse(ShelfNative.info()); } catch (e) { return { model: 'Android device', android: '', version: '' }; } }
 function nativeOpenEmu(g, e) { if (!ShelfNative.openEmulator(emuApp(e))) toast(`${emuApp(e)} isn’t installed`); }
 if (NATIVE) {
   // start from nothing but your own games: no invented history, collections or sign-ins
