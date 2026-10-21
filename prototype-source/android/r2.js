@@ -12,6 +12,43 @@ function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^=
 function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; }
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ================= older web engines ================= */
+// Android's built-in web engine (Android System WebView) can be years old on a handheld that hasn't updated it.
+// Shelf fills in the two things it uses that older engines lack: spacing in flex rows (gap, Chrome 84) and
+// rounded rectangles on a canvas (roundRect, Chrome 99).
+const ENGINE = +((navigator.userAgent.match(/Chrome\/(\d+)/) || [])[1] || 0);   // the engine's Chrome version, 0 if unknown
+(function compat() {
+  const C = CanvasRenderingContext2D.prototype;
+  if (!C.roundRect) C.roundRect = function (x, y, w, h, r) {
+    r = Math.max(0, Math.min(Array.isArray(r) ? r[0] || 0 : r || 0, Math.abs(w) / 2, Math.abs(h) / 2));
+    this.moveTo(x + r, y); this.arcTo(x + w, y, x + w, y + h, r); this.arcTo(x + w, y + h, x, y + h, r);
+    this.arcTo(x, y + h, x, y, r); this.arcTo(x, y, x + w, y, r); this.closePath();
+  };
+  const force = /[?&]compat\b/.test(location.search);   // ?compat tests this path in a current browser
+  const probe = document.createElement('div');
+  probe.style.cssText = 'display:flex;flex-direction:column;row-gap:1px;position:absolute;visibility:hidden';
+  probe.append(document.createElement('div'), document.createElement('div'));
+  document.body.append(probe); const flexGap = probe.scrollHeight === 1; probe.remove();
+  if (flexGap && !force) return;
+  // no flex gap: give each flex row's children margins instead, rule by rule
+  const extra = [];
+  for (const sheet of document.styleSheets) {
+    let rules; try { rules = sheet.cssRules; } catch (e) { continue; }
+    for (const r of rules) {
+      const st = r.style; if (!st || !/flex/.test(st.display) || !(st.gap || st.rowGap || st.columnGap)) continue;
+      const row = st.rowGap || st.gap.split(' ')[0], col = st.columnGap || st.gap.split(' ').pop();
+      const column = /column/.test(st.flexDirection), wrap = /wrap/.test(st.flexWrap);
+      if (force) { st.rowGap = '0'; st.columnGap = '0'; }
+      for (const sel of r.selectorText.split(',')) {
+        if (wrap) extra.push(`${sel} > * { margin: 0 ${col} ${row} 0; }`);
+        else extra.push(`${sel} > * + * { margin-${column ? 'top' : 'left'}: ${column ? row : col}; }`,
+          `${sel} > *:only-child { margin-${column ? 'bottom' : 'right'}: ${column ? row : col}; }`);   // an icon or dot followed by plain text
+      }
+    }
+  }
+  const tag = document.createElement('style'); tag.textContent = extra.join('\n'); document.head.append(tag);
+})();
 const NATIVE = typeof ShelfNative !== 'undefined';   // running inside the Android app, with real games, apps and emulators
 const joinKnown = (...xs) => xs.filter(Boolean).join(', ');   // real games may not have every detail yet
 

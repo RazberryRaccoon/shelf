@@ -118,7 +118,10 @@ function settingsModel() {
         tog('Use Shelf as the home screen', 'homeLauncher', 'The Home button always brings you here.'),
         cyc('Apps tab shows', Q, 'showApps', ['All apps', 'Hide emulators'], 'Emulators can stay out of the way, since Shelf launches them.'),
         info('Android games', `${ANDROID_GAMES.size} marked`, 'In Apps, press Y on a game and choose Mark as game.')] };
-      default: return { cat: 'About', intro: 'Shelf for Android, prototype.', items: [info('Device', 'Retroid Pocket 3+', 'Android 11, Unisoc T618.'), info('Storage', '61.2 of 116 GB', 'Games, art, manuals and media.', 53), info('Version', '0.1 prototype', '')] };
+      default: if (NATIVE) { const d = nativeInfo(); return { cat: 'About', intro: `Shelf for Android, version ${d.version}.`, items: [
+        info('Device', d.model, `Android ${d.android}.`), info('Games found', `${GAMES.filter(g => g.sys !== 'android').length}`, 'In the ROMs folders on internal storage and SD cards.'),
+        action('Web engine', ENGINE ? `Chrome ${ENGINE}` : 'Unknown', ENGINE && ENGINE < WEBVIEW_OK ? 'Android System WebView, which draws Shelf, is out of date. Update it for smoother menus.' : 'Android System WebView, which draws Shelf. Opens it in the Play Store.', () => ShelfNative.openStore('com.google.android.webview'))] }; }
+        return { cat: 'About', intro: 'Shelf for Android, prototype.', items: [info('Device', 'Retroid Pocket 3+', 'Android 11, Unisoc T618.'), info('Storage', '61.2 of 116 GB', 'Games, art, manuals and media.', 53), info('Version', '0.1 prototype', '')] };
     }
   }
 }

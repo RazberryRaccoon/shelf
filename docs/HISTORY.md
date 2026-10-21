@@ -247,3 +247,9 @@
   told to honor the page's viewport tag or to stay unzoomed. Fixed on both sides: the WebView uses the viewport tag
   with zoom off, and the page's `fit()` reads the visible viewport, re-fits on every size change (and when Java says
   the view changed), and can't be panned. Checked at the Retroid's size and at phone and tablet shapes.
+- Second photo: the 3D scene fit, but every panel sat centered on the top-left corner and setup's options had no
+  spacing. The Retroid's Android System WebView was years old (no CSS `inset`, no flex `gap`, no canvas `roundRect`).
+  Fixed: `inset` written out long-hand, a flex-gap fallback that turns each flex rule's gap into child margins when
+  the engine lacks it, a `roundRect` stand-in, and setup and Settings › About offer to update the WebView from the
+  Play Store when it's older than Chrome 100. `?compat` forces the fallback in a current browser for testing.
+- Lesson: test against the oldest engine a device might have, not just current Chrome.

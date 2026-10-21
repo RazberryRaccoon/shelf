@@ -58,7 +58,7 @@ const SETUP_STEPS = 6;
 function setupOpts() {
   const s = S.setup.step;
   const back = { k: 'back', label: 'Back', back: true };
-  if (s === 0) return NATIVE ? [{ k: 'next', label: 'Get started', primary: true }] : [{ k: 'next', label: 'Get started', primary: true }, { k: 'quick', label: 'Quick setup with test data (for testing)', debug: true }];
+  if (s === 0) return NATIVE ? [{ k: 'next', label: 'Get started', primary: true }, ...(ENGINE && ENGINE < WEBVIEW_OK ? [{ k: 'webview', label: 'Update Android’s web engine first (recommended)' }] : [])] : [{ k: 'next', label: 'Get started', primary: true }, { k: 'quick', label: 'Quick setup with test data (for testing)', debug: true }];
   if (s === 1) return [{ k: 'name', label: 'Your name', value: P.name || 'Choose' }, ...PROFILE_COLORS.map((c, i) => ({ k: 'color', i, label: ['Amber', 'Sky', 'Orchid', 'Fern', 'Rose'][i], color: c })), { k: 'next', label: 'Continue', primary: true }, back];
   if (s === 2) return [...Object.keys(THEMES).map(t => ({ k: 'theme', t, label: THEMES[t].name })), { k: 'next', label: 'Continue', primary: true }, back];
   if (s === 3) return NATIVE && !ShelfNative.hasStorage() ? [{ k: 'storage', label: 'Allow access to my files', primary: true }, { k: 'next', label: 'Skip for now' }, back]
@@ -70,7 +70,7 @@ function fillSetup() {
   const s = S.setup.step, opts = setupOpts(); S.setup.i = clamp(S.setup.i, 0, opts.length - 1);
   const counts = SYS_ORDER.filter(k => k !== 'android').map(k => [PLAT[k].name, GAMES.filter(g => g.sys === k).length]);
   const head = [
-    ['Welcome', 'Shelf', 'A home for your games. Let’s set up this handheld; it takes about a minute.'],
+    ['Welcome', 'Shelf', 'A home for your games. Let’s set up this handheld; it takes about a minute.' + (NATIVE && ENGINE && ENGINE < WEBVIEW_OK ? ` This handheld’s web engine, which draws Shelf, is from a few years ago (Chrome ${ENGINE}). Shelf works with it, but updating it from the Play Store makes everything smoother.` : '')],
     ['Step 1 of 5', 'Who’s playing?', 'Shelf keeps one profile. Your name and color show at the top of the screen.'],
     ['Step 2 of 5', 'Pick a look', 'You can change it any time in Settings.'],
     NATIVE && !ShelfNative.hasStorage() ? ['Step 3 of 5', 'Let Shelf find your games', 'Shelf looks in the ROMs folder on internal storage and the SD card. Android asks you to allow access to all files; switch it on, then come back.']
@@ -86,7 +86,7 @@ function fillSetup() {
     const cur = (o.k === 'theme' && P.prefs.theme === o.t) || (o.k === 'color' && P.colors === o.color);
     const T = o.t && THEMES[o.t], sw = o.color ? `<span style="width:20px;height:20px;border-radius:50%;background:${avatarCss(o.color)}"></span>`
       : T ? `<span style="width:34px;height:20px;border-radius:6px;border:1px solid var(--line);background:${T.space ? 'radial-gradient(circle at 70% 130%, #8b78e6 0, #2a1a5e 45%, #070b1e 80%)' : `linear-gradient(135deg, ${T.top}, ${T.c[0]} 55%, ${T.c[1]})`}"></span>` : '';
-    return `<div class="opt ${o.primary ? 'primary' : ''} ${o.debug ? 'debug' : ''} ${o.back ? 'back' : ''} ${i === S.setup.i ? 'focus' : ''}"><span style="display:flex;gap:10px;align-items:center">${sw}${o.label}${cur ? ' ✓' : ''}</span>${o.value ? `<small>${esc(o.value)}</small>` : ''}</div>`;
+    return `<div class="opt ${o.primary ? 'primary' : ''} ${o.debug ? 'debug' : ''} ${o.back ? 'back' : ''} ${i === S.setup.i ? 'focus' : ''}"><span class="optlabel">${sw}${o.label}${cur ? ' ✓' : ''}</span>${o.value ? `<small>${esc(o.value)}</small>` : ''}</div>`;
   }).join('') + `</div><div class="dots">${Array.from({ length: SETUP_STEPS }, (_, i) => `<i class="${i <= s ? 'on' : ''}"></i>`).join('')}</div>`;
 }
 function setupAct() {
@@ -96,6 +96,7 @@ function setupAct() {
   if (o.k === 'name') return openKb('Your name', P.name, v => { P.name = v; fillSetup(); });
   if (o.k === 'color') { P.colors = o.color; return fillSetup(); }
   if (o.k === 'theme') { applyTheme(o.t); return fillSetup(); }
+  if (o.k === 'webview') return ShelfNative.openStore('com.google.android.webview');
   if (o.k === 'storage') return ShelfNative.requestStorage();   // Shelf rescans when you come back
   if (o.k === 'folder') return toast(NATIVE ? 'For now, put games in a ROMs folder, one folder per console' : 'Opens Android’s folder picker');
   if (NATIVE && (o.k === 'ss' || o.k === 'ra')) return toast('Signing in comes in a later version');

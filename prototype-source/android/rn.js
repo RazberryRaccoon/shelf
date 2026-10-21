@@ -49,6 +49,8 @@ function nativeLaunch(g, emu) {   // '' when the emulator opened, otherwise what
   const ra = emu.startsWith('RetroArch: ');
   return ShelfNative.launch(JSON.stringify({ emu: ra ? 'RetroArch' : emuApp(emu), core: ra ? CORE_FILES[emu.slice(11)] || '' : '', path: g.path, sys: g.sys })) || '';
 }
+const WEBVIEW_OK = 100;   // older engines get a suggestion to update Android System WebView
+function nativeInfo() { try { return JSON.parse(ShelfNative.info()); } catch (e) { return { model: 'Android device', android: '', version: '' }; } }
 function nativeOpenEmu(g, e) { if (!ShelfNative.openEmulator(emuApp(e))) toast(`${emuApp(e)} isn’t installed`); }
 if (NATIVE) {
   // start from nothing but your own games: no invented history, collections or sign-ins
