@@ -272,26 +272,37 @@ plastic color, shadow color, and the 3D rim light.
   - This was proven working end to end in the Pi version's session tests, with a stand-in for RetroArch.
 - **Standalone emulators** manage their own saves. Shelf says so in the panel and on the Home card.
 
-## 16. Technical plan (agreed direction, not yet built)
+## 16. Technical design (first version built, October 2026)
 
-- **App:** a native Android app in **Kotlin**. **Jetpack Compose** handles all 2D UI: settings, panels, setup,
-  app drawer, crisp text. An **OpenGL ES 3 view** draws the 3D (boxes, media, backdrop), ported from the
-  prototype's WebGL renderer, whose shaders are already GLSL ES.
-- **Launching RetroArch:** an explicit intent to RetroArch's `RetroActivityFuture`, with extras `ROM`,
-  `LIBRETRO` (core path), `CONFIGFILE`, and `QUITFOCUS` (hands focus back to Shelf on quit). Detect which
-  RetroArch package is installed: `com.retroarch`, `com.retroarch.aarch64`, and so on.
-- **Per-profile settings:** generate a config for RetroArch with Shelf's save folders, auto save and load,
-  and network commands on.
-- **Standalone emulators** each launch through their own intents. These still need researching, per emulator.
-- **Home launcher:** an activity with the `HOME` and `DEFAULT` categories, so Shelf can be the default home app.
-- **Permissions:** "All files access" (`MANAGE_EXTERNAL_STORAGE`) to read ROM folders and move RetroArch's
-  save files, and package visibility (`QUERY_ALL_PACKAGES`, or `<queries>` declarations) for the app drawer.
-- **Art and info:** a background downloader. ScreenScraper needs a developer ID, which the user requests on
-  ScreenScraper's forum, plus the user's account. Fallbacks are RetroArch's thumbnail database, Wikipedia, and
-  RetroAchievements' game images. Download the smaller "normalized" videos. Turn manual PDFs into page images
-  when they're downloaded.
-- **Build:** a Gradle project in a GitHub repository, with a **GitHub Actions** workflow that builds the APK.
-  The user downloads the build output and sideloads it. The user chose this over installing Android Studio.
+- **App:** a small native Android app in **Java** (`android/`) that runs the Shelf interface, the same WebGL page
+  as the browser prototype, in a full-screen WebView loaded from the app's assets. This replaced the earlier plan
+  (Kotlin, Jetpack Compose and a port of the renderer to OpenGL ES 3): the user approved the prototype's look and
+  motion, and running the same page keeps both exactly, on day one. Porting to a native renderer stays possible if
+  the WebView is ever too slow.
+- **Native mode:** when the page sees `ShelfNative` (the Java bridge), it switches from the invented library to your
+  ROMs and apps, launches real emulators, and saves its state to the app's storage (`state.json`). The browser
+  prototype is unchanged. The invented games stay on as the Museum's examples.
+- **Finding games:** a `ROMs` folder (any capitalization) at the top of internal storage or an SD card, with one folder
+  per console, named as ES-DE names them (`nes`, `snes`, `n64`, `genesis` or `megadrive`, `gb`, `gbc`, `gba`, `psx`,
+  `nds`, `psp`, plus a few aliases). Titles come from file names, without region and dump tags. Disc numbers stay;
+  an `.m3u` playlist stands in for the discs next to it.
+- **Launching:** ES-DE's Android configuration is the reference for every emulator's package, activity and extras.
+  RetroArch gets `ROM`, `LIBRETRO` (`/data/data/<package>/cores/<core>_libretro_android.so`), `CONFIGFILE` and
+  `QUITFOCUS`. Standalone emulators get either the storage document link (ES-DE's `%ROMSAF%`), Shelf's own read-only
+  `content://` link (`RomProvider`, ES-DE's `%ROMPROVIDER%`), or a plain path, as each expects. 25 emulators.
+- **Coming back:** when Shelf returns to the front after a launch, the page plays the return animation and records
+  the play time.
+- **Controller:** Android's key events (D-pad, A, B, Y, L1, R1, Back) and the left stick or hat are passed in as
+  Shelf's actions; holding a direction repeats it. Settings › Controls › Button layout swaps A and B.
+- **Home launcher:** the activity has the `HOME` category, so Shelf can be chosen as the home app; the Home button
+  while Shelf is in front acts as Shelf's own Home.
+- **Permissions:** All files access (`MANAGE_EXTERNAL_STORAGE`) for the ROM folders, `QUERY_ALL_PACKAGES` for the app
+  drawer and emulator detection.
+- **Build:** a Gradle project built by GitHub Actions (`.github/workflows/android.yml`). Every push to `main` publishes
+  a release with `Shelf.apk`; one fixed signing key (checked in, debug only) lets each build install over the last.
+- **Not in the first version:** art and info downloads (ScreenScraper and the fallbacks), Shelf's own save slots
+  (RetroArch keeps its own saves for now), RetroAchievements, manuals and media, the RetroArch network commands.
+  These stay as designed above.
 
 ## 16a. Choosing emulators
 

@@ -186,6 +186,14 @@ Summarized from the first part of the conversation; the full transcript is kept 
   dimmed/darkened and fade as it goes up, with the edge of the fade lining up with the bottom of the row… You should
   also be able to turn this off." The planet moves to the top half: "I do like it so keep that around." 
 
+### The Android app (October 2026)
+
+- "I think this looks good enough for a full android version now! Do whatever you need to do, ping me when you need
+  permission or something, and lmk when and how to download the APK."
+- Claude's call: run the approved interface itself inside a small Java app (a WebView plus a native bridge) instead
+  of rebuilding it in Kotlin, Compose and OpenGL ES, so the look and motion stay exactly as approved. Launch
+  commands follow ES-DE's Android configuration. Builds come from GitHub Actions as a release with `Shelf.apk`.
+
 ### Prototype v2, part 2 (built)
 
 - "Add in a button that skips the setup, just for debugging… not literally skip all the setup, but instead just
