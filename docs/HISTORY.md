@@ -220,3 +220,14 @@
 - Lessons: Blender's default ambient occlusion distance (1 unit = 100 mm here) blacks everything out; use about
   8 mm. Smoothed normals next to rounded edges streak across big flat faces; the exporter uses each large
   face's own flat direction. `r2.js` opens the script tag, so generated data has to come after it.
+
+**The new layout (October 2026):**
+- The tabs are gone. Home is the base: the recent-games row, with a top bar of profile, round buttons (Library,
+  Apps, Museum, Settings) and status. Agreed through a flat browser mockup before touching the prototype.
+- Library, Apps and the Museum are a sheet that slides up over Home. In the prototype, everything on the sheet is
+  drawn with the WebGL viewport shifted down (`SHEETOFF`), and its HTML panels get the same `translateY`, so the
+  3D boxes and the panels move as one; clipping adds the same offset.
+- A game's page opens in place from Home (the row moves into a strip up top) or from the Library (the sheet slides
+  away and back). The details wait half a second so the cartridge never crosses them.
+- Lesson: when the sheet finished sliding away, its panels jumped back to the top while fading out; they now stay
+  below the screen until the sheet opens again.

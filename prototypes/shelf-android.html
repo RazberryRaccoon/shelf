@@ -14,6 +14,7 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
   color-scheme: light;
   --page: #d9dce6; --page-text: #3a3f58;
+  --glowc: rgba(200,210,255,.45);
   --display: "Unbounded", "Segoe UI", system-ui, sans-serif;
   --body: "Manrope", "Segoe UI", system-ui, sans-serif;
 }
@@ -55,18 +56,25 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .bar { display: inline-block; height: 6px; border-radius: 3px; background: var(--chip); overflow: hidden; vertical-align: middle; }
 .bar b { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
 
-/* top bar */
-#topbar { position: absolute; left: 0; right: 0; top: 0; height: 64px; opacity: 0; visibility: hidden; transition: opacity .35s, visibility 0s linear .35s; z-index: 3; }
+/* top bar: your profile on the left, round buttons for everything that isn't Home in the middle, status on the right */
+#topbar { position: absolute; left: 0; right: 0; top: 0; height: 84px; opacity: 0; visibility: hidden; transition: opacity .35s, visibility 0s linear .35s; z-index: 3; }
 #topbar.on { opacity: 1; visibility: visible; transition: opacity .35s, visibility 0s; }
-.tabs { position: absolute; left: 28px; top: 16px; display: flex; gap: 4px; padding: 4px; border-radius: 22px; }
-.tab { font-family: var(--display); font-size: 15px; color: var(--fg3); padding: 6px 18px; border-radius: 18px; transition: color .2s, background .2s, box-shadow .2s; }
-.tab.sel { color: var(--fg); background: var(--chip); }
-.tab.focus, .tbtn.focus { box-shadow: 0 0 0 2px var(--sel); color: var(--fg); }
-.tright { position: absolute; right: 28px; top: 16px; display: flex; align-items: center; gap: 8px; }
-.status { display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 14px; border-radius: 20px; font-size: 14px; font-weight: 700; color: var(--fg2); }
-.status svg, .tbtn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-.tbtn { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: 20px; font-size: 14px; font-weight: 700; color: var(--fg2); transition: box-shadow .2s, color .2s; }
+.prof { position: absolute; left: 26px; top: 14px; display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 16px 0 6px; border-radius: 22px; font-size: 14.5px; font-weight: 700; color: var(--fg); transition: background .2s, box-shadow .2s; }
+.prof .avatar { width: 32px; height: 32px; }
+.prof.focus { background: var(--chip); box-shadow: 0 0 0 2px var(--sel), 0 0 18px var(--glowc); }
+.dock { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); display: flex; gap: 22px; }
+.db { position: relative; width: 48px; height: 48px; border-radius: 50%; background: var(--chip); display: grid; place-items: center; color: var(--fg);
+  transition: background .2s, color .2s, transform .25s cubic-bezier(.3,.7,.2,1), box-shadow .2s; }
+.db svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.db em { position: absolute; top: 55px; left: 50%; transform: translateX(-50%); font-style: normal; font-size: 12.5px; font-weight: 700; white-space: nowrap; color: var(--fg); opacity: 0; transition: opacity .2s; }
+.db.sel { box-shadow: inset 0 0 0 1.5px var(--fg3); }
+.db.sel em { opacity: .75; }
+.db.focus { background: var(--sel); color: var(--selfg); transform: scale(1.1); box-shadow: 0 0 22px var(--glowc); }
+.db.focus em { opacity: 1; }
+.status { position: absolute; right: 30px; top: 14px; display: flex; align-items: center; gap: 10px; height: 44px; font-size: 14px; font-weight: 700; color: var(--fg2); }
+.status svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .avatar { width: 28px; height: 28px; border-radius: 50%; flex: none; }
+.screen.sheetdom { opacity: 1; visibility: visible; pointer-events: none; }   /* a sheet still sliding away after it's been closed */
 
 /* home */
 .home-info { position: absolute; left: 60px; top: 470px; width: 520px; }
@@ -91,7 +99,7 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .note-small { font-size: 12.5px; color: var(--fg2); line-height: 1.45; margin-top: 8px; }
 
 /* library */
-.rail { position: absolute; left: 28px; top: 120px; width: 196px; height: 600px; padding: 8px; overflow: hidden; }
+.rail { position: absolute; left: 28px; top: 136px; width: 196px; height: 584px; padding: 8px; overflow: hidden; }
 .railin { display: block; position: relative; transition: transform .3s cubic-bezier(.2,.8,.2,1); }
 .rail div { position: relative; padding: 7px 12px; margin-bottom: 2px; border-radius: 11px; font-size: 13.5px; font-weight: 700; color: var(--fg3); display: flex; justify-content: space-between; white-space: nowrap; transition: background .2s, color .2s; }
 .rail div span { font-weight: 600; color: var(--fg3); }
@@ -99,13 +107,13 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .rail div.focus { background: var(--sel); color: var(--selfg); }
 .rail div.focus span { color: var(--selfg); opacity: .7; }
 .rail h5 { margin: 10px 12px 4px; font-size: 11.5px; font-weight: 700; color: var(--fg2); }
-.filters { position: absolute; left: 244px; top: 74px; display: flex; gap: 8px; }
+.filters { position: absolute; left: 244px; top: 98px; display: flex; gap: 8px; }
 .filter { padding: 5px 13px; border-radius: 15px; border: 1.5px solid var(--line); font-size: 12.5px; color: var(--fg3); font-weight: 700; background: var(--panel); transition: background .2s, color .2s; }
 .filter em { font-style: normal; color: var(--fg); margin-left: 4px; }
 .filter.focus { background: var(--sel); border-color: var(--sel); color: var(--selfg); }
 .filter.focus em { color: var(--selfg); }
-.lib-head { position: absolute; right: 30px; top: 80px; font-size: 12.5px; color: var(--fg2); }
-.gridframe { position: absolute; left: 244px; top: 120px; width: 1062px; height: 600px; border-radius: 20px; border: 1px solid var(--line); overflow: hidden; pointer-events: none; }
+.lib-head { position: absolute; right: 30px; top: 104px; font-size: 12.5px; color: var(--fg2); }
+.gridframe { position: absolute; left: 244px; top: 136px; width: 1062px; height: 584px; border-radius: 20px; border: 1px solid var(--line); overflow: hidden; pointer-events: none; }
 .gridframe::before, .gridframe::after { content: ""; position: absolute; left: 0; right: 0; height: 36px; }
 .gridframe::before { top: 0; background: linear-gradient(var(--fadec), transparent); }
 .gridframe::after { bottom: 0; background: linear-gradient(transparent, var(--fadec)); }
@@ -121,10 +129,10 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 #muRail div { font-size: 13px; }
 #muRail div span { margin-left: 10px; }
 .filter.cur { color: var(--fg); border-color: var(--fg3); }
-.mu-drag { position: absolute; left: 244px; top: 112px; width: 632px; height: 570px; cursor: grab; touch-action: none; }
+.mu-drag { position: absolute; left: 244px; top: 136px; width: 632px; height: 570px; cursor: grab; touch-action: none; }
 .mu-hint { position: absolute; left: 560px; bottom: 30px; transform: translateX(-50%); white-space: nowrap; padding: 7px 14px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); font-size: 12.5px; color: var(--fg2); pointer-events: none; }
 .mu-hint .btn { margin: 0 2px; }
-.mu-info { position: absolute; right: 28px; top: 84px; width: 404px; height: 636px; padding: 22px 26px; overflow: hidden; }
+.mu-info { position: absolute; right: 28px; top: 98px; width: 404px; height: 622px; padding: 22px 26px; overflow: hidden; }
 .mu-info h2 { margin: 4px 0 0; font-family: var(--display); font-weight: 500; font-size: 24px; line-height: 1.15; }
 .mu-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; margin-top: 14px; font-size: 12px; color: var(--fg2); }
 .mu-facts b { display: block; margin-top: 2px; color: var(--fg); font-size: 13px; font-weight: 700; }
@@ -135,7 +143,7 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .mu-note { margin: 12px 0 0; font-size: 11.5px; line-height: 1.45; color: var(--fg3); }
 
 /* game page */
-.gp { position: absolute; left: 690px; top: 70px; width: 616px; height: 656px; overflow: hidden; }
+.gp { position: absolute; left: 690px; top: 140px; width: 616px; height: 586px; overflow: hidden; }
 .gpin { padding: 22px 26px 30px; transition: transform .35s cubic-bezier(.2,.8,.2,1); }
 .gp-sys { font-size: 12.5px; font-weight: 800; color: var(--acc-t); }
 .gp h2 { margin: 4px 0 0; font-family: var(--display); font-weight: 500; font-size: 26px; line-height: 1.12; }
@@ -169,26 +177,26 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .managed { display: flex; align-items: center; justify-content: space-between; gap: 14px; transition: box-shadow .2s; }
 .managed.focus { box-shadow: 0 0 0 2px var(--sel); }
 .managed .act { flex: none; }
-/* the game panel slides in from the right, its sections following one after another */
-#s-game .gp { transform: translateX(90px); opacity: 0; transition: transform .55s cubic-bezier(.2,.8,.2,1), opacity .4s ease; }
-#s-game.on .gp { transform: none; opacity: 1; transition-delay: .1s; }
-#s-game.on.closing .gp { transform: translateX(90px); opacity: 0; transition-delay: 0s; transition-duration: .4s, .3s; }
-@keyframes gpRise { from { opacity: 0; transform: translateX(26px); } }
+/* the game panel rises from the bottom once the box is in place, its sections following one after another */
+#s-game .gp { transform: translateY(80px); opacity: 0; transition: transform .6s cubic-bezier(.2,.8,.2,1), opacity .45s ease; }
+#s-game.on .gp { transform: none; opacity: 1; transition-delay: .5s; }
+#s-game.on.closing .gp { transform: translateY(80px); opacity: 0; transition-delay: 0s; transition-duration: .4s, .25s; }
+@keyframes gpRise { from { opacity: 0; transform: translateY(24px); } }
 .gpin.enter > * { animation: gpRise .5s cubic-bezier(.2,.8,.2,1) both; }
-.gpin.enter > :nth-child(1) { animation-delay: 0.165s; }
-.gpin.enter > :nth-child(2) { animation-delay: 0.210s; }
-.gpin.enter > :nth-child(3) { animation-delay: 0.255s; }
-.gpin.enter > :nth-child(4) { animation-delay: 0.300s; }
-.gpin.enter > :nth-child(5) { animation-delay: 0.345s; }
-.gpin.enter > :nth-child(6) { animation-delay: 0.390s; }
-.gpin.enter > :nth-child(7) { animation-delay: 0.435s; }
-.gpin.enter > :nth-child(8) { animation-delay: 0.480s; }
-.gpin.enter > :nth-child(9) { animation-delay: 0.525s; }
-.gpin.enter > :nth-child(10) { animation-delay: 0.570s; }
-.gpin.enter > :nth-child(11) { animation-delay: 0.615s; }
-.gpin.enter > :nth-child(12) { animation-delay: 0.660s; }
-.gpin.enter > :nth-child(13) { animation-delay: 0.705s; }
-.gpin.enter > :nth-child(14) { animation-delay: 0.750s; }
+.gpin.enter > :nth-child(1) { animation-delay: 0.565s; }
+.gpin.enter > :nth-child(2) { animation-delay: 0.610s; }
+.gpin.enter > :nth-child(3) { animation-delay: 0.655s; }
+.gpin.enter > :nth-child(4) { animation-delay: 0.700s; }
+.gpin.enter > :nth-child(5) { animation-delay: 0.745s; }
+.gpin.enter > :nth-child(6) { animation-delay: 0.790s; }
+.gpin.enter > :nth-child(7) { animation-delay: 0.835s; }
+.gpin.enter > :nth-child(8) { animation-delay: 0.880s; }
+.gpin.enter > :nth-child(9) { animation-delay: 0.925s; }
+.gpin.enter > :nth-child(10) { animation-delay: 0.970s; }
+.gpin.enter > :nth-child(11) { animation-delay: 1.015s; }
+.gpin.enter > :nth-child(12) { animation-delay: 1.060s; }
+.gpin.enter > :nth-child(13) { animation-delay: 1.105s; }
+.gpin.enter > :nth-child(14) { animation-delay: 1.150s; }
 .achcard { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: var(--panel2); font-size: 12.5px; color: var(--fg2); white-space: nowrap; transition: box-shadow .2s; }
 .achcard.focus { box-shadow: 0 0 0 2px var(--sel); }
 .achcard .bar { width: 110px; }
@@ -203,15 +211,17 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .turnhint .btn { margin-right: 3px; }
 
 /* apps */
-.appgrid { position: absolute; left: 60px; right: 60px; top: 96px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 22px 10px; }
+.appgrid { position: absolute; left: 60px; right: 60px; top: 136px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 22px 10px; }
 .app { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 4px; border-radius: 18px; transition: background .2s, transform .2s; }
 .app img { width: 74px; height: 74px; border-radius: 20px; box-shadow: 0 8px 22px var(--shadow); }
 .app span { font-size: 12.5px; font-weight: 700; max-width: 130px; text-align: center; color: var(--fg); }
 .app small { font-size: 10.5px; font-weight: 700; color: var(--acc-t); margin-top: -4px; }
 .app.focus { background: var(--chip); transform: translateY(-3px); box-shadow: 0 0 0 2px var(--sel); }
-.apphead { position: absolute; left: 60px; right: 60px; top: 72px; display: flex; justify-content: space-between; font-size: 12.5px; color: var(--fg2); }
+.apphead { position: absolute; left: 60px; right: 60px; top: 104px; display: flex; justify-content: space-between; font-size: 12.5px; color: var(--fg2); }
 
 /* settings */
+#s-settings { transform: translateY(60px); transition: opacity .35s ease, transform .5s cubic-bezier(.2,.8,.2,1), visibility 0s linear .35s; }   /* Settings rises from the bottom too */
+#s-settings.on { transform: none; transition: opacity .35s ease, transform .5s cubic-bezier(.2,.8,.2,1), visibility 0s; }
 #s-settings h1 { position: absolute; left: 34px; top: 22px; margin: 0; font-family: var(--display); font-weight: 500; font-size: 24px; }
 .set-nav { position: absolute; left: 28px; top: 70px; width: 230px; bottom: 26px; padding: 8px; }
 .set-nav div { padding: 9px 14px; margin-bottom: 2px; border-radius: 12px; font-size: 14px; font-weight: 700; color: var(--fg3); transition: background .2s, color .2s; }
@@ -339,8 +349,9 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .kbrow { display: flex; gap: 7px; margin-bottom: 7px; }
 .key { flex: none; display: grid; place-items: center; height: 42px; border-radius: 10px; background: var(--chip); font-size: 17px; font-weight: 700; }
 .key.wide { font-size: 14px; } .key.focus { background: var(--sel); color: var(--selfg); }
-.toast { position: absolute; left: 50%; top: 18px; padding: 9px 22px; border-radius: 20px; background: var(--sel); color: var(--selfg); z-index: 9; font-size: 14px; font-weight: 800;
-  transform: translate(-50%, -90px); transition: transform .4s cubic-bezier(.2,.8,.2,1); white-space: nowrap; }
+.toast { position: absolute; left: 50%; bottom: 26px;   /* at the bottom, clear of the top bar */
+  padding: 9px 22px; border-radius: 20px; background: var(--sel); color: var(--selfg); z-index: 9; font-size: 14px; font-weight: 800;
+  transform: translate(-50%, 90px); transition: transform .4s cubic-bezier(.2,.8,.2,1); white-space: nowrap; }
 .toast.show { transform: translate(-50%, 0); }
 #flash { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 7; }
 .keys { position: fixed; left: 0; right: 0; bottom: 6px; text-align: center; font-size: 12px; color: var(--page-text); }
@@ -353,18 +364,18 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
   <div id="ui">
     <section id="s-setup" class="screen"><div class="setup panel" id="setup"></div></section>
     <header id="topbar">
-      <nav class="tabs panel"><div class="tab" data-k="home">Home</div><div class="tab" data-k="library">Library</div><div class="tab" data-k="apps">Apps</div><div class="tab" data-k="museum">Museum</div></nav>
-      <div class="tright">
-        <div class="status panel"><svg viewBox="0 0 24 24"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0"/><circle cx="12" cy="19" r="1.2" fill="currentColor"/></svg>
-          <svg viewBox="0 0 24 24"><rect x="3" y="7" width="16" height="10" rx="2.5"/><path d="M21 10.5v3"/><rect x="5.5" y="9.5" width="9" height="5" rx="1" fill="currentColor" stroke="none"/></svg><span>76%</span><span id="clock"></span></div>
-        <div class="tbtn panel" data-k="settings" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M4.2 6.2l2.1 2.1M17.7 15.7l2.1 2.1M2.5 12h3M18.5 12h3M4.2 17.8l2.1-2.1M17.7 8.3l2.1-2.1"/></svg></div>
-        <div class="tbtn panel" data-k="profile"><i class="avatar" id="avatar"></i><span id="meName"></span></div>
-      </div>
+      <div class="prof" data-k="profile"><i class="avatar" id="avatar"></i><span id="meName"></span></div>
+      <nav class="dock">
+        <div class="db" data-k="library"><svg viewBox="0 0 24 24"><rect x="3.5" y="4" width="4" height="16" rx="1"/><rect x="9.5" y="4" width="4" height="16" rx="1"/><path d="M15.6 5.2l3.8-1 3.1 14.6-3.8 1z"/></svg><em>Library</em></div>
+        <div class="db" data-k="apps"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="2"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="2"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="2"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="2"/></svg><em>Apps</em></div>
+        <div class="db" data-k="museum"><svg viewBox="0 0 24 24"><path d="M3 9.5L12 4l9 5.5M5 10v8M9.7 10v8M14.3 10v8M19 10v8M3.5 20.5h17"/></svg><em>Museum</em></div>
+        <div class="db" data-k="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M5.5 18.5l1.8-1.8M16.7 7.3l1.8-1.8"/></svg><em>Settings</em></div>
+      </nav>
+      <div class="status"><svg viewBox="0 0 24 24"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0"/><circle cx="12" cy="19" r="1.2" fill="currentColor"/></svg>
+        <svg viewBox="0 0 24 24"><rect x="3" y="7" width="16" height="10" rx="2.5"/><path d="M21 10.5v3"/><rect x="5.5" y="9.5" width="9" height="5" rx="1" fill="currentColor" stroke="none"/></svg><span>76%</span><span id="clock"></span></div>
     </header>
     <section id="s-home" class="screen">
       <div class="home-info" id="homeInfo"><h2 id="hTitle"></h2><div class="meta" id="hMeta"></div></div>
-      <div class="cards" id="hCards"></div>
-      <div class="focus-title" id="hTile"><b>All games</b><span id="hTileN"></span></div>
     </section>
     <section id="s-library" class="screen">
       <div class="gridframe"></div>
@@ -1449,7 +1460,7 @@ function drawPlate(key, make, px, py, wpx, hpx, z, color, alpha) {
   drawPart(PLANE, M4.trs(x, y, z, 0, 0, 0, [wpx / PX, hpx / PX, 1]), { tex: tex(key, make, true), col: color, alpha, mask: true });
   gl.depthMask(true);
 }
-function clipBand(y0, y1) { if (NODRAW) return; const k = cv.height / H; gl.enable(gl.SCISSOR_TEST); gl.scissor(0, Math.round((H - y1) * k), cv.width, Math.round((y1 - y0) * k)); }
+function clipBand(y0, y1) { if (NODRAW) return; const k = cv.height / H; y0 += SHEETOFF; y1 += SHEETOFF; gl.enable(gl.SCISSOR_TEST); gl.scissor(0, Math.round((H - y1) * k), cv.width, Math.round((y1 - y0) * k)); }
 function unclip() { if (!NODRAW) gl.disable(gl.SCISSOR_TEST); }
 
 // the selection glow: a soft ring that hugs the cartridge's outline and moves with it
@@ -1460,7 +1471,7 @@ function drawCartGlow(g, st, c1, c2) {
   drawPart(cm.ring, M, { hull: true, grow: 26 / (PX * st.s), col: c1, emit: c2, alpha: .95 * (st.alpha == null ? 1 : st.alpha) });
   gl.enable(gl.CULL_FACE); gl.depthMask(true);
 }
-function clipRect(x0, y0, x1, y1) { if (NODRAW) return; const k = cv.height / H; gl.enable(gl.SCISSOR_TEST); gl.scissor(Math.round(x0 * k), Math.round((H - y1) * k), Math.round((x1 - x0) * k), Math.round((y1 - y0) * k)); }
+function clipRect(x0, y0, x1, y1) { if (NODRAW) return; const k = cv.height / H; y0 += SHEETOFF; y1 += SHEETOFF; gl.enable(gl.SCISSOR_TEST); gl.scissor(Math.round(x0 * k), Math.round((H - y1) * k), Math.round((x1 - x0) * k), Math.round((y1 - y0) * k)); }
 
 // an orthographic camera matching the pixel grid at z = 0, for the flat Library view
 function setFlat() { const hw = W / 2 / PX, hh = H / 2 / PX; VP = new Float32Array([1 / hw, 0, 0, 0, 0, 1 / hh, 0, 0, 0, 0, -.02, 0, 0, 0, 0, 1]); EYE = [0, 0, CAMZ]; }
@@ -2113,10 +2124,12 @@ const S = {
   apps: { i: 0 }, set: { cat: 0, zone: 'nav', i: 0, back: 'home', sub: null, game: null },
   mu: { i: 0, ex: 0, zone: 'rail', yaw: -.55, pitch: .45, yawT: -.55, pitchT: .45, open: 0, fade: 1, prev: null },
   ach: { id: null, filter: 0, i: 0 }, dlg: { open: false }, kb: { open: false },
+  sheet: { name: null, p: 0, k: 0 }, homeA: 1,   // the sheet (Library, Apps or Museum) that slides up over Home, and how visible Home is
   seq: null, play: null, time: 0,
 };
 const TABS = ['home', 'library', 'apps', 'museum'];
-const TOP = [...TABS, 'settings', 'profile'];
+const SHEETS = ['library', 'apps', 'museum'];   // these slide up over Home rather than replacing it
+const TOP = ['profile', 'library', 'apps', 'museum', 'settings'];   // the top bar, left to right
 const SORTS = ['Recently played', 'A to Z', 'Release year'];
 const SHOWS = ['All', 'Saved', 'Not played'];
 const HOME_MAX = 10;
@@ -2136,13 +2149,13 @@ let toastTimer = 0;
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2400); }
 function show(screen, under) {   // under: a tab left visible behind, faded back (behind an open box)
   document.querySelectorAll('.screen').forEach(s => { s.classList.toggle('on', s.id === 's-' + screen); s.classList.toggle('under', s.id === 's-' + under); s.classList.remove('rise'); });
-  $('#topbar').classList.toggle('on', TABS.includes(screen)); $('#topbar').classList.toggle('under', TABS.includes(under || '')); $('#topbar').classList.remove('rise');
+  $('#topbar').classList.toggle('on', TABS.includes(screen) || screen === 'game'); $('#topbar').classList.remove('under', 'rise');
   if (screen !== 'game') S.skipId = null;
 }
 function riseUnder(tab) {   // bring a faded-back tab forward again, slowly, while the box closes
   const el = $('#s-' + tab); if (!el) return;
   document.querySelectorAll('.screen.under').forEach(s => s.classList.remove('under'));
-  el.classList.add('rise', 'on'); $('#topbar').classList.remove('under'); $('#topbar').classList.add('rise', 'on');
+  el.classList.add('rise', 'on');
 }
 function clockText() { return new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
 function avatarCss(cols) { return `radial-gradient(circle at 35% 30%, ${cols[0]}, ${cols[1]} 55%, ${cols[2]})`; }
@@ -2177,7 +2190,7 @@ function fillSetup() {
     ['Step 2 of 5', 'Pick a look', 'You can change it any time in Settings.'],
     ['Step 3 of 5', `Found ${GAMES.filter(g => g.sys !== 'android').length} games`, 'In Internal storage › ROMs and SD card › ROMs, sorted into consoles by folder and file type.'],
     ['Step 4 of 5', 'Art, manuals and achievements', 'Sign in to download box art, manuals and videos, and to earn achievements. Both are free, and both can wait.'],
-    ['Step 5 of 5', 'Make Shelf your home screen?', 'Then the Home button always brings you back here, and Shelf can save a game in RetroArch before you leave it. Your apps stay one tab away.'],
+    ['Step 5 of 5', 'Make Shelf your home screen?', 'Then the Home button always brings you back here, and Shelf can save a game in RetroArch before you leave it. Your apps are one button away.'],
   ][s];
   let extra = '';
   if (s === 3) extra = `<div class="found">${counts.map(([n, c]) => `<div class="ok">${n} <b>${c}</b></div>`).join('')}</div>
@@ -2215,38 +2228,18 @@ function finishSetup() { P.setup = true; paintProfile(); enterTab('home'); toast
 function enterSetup() { S.screen = 'setup'; show('setup'); setMood('home'); fillSetup(); }
 
 /* ================= tabs ================= */
-function enterTab(tab) {
-  S.tab = tab; S.screen = tab; S.top.on = false; show(tab); renderTop();
+function enterTab(tab) {   // Home is the base; the others slide up over it as a sheet
+  S.tab = tab; S.screen = tab; S.top.on = false; if (SHEETS.includes(tab)) S.sheet.name = tab; show(tab); renderTop();
   if (tab === 'home') refreshHome(); else if (tab === 'library') refreshLibrary(true); else if (tab === 'museum') enterMuseum(); else refreshApps();
 }
 function refreshTab() { S.tab === 'home' ? refreshHome() : S.tab === 'library' ? refreshLibrary(false) : S.tab === 'museum' ? refreshMuseum() : refreshApps(); renderTop(); }
-const homeItems = () => P.recent.filter(id => inLibrary(byId[id]) && !(P.hidden && P.hidden.has(id))).slice(0, HOME_MAX).concat(['__all']);
-function homeCards(id) { return id === '__all' ? [] : [{ k: 'box' }, { k: 'ach' }, { k: 'saves' }]; }
-function cardHtml(c, g) {
-  const r = rec(g.id);
-  if (c.k === 'box') return `<h4>Open the box</h4><p>Manual, saves, media and details</p><div class="big">⧉</div>`;
-  if (c.k === 'ach') {
-    if (g.sys === 'android') return `<h4>Achievements</h4><p>Android games keep their own.</p>`;
-    if (!P.ra) return `<h4>Achievements</h4><p>Sign in to RetroAchievements in Settings to earn them.</p>`;
-    const A = achievements(g), e = achFor(P, g), got = A.list.filter(a => e[a.id]).sort((a, b) => e[b.id].date - e[a.id].date), pct = Math.round(got.length / A.list.length * 100);
-    return `<h4>Achievements</h4><div class="big">${got.length}<small>of ${A.list.length}</small></div><i class="bar"><b style="width:${pct}%"></b></i><div class="minib">${got.slice(0, 5).map(a => `<img src="${badge(g, a, false)}" alt="">`).join('')}</div>`;
-  }
-  const emu = emuFor(g);
-  if (!isRA(emu)) return `<h4>Saves</h4><p class="note-small">${g.sys === 'android' ? 'The app keeps its own saves.' : `Kept by ${emu}. Shelf’s save slots work with RetroArch.`}</p>`;
-  const used = r ? r.slots.filter(Boolean).length : 0;
-  return `<h4>Saves</h4><p>${used} of 4 slots used</p><div class="slotdots">${[0, 1, 2, 3].map(i => `<i class="${r && r.slots[i] ? 'on' : ''}"></i>`).join('')}</div>`;
-}
+const homeItems = () => P.recent.filter(id => inLibrary(byId[id]) && !(P.hidden && P.hidden.has(id))).slice(0, HOME_MAX);
 function refreshHome() {
-  const items = homeItems(), H0 = S.home; H0.i = clamp(H0.i, 0, items.length - 1);
-  const id = items[H0.i], cards = homeCards(id); H0.card = clamp(H0.card, 0, Math.max(0, cards.length - 1)); if (!cards.length) H0.zone = 'row';
-  if (id === '__all') { setMood('home'); $('#hTitle').textContent = 'Your library'; $('#hMeta').innerHTML = `<span>${GAMES.filter(inLibrary).length} games on ${SYS_ORDER.length - 1} consoles, plus Android</span>`; }
-  else {
-    const g = byId[id], r = rec(id), emu = emuFor(g); setMood(g.sys); $('#hTitle').textContent = g.title;
-    $('#hMeta').innerHTML = `<span class="chip"><i></i>${PLAT[g.sys].name}</span><span>${agoText(r.last)}</span><span>${playedText(r.minutes)}</span><span>${isRA(emu) && r.slots.some(Boolean) ? 'A to resume' : 'A to play'}</span>`;
-  }
-  const g = byId[id];
-  $('#hCards').innerHTML = cards.map((c, i) => `<div class="card panel ${H0.zone === 'cards' && H0.card === i ? 'focus' : ''}">${cardHtml(c, g)}</div>`).join('');
-  $('#hTileN').textContent = `${GAMES.filter(inLibrary).length} games`;
+  const items = homeItems(), H0 = S.home; H0.i = clamp(H0.i, 0, Math.max(0, items.length - 1)); H0.zone = 'row';
+  const id = items[H0.i];
+  if (!id) { setMood('home'); $('#hTitle').textContent = 'Nothing played yet'; $('#hMeta').innerHTML = '<span>Your Library is in the top bar</span>'; return renderTop(); }
+  const g = byId[id], r = rec(id), emu = emuFor(g); setMood(g.sys); $('#hTitle').textContent = g.title;
+  $('#hMeta').innerHTML = `<span class="chip"><i></i>${PLAT[g.sys].name}</span><span>${agoText(r.last)}</span><span>${playedText(r.minutes)}</span><span>${isRA(emu) && r.slots.some(Boolean) ? 'A to resume' : 'A to play'}</span><span>▼ More</span>`;
   renderTop();
 }
 
@@ -2299,7 +2292,7 @@ function closeGame(then) {   // the box closes, goes back where it came from, an
 function closeGameTarget(g) {   // the pose the closed box shrinks back to
   const G0 = S.game, c = CART[g.sys], [bw, bh] = BOX[g.sys];
   if (G0.then !== G0.from) { const o = anim.get('case'); return { y: o.y - .5, s: o.s * .9, alpha: 0 }; }   // Home pressed: the closed box sinks away
-  if (G0.from === 'library') { const l = anim.get('lib:' + g.id); if (l) return { x: l.x, y: l.y, z: l.z, rx: l.rx, ry: l.ry, s: l.s, alpha: 1 }; }
+  if (G0.from === 'library') { const l = anim.get('lib:' + g.id); if (l) return { x: l.x, y: l.y - SHEETOFF / PX, z: l.z, rx: l.rx, ry: l.ry, s: l.s, alpha: 1 }; }   // its spot in the Library, which is still rising
   return null;
 }
 function gameActions() {
@@ -2877,6 +2870,7 @@ function museumInput(a) {
     if (a === 'up' && U.i === 0) { S.top.on = true; S.top.i = TOP.indexOf('museum'); sfx.move(); return refreshMuseum(); }
     if (a === 'up' || a === 'down') { const k = clamp(U.i + (a === 'up' ? -1 : 1), 0, n - 1); if (k !== U.i) { pickExhibit(k, U.ex); sfx.move(); } }
     else if (a === 'right' || a === 'a') { U.zone = 'stage'; sfx.move(); refreshMuseum(); }
+    else if (a === 'b') { sfx.back(); enterTab('home'); }
     return;
   }
   if (a === 'left' || a === 'right') U.yawT += (a === 'left' ? -1 : 1) * .4;
@@ -2950,7 +2944,7 @@ function act(a) {
   }
   if (sc === 'play') return;
   if (TABS.includes(sc)) {
-    if ((a === 'lb' || a === 'rb') && !(sc === 'museum' && S.mu.zone === 'stage' && !S.top.on)) { const k = (TABS.indexOf(sc) + (a === 'rb' ? 1 : TABS.length - 1)) % TABS.length; sfx.tab(); return enterTab(TABS[k]); }
+    if ((a === 'lb' || a === 'rb') && !(sc === 'museum' && S.mu.zone === 'stage' && !S.top.on)) return;
     if (S.top.on) return topInput(a);
     return sc === 'home' ? homeInput(a) : sc === 'library' ? libInput(a) : sc === 'museum' ? museumInput(a) : appsInput(a);
   }
@@ -2962,25 +2956,20 @@ function act(a) {
 }
 function topInput(a) {
   if (a === 'left' || a === 'right') { const k = clamp(S.top.i + (a === 'left' ? -1 : 1), 0, TOP.length - 1); if (k !== S.top.i) { S.top.i = k; sfx.move(); renderTop(); } }
-  else if (a === 'down' || a === 'b') { S.top.on = false; sfx.move(); refreshTab(); }
+  else if (a === 'down') { S.top.on = false; sfx.move(); refreshTab(); }
+  else if (a === 'b') { S.top.on = false; if (S.screen !== 'home') { sfx.back(); return enterTab('home'); } sfx.move(); refreshTab(); }
   else if (a === 'a') { const k = TOP[S.top.i];
-    if (k === 'settings') return openSettings(0); if (k === 'profile') return openSettings(0);
-    if (k !== S.tab) { sfx.tab(); enterTab(k); S.top.on = true; S.top.i = TOP.indexOf(k); refreshTab(); } }
+    if (k === 'settings') return openSettings(0); if (k === 'profile') return openSettings(CATS.indexOf('Profile'));
+    sfx.tab(); if (k !== S.tab) enterTab(k); else { S.top.on = false; refreshTab(); } }
 }
 function homeInput(a) {
   const H0 = S.home, items = homeItems(), id = items[H0.i];
-  if (H0.zone === 'row') {
-    if (a === 'left' || a === 'right') { const k = clamp(H0.i + (a === 'left' ? -1 : 1), 0, items.length - 1); if (k !== H0.i) { H0.i = k; H0.card = 0; sfx.move(); refreshHome(); } }
-    else if (a === 'up') { S.top.on = true; S.top.i = 0; sfx.move(); refreshHome(); }
-    else if (a === 'down' && id !== '__all') { H0.zone = 'cards'; H0.card = 0; sfx.move(); refreshHome(); }
-    else if (a === 'a') { if (id === '__all') { sfx.select(); enterTab('library'); } else { const g = byId[id], r = rec(id); launchGame(g, r.lastSlot, isRA(emuFor(g)) && r.slots.some(Boolean)); } }
-    else if (a === 'y' && id !== '__all') toggleFav(byId[id]);
-  } else {
-    if (a === 'left' || a === 'right') { const k = clamp(H0.card + (a === 'left' ? -1 : 1), 0, 2); if (k !== H0.card) { H0.card = k; sfx.move(); refreshHome(); } }
-    else if (a === 'up' || a === 'b') { H0.zone = 'row'; sfx.move(); refreshHome(); }
-    else if (a === 'a') { const c = homeCards(id)[H0.card].k, g = byId[id];
-      if (c === 'box') openGame(id, 'home:' + id, 'home'); else if (c === 'ach') { if (g.sys !== 'android') P.ra ? openAch(id) : openSettings(CATS.indexOf('Achievements')); } else { openGame(id, 'home:' + id, 'home'); S.game.zone = isRA(emuFor(g)) ? 'saves' : 'actions'; S.game.i = 0; fillGame(); } }
-  }
+  if (a === 'up') { S.top.on = true; S.top.i = TOP.indexOf('library'); sfx.move(); return refreshHome(); }
+  if (!id) return;
+  if (a === 'left' || a === 'right') { const k = clamp(H0.i + (a === 'left' ? -1 : 1), 0, items.length - 1); if (k !== H0.i) { H0.i = k; sfx.move(); refreshHome(); } }
+  else if (a === 'down') openGame(id, 'home:' + id, 'home');   // its page opens right here: the box slides in and the cartridge goes into it
+  else if (a === 'a') { const g = byId[id], r = rec(id); launchGame(g, r.lastSlot, isRA(emuFor(g)) && r.slots.some(Boolean)); }
+  else if (a === 'y') toggleFav(byId[id]);
 }
 function libInput(a) {
   const L = S.lib, n = L.list.length, cols = 5;
@@ -2992,16 +2981,18 @@ function libInput(a) {
     else if (a === 'down') { if (L.i + cols < n) { L.i += cols; sfx.move(); } else if (Math.floor(L.i / cols) < Math.floor((n - 1) / cols)) { L.i = n - 1; sfx.move(); } }
     else if (a === 'a' && n) return openGame(L.list[L.i].id, 'lib:' + L.list[L.i].id, 'library');
     else if (a === 'y' && n) return toggleFav(L.list[L.i]);
-    else if (a === 'b') { L.zone = 'rail'; sfx.back(); }
+    else if (a === 'b') { sfx.back(); return enterTab('home'); }
   } else if (L.zone === 'rail') {
     const stops = railStops(), at = stops.indexOf(L.rail), item = railItems()[L.rail];
-    if (a === 'up' && at === 0) { S.top.on = true; S.top.i = 1; sfx.move(); }
+    if (a === 'up' && at === 0) { S.top.on = true; S.top.i = TOP.indexOf('library'); sfx.move(); }
+    else if (a === 'b') { sfx.back(); return enterTab('home'); }
     else if (a === 'up' || a === 'down') { const k = clamp(at + (a === 'up' ? -1 : 1), 0, stops.length - 1); if (stops[k] !== L.rail) { L.rail = stops[k]; L.i = 0; L.rowF = .6; sfx.move(); return refreshLibrary(true); } }
     else if (a === 'y' && item.custom) return collectionOptions(item.custom);
     else if ((a === 'right' || a === 'a') && n) { L.zone = 'grid'; sfx.move(); }
   } else {
-    if (a === 'left') { L.zone = 'rail'; sfx.move(); } else if (a === 'up') { S.top.on = true; S.top.i = 1; sfx.move(); }
-    else if (a === 'down' || a === 'b') { if (n) L.zone = 'grid'; sfx.move(); }
+    if (a === 'left') { L.zone = 'rail'; sfx.move(); } else if (a === 'up') { S.top.on = true; S.top.i = TOP.indexOf('library'); sfx.move(); }
+    else if (a === 'b') { sfx.back(); return enterTab('home'); }
+    else if (a === 'down') { if (n) L.zone = 'grid'; sfx.move(); }
     else if (a === 'a') { L.sort = (L.sort + 1) % SORTS.length; L.i = 0; sfx.select(); return refreshLibrary(true); }
   }
   refreshLibrary(false);
@@ -3009,7 +3000,8 @@ function libInput(a) {
 function appsInput(a) {
   const cols = 7, n = APPS.length, i = S.apps.i;
   if (a === 'left' && i % cols > 0) { S.apps.i--; sfx.move(); } else if (a === 'right' && i % cols < cols - 1 && i + 1 < n) { S.apps.i++; sfx.move(); }
-  else if (a === 'up') { if (i < cols) { S.top.on = true; S.top.i = 2; } else S.apps.i -= cols; sfx.move(); }
+  else if (a === 'up') { if (i < cols) { S.top.on = true; S.top.i = TOP.indexOf('apps'); } else S.apps.i -= cols; sfx.move(); }
+  else if (a === 'b') { sfx.back(); return enterTab('home'); }
   else if (a === 'down' && i + cols < n) { S.apps.i += cols; sfx.move(); }
   else if (a === 'a') { const app = APPS[i]; if (ANDROID_GAMES.has(app.name)) { const g = GAMES.find(x => x.title === app.name); return startPlayDirect(g); } toast(`Opens ${app.name}`); }
   else if (a === 'y') return appOptions();
@@ -3124,44 +3116,74 @@ function planetTarget() {
     default: return { x: 667, y: 1200, r: 500, a: 0 };
   }
 }
-function drawHome(dt, t) {
-  const items = homeItems(), H0 = S.home, rowFocus = H0.zone === 'row' && !S.top.on, q = S.seq;
+function drawHome(dt, t, strip) {   // strip: a game's page is open here, so the rest of the row waits in a small strip up top
+  const items = homeItems(), H0 = S.home, rowFocus = H0.zone === 'row' && !S.top.on && S.screen === 'home', q = S.seq;
   approach(H0, { f: H0.i }, dt, 8);
   setFlat(); beginMeshes();
-  const drawn = [];
+  const drawn = [], others = strip ? items.filter(id => id !== S.game.id) : [];
   items.forEach((id, i) => {
-    const off = i - H0.f, foc = i === H0.i, xpx = 270 + off * 196 + Math.sign(off) * Math.min(Math.abs(off), 1) * 70;
-    const alpha = off < 0 ? (off > -1 ? 1 + .6 * off : .4 * (1 - clamp(-off - 1, 0, 1))) : 1 - clamp((off - 5) / 1.2, 0, 1);
-    const bob = motion() ? Math.sin(t * .8 + i * 1.7) * (foc ? 4 : 3) : 0, ypx = (foc ? 238 : 262) + bob;
-    if (id === '__all') { const o = pose('home:__all', { s: 0 }); approach(o, { x: xpx, y: 262, s: foc ? 190 : 140, alpha }, dt, 10);
-      drawPlate('tile', tileArt, o.x, o.y, o.s, o.s, 0, foc && rowFocus ? [1, 1, 1] : lightTheme() ? [.3, .32, .4] : [.75, .78, .95], o.alpha);
-      if (!NODRAW) { const L = $('#hTile'); L.style.left = o.x + 'px'; L.style.top = (o.y - 22) + 'px'; L.style.opacity = o.alpha; L.classList.add('on'); }
-      return; }
-    const g = byId[id], o = pose('home:' + id, { s: 0, y: 3 }), [x, y] = pw(xpx, ypx);
-    approach(o, { x, z: foc ? .5 : 0, ry: -.2, rx: -.1, s: mediaScale(g.sys, foc ? 236 : 150), alpha, bright: foc ? 1.02 : .72, glow: foc && rowFocus ? 1 : 0 }, dt, 10);
-    approach(o, { y }, dt, foc ? 7 : 10);
+    const g = byId[id], o = pose('home:' + id, { s: 0, y: 3 }), foc = !strip && i === H0.i;
+    let xpx, ypx, alpha, bob = 0;
+    if (strip) { const j = others.indexOf(id); xpx = 667 + (j - (others.length - 1) / 2) * 76; ypx = 106; alpha = .8; }
+    else {
+      const off = i - H0.f; xpx = 270 + off * 196 + Math.sign(off) * Math.min(Math.abs(off), 1) * 70;
+      alpha = off < 0 ? (off > -1 ? 1 + .6 * off : .4 * (1 - clamp(-off - 1, 0, 1))) : 1 - clamp((off - 5) / 1.2, 0, 1);
+      bob = motion() ? Math.sin(t * .8 + i * 1.7) * (foc ? 4 : 3) : 0; ypx = (foc ? 238 : 262) + bob;
+    }
+    const [x, y] = pw(xpx, ypx);
+    approach(o, { x, z: foc ? .5 : 0, ry: strip ? -.12 : -.2, rx: -.1, s: mediaScale(g.sys, strip ? 50 : foc ? 236 : 150), alpha, bright: foc ? 1.02 : strip ? .62 : .72, glow: foc && rowFocus ? 1 : 0 }, dt, strip ? 7 : 10);
+    approach(o, { y }, dt, foc ? 7 : strip ? 6 : 10);
     const M = M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s);
-    if ((q && q.g.id === id) || S.skipId === id) return;   // it's drawn elsewhere: in the launch scene, or flying to its box
-    const hpx = CART[g.sys].h / 2 * o.s * PX;
-    if (o.alpha > .01) { shadowUnder(xpx, ypx - bob + hpx + (foc ? 24 : 12), Math.max(CART[g.sys].w, .5) * o.s * PX * .9, o.alpha, foc); drawn.push([g, M, o, foc]); }
+    if ((q && q.g.id === id) || S.skipId === id) return;   // it's drawn elsewhere: in the launch scene, or in its box
+    const hpx = CART[g.sys].h / 2 * o.s * PX, sh = 1 - clamp((262 - (H / 2 - o.y * PX)) / 80, 0, 1);   // shadows fade as they rise into the strip
+    if (o.alpha > .01) { if (sh > .01) shadowUnder(xpx, ypx - bob + hpx + (foc ? 24 : 12), Math.max(CART[g.sys].w, .5) * o.s * PX * .9, o.alpha * sh, foc); drawn.push([g, M, o, foc]); }
   });
   for (const [g, M, o, foc] of drawn) { if (foc && rowFocus) { const m = moodColors(MOOD.cur); drawCartGlowM(g, M, o.s, hexRgb(m.accent), hexRgb(m.planet[0]), o.alpha); } drawCartM(g, M, o); }
   endMeshes();
-  if (!NODRAW && items[H0.i] !== '__all') $('#hTile').classList.toggle('on', true);
+}
+// The sheet: Library, Apps or the Museum on a panel that slides up from the bottom and covers Home completely.
+// Everything on it is drawn with the view shifted down by SHEETOFF pixels, so it all moves together.
+function sheetTarget() {
+  const sc = S.screen, G0 = S.game;
+  if (SHEETS.includes(sc)) return 1;
+  if (sc === 'game') return SHEETS.includes(G0.from) && G0.closing && G0.then === G0.from ? 1 : 0;   // a box opened from the Library: the sheet slides away, then back
+  if (['settings', 'ach', 'media', 'manual'].includes(sc)) return S.sheet.p >= .5 ? 1 : 0;
+  return 0;
+}
+function sheetUpdate(dt) {
+  const sh = S.sheet, tgt = sheetTarget(); sh.p = clamp(sh.p + Math.sign(tgt - sh.p) * dt / .55, 0, 1); sh.k = ease(sh.p);
+  SHEETOFF = (1 - sh.k) * 790;
+  // Home stays hidden while any sheet is up, or a box from the Library is open, and only comes back once the sheet has fully gone
+  const homeOk = sh.k < .002 && !(sc => sc === 'game' && S.game.from !== 'home')(S.screen);
+  S.homeA = homeOk ? Math.min(1, S.homeA + dt / .4) : Math.min(S.homeA, 1 - sh.k, tgt ? 1 - sh.k : 0);
+  if (NODRAW) return;
+  $('#homeInfo').style.opacity = S.homeA;
+  for (const n of SHEETS) { const el = $('#s-' + n), mine = n === sh.name;   // the sheet's own panels ride along with it, and stay below the screen once it's down
+    el.style.transform = mine ? `translateY(${SHEETOFF}px)` : ''; el.classList.toggle('sheetdom', mine && sh.k > .002 && S.screen === 'home'); }
+}
+function drawSheet(dt, t) {
+  if (S.sheet.k < .002 || !S.sheet.name) return;
+  if (!NODRAW) { gl.clear(gl.DEPTH_BUFFER_BIT); gl.viewport(0, -Math.round(SHEETOFF * cv.height / H), cv.width, cv.height); }
+  setFlat(); beginMeshes();
+  const b = hexRgb(getComputedStyle(stage).getPropertyValue('--bg').trim() || '#070b1e'), f = lightTheme() ? [1, 1, 1] : [.6, .65, 1];
+  drawPlate('sheet', panelArt, 667, 486, 1300, 800, 2, b.map((v, i) => v * .9 + f[i] * .06), .95);
+  endMeshes(); if (!NODRAW) gl.clear(gl.DEPTH_BUFFER_BIT);
+  if (S.sheet.name === 'library') drawLibrary(dt, t); else if (S.sheet.name === 'museum') drawMuseum(dt);
+  if (!NODRAW) gl.viewport(0, 0, cv.width, cv.height);
 }
 function drawLibrary(dt, t) {
   const L = S.lib, cols = 5, row = Math.floor(L.i / cols), onGrid = L.zone === 'grid' && !S.top.on;
   const lastRow = Math.max(0, Math.floor((L.list.length - 1) / cols)), top = .58, bottom = .49;
   approach(L, { rowF: clamp(row, top, Math.max(top, lastRow - bottom)) }, dt, 9);
-  const CY = 420, ROW = 300, cx = c => 363 + c * 206, s0 = BOXK, still = !motion();
+  const CY = 428, ROW = 300, cx = c => 363 + c * 206, s0 = BOXK, still = !motion();
   setFlat(); beginMeshes();
-  drawPlate('gridpanel', panelArt, 775, 420, 1062, 600, 0, lightTheme() ? [1, 1, 1] : [.035, .045, .11], lightTheme() ? .4 : .55);
-  clipRect(245, 121, 1305, 719);
+  drawPlate('gridpanel', panelArt, 775, 428, 1062, 584, 0, lightTheme() ? [1, 1, 1] : [.035, .045, .11], lightTheme() ? .4 : .55);
+  clipRect(245, 137, 1305, 719);
   let focus = null;
   L.list.forEach((g, i) => {
     const r = Math.floor(i / cols), c = i % cols, foc = onGrid && i === L.i, o = pose('lib:' + g.id, { s: 0 });
     const ypx = CY + (r - L.rowF) * ROW, lift = foc ? 14 : 0, bob = still ? 0 : Math.sin(t * .8 + i * 1.7) * (foc ? 4 : 3), [x, y] = pw(cx(c), ypx - lift + bob);
-    const cut = Math.max(0, 260 - ypx, ypx - 600) / 90, vis = 1 - clamp((Math.abs(ypx - CY) - ROW) / 90, 0, 1);
+    const cut = Math.max(0, 276 - ypx, ypx - 600) / 90, vis = 1 - clamp((Math.abs(ypx - CY) - ROW) / 90, 0, 1);
     approach(o, { x, z: foc ? .4 : 0, ry: .3, rx: -.08, s: s0 * (foc ? 1.08 : 1), alpha: clamp(vis, 0, 1) * (1 - .45 * clamp(cut, 0, 1)), bright: foc ? 1.03 : onGrid ? .66 : .82 }, dt, 11);
     approach(o, { y }, dt, foc ? 7 : 11);
     const [bw, bh] = BOX[g.sys];
@@ -3212,13 +3234,11 @@ function drawGamePage(dt, t) {
   // The screen the box came from stays behind it, faded far back, and comes forward again as the box closes
   if (G0.fly) G0.fly.t += dt;
   approach(G0, { dim: G0.closing ? 0 : 1 }, dt, G0.closing ? 4.5 : 5);
-  const under = G0.closing ? G0.then : G0.from;
-  if (under === 'home' || under === 'library') {
-    S.skipId = g.id; UNDER = 1 - .55 * G0.dim;
-    under === 'home' ? drawHome(dt, t) : drawLibrary(dt, t);
-    UNDER = 1;
-  }
-  drawShade(G0.dim * (lightTheme() ? .32 : .58));   // and a dark veil over the whole background, planet and all
+  // From Home, the rest of the row waits in a strip up top; from the Library, the sheet slides away below, and back as the box closes
+  S.skipId = g.id;
+  if (G0.from === 'home') { if (G0.closing ? G0.then === 'home' : true) drawHome(dt, t, !G0.closing); }
+  else if (SHEETS.includes(G0.from)) drawSheet(dt, t);
+  if (!NODRAW) gl.clear(gl.DEPTH_BUFFER_BIT);
   setCamera(0, CAMZ, 0); beginMeshes();
   const q = S.seq && S.seq.g === g ? S.seq : null;
   drawCase(g, o, o.open, 0, !!q || home);   // while launching, coming back or flying to and from Home, the media is drawn on its own
@@ -3254,7 +3274,7 @@ function drawGamePage(dt, t) {
 }
 
 /* ================= main loop ================= */
-let last = performance.now(), clockTimer = 0, MANUAL = false, NODRAW = false, UNDER = 1;   // UNDER fades everything drawn behind an open box
+let last = performance.now(), clockTimer = 0, MANUAL = false, NODRAW = false, UNDER = 1, SHEETOFF = 0;   // UNDER fades everything drawn behind an open box
 window.__step = (seconds, fps = 30) => { MANUAL = true; const n = Math.max(1, Math.round(seconds * fps)); for (let i = 0; i < n; i++) { NODRAW = i < n - 1; tick(1 / fps); } NODRAW = false; };
 function loop(now) { requestAnimationFrame(loop); const dt = Math.min(.05, (now - last) / 1000); last = now; if (!MANUAL) { try { tick(dt); } catch (e) { console.error(e); } } }
 function tick(dt) {
@@ -3263,6 +3283,7 @@ function tick(dt) {
   MOOD.t = Math.min(1, MOOD.t + dt / .8);
   for (let i = 0; i < 3; i++) RIM[i] += (RIM_T[i] - RIM[i]) * Math.min(1, dt * 4);
   if (S.seq) seqUpdate(dt);
+  sheetUpdate(dt);
   musicDuck();
   if (S.play) playUpdate(dt);
   if (S.screen === 'media') mvUpdate(dt);
@@ -3271,10 +3292,11 @@ function tick(dt) {
   if (!NODRAW) { gl.viewport(0, 0, cv.width, cv.height); const b = hexRgb(getComputedStyle(stage).getPropertyValue('--bg').trim() || '#070b1e'); gl.clearColor(b[0], b[1], b[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); }
   const dim = ['media', 'manual', 'play'].includes(S.screen) ? .45 : 1;
   drawBackdrop(S.time, { bright: dim, pan: S.screen === 'home' ? S.home.f * .006 : S.screen === 'library' ? S.lib.rowF * .02 : 0, planet: PL.a > .01 ? PL : null });
-  if (S.screen === 'home') drawHome(dt, S.time);
-  else if (S.screen === 'library') drawLibrary(dt, S.time);
+  if (S.screen === 'home' || SHEETS.includes(S.screen)) {
+    if (S.homeA > .005) { UNDER = S.homeA; drawHome(dt, S.time); UNDER = 1; }
+    drawSheet(dt, S.time);
+  }
   else if (S.screen === 'game') drawGamePage(dt, S.time);
-  else if (S.screen === 'museum') drawMuseum(dt);
   else if (S.screen === 'launch' && S.seq) drawLaunch(dt);
 }
 async function boot() {

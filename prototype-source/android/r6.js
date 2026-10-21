@@ -25,7 +25,7 @@ function act(a) {
   }
   if (sc === 'play') return;
   if (TABS.includes(sc)) {
-    if ((a === 'lb' || a === 'rb') && !(sc === 'museum' && S.mu.zone === 'stage' && !S.top.on)) { const k = (TABS.indexOf(sc) + (a === 'rb' ? 1 : TABS.length - 1)) % TABS.length; sfx.tab(); return enterTab(TABS[k]); }
+    if ((a === 'lb' || a === 'rb') && !(sc === 'museum' && S.mu.zone === 'stage' && !S.top.on)) return;
     if (S.top.on) return topInput(a);
     return sc === 'home' ? homeInput(a) : sc === 'library' ? libInput(a) : sc === 'museum' ? museumInput(a) : appsInput(a);
   }
@@ -37,25 +37,20 @@ function act(a) {
 }
 function topInput(a) {
   if (a === 'left' || a === 'right') { const k = clamp(S.top.i + (a === 'left' ? -1 : 1), 0, TOP.length - 1); if (k !== S.top.i) { S.top.i = k; sfx.move(); renderTop(); } }
-  else if (a === 'down' || a === 'b') { S.top.on = false; sfx.move(); refreshTab(); }
+  else if (a === 'down') { S.top.on = false; sfx.move(); refreshTab(); }
+  else if (a === 'b') { S.top.on = false; if (S.screen !== 'home') { sfx.back(); return enterTab('home'); } sfx.move(); refreshTab(); }
   else if (a === 'a') { const k = TOP[S.top.i];
-    if (k === 'settings') return openSettings(0); if (k === 'profile') return openSettings(0);
-    if (k !== S.tab) { sfx.tab(); enterTab(k); S.top.on = true; S.top.i = TOP.indexOf(k); refreshTab(); } }
+    if (k === 'settings') return openSettings(0); if (k === 'profile') return openSettings(CATS.indexOf('Profile'));
+    sfx.tab(); if (k !== S.tab) enterTab(k); else { S.top.on = false; refreshTab(); } }
 }
 function homeInput(a) {
   const H0 = S.home, items = homeItems(), id = items[H0.i];
-  if (H0.zone === 'row') {
-    if (a === 'left' || a === 'right') { const k = clamp(H0.i + (a === 'left' ? -1 : 1), 0, items.length - 1); if (k !== H0.i) { H0.i = k; H0.card = 0; sfx.move(); refreshHome(); } }
-    else if (a === 'up') { S.top.on = true; S.top.i = 0; sfx.move(); refreshHome(); }
-    else if (a === 'down' && id !== '__all') { H0.zone = 'cards'; H0.card = 0; sfx.move(); refreshHome(); }
-    else if (a === 'a') { if (id === '__all') { sfx.select(); enterTab('library'); } else { const g = byId[id], r = rec(id); launchGame(g, r.lastSlot, isRA(emuFor(g)) && r.slots.some(Boolean)); } }
-    else if (a === 'y' && id !== '__all') toggleFav(byId[id]);
-  } else {
-    if (a === 'left' || a === 'right') { const k = clamp(H0.card + (a === 'left' ? -1 : 1), 0, 2); if (k !== H0.card) { H0.card = k; sfx.move(); refreshHome(); } }
-    else if (a === 'up' || a === 'b') { H0.zone = 'row'; sfx.move(); refreshHome(); }
-    else if (a === 'a') { const c = homeCards(id)[H0.card].k, g = byId[id];
-      if (c === 'box') openGame(id, 'home:' + id, 'home'); else if (c === 'ach') { if (g.sys !== 'android') P.ra ? openAch(id) : openSettings(CATS.indexOf('Achievements')); } else { openGame(id, 'home:' + id, 'home'); S.game.zone = isRA(emuFor(g)) ? 'saves' : 'actions'; S.game.i = 0; fillGame(); } }
-  }
+  if (a === 'up') { S.top.on = true; S.top.i = TOP.indexOf('library'); sfx.move(); return refreshHome(); }
+  if (!id) return;
+  if (a === 'left' || a === 'right') { const k = clamp(H0.i + (a === 'left' ? -1 : 1), 0, items.length - 1); if (k !== H0.i) { H0.i = k; sfx.move(); refreshHome(); } }
+  else if (a === 'down') openGame(id, 'home:' + id, 'home');   // its page opens right here: the box slides in and the cartridge goes into it
+  else if (a === 'a') { const g = byId[id], r = rec(id); launchGame(g, r.lastSlot, isRA(emuFor(g)) && r.slots.some(Boolean)); }
+  else if (a === 'y') toggleFav(byId[id]);
 }
 function libInput(a) {
   const L = S.lib, n = L.list.length, cols = 5;
@@ -67,16 +62,18 @@ function libInput(a) {
     else if (a === 'down') { if (L.i + cols < n) { L.i += cols; sfx.move(); } else if (Math.floor(L.i / cols) < Math.floor((n - 1) / cols)) { L.i = n - 1; sfx.move(); } }
     else if (a === 'a' && n) return openGame(L.list[L.i].id, 'lib:' + L.list[L.i].id, 'library');
     else if (a === 'y' && n) return toggleFav(L.list[L.i]);
-    else if (a === 'b') { L.zone = 'rail'; sfx.back(); }
+    else if (a === 'b') { sfx.back(); return enterTab('home'); }
   } else if (L.zone === 'rail') {
     const stops = railStops(), at = stops.indexOf(L.rail), item = railItems()[L.rail];
-    if (a === 'up' && at === 0) { S.top.on = true; S.top.i = 1; sfx.move(); }
+    if (a === 'up' && at === 0) { S.top.on = true; S.top.i = TOP.indexOf('library'); sfx.move(); }
+    else if (a === 'b') { sfx.back(); return enterTab('home'); }
     else if (a === 'up' || a === 'down') { const k = clamp(at + (a === 'up' ? -1 : 1), 0, stops.length - 1); if (stops[k] !== L.rail) { L.rail = stops[k]; L.i = 0; L.rowF = .6; sfx.move(); return refreshLibrary(true); } }
     else if (a === 'y' && item.custom) return collectionOptions(item.custom);
     else if ((a === 'right' || a === 'a') && n) { L.zone = 'grid'; sfx.move(); }
   } else {
-    if (a === 'left') { L.zone = 'rail'; sfx.move(); } else if (a === 'up') { S.top.on = true; S.top.i = 1; sfx.move(); }
-    else if (a === 'down' || a === 'b') { if (n) L.zone = 'grid'; sfx.move(); }
+    if (a === 'left') { L.zone = 'rail'; sfx.move(); } else if (a === 'up') { S.top.on = true; S.top.i = TOP.indexOf('library'); sfx.move(); }
+    else if (a === 'b') { sfx.back(); return enterTab('home'); }
+    else if (a === 'down') { if (n) L.zone = 'grid'; sfx.move(); }
     else if (a === 'a') { L.sort = (L.sort + 1) % SORTS.length; L.i = 0; sfx.select(); return refreshLibrary(true); }
   }
   refreshLibrary(false);
@@ -84,7 +81,8 @@ function libInput(a) {
 function appsInput(a) {
   const cols = 7, n = APPS.length, i = S.apps.i;
   if (a === 'left' && i % cols > 0) { S.apps.i--; sfx.move(); } else if (a === 'right' && i % cols < cols - 1 && i + 1 < n) { S.apps.i++; sfx.move(); }
-  else if (a === 'up') { if (i < cols) { S.top.on = true; S.top.i = 2; } else S.apps.i -= cols; sfx.move(); }
+  else if (a === 'up') { if (i < cols) { S.top.on = true; S.top.i = TOP.indexOf('apps'); } else S.apps.i -= cols; sfx.move(); }
+  else if (a === 'b') { sfx.back(); return enterTab('home'); }
   else if (a === 'down' && i + cols < n) { S.apps.i += cols; sfx.move(); }
   else if (a === 'a') { const app = APPS[i]; if (ANDROID_GAMES.has(app.name)) { const g = GAMES.find(x => x.title === app.name); return startPlayDirect(g); } toast(`Opens ${app.name}`); }
   else if (a === 'y') return appOptions();
@@ -199,44 +197,74 @@ function planetTarget() {
     default: return { x: 667, y: 1200, r: 500, a: 0 };
   }
 }
-function drawHome(dt, t) {
-  const items = homeItems(), H0 = S.home, rowFocus = H0.zone === 'row' && !S.top.on, q = S.seq;
+function drawHome(dt, t, strip) {   // strip: a game's page is open here, so the rest of the row waits in a small strip up top
+  const items = homeItems(), H0 = S.home, rowFocus = H0.zone === 'row' && !S.top.on && S.screen === 'home', q = S.seq;
   approach(H0, { f: H0.i }, dt, 8);
   setFlat(); beginMeshes();
-  const drawn = [];
+  const drawn = [], others = strip ? items.filter(id => id !== S.game.id) : [];
   items.forEach((id, i) => {
-    const off = i - H0.f, foc = i === H0.i, xpx = 270 + off * 196 + Math.sign(off) * Math.min(Math.abs(off), 1) * 70;
-    const alpha = off < 0 ? (off > -1 ? 1 + .6 * off : .4 * (1 - clamp(-off - 1, 0, 1))) : 1 - clamp((off - 5) / 1.2, 0, 1);
-    const bob = motion() ? Math.sin(t * .8 + i * 1.7) * (foc ? 4 : 3) : 0, ypx = (foc ? 238 : 262) + bob;
-    if (id === '__all') { const o = pose('home:__all', { s: 0 }); approach(o, { x: xpx, y: 262, s: foc ? 190 : 140, alpha }, dt, 10);
-      drawPlate('tile', tileArt, o.x, o.y, o.s, o.s, 0, foc && rowFocus ? [1, 1, 1] : lightTheme() ? [.3, .32, .4] : [.75, .78, .95], o.alpha);
-      if (!NODRAW) { const L = $('#hTile'); L.style.left = o.x + 'px'; L.style.top = (o.y - 22) + 'px'; L.style.opacity = o.alpha; L.classList.add('on'); }
-      return; }
-    const g = byId[id], o = pose('home:' + id, { s: 0, y: 3 }), [x, y] = pw(xpx, ypx);
-    approach(o, { x, z: foc ? .5 : 0, ry: -.2, rx: -.1, s: mediaScale(g.sys, foc ? 236 : 150), alpha, bright: foc ? 1.02 : .72, glow: foc && rowFocus ? 1 : 0 }, dt, 10);
-    approach(o, { y }, dt, foc ? 7 : 10);
+    const g = byId[id], o = pose('home:' + id, { s: 0, y: 3 }), foc = !strip && i === H0.i;
+    let xpx, ypx, alpha, bob = 0;
+    if (strip) { const j = others.indexOf(id); xpx = 667 + (j - (others.length - 1) / 2) * 76; ypx = 106; alpha = .8; }
+    else {
+      const off = i - H0.f; xpx = 270 + off * 196 + Math.sign(off) * Math.min(Math.abs(off), 1) * 70;
+      alpha = off < 0 ? (off > -1 ? 1 + .6 * off : .4 * (1 - clamp(-off - 1, 0, 1))) : 1 - clamp((off - 5) / 1.2, 0, 1);
+      bob = motion() ? Math.sin(t * .8 + i * 1.7) * (foc ? 4 : 3) : 0; ypx = (foc ? 238 : 262) + bob;
+    }
+    const [x, y] = pw(xpx, ypx);
+    approach(o, { x, z: foc ? .5 : 0, ry: strip ? -.12 : -.2, rx: -.1, s: mediaScale(g.sys, strip ? 50 : foc ? 236 : 150), alpha, bright: foc ? 1.02 : strip ? .62 : .72, glow: foc && rowFocus ? 1 : 0 }, dt, strip ? 7 : 10);
+    approach(o, { y }, dt, foc ? 7 : strip ? 6 : 10);
     const M = M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s);
-    if ((q && q.g.id === id) || S.skipId === id) return;   // it's drawn elsewhere: in the launch scene, or flying to its box
-    const hpx = CART[g.sys].h / 2 * o.s * PX;
-    if (o.alpha > .01) { shadowUnder(xpx, ypx - bob + hpx + (foc ? 24 : 12), Math.max(CART[g.sys].w, .5) * o.s * PX * .9, o.alpha, foc); drawn.push([g, M, o, foc]); }
+    if ((q && q.g.id === id) || S.skipId === id) return;   // it's drawn elsewhere: in the launch scene, or in its box
+    const hpx = CART[g.sys].h / 2 * o.s * PX, sh = 1 - clamp((262 - (H / 2 - o.y * PX)) / 80, 0, 1);   // shadows fade as they rise into the strip
+    if (o.alpha > .01) { if (sh > .01) shadowUnder(xpx, ypx - bob + hpx + (foc ? 24 : 12), Math.max(CART[g.sys].w, .5) * o.s * PX * .9, o.alpha * sh, foc); drawn.push([g, M, o, foc]); }
   });
   for (const [g, M, o, foc] of drawn) { if (foc && rowFocus) { const m = moodColors(MOOD.cur); drawCartGlowM(g, M, o.s, hexRgb(m.accent), hexRgb(m.planet[0]), o.alpha); } drawCartM(g, M, o); }
   endMeshes();
-  if (!NODRAW && items[H0.i] !== '__all') $('#hTile').classList.toggle('on', true);
+}
+// The sheet: Library, Apps or the Museum on a panel that slides up from the bottom and covers Home completely.
+// Everything on it is drawn with the view shifted down by SHEETOFF pixels, so it all moves together.
+function sheetTarget() {
+  const sc = S.screen, G0 = S.game;
+  if (SHEETS.includes(sc)) return 1;
+  if (sc === 'game') return SHEETS.includes(G0.from) && G0.closing && G0.then === G0.from ? 1 : 0;   // a box opened from the Library: the sheet slides away, then back
+  if (['settings', 'ach', 'media', 'manual'].includes(sc)) return S.sheet.p >= .5 ? 1 : 0;
+  return 0;
+}
+function sheetUpdate(dt) {
+  const sh = S.sheet, tgt = sheetTarget(); sh.p = clamp(sh.p + Math.sign(tgt - sh.p) * dt / .55, 0, 1); sh.k = ease(sh.p);
+  SHEETOFF = (1 - sh.k) * 790;
+  // Home stays hidden while any sheet is up, or a box from the Library is open, and only comes back once the sheet has fully gone
+  const homeOk = sh.k < .002 && !(sc => sc === 'game' && S.game.from !== 'home')(S.screen);
+  S.homeA = homeOk ? Math.min(1, S.homeA + dt / .4) : Math.min(S.homeA, 1 - sh.k, tgt ? 1 - sh.k : 0);
+  if (NODRAW) return;
+  $('#homeInfo').style.opacity = S.homeA;
+  for (const n of SHEETS) { const el = $('#s-' + n), mine = n === sh.name;   // the sheet's own panels ride along with it, and stay below the screen once it's down
+    el.style.transform = mine ? `translateY(${SHEETOFF}px)` : ''; el.classList.toggle('sheetdom', mine && sh.k > .002 && S.screen === 'home'); }
+}
+function drawSheet(dt, t) {
+  if (S.sheet.k < .002 || !S.sheet.name) return;
+  if (!NODRAW) { gl.clear(gl.DEPTH_BUFFER_BIT); gl.viewport(0, -Math.round(SHEETOFF * cv.height / H), cv.width, cv.height); }
+  setFlat(); beginMeshes();
+  const b = hexRgb(getComputedStyle(stage).getPropertyValue('--bg').trim() || '#070b1e'), f = lightTheme() ? [1, 1, 1] : [.6, .65, 1];
+  drawPlate('sheet', panelArt, 667, 486, 1300, 800, 2, b.map((v, i) => v * .9 + f[i] * .06), .95);
+  endMeshes(); if (!NODRAW) gl.clear(gl.DEPTH_BUFFER_BIT);
+  if (S.sheet.name === 'library') drawLibrary(dt, t); else if (S.sheet.name === 'museum') drawMuseum(dt);
+  if (!NODRAW) gl.viewport(0, 0, cv.width, cv.height);
 }
 function drawLibrary(dt, t) {
   const L = S.lib, cols = 5, row = Math.floor(L.i / cols), onGrid = L.zone === 'grid' && !S.top.on;
   const lastRow = Math.max(0, Math.floor((L.list.length - 1) / cols)), top = .58, bottom = .49;
   approach(L, { rowF: clamp(row, top, Math.max(top, lastRow - bottom)) }, dt, 9);
-  const CY = 420, ROW = 300, cx = c => 363 + c * 206, s0 = BOXK, still = !motion();
+  const CY = 428, ROW = 300, cx = c => 363 + c * 206, s0 = BOXK, still = !motion();
   setFlat(); beginMeshes();
-  drawPlate('gridpanel', panelArt, 775, 420, 1062, 600, 0, lightTheme() ? [1, 1, 1] : [.035, .045, .11], lightTheme() ? .4 : .55);
-  clipRect(245, 121, 1305, 719);
+  drawPlate('gridpanel', panelArt, 775, 428, 1062, 584, 0, lightTheme() ? [1, 1, 1] : [.035, .045, .11], lightTheme() ? .4 : .55);
+  clipRect(245, 137, 1305, 719);
   let focus = null;
   L.list.forEach((g, i) => {
     const r = Math.floor(i / cols), c = i % cols, foc = onGrid && i === L.i, o = pose('lib:' + g.id, { s: 0 });
     const ypx = CY + (r - L.rowF) * ROW, lift = foc ? 14 : 0, bob = still ? 0 : Math.sin(t * .8 + i * 1.7) * (foc ? 4 : 3), [x, y] = pw(cx(c), ypx - lift + bob);
-    const cut = Math.max(0, 260 - ypx, ypx - 600) / 90, vis = 1 - clamp((Math.abs(ypx - CY) - ROW) / 90, 0, 1);
+    const cut = Math.max(0, 276 - ypx, ypx - 600) / 90, vis = 1 - clamp((Math.abs(ypx - CY) - ROW) / 90, 0, 1);
     approach(o, { x, z: foc ? .4 : 0, ry: .3, rx: -.08, s: s0 * (foc ? 1.08 : 1), alpha: clamp(vis, 0, 1) * (1 - .45 * clamp(cut, 0, 1)), bright: foc ? 1.03 : onGrid ? .66 : .82 }, dt, 11);
     approach(o, { y }, dt, foc ? 7 : 11);
     const [bw, bh] = BOX[g.sys];
@@ -287,13 +315,11 @@ function drawGamePage(dt, t) {
   // The screen the box came from stays behind it, faded far back, and comes forward again as the box closes
   if (G0.fly) G0.fly.t += dt;
   approach(G0, { dim: G0.closing ? 0 : 1 }, dt, G0.closing ? 4.5 : 5);
-  const under = G0.closing ? G0.then : G0.from;
-  if (under === 'home' || under === 'library') {
-    S.skipId = g.id; UNDER = 1 - .55 * G0.dim;
-    under === 'home' ? drawHome(dt, t) : drawLibrary(dt, t);
-    UNDER = 1;
-  }
-  drawShade(G0.dim * (lightTheme() ? .32 : .58));   // and a dark veil over the whole background, planet and all
+  // From Home, the rest of the row waits in a strip up top; from the Library, the sheet slides away below, and back as the box closes
+  S.skipId = g.id;
+  if (G0.from === 'home') { if (G0.closing ? G0.then === 'home' : true) drawHome(dt, t, !G0.closing); }
+  else if (SHEETS.includes(G0.from)) drawSheet(dt, t);
+  if (!NODRAW) gl.clear(gl.DEPTH_BUFFER_BIT);
   setCamera(0, CAMZ, 0); beginMeshes();
   const q = S.seq && S.seq.g === g ? S.seq : null;
   drawCase(g, o, o.open, 0, !!q || home);   // while launching, coming back or flying to and from Home, the media is drawn on its own
@@ -329,7 +355,7 @@ function drawGamePage(dt, t) {
 }
 
 /* ================= main loop ================= */
-let last = performance.now(), clockTimer = 0, MANUAL = false, NODRAW = false, UNDER = 1;   // UNDER fades everything drawn behind an open box
+let last = performance.now(), clockTimer = 0, MANUAL = false, NODRAW = false, UNDER = 1, SHEETOFF = 0;   // UNDER fades everything drawn behind an open box
 window.__step = (seconds, fps = 30) => { MANUAL = true; const n = Math.max(1, Math.round(seconds * fps)); for (let i = 0; i < n; i++) { NODRAW = i < n - 1; tick(1 / fps); } NODRAW = false; };
 function loop(now) { requestAnimationFrame(loop); const dt = Math.min(.05, (now - last) / 1000); last = now; if (!MANUAL) { try { tick(dt); } catch (e) { console.error(e); } } }
 function tick(dt) {
@@ -338,6 +364,7 @@ function tick(dt) {
   MOOD.t = Math.min(1, MOOD.t + dt / .8);
   for (let i = 0; i < 3; i++) RIM[i] += (RIM_T[i] - RIM[i]) * Math.min(1, dt * 4);
   if (S.seq) seqUpdate(dt);
+  sheetUpdate(dt);
   musicDuck();
   if (S.play) playUpdate(dt);
   if (S.screen === 'media') mvUpdate(dt);
@@ -346,10 +373,11 @@ function tick(dt) {
   if (!NODRAW) { gl.viewport(0, 0, cv.width, cv.height); const b = hexRgb(getComputedStyle(stage).getPropertyValue('--bg').trim() || '#070b1e'); gl.clearColor(b[0], b[1], b[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); }
   const dim = ['media', 'manual', 'play'].includes(S.screen) ? .45 : 1;
   drawBackdrop(S.time, { bright: dim, pan: S.screen === 'home' ? S.home.f * .006 : S.screen === 'library' ? S.lib.rowF * .02 : 0, planet: PL.a > .01 ? PL : null });
-  if (S.screen === 'home') drawHome(dt, S.time);
-  else if (S.screen === 'library') drawLibrary(dt, S.time);
+  if (S.screen === 'home' || SHEETS.includes(S.screen)) {
+    if (S.homeA > .005) { UNDER = S.homeA; drawHome(dt, S.time); UNDER = 1; }
+    drawSheet(dt, S.time);
+  }
   else if (S.screen === 'game') drawGamePage(dt, S.time);
-  else if (S.screen === 'museum') drawMuseum(dt);
   else if (S.screen === 'launch' && S.seq) drawLaunch(dt);
 }
 async function boot() {

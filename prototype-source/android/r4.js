@@ -347,7 +347,7 @@ function drawPlate(key, make, px, py, wpx, hpx, z, color, alpha) {
   drawPart(PLANE, M4.trs(x, y, z, 0, 0, 0, [wpx / PX, hpx / PX, 1]), { tex: tex(key, make, true), col: color, alpha, mask: true });
   gl.depthMask(true);
 }
-function clipBand(y0, y1) { if (NODRAW) return; const k = cv.height / H; gl.enable(gl.SCISSOR_TEST); gl.scissor(0, Math.round((H - y1) * k), cv.width, Math.round((y1 - y0) * k)); }
+function clipBand(y0, y1) { if (NODRAW) return; const k = cv.height / H; y0 += SHEETOFF; y1 += SHEETOFF; gl.enable(gl.SCISSOR_TEST); gl.scissor(0, Math.round((H - y1) * k), cv.width, Math.round((y1 - y0) * k)); }
 function unclip() { if (!NODRAW) gl.disable(gl.SCISSOR_TEST); }
 
 // the selection glow: a soft ring that hugs the cartridge's outline and moves with it
@@ -358,7 +358,7 @@ function drawCartGlow(g, st, c1, c2) {
   drawPart(cm.ring, M, { hull: true, grow: 26 / (PX * st.s), col: c1, emit: c2, alpha: .95 * (st.alpha == null ? 1 : st.alpha) });
   gl.enable(gl.CULL_FACE); gl.depthMask(true);
 }
-function clipRect(x0, y0, x1, y1) { if (NODRAW) return; const k = cv.height / H; gl.enable(gl.SCISSOR_TEST); gl.scissor(Math.round(x0 * k), Math.round((H - y1) * k), Math.round((x1 - x0) * k), Math.round((y1 - y0) * k)); }
+function clipRect(x0, y0, x1, y1) { if (NODRAW) return; const k = cv.height / H; y0 += SHEETOFF; y1 += SHEETOFF; gl.enable(gl.SCISSOR_TEST); gl.scissor(Math.round(x0 * k), Math.round((H - y1) * k), Math.round((x1 - x0) * k), Math.round((y1 - y0) * k)); }
 
 // an orthographic camera matching the pixel grid at z = 0, for the flat Library view
 function setFlat() { const hw = W / 2 / PX, hh = H / 2 / PX; VP = new Float32Array([1 / hw, 0, 0, 0, 0, 1 / hh, 0, 0, 0, 0, -.02, 0, 0, 0, 0, 1]); EYE = [0, 0, CAMZ]; }

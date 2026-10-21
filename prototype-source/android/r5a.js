@@ -8,10 +8,12 @@ const S = {
   apps: { i: 0 }, set: { cat: 0, zone: 'nav', i: 0, back: 'home', sub: null, game: null },
   mu: { i: 0, ex: 0, zone: 'rail', yaw: -.55, pitch: .45, yawT: -.55, pitchT: .45, open: 0, fade: 1, prev: null },
   ach: { id: null, filter: 0, i: 0 }, dlg: { open: false }, kb: { open: false },
+  sheet: { name: null, p: 0, k: 0 }, homeA: 1,   // the sheet (Library, Apps or Museum) that slides up over Home, and how visible Home is
   seq: null, play: null, time: 0,
 };
 const TABS = ['home', 'library', 'apps', 'museum'];
-const TOP = [...TABS, 'settings', 'profile'];
+const SHEETS = ['library', 'apps', 'museum'];   // these slide up over Home rather than replacing it
+const TOP = ['profile', 'library', 'apps', 'museum', 'settings'];   // the top bar, left to right
 const SORTS = ['Recently played', 'A to Z', 'Release year'];
 const SHOWS = ['All', 'Saved', 'Not played'];
 const HOME_MAX = 10;
@@ -31,13 +33,13 @@ let toastTimer = 0;
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2400); }
 function show(screen, under) {   // under: a tab left visible behind, faded back (behind an open box)
   document.querySelectorAll('.screen').forEach(s => { s.classList.toggle('on', s.id === 's-' + screen); s.classList.toggle('under', s.id === 's-' + under); s.classList.remove('rise'); });
-  $('#topbar').classList.toggle('on', TABS.includes(screen)); $('#topbar').classList.toggle('under', TABS.includes(under || '')); $('#topbar').classList.remove('rise');
+  $('#topbar').classList.toggle('on', TABS.includes(screen) || screen === 'game'); $('#topbar').classList.remove('under', 'rise');
   if (screen !== 'game') S.skipId = null;
 }
 function riseUnder(tab) {   // bring a faded-back tab forward again, slowly, while the box closes
   const el = $('#s-' + tab); if (!el) return;
   document.querySelectorAll('.screen.under').forEach(s => s.classList.remove('under'));
-  el.classList.add('rise', 'on'); $('#topbar').classList.remove('under'); $('#topbar').classList.add('rise', 'on');
+  el.classList.add('rise', 'on');
 }
 function clockText() { return new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
 function avatarCss(cols) { return `radial-gradient(circle at 35% 30%, ${cols[0]}, ${cols[1]} 55%, ${cols[2]})`; }
@@ -72,7 +74,7 @@ function fillSetup() {
     ['Step 2 of 5', 'Pick a look', 'You can change it any time in Settings.'],
     ['Step 3 of 5', `Found ${GAMES.filter(g => g.sys !== 'android').length} games`, 'In Internal storage › ROMs and SD card › ROMs, sorted into consoles by folder and file type.'],
     ['Step 4 of 5', 'Art, manuals and achievements', 'Sign in to download box art, manuals and videos, and to earn achievements. Both are free, and both can wait.'],
-    ['Step 5 of 5', 'Make Shelf your home screen?', 'Then the Home button always brings you back here, and Shelf can save a game in RetroArch before you leave it. Your apps stay one tab away.'],
+    ['Step 5 of 5', 'Make Shelf your home screen?', 'Then the Home button always brings you back here, and Shelf can save a game in RetroArch before you leave it. Your apps are one button away.'],
   ][s];
   let extra = '';
   if (s === 3) extra = `<div class="found">${counts.map(([n, c]) => `<div class="ok">${n} <b>${c}</b></div>`).join('')}</div>
@@ -110,38 +112,18 @@ function finishSetup() { P.setup = true; paintProfile(); enterTab('home'); toast
 function enterSetup() { S.screen = 'setup'; show('setup'); setMood('home'); fillSetup(); }
 
 /* ================= tabs ================= */
-function enterTab(tab) {
-  S.tab = tab; S.screen = tab; S.top.on = false; show(tab); renderTop();
+function enterTab(tab) {   // Home is the base; the others slide up over it as a sheet
+  S.tab = tab; S.screen = tab; S.top.on = false; if (SHEETS.includes(tab)) S.sheet.name = tab; show(tab); renderTop();
   if (tab === 'home') refreshHome(); else if (tab === 'library') refreshLibrary(true); else if (tab === 'museum') enterMuseum(); else refreshApps();
 }
 function refreshTab() { S.tab === 'home' ? refreshHome() : S.tab === 'library' ? refreshLibrary(false) : S.tab === 'museum' ? refreshMuseum() : refreshApps(); renderTop(); }
-const homeItems = () => P.recent.filter(id => inLibrary(byId[id]) && !(P.hidden && P.hidden.has(id))).slice(0, HOME_MAX).concat(['__all']);
-function homeCards(id) { return id === '__all' ? [] : [{ k: 'box' }, { k: 'ach' }, { k: 'saves' }]; }
-function cardHtml(c, g) {
-  const r = rec(g.id);
-  if (c.k === 'box') return `<h4>Open the box</h4><p>Manual, saves, media and details</p><div class="big">⧉</div>`;
-  if (c.k === 'ach') {
-    if (g.sys === 'android') return `<h4>Achievements</h4><p>Android games keep their own.</p>`;
-    if (!P.ra) return `<h4>Achievements</h4><p>Sign in to RetroAchievements in Settings to earn them.</p>`;
-    const A = achievements(g), e = achFor(P, g), got = A.list.filter(a => e[a.id]).sort((a, b) => e[b.id].date - e[a.id].date), pct = Math.round(got.length / A.list.length * 100);
-    return `<h4>Achievements</h4><div class="big">${got.length}<small>of ${A.list.length}</small></div><i class="bar"><b style="width:${pct}%"></b></i><div class="minib">${got.slice(0, 5).map(a => `<img src="${badge(g, a, false)}" alt="">`).join('')}</div>`;
-  }
-  const emu = emuFor(g);
-  if (!isRA(emu)) return `<h4>Saves</h4><p class="note-small">${g.sys === 'android' ? 'The app keeps its own saves.' : `Kept by ${emu}. Shelf’s save slots work with RetroArch.`}</p>`;
-  const used = r ? r.slots.filter(Boolean).length : 0;
-  return `<h4>Saves</h4><p>${used} of 4 slots used</p><div class="slotdots">${[0, 1, 2, 3].map(i => `<i class="${r && r.slots[i] ? 'on' : ''}"></i>`).join('')}</div>`;
-}
+const homeItems = () => P.recent.filter(id => inLibrary(byId[id]) && !(P.hidden && P.hidden.has(id))).slice(0, HOME_MAX);
 function refreshHome() {
-  const items = homeItems(), H0 = S.home; H0.i = clamp(H0.i, 0, items.length - 1);
-  const id = items[H0.i], cards = homeCards(id); H0.card = clamp(H0.card, 0, Math.max(0, cards.length - 1)); if (!cards.length) H0.zone = 'row';
-  if (id === '__all') { setMood('home'); $('#hTitle').textContent = 'Your library'; $('#hMeta').innerHTML = `<span>${GAMES.filter(inLibrary).length} games on ${SYS_ORDER.length - 1} consoles, plus Android</span>`; }
-  else {
-    const g = byId[id], r = rec(id), emu = emuFor(g); setMood(g.sys); $('#hTitle').textContent = g.title;
-    $('#hMeta').innerHTML = `<span class="chip"><i></i>${PLAT[g.sys].name}</span><span>${agoText(r.last)}</span><span>${playedText(r.minutes)}</span><span>${isRA(emu) && r.slots.some(Boolean) ? 'A to resume' : 'A to play'}</span>`;
-  }
-  const g = byId[id];
-  $('#hCards').innerHTML = cards.map((c, i) => `<div class="card panel ${H0.zone === 'cards' && H0.card === i ? 'focus' : ''}">${cardHtml(c, g)}</div>`).join('');
-  $('#hTileN').textContent = `${GAMES.filter(inLibrary).length} games`;
+  const items = homeItems(), H0 = S.home; H0.i = clamp(H0.i, 0, Math.max(0, items.length - 1)); H0.zone = 'row';
+  const id = items[H0.i];
+  if (!id) { setMood('home'); $('#hTitle').textContent = 'Nothing played yet'; $('#hMeta').innerHTML = '<span>Your Library is in the top bar</span>'; return renderTop(); }
+  const g = byId[id], r = rec(id), emu = emuFor(g); setMood(g.sys); $('#hTitle').textContent = g.title;
+  $('#hMeta').innerHTML = `<span class="chip"><i></i>${PLAT[g.sys].name}</span><span>${agoText(r.last)}</span><span>${playedText(r.minutes)}</span><span>${isRA(emu) && r.slots.some(Boolean) ? 'A to resume' : 'A to play'}</span><span>▼ More</span>`;
   renderTop();
 }
 
@@ -194,7 +176,7 @@ function closeGame(then) {   // the box closes, goes back where it came from, an
 function closeGameTarget(g) {   // the pose the closed box shrinks back to
   const G0 = S.game, c = CART[g.sys], [bw, bh] = BOX[g.sys];
   if (G0.then !== G0.from) { const o = anim.get('case'); return { y: o.y - .5, s: o.s * .9, alpha: 0 }; }   // Home pressed: the closed box sinks away
-  if (G0.from === 'library') { const l = anim.get('lib:' + g.id); if (l) return { x: l.x, y: l.y, z: l.z, rx: l.rx, ry: l.ry, s: l.s, alpha: 1 }; }
+  if (G0.from === 'library') { const l = anim.get('lib:' + g.id); if (l) return { x: l.x, y: l.y - SHEETOFF / PX, z: l.z, rx: l.rx, ry: l.ry, s: l.s, alpha: 1 }; }   // its spot in the Library, which is still rising
   return null;
 }
 function gameActions() {

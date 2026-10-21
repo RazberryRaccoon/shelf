@@ -14,6 +14,7 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
   color-scheme: light;
   --page: #d9dce6; --page-text: #3a3f58;
+  --glowc: rgba(200,210,255,.45);
   --display: "Unbounded", "Segoe UI", system-ui, sans-serif;
   --body: "Manrope", "Segoe UI", system-ui, sans-serif;
 }
@@ -55,18 +56,25 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .bar { display: inline-block; height: 6px; border-radius: 3px; background: var(--chip); overflow: hidden; vertical-align: middle; }
 .bar b { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
 
-/* top bar */
-#topbar { position: absolute; left: 0; right: 0; top: 0; height: 64px; opacity: 0; visibility: hidden; transition: opacity .35s, visibility 0s linear .35s; z-index: 3; }
+/* top bar: your profile on the left, round buttons for everything that isn't Home in the middle, status on the right */
+#topbar { position: absolute; left: 0; right: 0; top: 0; height: 84px; opacity: 0; visibility: hidden; transition: opacity .35s, visibility 0s linear .35s; z-index: 3; }
 #topbar.on { opacity: 1; visibility: visible; transition: opacity .35s, visibility 0s; }
-.tabs { position: absolute; left: 28px; top: 16px; display: flex; gap: 4px; padding: 4px; border-radius: 22px; }
-.tab { font-family: var(--display); font-size: 15px; color: var(--fg3); padding: 6px 18px; border-radius: 18px; transition: color .2s, background .2s, box-shadow .2s; }
-.tab.sel { color: var(--fg); background: var(--chip); }
-.tab.focus, .tbtn.focus { box-shadow: 0 0 0 2px var(--sel); color: var(--fg); }
-.tright { position: absolute; right: 28px; top: 16px; display: flex; align-items: center; gap: 8px; }
-.status { display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 14px; border-radius: 20px; font-size: 14px; font-weight: 700; color: var(--fg2); }
-.status svg, .tbtn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-.tbtn { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: 20px; font-size: 14px; font-weight: 700; color: var(--fg2); transition: box-shadow .2s, color .2s; }
+.prof { position: absolute; left: 26px; top: 14px; display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 16px 0 6px; border-radius: 22px; font-size: 14.5px; font-weight: 700; color: var(--fg); transition: background .2s, box-shadow .2s; }
+.prof .avatar { width: 32px; height: 32px; }
+.prof.focus { background: var(--chip); box-shadow: 0 0 0 2px var(--sel), 0 0 18px var(--glowc); }
+.dock { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); display: flex; gap: 22px; }
+.db { position: relative; width: 48px; height: 48px; border-radius: 50%; background: var(--chip); display: grid; place-items: center; color: var(--fg);
+  transition: background .2s, color .2s, transform .25s cubic-bezier(.3,.7,.2,1), box-shadow .2s; }
+.db svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.db em { position: absolute; top: 55px; left: 50%; transform: translateX(-50%); font-style: normal; font-size: 12.5px; font-weight: 700; white-space: nowrap; color: var(--fg); opacity: 0; transition: opacity .2s; }
+.db.sel { box-shadow: inset 0 0 0 1.5px var(--fg3); }
+.db.sel em { opacity: .75; }
+.db.focus { background: var(--sel); color: var(--selfg); transform: scale(1.1); box-shadow: 0 0 22px var(--glowc); }
+.db.focus em { opacity: 1; }
+.status { position: absolute; right: 30px; top: 14px; display: flex; align-items: center; gap: 10px; height: 44px; font-size: 14px; font-weight: 700; color: var(--fg2); }
+.status svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .avatar { width: 28px; height: 28px; border-radius: 50%; flex: none; }
+.screen.sheetdom { opacity: 1; visibility: visible; pointer-events: none; }   /* a sheet still sliding away after it's been closed */
 
 /* home */
 .home-info { position: absolute; left: 60px; top: 470px; width: 520px; }
@@ -91,7 +99,7 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .note-small { font-size: 12.5px; color: var(--fg2); line-height: 1.45; margin-top: 8px; }
 
 /* library */
-.rail { position: absolute; left: 28px; top: 120px; width: 196px; height: 600px; padding: 8px; overflow: hidden; }
+.rail { position: absolute; left: 28px; top: 136px; width: 196px; height: 584px; padding: 8px; overflow: hidden; }
 .railin { display: block; position: relative; transition: transform .3s cubic-bezier(.2,.8,.2,1); }
 .rail div { position: relative; padding: 7px 12px; margin-bottom: 2px; border-radius: 11px; font-size: 13.5px; font-weight: 700; color: var(--fg3); display: flex; justify-content: space-between; white-space: nowrap; transition: background .2s, color .2s; }
 .rail div span { font-weight: 600; color: var(--fg3); }
@@ -99,13 +107,13 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .rail div.focus { background: var(--sel); color: var(--selfg); }
 .rail div.focus span { color: var(--selfg); opacity: .7; }
 .rail h5 { margin: 10px 12px 4px; font-size: 11.5px; font-weight: 700; color: var(--fg2); }
-.filters { position: absolute; left: 244px; top: 74px; display: flex; gap: 8px; }
+.filters { position: absolute; left: 244px; top: 98px; display: flex; gap: 8px; }
 .filter { padding: 5px 13px; border-radius: 15px; border: 1.5px solid var(--line); font-size: 12.5px; color: var(--fg3); font-weight: 700; background: var(--panel); transition: background .2s, color .2s; }
 .filter em { font-style: normal; color: var(--fg); margin-left: 4px; }
 .filter.focus { background: var(--sel); border-color: var(--sel); color: var(--selfg); }
 .filter.focus em { color: var(--selfg); }
-.lib-head { position: absolute; right: 30px; top: 80px; font-size: 12.5px; color: var(--fg2); }
-.gridframe { position: absolute; left: 244px; top: 120px; width: 1062px; height: 600px; border-radius: 20px; border: 1px solid var(--line); overflow: hidden; pointer-events: none; }
+.lib-head { position: absolute; right: 30px; top: 104px; font-size: 12.5px; color: var(--fg2); }
+.gridframe { position: absolute; left: 244px; top: 136px; width: 1062px; height: 584px; border-radius: 20px; border: 1px solid var(--line); overflow: hidden; pointer-events: none; }
 .gridframe::before, .gridframe::after { content: ""; position: absolute; left: 0; right: 0; height: 36px; }
 .gridframe::before { top: 0; background: linear-gradient(var(--fadec), transparent); }
 .gridframe::after { bottom: 0; background: linear-gradient(transparent, var(--fadec)); }
@@ -121,10 +129,10 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 #muRail div { font-size: 13px; }
 #muRail div span { margin-left: 10px; }
 .filter.cur { color: var(--fg); border-color: var(--fg3); }
-.mu-drag { position: absolute; left: 244px; top: 112px; width: 632px; height: 570px; cursor: grab; touch-action: none; }
+.mu-drag { position: absolute; left: 244px; top: 136px; width: 632px; height: 570px; cursor: grab; touch-action: none; }
 .mu-hint { position: absolute; left: 560px; bottom: 30px; transform: translateX(-50%); white-space: nowrap; padding: 7px 14px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); font-size: 12.5px; color: var(--fg2); pointer-events: none; }
 .mu-hint .btn { margin: 0 2px; }
-.mu-info { position: absolute; right: 28px; top: 84px; width: 404px; height: 636px; padding: 22px 26px; overflow: hidden; }
+.mu-info { position: absolute; right: 28px; top: 98px; width: 404px; height: 622px; padding: 22px 26px; overflow: hidden; }
 .mu-info h2 { margin: 4px 0 0; font-family: var(--display); font-weight: 500; font-size: 24px; line-height: 1.15; }
 .mu-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; margin-top: 14px; font-size: 12px; color: var(--fg2); }
 .mu-facts b { display: block; margin-top: 2px; color: var(--fg); font-size: 13px; font-weight: 700; }
@@ -135,7 +143,7 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .mu-note { margin: 12px 0 0; font-size: 11.5px; line-height: 1.45; color: var(--fg3); }
 
 /* game page */
-.gp { position: absolute; left: 690px; top: 70px; width: 616px; height: 656px; overflow: hidden; }
+.gp { position: absolute; left: 690px; top: 140px; width: 616px; height: 586px; overflow: hidden; }
 .gpin { padding: 22px 26px 30px; transition: transform .35s cubic-bezier(.2,.8,.2,1); }
 .gp-sys { font-size: 12.5px; font-weight: 800; color: var(--acc-t); }
 .gp h2 { margin: 4px 0 0; font-family: var(--display); font-weight: 500; font-size: 26px; line-height: 1.12; }
@@ -169,26 +177,26 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .managed { display: flex; align-items: center; justify-content: space-between; gap: 14px; transition: box-shadow .2s; }
 .managed.focus { box-shadow: 0 0 0 2px var(--sel); }
 .managed .act { flex: none; }
-/* the game panel slides in from the right, its sections following one after another */
-#s-game .gp { transform: translateX(90px); opacity: 0; transition: transform .55s cubic-bezier(.2,.8,.2,1), opacity .4s ease; }
-#s-game.on .gp { transform: none; opacity: 1; transition-delay: .1s; }
-#s-game.on.closing .gp { transform: translateX(90px); opacity: 0; transition-delay: 0s; transition-duration: .4s, .3s; }
-@keyframes gpRise { from { opacity: 0; transform: translateX(26px); } }
+/* the game panel rises from the bottom once the box is in place, its sections following one after another */
+#s-game .gp { transform: translateY(80px); opacity: 0; transition: transform .6s cubic-bezier(.2,.8,.2,1), opacity .45s ease; }
+#s-game.on .gp { transform: none; opacity: 1; transition-delay: .5s; }
+#s-game.on.closing .gp { transform: translateY(80px); opacity: 0; transition-delay: 0s; transition-duration: .4s, .25s; }
+@keyframes gpRise { from { opacity: 0; transform: translateY(24px); } }
 .gpin.enter > * { animation: gpRise .5s cubic-bezier(.2,.8,.2,1) both; }
-.gpin.enter > :nth-child(1) { animation-delay: 0.165s; }
-.gpin.enter > :nth-child(2) { animation-delay: 0.210s; }
-.gpin.enter > :nth-child(3) { animation-delay: 0.255s; }
-.gpin.enter > :nth-child(4) { animation-delay: 0.300s; }
-.gpin.enter > :nth-child(5) { animation-delay: 0.345s; }
-.gpin.enter > :nth-child(6) { animation-delay: 0.390s; }
-.gpin.enter > :nth-child(7) { animation-delay: 0.435s; }
-.gpin.enter > :nth-child(8) { animation-delay: 0.480s; }
-.gpin.enter > :nth-child(9) { animation-delay: 0.525s; }
-.gpin.enter > :nth-child(10) { animation-delay: 0.570s; }
-.gpin.enter > :nth-child(11) { animation-delay: 0.615s; }
-.gpin.enter > :nth-child(12) { animation-delay: 0.660s; }
-.gpin.enter > :nth-child(13) { animation-delay: 0.705s; }
-.gpin.enter > :nth-child(14) { animation-delay: 0.750s; }
+.gpin.enter > :nth-child(1) { animation-delay: 0.565s; }
+.gpin.enter > :nth-child(2) { animation-delay: 0.610s; }
+.gpin.enter > :nth-child(3) { animation-delay: 0.655s; }
+.gpin.enter > :nth-child(4) { animation-delay: 0.700s; }
+.gpin.enter > :nth-child(5) { animation-delay: 0.745s; }
+.gpin.enter > :nth-child(6) { animation-delay: 0.790s; }
+.gpin.enter > :nth-child(7) { animation-delay: 0.835s; }
+.gpin.enter > :nth-child(8) { animation-delay: 0.880s; }
+.gpin.enter > :nth-child(9) { animation-delay: 0.925s; }
+.gpin.enter > :nth-child(10) { animation-delay: 0.970s; }
+.gpin.enter > :nth-child(11) { animation-delay: 1.015s; }
+.gpin.enter > :nth-child(12) { animation-delay: 1.060s; }
+.gpin.enter > :nth-child(13) { animation-delay: 1.105s; }
+.gpin.enter > :nth-child(14) { animation-delay: 1.150s; }
 .achcard { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: var(--panel2); font-size: 12.5px; color: var(--fg2); white-space: nowrap; transition: box-shadow .2s; }
 .achcard.focus { box-shadow: 0 0 0 2px var(--sel); }
 .achcard .bar { width: 110px; }
@@ -203,15 +211,17 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .turnhint .btn { margin-right: 3px; }
 
 /* apps */
-.appgrid { position: absolute; left: 60px; right: 60px; top: 96px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 22px 10px; }
+.appgrid { position: absolute; left: 60px; right: 60px; top: 136px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 22px 10px; }
 .app { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 4px; border-radius: 18px; transition: background .2s, transform .2s; }
 .app img { width: 74px; height: 74px; border-radius: 20px; box-shadow: 0 8px 22px var(--shadow); }
 .app span { font-size: 12.5px; font-weight: 700; max-width: 130px; text-align: center; color: var(--fg); }
 .app small { font-size: 10.5px; font-weight: 700; color: var(--acc-t); margin-top: -4px; }
 .app.focus { background: var(--chip); transform: translateY(-3px); box-shadow: 0 0 0 2px var(--sel); }
-.apphead { position: absolute; left: 60px; right: 60px; top: 72px; display: flex; justify-content: space-between; font-size: 12.5px; color: var(--fg2); }
+.apphead { position: absolute; left: 60px; right: 60px; top: 104px; display: flex; justify-content: space-between; font-size: 12.5px; color: var(--fg2); }
 
 /* settings */
+#s-settings { transform: translateY(60px); transition: opacity .35s ease, transform .5s cubic-bezier(.2,.8,.2,1), visibility 0s linear .35s; }   /* Settings rises from the bottom too */
+#s-settings.on { transform: none; transition: opacity .35s ease, transform .5s cubic-bezier(.2,.8,.2,1), visibility 0s; }
 #s-settings h1 { position: absolute; left: 34px; top: 22px; margin: 0; font-family: var(--display); font-weight: 500; font-size: 24px; }
 .set-nav { position: absolute; left: 28px; top: 70px; width: 230px; bottom: 26px; padding: 8px; }
 .set-nav div { padding: 9px 14px; margin-bottom: 2px; border-radius: 12px; font-size: 14px; font-weight: 700; color: var(--fg3); transition: background .2s, color .2s; }
@@ -339,8 +349,9 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .kbrow { display: flex; gap: 7px; margin-bottom: 7px; }
 .key { flex: none; display: grid; place-items: center; height: 42px; border-radius: 10px; background: var(--chip); font-size: 17px; font-weight: 700; }
 .key.wide { font-size: 14px; } .key.focus { background: var(--sel); color: var(--selfg); }
-.toast { position: absolute; left: 50%; top: 18px; padding: 9px 22px; border-radius: 20px; background: var(--sel); color: var(--selfg); z-index: 9; font-size: 14px; font-weight: 800;
-  transform: translate(-50%, -90px); transition: transform .4s cubic-bezier(.2,.8,.2,1); white-space: nowrap; }
+.toast { position: absolute; left: 50%; bottom: 26px;   /* at the bottom, clear of the top bar */
+  padding: 9px 22px; border-radius: 20px; background: var(--sel); color: var(--selfg); z-index: 9; font-size: 14px; font-weight: 800;
+  transform: translate(-50%, 90px); transition: transform .4s cubic-bezier(.2,.8,.2,1); white-space: nowrap; }
 .toast.show { transform: translate(-50%, 0); }
 #flash { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 7; }
 .keys { position: fixed; left: 0; right: 0; bottom: 6px; text-align: center; font-size: 12px; color: var(--page-text); }
@@ -353,18 +364,18 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
   <div id="ui">
     <section id="s-setup" class="screen"><div class="setup panel" id="setup"></div></section>
     <header id="topbar">
-      <nav class="tabs panel"><div class="tab" data-k="home">Home</div><div class="tab" data-k="library">Library</div><div class="tab" data-k="apps">Apps</div><div class="tab" data-k="museum">Museum</div></nav>
-      <div class="tright">
-        <div class="status panel"><svg viewBox="0 0 24 24"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0"/><circle cx="12" cy="19" r="1.2" fill="currentColor"/></svg>
-          <svg viewBox="0 0 24 24"><rect x="3" y="7" width="16" height="10" rx="2.5"/><path d="M21 10.5v3"/><rect x="5.5" y="9.5" width="9" height="5" rx="1" fill="currentColor" stroke="none"/></svg><span>76%</span><span id="clock"></span></div>
-        <div class="tbtn panel" data-k="settings" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M4.2 6.2l2.1 2.1M17.7 15.7l2.1 2.1M2.5 12h3M18.5 12h3M4.2 17.8l2.1-2.1M17.7 8.3l2.1-2.1"/></svg></div>
-        <div class="tbtn panel" data-k="profile"><i class="avatar" id="avatar"></i><span id="meName"></span></div>
-      </div>
+      <div class="prof" data-k="profile"><i class="avatar" id="avatar"></i><span id="meName"></span></div>
+      <nav class="dock">
+        <div class="db" data-k="library"><svg viewBox="0 0 24 24"><rect x="3.5" y="4" width="4" height="16" rx="1"/><rect x="9.5" y="4" width="4" height="16" rx="1"/><path d="M15.6 5.2l3.8-1 3.1 14.6-3.8 1z"/></svg><em>Library</em></div>
+        <div class="db" data-k="apps"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="2"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="2"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="2"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="2"/></svg><em>Apps</em></div>
+        <div class="db" data-k="museum"><svg viewBox="0 0 24 24"><path d="M3 9.5L12 4l9 5.5M5 10v8M9.7 10v8M14.3 10v8M19 10v8M3.5 20.5h17"/></svg><em>Museum</em></div>
+        <div class="db" data-k="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M5.5 18.5l1.8-1.8M16.7 7.3l1.8-1.8"/></svg><em>Settings</em></div>
+      </nav>
+      <div class="status"><svg viewBox="0 0 24 24"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0"/><circle cx="12" cy="19" r="1.2" fill="currentColor"/></svg>
+        <svg viewBox="0 0 24 24"><rect x="3" y="7" width="16" height="10" rx="2.5"/><path d="M21 10.5v3"/><rect x="5.5" y="9.5" width="9" height="5" rx="1" fill="currentColor" stroke="none"/></svg><span>76%</span><span id="clock"></span></div>
     </header>
     <section id="s-home" class="screen">
       <div class="home-info" id="homeInfo"><h2 id="hTitle"></h2><div class="meta" id="hMeta"></div></div>
-      <div class="cards" id="hCards"></div>
-      <div class="focus-title" id="hTile"><b>All games</b><span id="hTileN"></span></div>
     </section>
     <section id="s-library" class="screen">
       <div class="gridframe"></div>

@@ -27,13 +27,17 @@ The prototypes can also be tried straight in the browser, no download needed:
 The serious one: the best launcher we can make for the Retroid Pocket 3+. It replaces the home screen and covers
 ten consoles plus Android games:
 
-- **Home** holds the games you carry with you, as cartridges, discs and cards.
-- **Library** is your shelf: every game as its box, at the real box's size.
-- **Opening a box** shows its cartridge or disc, its manual, screenshots, saves and achievements.
+- **Home** holds the games you've played recently, as cartridges, discs and cards. Press down on one and its box
+  slides in, the cartridge goes into it, and the game's page appears right there.
+- Round buttons along the top open the **Library** (every game as its box, at the real box's size), **Apps**,
+  the **Museum** and **Settings**. They slide up over Home.
+- **A game's page** shows its cartridge or disc, its manual, screenshots, saves and achievements.
 - Games launch in RetroArch (or a standalone emulator), and the Home button saves and brings you back.
 
-Right now there's a **browser prototype** to look at and give feedback on. Its new **Museum** tab shows every
-console, cartridge and box up close, with facts about each console. It's fixed at the Retroid's
+Right now there's a **browser prototype** to look at and give feedback on. Home is a row of your recent games;
+press down on one and its box slides in and opens right there. The round buttons along the top open the
+**Library**, **Apps**, the **Museum** (every console, cartridge and box up close, with facts about each
+console) and **Settings**. It's fixed at the Retroid's
 1334×750 screen size. The full design is in [docs/SPEC-shelf-android.md](docs/SPEC-shelf-android.md) and the
 plan for the real app is in [docs/ROADMAP.md](docs/ROADMAP.md).
 
@@ -46,7 +50,7 @@ plan for the real app is in [docs/ROADMAP.md](docs/ROADMAP.md).
 | Enter | A |
 | Esc | B |
 | F | Y |
-| Q / E | L1 / R1 (switch tabs) |
+| Q / E | L1 / R1 |
 | H | Home |
 
 A controller plugged into the computer works too.

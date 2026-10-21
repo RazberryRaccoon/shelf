@@ -160,6 +160,26 @@ Summarized from the first part of the conversation; the full transcript is kept 
 - **Emulator support** will use ES-DE's published Android emulator list as the reference, plus an "Other app"
   option, per-console defaults, per-game overrides and "Ask every time".
 
+### The layout (October 2026)
+
+- The UI direction ideas (gallery, orbit, cover-driven color, print, physical UI): "cool in theory, but just a
+  little too extra. I feel like I'd be losing utility."
+- "You know how the PS4, PS5, Xbox, Switch, and Steam layouts are all distinctly different, but still feel like
+  modern, easy to navigate game launchers? I want something like that, but different from all the others…
+  the same foundations as the best of the best, but making it my own."
+- The parts: a home for recently played games, a library, a place for Android apps, and the Museum. "Both the
+  museum and the android app library don't have to be on the same 'level' as the Home and Library."
+- Chosen: Claude's options 1 (row and dock, Switch-like) and 2 (game first, PS5-like) combined. "Pressing down opens
+  the 'page' for that game, but… it's right there… the box flies in from the left and the cartridge slots in, while
+  the rest of the cartridges in the row move 'up'." A "Switch-like row of circular, iconographic buttons at the top
+  for Library, Apps, Museum, and Settings," the profile picture top left, status top right.
+- Tried as a flat browser mockup first. Notes on it: the cartridge flying into the case overlapped the details
+  (a timing issue: the details now wait for it); "I like the library sliding in from the bottom. When selecting a
+  game from there, the library should slide back down, the box should get larger and open, and the details should
+  appear on the right. Then, do that in reverse. The row of recently played games should never be visible, even in
+  the background."
+- Kept from before: A on Home plays or resumes straight away (down is for the page).
+
 ### Prototype v2, part 2 (built)
 
 - "Add in a button that skips the setup, just for debugging… not literally skip all the setup, but instead just
