@@ -2,6 +2,7 @@ package com.razberryraccoon.shelf;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -17,6 +18,8 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+
+import org.json.JSONObject;
 
 /**
  * Shelf's one screen. The interface is the same page as the browser prototype (WebGL, drawn by our own renderer),
@@ -123,6 +126,25 @@ public class MainActivity extends Activity {
         boolean home = intent != null && intent.hasCategory(Intent.CATEGORY_HOME);
         boolean wasInFront = resumed || (!launchedOut && System.currentTimeMillis() - pausedAt < 500);
         if (home && wasInFront && loaded) send("home");
+    }
+
+    private static final int PICK_FOLDER = 7;
+    private String folderFor;   // the console whose games folder is being chosen
+
+    void pickFolder(String sys) {
+        folderFor = sys;
+        launchedOut = true;
+        try { startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), PICK_FOLDER); }
+        catch (ActivityNotFoundException e) { js("window.toast && toast('This device has no folder picker')"); }
+    }
+
+    @Override
+    protected void onActivityResult(int request, int result, Intent data) {
+        super.onActivityResult(request, result, data);
+        if (request != PICK_FOLDER || folderFor == null || result != RESULT_OK || data == null || data.getData() == null) return;
+        String path = Scanner.treePath(this, data.getData());
+        js("window.__nativeFolder && __nativeFolder(" + JSONObject.quote(folderFor) + ", " + JSONObject.quote(path == null ? "" : path) + ")");
+        folderFor = null;
     }
 
     void js(String code) {

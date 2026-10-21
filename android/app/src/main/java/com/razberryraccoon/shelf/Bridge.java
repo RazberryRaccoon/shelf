@@ -38,7 +38,11 @@ public class Bridge {
 
     /** Your games, apps and installed emulators, as JSON. */
     @JavascriptInterface
-    public String scan() { return Scanner.scan(act).toString(); }
+    public String scan(String folders) { return Scanner.scan(act, folders).toString(); }
+
+    /** Android's folder picker, to choose where one console's games are. The answer arrives as __nativeFolder. */
+    @JavascriptInterface
+    public void pickFolder(String sys) { ui.post(() -> act.pickFolder(sys)); }
 
     @JavascriptInterface
     public boolean hasStorage() { return Environment.isExternalStorageManager(); }

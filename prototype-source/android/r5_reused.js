@@ -44,7 +44,7 @@ function openKb(title, value, onDone) { S.kb = { open: true, title, value, r: 1,
 function renderKb() {
   const k = S.kb, el = $('#kb'); el.classList.toggle('open', !!k.open); if (!k.open) return;
   el.innerHTML = `<h3>${esc(k.title)}</h3><div class="kbfield">${esc(k.value)}<i class="caret"></i></div>` + KB_ROWS.map((row, r) =>
-    `<div class="kbrow" style="padding-left:${KB_OFF[r] * 59}px">${row.map((key, c) => `<span class="key ${key.length > 1 ? 'wide' : ''} ${r === k.r && c === k.c ? 'focus' : ''}" style="width:${kbW(key) * 59 - 7}px">${key}</span>`).join('')}</div>`).join('');
+    `<div class="kbrow" style="padding-left:${KB_OFF[r] * 93}px">${row.map((key, c) => `<span class="key ${key.length > 1 ? 'wide' : ''} ${r === k.r && c === k.c ? 'focus' : ''}" style="width:${kbW(key) * 93 - 10.5}px">${key}</span>`).join('')}</div>`).join('');
 }
 function kbType(ch) {   // capitalizes the start of each word, like a title
   const k = S.kb; if (k.value.length >= 28) return;

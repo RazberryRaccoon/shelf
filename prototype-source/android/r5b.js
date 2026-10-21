@@ -1,10 +1,14 @@
 /* ================= Apps ================= */
+const APP_COLS = 5;
 const iconUrls = new Map();
 const iconUrl = app => { if (app.iconData) return app.iconData; if (!iconUrls.has(app.name)) iconUrls.set(app.name, appIcon(app).toDataURL()); return iconUrls.get(app.name); };
 function refreshApps() {
   S.apps.i = clamp(S.apps.i, 0, APPS.length - 1); setMood('home');
   $('#appCount').textContent = `${APPS.length} apps on this handheld`;
   $('#appGrid').innerHTML = APPS.map((a, i) => `<div class="app ${!S.top.on && i === S.apps.i ? 'focus' : ''}"><img src="${iconUrl(a)}" alt=""><span>${esc(a.name)}</span>${ANDROID_GAMES.has(a.name) ? '<small>In Library</small>' : ''}</div>`).join('');
+  const first = $('#appGrid .app'), rowH = first ? first.offsetHeight + 30 : 190, r = Math.floor(S.apps.i / APP_COLS), view = 750 - 196;
+  const rows = Math.ceil(APPS.length / APP_COLS), off = clamp(r * rowH - (view - rowH) / 2, 0, Math.max(0, rows * rowH - view + 24));
+  $('#appGrid').style.transform = `translateY(${-off}px)`;
   renderTop();
 }
 function appOptions() {
@@ -70,9 +74,13 @@ function settingsModel() {
       info('Launching', 'Opens the app', 'Android games open in their own app.'), info('Box', 'Keep case', 'A generic keep case at Blu-ray size.')] : [
       { label: 'Default emulator', desc: `Used by every game on this platform unless a game chooses its own. ${pl.emus.length} to choose from.`, value: emuName(emu), act: () => { pickEmulator(k, emu, v => { P.emu[k] = v; fillSettings(); }); return true; } },
       tog('Ask every time', 'ask', 'Choose the emulator each time you play, unless a game has its own.', P.pf[k]),
-      info('Saves', isRA(emu) ? 'Shelf’s slots' : `Kept by ${emu}`, isRA(emu) ? 'RetroArch saves into Shelf’s four slots per game.' : 'Standalone emulators keep their own saves.'),
+      info('Saves', isRA(emu) ? 'Shelf’s slots' : `Kept by ${emuApp(emu)}`, isRA(emu) ? 'RetroArch saves into Shelf’s four slots per game.' : NATIVE ? 'The emulator keeps its own saves. Shelf’s save slots come in a later version.' : 'Standalone emulators keep their own saves.'),
       cyc('Screen filter', P.pf[k], 'filter', ['None', 'Scanlines', 'LCD grid'], 'A filter over the game picture, when the emulator supports one.'),
-      info('Game folder', `ROMs/${k}`, 'Where Shelf looks for this platform’s games.'),
+      ...(NATIVE ? [action('Games folder', P.pf[k].folder ? prettyPath(P.pf[k].folder) : `ROMs › ${romDir(k)}`,
+          P.pf[k].folder ? 'Shelf looks here, and in any ROMs folder. Press A to choose a different one.' : 'Shelf looks in ROMs folders on internal storage and SD cards. Press A to choose a different folder.',
+          () => { nativePickFolder(k); return true; }),
+        ...(P.pf[k].folder ? [action('Stop using this folder', '', 'Go back to the ROMs folders only.', () => { P.pf[k].folder = ''; nativeSave(); nativeScan(); })] : [])]
+        : [info('Game folder', `ROMs/${k}`, 'Where Shelf looks for this platform’s games.')]),
       info('BIOS', k === 'ps1' ? 'Found' : 'Not needed', k === 'ps1' ? 'DuckStation found a PlayStation BIOS.' : 'This platform runs without one.'),
       info('Box', pl.real ? 'Original case' : 'Modern case', pl.real ? 'The original case, opening as it really does.' : 'A modern clamshell case at the original box’s size.')] } : null).map((c, i) => c || modelFor(i));
   }
@@ -195,7 +203,7 @@ function mediaPoseNow(from, g) {   // where the media is on screen right now, so
     const p = apply(M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s), [0, m.by, m.mediaZ]); return { x: p[0], y: p[1], z: p[2], rx: o.rx, ry: o.ry, s: o.s }; } }
   return { x: 0, y: -6, z: 0, rx: 0, ry: 0, s: 1 };
 }
-function homeSlotPose(g) { const [x, y] = pw(270, 238); return { x, y, z: .5, rx: -.1, ry: -.2, s: mediaScale(g.sys, 236) }; }
+function homeSlotPose(g) { const [x, y] = pw(270, HOME_Y); return { x, y, z: .5, rx: -.1, ry: -.2, s: mediaScale(g.sys, 240) }; }
 function startLaunch(g, slot, resume, from = S.screen) {
   const cp = consolePose(g.sys);
   S.seq = { kind: 'launch', g, slot, resume, t: 0, from, under: from === 'apps' ? null : from, flags: {}, cp, start: mediaPoseNow(from, g) };

@@ -285,7 +285,8 @@ plastic color, shadow color, and the 3D rim light.
 - **Finding games:** a `ROMs` folder (any capitalization) at the top of internal storage or an SD card, with one folder
   per console, named as ES-DE names them (`nes`, `snes`, `n64`, `genesis` or `megadrive`, `gb`, `gbc`, `gba`, `psx`,
   `nds`, `psp`, plus a few aliases). Titles come from file names, without region and dump tags. Disc numbers stay;
-  an `.m3u` playlist stands in for the discs next to it.
+  an `.m3u` playlist stands in for the discs next to it. Each console can also have a folder you choose (Settings ›
+  Platforms › Games folder, or in setup), searched along with the ROMs folders.
 - **Launching:** ES-DE's Android configuration is the reference for every emulator's package, activity and extras.
   RetroArch gets `ROM`, `LIBRETRO` (`/data/data/<package>/cores/<core>_libretro_android.so`), `CONFIGFILE` and
   `QUITFOCUS`. Standalone emulators get either the storage document link (ES-DE's `%ROMSAF%`), Shelf's own read-only

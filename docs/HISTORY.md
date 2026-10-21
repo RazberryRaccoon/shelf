@@ -253,3 +253,8 @@
   the engine lacks it, a `roundRect` stand-in, and setup and Settings › About offer to update the WebView from the
   Play Store when it's older than Chrome 100. `?compat` forces the fallback in a current browser for testing.
 - Lesson: test against the oldest engine a device might have, not just current Chrome.
+- Third round, from using it on the Retroid: everything enlarged for the 4.7-inch screen (the stylesheet's sizes were
+  scaled by script, then every screen's containers laid out again by hand: top bar, Home row, game page, Library,
+  Apps, Museum, Settings, setup, dialogs, keyboard); the Library rows size themselves to their tallest box; Apps and the
+  Museum's list scroll; a games folder per console through Android's folder picker (`ShelfNative.pickFolder`, answered
+  by `__nativeFolder`; the tree link is turned back into a file path and scanned with the ROMs folders).

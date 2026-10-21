@@ -70,6 +70,7 @@ function pickExhibit(i, ex) {
 function refreshMuseum() {
   const U = S.mu, sys = MU_ORDER[U.i], d = MUSEUM[sys], g = sampleGame(sys), stage0 = !S.top.on && U.zone === 'stage';
   $('#muRail').innerHTML = '<nav class="railin"><h5>Consoles, oldest first</h5>' + MU_ORDER.map((k, i) => `<div class="${i === U.i ? 'cur' : ''} ${!S.top.on && U.zone === 'rail' && i === U.i ? 'focus' : ''}">${esc(PLAT[k].name)}<span>${MUSEUM[k].year}</span></div>`).join('') + '</nav>';
+  railScroll($('#muRail .railin'), 506);
   $('#muChips').innerHTML = EXHIBITS(sys).map((e, i) => `<div class="filter ${i === U.ex ? (stage0 ? 'focus' : 'cur') : ''}">${e}</div>`).join('');
   $('#muInfo').innerHTML = `<div class="gp-sys">${esc(d.maker)} · ${d.year}</div><h2>${esc(PLAT[sys].long)}</h2>
     <div class="mu-facts"><div>Released in North America<b>${esc(d.released)}</b></div><div>Sold<b>${esc(d.sold)}</b></div><div>Processor<b>${esc(d.cpu)}</b></div><div>Plays<b>${esc(d.plays)}</b></div></div>
@@ -102,8 +103,8 @@ function exhibitBounds(sys, ex, open) {
 }
 function drawExhibit(sys, ex, k, yaw, pitch, open) {
   const g = sampleGame(sys), [lo, hi] = exhibitBounds(sys, ex, ex >= 2 ? open : 0), c = lo.map((v, i) => (v + hi[i]) / 2);
-  const span = Math.max(hi[0] - lo[0], (hi[1] - lo[1]) * 1.25, hi[2] - lo[2]), fit = (ex === 0 ? 3.3 : ex === 3 ? 3.9 : 3.0) / span;
-  const s = fit * (.94 + .06 * k), bob = motion() ? Math.sin(S.time * .8) * .025 : 0, [x, y] = pw(560, 392);
+  const span = Math.max(hi[0] - lo[0], (hi[1] - lo[1]) * 1.25, hi[2] - lo[2]), fit = (ex === 0 ? 2.8 : ex === 3 ? 3.3 : 2.55) / span;
+  const s = fit * (.94 + .06 * k), bob = motion() ? Math.sin(S.time * .8) * .025 : 0, [x, y] = pw(582, 450);
   const R = M4.mul(M4.trs(x, y + bob, 0, pitch, 0, 0, 1), M4.trs(0, 0, 0, 0, yaw, 0, s)), st = { alpha: k, bright: 1, s, detail: 1 };
   if (ex >= 2) {   // cases draw from their own pose, so fold the turn and the centering into it
     drawCaseAt(g, M4.mul(R, M4.trs(-c[0], -c[1], -c[2], 0, 0, 0, 1)), st, open);
@@ -118,7 +119,7 @@ function drawMuseum(dt) {
   approach(U, { yaw: U.yawT, pitch: U.pitchT, open: U.ex === 3 ? 1 : 0 }, dt, 5);
   U.fade = Math.min(1, U.fade + dt / .5);
   setCamera(0, CAMZ, 0);
-  shadowUnder(560, 600, 430, .8, true);
+  shadowUnder(582, 640, 400, .8, true);
   beginMeshes();
   if (U.prev && U.fade < 1) drawExhibit(U.prev.sys, U.prev.ex, 1 - easeOut(U.fade * 1.6), U.prev.yaw, U.prev.pitch, U.prev.open);
   if (!NODRAW) gl.clear(gl.DEPTH_BUFFER_BIT);   // the outgoing exhibit never hides the incoming one

@@ -10,6 +10,8 @@ import android.graphics.drawable.Drawable;
 import android.os.Environment;
 import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
+import android.net.Uri;
+import android.provider.DocumentsContract;
 import android.util.Base64;
 
 import org.json.JSONArray;
@@ -21,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -62,11 +65,21 @@ final class Scanner {
     }
     private static void ext(String sys, String list) { EXT.put(sys, new HashSet<>(Arrays.asList(list.split(" ")))); }
 
-    static JSONObject scan(Context ctx) {
+    /** folders: {console: path} for consoles whose games folder you chose; ROMs folders are always searched too. */
+    static JSONObject scan(Context ctx, String folders) {
         JSONObject out = new JSONObject();
         try {
             JSONArray games = new JSONArray();
-            if (Environment.isExternalStorageManager()) for (File root : romRoots(ctx)) scanRoot(root, games);
+            Set<String> seen = new HashSet<>();
+            if (Environment.isExternalStorageManager()) {
+                JSONObject chosen = new JSONObject(folders == null || folders.isEmpty() ? "{}" : folders);
+                for (Iterator<String> it = chosen.keys(); it.hasNext(); ) {
+                    String sys = it.next();
+                    File dir = new File(chosen.getString(sys));
+                    if (EXT.containsKey(sys) && dir.isDirectory()) walk(dir, sys, games, seen, 0);
+                }
+                for (File root : romRoots(ctx)) scanRoot(root, games, seen);
+            }
             out.put("games", games);
             out.put("apps", apps(ctx));
             JSONArray emus = new JSONArray();
@@ -89,16 +102,32 @@ final class Scanner {
         return roots;
     }
 
-    private static void scanRoot(File root, JSONArray games) throws Exception {
+    /** The file path behind a folder chosen in Android's picker ("primary:Games/GBA" → /storage/emulated/0/Games/GBA). */
+    static String treePath(Context ctx, Uri tree) {
+        String id = DocumentsContract.getTreeDocumentId(tree);
+        int c = id.indexOf(':');
+        if (c < 0) return null;
+        String vol = id.substring(0, c), rel = id.substring(c + 1);
+        StorageManager sm = ctx.getSystemService(StorageManager.class);
+        for (StorageVolume v : sm.getStorageVolumes()) {
+            File dir = v.getDirectory();
+            if (dir == null) continue;
+            boolean match = "primary".equalsIgnoreCase(vol) ? v.isPrimary() : vol.equalsIgnoreCase(v.getUuid());
+            if (match) return rel.isEmpty() ? dir.getAbsolutePath() : new File(dir, rel).getAbsolutePath();
+        }
+        return null;
+    }
+
+    private static void scanRoot(File root, JSONArray games, Set<String> seen) throws Exception {
         File[] kids = root.listFiles();
         if (kids == null) return;
         for (File k : kids) {
             String sys = k.isDirectory() ? FOLDERS.get(k.getName().toLowerCase(Locale.ROOT)) : null;
-            if (sys != null) walk(k, sys, games, 0);
+            if (sys != null) walk(k, sys, games, seen, 0);
         }
     }
 
-    private static void walk(File dir, String sys, JSONArray games, int depth) throws Exception {
+    private static void walk(File dir, String sys, JSONArray games, Set<String> seen, int depth) throws Exception {
         File[] kids = dir.listFiles();
         if (kids == null) return;
         Arrays.sort(kids);
@@ -108,9 +137,9 @@ final class Scanner {
         for (File k : kids) {
             String name = k.getName();
             if (name.startsWith(".")) continue;
-            if (k.isDirectory()) { if (depth < 3) walk(k, sys, games, depth + 1); continue; }
+            if (k.isDirectory()) { if (depth < 3) walk(k, sys, games, seen, depth + 1); continue; }
             String e = extOf(k);
-            if (!EXT.get(sys).contains(e) || (playlist && !e.equals("m3u"))) continue;
+            if (!EXT.get(sys).contains(e) || (playlist && !e.equals("m3u")) || !seen.add(k.getAbsolutePath())) continue;
             games.put(new JSONObject().put("sys", sys).put("path", k.getAbsolutePath()).put("title", title(name)));
         }
     }

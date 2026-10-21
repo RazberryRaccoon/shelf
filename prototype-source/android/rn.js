@@ -17,7 +17,7 @@ function nativeAndroidGame(name, pkg) {   // an app you've marked as a game gets
   g.pkg = pkg; ANDROID_GAMES.add(name); return g;
 }
 function nativeScan() {
-  let d; try { d = JSON.parse(ShelfNative.scan()); } catch (e) { console.error(e); return; }
+  let d; try { d = JSON.parse(ShelfNative.scan(nativeFolders())); } catch (e) { console.error(e); return; }
   const marked = GAMES.filter(g => g.sys === 'android');
   GAMES.length = 0;
   for (const r of d.games) GAMES.push({ id: hash(r.path).toString(36), sys: r.sys, title: r.title, year: '', dev: '', genre: '', players: '', ach: 0, desc: '', path: r.path });
@@ -28,6 +28,18 @@ function nativeScan() {
   NATIVE_EMUS = d.emus; INSTALLED_APPS.clear(); d.emus.forEach(e => INSTALLED_APPS.add(e));
   INSTALLED_CORES.clear(); if (d.emus.includes('RetroArch')) Object.keys(CORE_FILES).forEach(c => INSTALLED_CORES.add(c));   // RetroArch's cores can't be listed from outside it
   for (const k of SYS_ORDER) if (k !== 'android' && !emuInstalled(P.emu[k])) P.emu[k] = PLAT[k].emus.find(emuInstalled) || P.emu[k];
+}
+// Games folders: by default ROMs/<console> on internal storage and SD cards; each console can also have a folder you choose
+const romDir = k => ({ ps1: 'psx', ds: 'nds' })[k] || k;
+const prettyPath = p => p.replace(/^\/storage\/emulated\/0\/?/, 'Internal storage/').replace(/^\/storage\/[^/]+\/?/, 'SD card/').replace(/\/$/, '').split('/').join(' › ');
+function nativeFolders() { const o = {}; for (const k of SYS_ORDER) if (P.pf[k] && P.pf[k].folder) o[k] = P.pf[k].folder; return JSON.stringify(o); }
+function nativePickFolder(k) {
+  if (!ShelfNative.hasStorage()) { toast('First, allow Shelf to see your files'); return ShelfNative.requestStorage(); }
+  ShelfNative.pickFolder(k);   // Android's folder picker; the answer comes back through __nativeFolder
+}
+function chooseFolders() {   // from setup: which console's folder to choose
+  const ks = SYS_ORDER.filter(k => k !== 'android');
+  openDlg('Choose a games folder for', ks.map(k => ({ label: PLAT[k].long, sub: P.pf[k].folder ? prettyPath(P.pf[k].folder) : `ROMs › ${romDir(k)}` })), i => { closeDlg(); nativePickFolder(ks[i]); });
 }
 function nativeSave() {
   try {
@@ -65,6 +77,12 @@ if (NATIVE) {
   setInterval(nativeSave, 15000);
   window.__nativeKey = a => { try { if (P.prefs.layout === 'Xbox' && (a === 'a' || a === 'b')) a = a === 'a' ? 'b' : 'a'; act(a); } catch (e) { console.error(e); } };
   window.__nativePause = () => nativeSave();
+  window.__nativeFolder = (k, path) => {
+    if (!path) return toast('That folder can’t be used. Choose one on internal storage or an SD card.');
+    P.pf[k].folder = path; nativeSave(); nativeScan();
+    const n = GAMES.filter(g => g.sys === k).length; toast(`${PLAT[k].name}: found ${n} game${n === 1 ? '' : 's'}`);
+    if (S.screen === 'settings') fillSettings(); else if (S.screen === 'setup') fillSetup(); else if (S.screen === 'library') refreshLibrary(true); else if (S.screen === 'home') refreshHome();
+  };
   window.__nativeResume = () => {   // back from an emulator or an app, or from Android's settings
     if (S.screen === 'play' && S.play) return homeFromPlay();
     if (S.seq || !['setup', 'home', 'library', 'apps'].includes(S.screen)) return;
