@@ -25,7 +25,8 @@ function act(a) {
   }
   if (sc === 'play') return;
   if (TABS.includes(sc)) {
-    if ((a === 'lb' || a === 'rb') && !(sc === 'museum' && S.mu.zone === 'stage' && !S.top.on)) return;
+    if ((a === 'lb' || a === 'rb') && !(sc === 'museum' && S.mu.zone === 'stage' && !S.top.on)) {   // L and R step through Home, Library, Apps and Museum
+      const k = (TABS.indexOf(sc) + (a === 'rb' ? 1 : TABS.length - 1)) % TABS.length; sfx.tab(); return enterTab(TABS[k]); }
     if (S.top.on) return topInput(a);
     return sc === 'home' ? homeInput(a) : sc === 'library' ? libInput(a) : sc === 'museum' ? museumInput(a) : appsInput(a);
   }
@@ -113,11 +114,11 @@ function gameInput(a) {
   if (a === 'b') { if (G0.zone !== 'actions') { G0.zone = 'actions'; G0.i = 0; fillGame(); return sfx.back(); } return closeGame(); }
   const go = (zone, i = 0) => { G0.zone = zone; G0.i = i; sfx.move(); };
   const z = G0.zone;
-  if (z === 'manual') { if (a === 'right') go('cart'); else if (a === 'a') return gameAction(); }
-  else if (z === 'cart') { if (a === 'left') go('manual'); else if (a === 'right') go('actions'); else if (a === 'a') return gameAction(); }
+  if (z === 'manual') { if (a === 'right') go('cart'); else if (a === 'up') return closeGame(); else if (a === 'a') return gameAction(); }
+  else if (z === 'cart') { if (a === 'left') go('manual'); else if (a === 'right') go('actions'); else if (a === 'up') return closeGame(); else if (a === 'a') return gameAction(); }
   else if (z === 'actions') {
     if (a === 'left') { if (G0.i === 0) go('cart'); else { G0.i--; sfx.move(); } } else if (a === 'right') { if (G0.i < acts.length - 1) { G0.i++; sfx.move(); } }
-    else if (a === 'up') { if (actRowMove(-1)) sfx.move(); }
+    else if (a === 'up') { if (actRowMove(-1)) sfx.move(); else return closeGame(); }   // up from the top row closes the page, as down opened it
     else if (a === 'down') { if (actRowMove(1)) sfx.move(); else go('saves', ra ? (rec(G0.id) || { lastSlot: 0 }).lastSlot : 0); } else if (a === 'a') return gameAction();
   } else if (z === 'saves') {
     if (a === 'left') { if (!ra || G0.i === 0) go('cart'); else { G0.i--; sfx.move(); } } else if (a === 'right' && ra && G0.i < 3) { G0.i++; sfx.move(); }
@@ -189,18 +190,43 @@ function planetTarget() {
   const sc = S.screen === 'game' && S.game.closing ? S.game.then : S.screen === 'game' && S.game.fly ? 'game' : S.screen;
   switch (sc) {
     case 'setup': return { x: 667, y: 1080, r: 560, a: 1 };
-    case 'home': return { x: 1220, y: 900, r: 420, a: 1 };
-    case 'library': case 'apps': return { x: 1300, y: 920, r: 380, a: .85 };
-    case 'museum': return { x: 560, y: 1150, r: 470, a: .55 };
-    case 'game': return { x: 260, y: 940, r: 480, a: .9 };
+    case 'home': case 'library': case 'apps': case 'museum': case 'game': return { x: 1190, y: -175, r: 390, a: 1 };   // up in the top half, clear of Home's picture
     case 'settings': case 'ach': return { x: 1260, y: 940, r: 400, a: .5 };
     default: return { x: 667, y: 1200, r: 500, a: 0 };
   }
+}
+// Home's picture: the selected game's chosen media across the lower part of the screen, darkened, fading out toward
+// the top so its edge meets the bottom of the row. Crossfades when the selection changes; hidden while a page is open.
+const HB = { key: null, prev: null, a: 1, vis: 1 };
+function homeArtCanvas(g, kind) {
+  const w = 1024, h = 300, c = canvas(w, h), x = c.getContext('2d');
+  let src = null;
+  if (kind === 'cart') { src = canvas(w, h); drawScene(src.getContext('2d'), w, h, g); }
+  else if (kind === 'box') src = mediaCanvas(g, { kind: 'box' });
+  else if (kind === 'title' && g.sys !== 'android') src = mediaCanvas(g, { kind: 'title' });
+  else src = mediaCanvas(g, { kind: 'shot', seed: hash(g.id + 'shot0'), scroll: 30 });
+  const k = Math.max(w / src.width, h / src.height), sw = w / k, sh = h / k;
+  x.drawImage(src, (src.width - sw) / 2, (src.height - sh) * (kind === 'box' ? .35 : .5), sw, sh, 0, 0, w, h);
+  const f = x.createLinearGradient(0, 0, 0, h); f.addColorStop(0, 'rgba(0,0,0,0)'); f.addColorStop(.55, 'rgba(0,0,0,.85)'); f.addColorStop(1, 'rgba(0,0,0,1)');
+  x.globalCompositeOperation = 'destination-in'; x.fillStyle = f; x.fillRect(0, 0, w, h);
+  return c;
+}
+function drawHomeArt(dt, id, show) {
+  const kind = P.prefs.homeArt, key = kind !== 'off' && id ? 'homeart:' + kind + ':' + id : null;
+  if (key !== HB.key) { HB.prev = HB.a > .5 ? HB.key : HB.prev; HB.key = key; HB.a = 0; }
+  HB.a = Math.min(1, HB.a + dt / .45); approach(HB, { vis: show ? 1 : 0 }, dt, 6);
+  const dim = lightTheme() ? [.62, .62, .66] : [.36, .37, .44], top = 352, hgt = 750 - top;   // the fade's edge sits at the bottom of the row
+  const plate = (k, a) => { if (!k || a < .005 || NODRAW) return; const [, kd, gid] = k.split(':');
+    const [x, y] = pw(667, top + hgt / 2); gl.depthMask(false);
+    drawPart(PLANE, M4.trs(x, y, -1, 0, 0, 0, [1334 / PX, hgt / PX, 1]), { tex: tex(k, () => homeArtCanvas(byId[gid], kd), true), flat: true, col: dim, alpha: a * HB.vis });
+    gl.depthMask(true); };
+  plate(HB.prev, 1 - ease(HB.a)); plate(HB.key, ease(HB.a));
 }
 function drawHome(dt, t, strip) {   // strip: a game's page is open here, so the rest of the row waits in a small strip up top
   const items = homeItems(), H0 = S.home, rowFocus = H0.zone === 'row' && !S.top.on && S.screen === 'home', q = S.seq;
   approach(H0, { f: H0.i }, dt, 8);
   setFlat(); beginMeshes();
+  drawHomeArt(dt, items[H0.i], !strip);
   const drawn = [], others = strip ? items.filter(id => id !== S.game.id) : [];
   items.forEach((id, i) => {
     const g = byId[id], o = pose('home:' + id, { s: 0, y: 3 }), foc = !strip && i === H0.i;
@@ -249,7 +275,9 @@ function drawSheet(dt, t) {
   const b = hexRgb(getComputedStyle(stage).getPropertyValue('--bg').trim() || '#070b1e'), f = lightTheme() ? [1, 1, 1] : [.6, .65, 1];
   drawPlate('sheet', panelArt, 667, 486, 1300, 800, 2, b.map((v, i) => v * .9 + f[i] * .06), .95);
   endMeshes(); if (!NODRAW) gl.clear(gl.DEPTH_BUFFER_BIT);
+  S.sheet.cf = Math.min(1, (S.sheet.cf == null ? 1 : S.sheet.cf) + dt / .3); UNDER = ease(S.sheet.cf);   // switching sheets fades the new one in
   if (S.sheet.name === 'library') drawLibrary(dt, t); else if (S.sheet.name === 'museum') drawMuseum(dt);
+  UNDER = 1;
   if (!NODRAW) gl.viewport(0, 0, cv.width, cv.height);
 }
 function drawLibrary(dt, t) {

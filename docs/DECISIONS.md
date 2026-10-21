@@ -179,6 +179,12 @@ Summarized from the first part of the conversation; the full transcript is kept 
   appear on the right. Then, do that in reverse. The row of recently played games should never be visible, even in
   the background."
 - Kept from before: A on Home plays or resumes straight away (down is for the page).
+- Notes on the built layout: "press up on the dpad/analog stick to get out of the game page view. You press down to
+  get into it." "I still want the shoulder buttons to… cycle through the different 'tabs'… with the default view
+  being the 'first' tab." "A lot of empty space in the lower half of the main menu. I want that to show a
+  customizable scraped piece of media (box art, or title screen, or screenshot, or cartridge art). This should be
+  dimmed/darkened and fade as it goes up, with the edge of the fade lining up with the bottom of the row… You should
+  also be able to turn this off." The planet moves to the top half: "I do like it so keep that around." 
 
 ### Prototype v2, part 2 (built)
 

@@ -24,7 +24,8 @@ that we've learned … and make an Android game launcher that's the best it can 
 - Blender models: GBA done (second pass); the user paused the rest ("will take a lot more effort than I feel like
   doing right now").
 - New layout built (October 2026): Home is the base, with a row of recent games; a game's page opens in place;
-  Library, Apps and Museum slide up as a sheet from round buttons in the top bar. Waiting on the user's notes.
+  Library, Apps and Museum slide up as a sheet from round buttons in the top bar. First notes built (up closes
+  the page, L1/R1 cycle, a picture of the selected game under the row). Waiting on the user's notes.
 - After that: set up the Android project and GitHub Actions build → build it in vertical slices.
 - The user asked to "talk it through" before building anything new. Propose, confirm, then build.
 
