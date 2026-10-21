@@ -15,14 +15,19 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const NATIVE = typeof ShelfNative !== 'undefined';   // running inside the Android app, with real games, apps and emulators
 const joinKnown = (...xs) => xs.filter(Boolean).join(', ');   // real games may not have every detail yet
 
-function fit() {
-  const vw = innerWidth, vh = innerHeight - (NATIVE ? 0 : 30), s = Math.min(vw / W, vh / H);
+function fit() {   // scale the 1334 × 750 screen to whatever screen or window this is, letterboxed if the shape differs
+  const vv = window.visualViewport, vw = (vv && vv.width) || innerWidth || document.documentElement.clientWidth;
+  const vh = ((vv && vv.height) || innerHeight || document.documentElement.clientHeight) - (NATIVE ? 0 : 30);
+  if (!(vw > 0 && vh > 0)) return;   // not laid out yet; called again when it is
+  const s = Math.min(vw / W, vh / H);
   stage.style.transform = `translate(${(vw - W * s) / 2}px, ${(vh - H * s) / 2}px) scale(${s})`;
   const dpr = Math.min(devicePixelRatio || 1, 2);
   const px = Math.max(640, Math.min(NATIVE ? W : W * 1.5, Math.round(W * s * dpr)));   // on the handheld, one canvas pixel per screen pixel
   if (cv.width !== px) { cv.width = px; cv.height = Math.round(px * H / W); }
 }
 addEventListener('resize', fit);
+if (window.visualViewport) visualViewport.addEventListener('resize', fit);
+if (window.ResizeObserver) new ResizeObserver(() => fit()).observe(document.documentElement);
 
 /* ================= platforms ================= */
 // Box sizes are the originals in decimetres (1 = 100 mm). Cardboard boxes become modern clamshell cases at the same size.

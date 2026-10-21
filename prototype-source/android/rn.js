@@ -57,6 +57,9 @@ if (NATIVE) {
   P.prefs.homeArt = 'cart';   // Shelf's own box art is mostly title text; the label art makes a calmer background
   nativeLoad(); nativeScan();
   $('#keysHelp').style.display = 'none'; document.body.style.background = '#000';
+  stage.style.borderRadius = '0';   // edge to edge on the handheld
+  for (const el of [document.documentElement, document.body]) Object.assign(el.style, { touchAction: 'none', overscrollBehavior: 'none' });   // no panning or zooming the page
+  fit();
   setInterval(nativeSave, 15000);
   window.__nativeKey = a => { try { if (P.prefs.layout === 'Xbox' && (a === 'a' || a === 'b')) a = a === 'a' ? 'b' : 'a'; act(a); } catch (e) { console.error(e); } };
   window.__nativePause = () => nativeSave();
