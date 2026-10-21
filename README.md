@@ -10,7 +10,7 @@ Shelf has been built three times, each one learning from the last:
 
 | Version | Device | State | Download |
 |---|---|---|---|
-| **Shelf for Android** | Retroid Pocket 3+ (Android 11) | 🚧 **Current focus.** Design prototype, being revised (runs in a browser). The real app hasn't been started. | [Prototype](https://github.com/RazberryRaccoon/shelf/raw/main/downloads/shelf-android-prototype.zip) |
+| **Shelf for Android** | Retroid Pocket 3+ (Android 11) | 🚧 **Current focus.** First version of the real app (0.1), plus the design prototype. | [**Shelf.apk**](https://github.com/RazberryRaccoon/shelf/releases/latest/download/Shelf.apk) · [Prototype](https://github.com/RazberryRaccoon/shelf/raw/main/downloads/shelf-android-prototype.zip) |
 | **Shelf for TV** | Raspberry Pi 3B+ on a TV | 🧪 Prototype finished. A first version for the Pi is written but has never been tried on a real Pi. | [Pi installer](https://github.com/RazberryRaccoon/shelf/raw/main/downloads/shelf-tv.tar.gz) · [Prototype](https://github.com/RazberryRaccoon/shelf/raw/main/downloads/shelf-tv-prototype.zip) |
 | **Shelf for Odroid GO** | Odroid GO (320×240 handheld) | ✅ **Finished and working** on the device. NES, Game Boy and Game Boy Color. | [Launcher + tools](https://github.com/RazberryRaccoon/shelf/raw/main/downloads/shelf-odroid-go.zip) |
 
@@ -34,7 +34,27 @@ ten consoles plus Android games:
 - **A game's page** shows its cartridge or disc, its manual, screenshots, saves and achievements.
 - Games launch in RetroArch (or a standalone emulator), and the Home button saves and brings you back.
 
-Right now there's a **browser prototype** to look at and give feedback on. Home is a row of your recent games;
+### Installing the app
+
+1. On the Retroid, open the browser and go to
+   **https://github.com/RazberryRaccoon/shelf/releases/latest/download/Shelf.apk**. It downloads the newest build.
+2. Open the downloaded file (from the browser's downloads, or the Files app). The first time, Android asks to allow
+   installing apps from the browser: allow it, go back, and tap **Install**. Later versions install over the top
+   and keep your settings.
+3. Open **Shelf**. In setup, **Allow access to my files** lets Shelf find your games: switch on *Allow access to manage
+   all files*, then press Back.
+4. Games go in a **ROMs** folder on internal storage or the SD card, one folder per console: `nes`, `snes`, `n64`,
+   `genesis` (or `megadrive`), `gb`, `gbc`, `gba`, `psx`, `nds`, `psp`. Shelf finds them each time you come back to it.
+5. To make Shelf the home screen, choose **Use Shelf as my home screen** in setup (or later in Android's Settings ›
+   Apps › Default apps › Home app).
+
+Version 0.1 launches games in RetroArch or a standalone emulator (DuckStation, PPSSPP, melonDS, Mupen64Plus FZ and
+others), with Shelf's own generated box art. Downloaded art, save slots and achievements come next; see
+[docs/ROADMAP.md](docs/ROADMAP.md). The app's source is in [`android/`](android).
+
+### The prototype
+
+There's also a **browser prototype**, where design ideas are tried first. Home is a row of your recent games;
 press down on one and its box slides in and opens right there. The round buttons along the top open the
 **Library**, **Apps**, the **Museum** (every console, cartridge and box up close, with facts about each
 console) and **Settings**. It's fixed at the Retroid's
@@ -122,6 +142,7 @@ Shift is Select, Esc or M is Menu, V is Volume.
 | [`downloads/`](downloads) | The ready-to-download files linked above. |
 | [`prototypes/`](prototypes) | The three browser prototypes, each a single HTML file. |
 | [`prototype-source/`](prototype-source) | The prototypes split into the parts they're built from. |
+| [`android/`](android) | Shelf for Android, the app (built by GitHub Actions). |
 | [`code/shelf-retrogo/`](code/shelf-retrogo) | Shelf for Odroid GO (retro-go launcher and PC tools). |
 | [`code/shelf-tv-pi/`](code/shelf-tv-pi) | Shelf for TV on the Raspberry Pi (C, SDL2, OpenGL ES 2). |
 | [`docs/`](docs) | The Android spec, every design decision, the history of each version, research and the roadmap. |

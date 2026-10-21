@@ -234,3 +234,12 @@
 - First notes on it: up closes a game's page; L1/R1 step through Home, Library, Apps and Museum again; Home got a
   darkened picture of the selected game under the row (a new flat-picture mode in the shader, mode 3, with the fade
   baked into the texture), and the planet moved to the top half.
+
+**The Android app, version 0.1 (October 2026):**
+- `android/`: MainActivity (the WebView, controller input, coming back from games, the Home button), Bridge (what the
+  page can ask: scan, launch, open apps, save state, permissions), Scanner (ROM folders, apps, emulators), Emulators
+  (25 launch recipes from ES-DE) and RomProvider (lends a ROM to emulators that want a `content://` link).
+- The page's native mode (`rn.js`) swaps the invented library for real games and apps, keeps the invented games for the
+  Museum, and saves state through the bridge. Tested in headless Chrome with a stand-in bridge before the first build.
+- The sandbox can't download the Android SDK, so the Java was compile-checked against Robolectric's `android-all` jar
+  and the APK is built only by GitHub Actions.

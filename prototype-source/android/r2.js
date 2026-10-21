@@ -12,12 +12,14 @@ function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^=
 function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; }
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const NATIVE = typeof ShelfNative !== 'undefined';   // running inside the Android app, with real games, apps and emulators
+const joinKnown = (...xs) => xs.filter(Boolean).join(', ');   // real games may not have every detail yet
 
 function fit() {
-  const vw = innerWidth, vh = innerHeight - 30, s = Math.min(vw / W, vh / H);
+  const vw = innerWidth, vh = innerHeight - (NATIVE ? 0 : 30), s = Math.min(vw / W, vh / H);
   stage.style.transform = `translate(${(vw - W * s) / 2}px, ${(vh - H * s) / 2}px) scale(${s})`;
   const dpr = Math.min(devicePixelRatio || 1, 2);
-  const px = Math.max(640, Math.min(W * 1.5, Math.round(W * s * dpr)));
+  const px = Math.max(640, Math.min(NATIVE ? W : W * 1.5, Math.round(W * s * dpr)));   // on the handheld, one canvas pixel per screen pixel
   if (cv.width !== px) { cv.width = px; cv.height = Math.round(px * H / W); }
 }
 addEventListener('resize', fit);
@@ -65,7 +67,7 @@ const emuInstalled = e => e.startsWith('RetroArch: ') ? INSTALLED_CORES.has(e.sl
 const emuName = e => e.replace('RetroArch: ', 'RetroArch, ').replace('Other app: ', '');
 const emuApp = e => e.startsWith('RetroArch') ? 'RetroArch' : e.replace('Other app: ', '');
 const SYS = PLAT;   // the art generators use SYS
-const isRA = emu => emu.startsWith('RetroArch');
+const isRA = emu => !NATIVE && emu.startsWith('RetroArch');   // Shelf's own save slots (not in the Android app yet: RetroArch keeps its saves)
 
 /* ================= the library (all invented) ================= */
 const G = (sys, title, year, dev, genre, players, ach, desc) => ({ id: hash(sys + title).toString(36), sys, title, year, dev, genre, players, ach, desc });
@@ -134,13 +136,13 @@ P.pf = {}; SYS_ORDER.forEach(k => P.pf[k] = { filter: 'None', ask: false });
 P.collections.push({ id: 'couch', name: 'Couch co-op', games: ['Orbit Golf', 'Neon Coast', 'Skyline Racer', 'Vector Rally'].map(t => GAMES.find(g => g.title === t).id) });
 const emuFor = g => (S.onceEmu && S.onceEmu.id === g.id && S.onceEmu.e) || P.gameEmu[g.id] || P.emu[g.sys];
 function agoText(ts) {
-  const d = NOW - ts;
+  const d = Date.now() - ts;
   if (d < HOUR) return 'Just now';
   if (d < DAY) { const h = Math.round(d / HOUR); return `${h} hour${h > 1 ? 's' : ''} ago`; }
   const n = Math.round(d / DAY);
   return n === 1 ? 'Yesterday' : n < 14 ? `${n} days ago` : `${Math.round(n / 7)} weeks ago`;
 }
-function playedText(m) { if (!m) return 'Not played yet'; if (m < 60) return `${m} minutes played`; const h = Math.floor(m / 60); return `${h} hour${h > 1 ? 's' : ''} played`; }
+function playedText(m) { if (!m) return 'Not played yet'; if (m < 60) return `${m} minute${m > 1 ? 's' : ''} played`; const h = Math.floor(m / 60); return `${h} hour${h > 1 ? 's' : ''} played`; }
 
 /* ================= sound (soft, optional) ================= */
 let AC = null;

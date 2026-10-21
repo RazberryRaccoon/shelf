@@ -436,12 +436,14 @@ function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^=
 function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; }
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const NATIVE = typeof ShelfNative !== 'undefined';   // running inside the Android app, with real games, apps and emulators
+const joinKnown = (...xs) => xs.filter(Boolean).join(', ');   // real games may not have every detail yet
 
 function fit() {
-  const vw = innerWidth, vh = innerHeight - 30, s = Math.min(vw / W, vh / H);
+  const vw = innerWidth, vh = innerHeight - (NATIVE ? 0 : 30), s = Math.min(vw / W, vh / H);
   stage.style.transform = `translate(${(vw - W * s) / 2}px, ${(vh - H * s) / 2}px) scale(${s})`;
   const dpr = Math.min(devicePixelRatio || 1, 2);
-  const px = Math.max(640, Math.min(W * 1.5, Math.round(W * s * dpr)));
+  const px = Math.max(640, Math.min(NATIVE ? W : W * 1.5, Math.round(W * s * dpr)));   // on the handheld, one canvas pixel per screen pixel
   if (cv.width !== px) { cv.width = px; cv.height = Math.round(px * H / W); }
 }
 addEventListener('resize', fit);
@@ -489,7 +491,7 @@ const emuInstalled = e => e.startsWith('RetroArch: ') ? INSTALLED_CORES.has(e.sl
 const emuName = e => e.replace('RetroArch: ', 'RetroArch, ').replace('Other app: ', '');
 const emuApp = e => e.startsWith('RetroArch') ? 'RetroArch' : e.replace('Other app: ', '');
 const SYS = PLAT;   // the art generators use SYS
-const isRA = emu => emu.startsWith('RetroArch');
+const isRA = emu => !NATIVE && emu.startsWith('RetroArch');   // Shelf's own save slots (not in the Android app yet: RetroArch keeps its saves)
 
 /* ================= the library (all invented) ================= */
 const G = (sys, title, year, dev, genre, players, ach, desc) => ({ id: hash(sys + title).toString(36), sys, title, year, dev, genre, players, ach, desc });
@@ -558,13 +560,13 @@ P.pf = {}; SYS_ORDER.forEach(k => P.pf[k] = { filter: 'None', ask: false });
 P.collections.push({ id: 'couch', name: 'Couch co-op', games: ['Orbit Golf', 'Neon Coast', 'Skyline Racer', 'Vector Rally'].map(t => GAMES.find(g => g.title === t).id) });
 const emuFor = g => (S.onceEmu && S.onceEmu.id === g.id && S.onceEmu.e) || P.gameEmu[g.id] || P.emu[g.sys];
 function agoText(ts) {
-  const d = NOW - ts;
+  const d = Date.now() - ts;
   if (d < HOUR) return 'Just now';
   if (d < DAY) { const h = Math.round(d / HOUR); return `${h} hour${h > 1 ? 's' : ''} ago`; }
   const n = Math.round(d / DAY);
   return n === 1 ? 'Yesterday' : n < 14 ? `${n} days ago` : `${Math.round(n / 7)} weeks ago`;
 }
-function playedText(m) { if (!m) return 'Not played yet'; if (m < 60) return `${m} minutes played`; const h = Math.floor(m / 60); return `${h} hour${h > 1 ? 's' : ''} played`; }
+function playedText(m) { if (!m) return 'Not played yet'; if (m < 60) return `${m} minute${m > 1 ? 's' : ''} played`; const h = Math.floor(m / 60); return `${h} hour${h > 1 ? 's' : ''} played`; }
 
 /* ================= sound (soft, optional) ================= */
 let AC = null;
@@ -841,7 +843,7 @@ function coverFront(g, w, h) {
   ctx.fillText(s.long, band * .45, band / 2);
   drawTitle(ctx, g.title, w / 2, band + h * .05, w * .84, Math.min(w, h) * .11);
   ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = `600 ${Math.min(w, h) * .035}px Manrope, sans-serif`; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
-  ctx.fillText(g.dev, w - w * .05, h - h * .04);
+  ctx.fillText(g.dev || '', w - w * .05, h - h * .04);
   return c;
 }
 function coverBack(g, w, h) {   // sized by the box's shorter side, so wide boxes (SNES, N64) fit as well as tall ones
@@ -856,12 +858,12 @@ function coverBack(g, w, h) {   // sized by the box's shorter side, so wide boxe
   y += shh + m * .8;
   const lh = u * .052; ctx.font = `500 ${u * .036}px Manrope, sans-serif`; ctx.fillStyle = 'rgba(255,255,255,.85)';
   for (const l of wrap(ctx, g.desc, w - m * 2)) { if (y + lh > by - u * .03) break; ctx.fillText(l, m, y); y += lh; }   // stop before the barcode
-  y += m * .3; if (y + lh < by - u * .03) { ctx.fillStyle = s.accent; ctx.font = `700 ${u * .034}px Manrope, sans-serif`; ctx.fillText(`${g.genre}, ${g.players}`, m, y); }
+  y += m * .3; if (y + lh < by - u * .03) { ctx.fillStyle = s.accent; ctx.font = `700 ${u * .034}px Manrope, sans-serif`; ctx.fillText(joinKnown(g.genre, g.players), m, y); }
   const bw = Math.min(w * .3, u * .32), bh = u * .08;
   ctx.fillStyle = '#fff'; ctx.fillRect(w - m - bw, by, bw, bh);
   ctx.fillStyle = '#111'; const br = rng(hash(g.id + 'bar'));
   for (let x = w - m - bw + 4; x < w - m - 4; x += 3) if (br() > .45) ctx.fillRect(x, by + bh * .12, br() > .5 ? 2 : 1, bh * .76);
-  ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = `500 ${u * .03}px Manrope, sans-serif`; ctx.fillText(`${g.dev}, ${g.year}`, m, by + bh * .3);
+  ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = `500 ${u * .03}px Manrope, sans-serif`; ctx.fillText(joinKnown(g.dev, g.year), m, by + bh * .3);
   return c;
 }
 function spineArt(g, len, thick) {   // drawn upright: len tall, thick wide
@@ -968,7 +970,7 @@ function titleFrame(g, out) {   // a pretend title screen at the console's resol
   tx.fillStyle = col(`hsl(${(p.h + 180) % 360},90%,70%)`, 0); tx.fillText(g.title.toUpperCase(), w / 2, 20);
   x.imageSmoothingEnabled = false; x.drawImage(t, 0, 0, w, 40, 0, h * .22, w, 40 * 1.6);
   x.font = `bold ${Math.round(w / 26)}px Manrope, sans-serif`; x.textAlign = 'center'; x.fillStyle = col('#ffffff', 0); x.fillText('PRESS START', w / 2, h * .72);
-  x.font = `${Math.round(w / 34)}px Manrope, sans-serif`; x.fillStyle = col('rgba(255,255,255,.7)', 1); x.fillText(`© ${g.year} ${g.dev.toUpperCase()}`, w / 2, h * .86);
+  x.font = `${Math.round(w / 34)}px Manrope, sans-serif`; x.fillStyle = col('rgba(255,255,255,.7)', 1); x.fillText(g.dev ? `© ${g.year} ${g.dev.toUpperCase()}` : '', w / 2, h * .86);
   return c;
 }
 const mediaCache = new Map();
@@ -2175,10 +2177,11 @@ const SETUP_STEPS = 6;
 function setupOpts() {
   const s = S.setup.step;
   const back = { k: 'back', label: 'Back', back: true };
-  if (s === 0) return [{ k: 'next', label: 'Get started', primary: true }, { k: 'quick', label: 'Quick setup with test data (for testing)', debug: true }];
+  if (s === 0) return NATIVE ? [{ k: 'next', label: 'Get started', primary: true }] : [{ k: 'next', label: 'Get started', primary: true }, { k: 'quick', label: 'Quick setup with test data (for testing)', debug: true }];
   if (s === 1) return [{ k: 'name', label: 'Your name', value: P.name || 'Choose' }, ...PROFILE_COLORS.map((c, i) => ({ k: 'color', i, label: ['Amber', 'Sky', 'Orchid', 'Fern', 'Rose'][i], color: c })), { k: 'next', label: 'Continue', primary: true }, back];
   if (s === 2) return [...Object.keys(THEMES).map(t => ({ k: 'theme', t, label: THEMES[t].name })), { k: 'next', label: 'Continue', primary: true }, back];
-  if (s === 3) return [{ k: 'folder', label: 'Add another folder' }, { k: 'next', label: 'Continue', primary: true }, back];
+  if (s === 3) return NATIVE && !ShelfNative.hasStorage() ? [{ k: 'storage', label: 'Allow access to my files', primary: true }, { k: 'next', label: 'Skip for now' }, back]
+    : [{ k: 'folder', label: 'Add another folder' }, { k: 'next', label: 'Continue', primary: true }, back];
   if (s === 4) return [{ k: 'ss', label: 'ScreenScraper', value: P.art.ss ? 'Signed in' : 'Sign in' }, { k: 'ra', label: 'RetroAchievements', value: P.ra ? 'Signed in' : 'Sign in' }, { k: 'next', label: 'Continue', primary: true }, back];
   return [{ k: 'launcher', label: 'Use Shelf as my home screen', primary: true }, { k: 'skip', label: 'Not now' }, back];
 }
@@ -2189,13 +2192,15 @@ function fillSetup() {
     ['Welcome', 'Shelf', 'A home for your games. Let’s set up this handheld; it takes about a minute.'],
     ['Step 1 of 5', 'Who’s playing?', 'Shelf keeps one profile. Your name and color show at the top of the screen.'],
     ['Step 2 of 5', 'Pick a look', 'You can change it any time in Settings.'],
-    ['Step 3 of 5', `Found ${GAMES.filter(g => g.sys !== 'android').length} games`, 'In Internal storage › ROMs and SD card › ROMs, sorted into consoles by folder and file type.'],
+    NATIVE && !ShelfNative.hasStorage() ? ['Step 3 of 5', 'Let Shelf find your games', 'Shelf looks in the ROMs folder on internal storage and the SD card. Android asks you to allow access to all files; switch it on, then come back.']
+      : ['Step 3 of 5', `Found ${GAMES.filter(g => g.sys !== 'android').length} games`, 'In Internal storage › ROMs and SD card › ROMs, sorted into consoles by folder and file type.'],
     ['Step 4 of 5', 'Art, manuals and achievements', 'Sign in to download box art, manuals and videos, and to earn achievements. Both are free, and both can wait.'],
     ['Step 5 of 5', 'Make Shelf your home screen?', 'Then the Home button always brings you back here, and Shelf can save a game in RetroArch before you leave it. Your apps are one button away.'],
   ][s];
   let extra = '';
-  if (s === 3) extra = `<div class="found">${counts.map(([n, c]) => `<div class="ok">${n} <b>${c}</b></div>`).join('')}</div>
-    <div class="found"><div class="ok">RetroArch <b>with 9 cores</b></div><div class="ok">DuckStation</div><div class="ok">melonDS</div><div class="ok">PPSSPP</div><div class="ok">Mupen64Plus FZ</div></div>`;
+  if (s === 3 && !(NATIVE && !ShelfNative.hasStorage())) extra = `<div class="found">${counts.filter(([, c]) => c || !NATIVE).map(([n, c]) => `<div class="ok">${n} <b>${c}</b></div>`).join('')}</div>
+    <div class="found">${NATIVE ? (NATIVE_EMUS.length ? NATIVE_EMUS.map(e => `<div class="ok">${e}</div>`).join('') : '<div>No emulators found yet. RetroArch is a good start.</div>')
+      : '<div class="ok">RetroArch <b>with 9 cores</b></div><div class="ok">DuckStation</div><div class="ok">melonDS</div><div class="ok">PPSSPP</div><div class="ok">Mupen64Plus FZ</div>'}</div>`;
   $('#setup').innerHTML = `<div class="step">${head[0]}</div><h1>${head[1]}</h1><p class="lead">${head[2]}</p>${extra}<div class="opts">` + opts.map((o, i) => {
     const cur = (o.k === 'theme' && P.prefs.theme === o.t) || (o.k === 'color' && P.colors === o.color);
     const T = o.t && THEMES[o.t], sw = o.color ? `<span style="width:20px;height:20px;border-radius:50%;background:${avatarCss(o.color)}"></span>`
@@ -2210,11 +2215,13 @@ function setupAct() {
   if (o.k === 'name') return openKb('Your name', P.name, v => { P.name = v; fillSetup(); });
   if (o.k === 'color') { P.colors = o.color; return fillSetup(); }
   if (o.k === 'theme') { applyTheme(o.t); return fillSetup(); }
-  if (o.k === 'folder') return toast('Opens Android’s folder picker');
+  if (o.k === 'storage') return ShelfNative.requestStorage();   // Shelf rescans when you come back
+  if (o.k === 'folder') return toast(NATIVE ? 'For now, put games in a ROMs folder, one folder per console' : 'Opens Android’s folder picker');
+  if (NATIVE && (o.k === 'ss' || o.k === 'ra')) return toast('Signing in comes in a later version');
   if (o.k === 'ss') { P.art.ss = P.art.ss ? null : 'player_one'; P.art.source = P.art.ss ? 'ScreenScraper' : 'Free sources'; return fillSetup(); }
   if (o.k === 'ra') { P.ra = P.ra ? null : 'player_one'; return fillSetup(); }
   if (o.k === 'next') { if (S.setup.step === 1 && !P.name) return openKb('Your name', '', v => { P.name = v; S.setup.step++; S.setup.i = 0; fillSetup(); }); S.setup.step++; S.setup.i = 0; return fillSetup(); }
-  P.prefs.homeLauncher = o.k === 'launcher'; finishSetup();
+  P.prefs.homeLauncher = o.k === 'launcher'; if (NATIVE && o.k === 'launcher') ShelfNative.openHomeSettings(); finishSetup();
 }
 function quickSetup() {   // for testing: goes through every step with test data, instead of skipping setup
   const fill = [() => { P.name = 'Tester'; P.colors = PROFILE_COLORS[1]; }, () => applyTheme(P.prefs.theme), () => { }, () => { P.art.ss = 'tester'; P.art.source = 'ScreenScraper'; P.ra = 'tester'; }, () => { P.prefs.homeLauncher = true; }];
@@ -2225,7 +2232,7 @@ function quickSetup() {   // for testing: goes through every step with test data
   };
   next();
 }
-function finishSetup() { P.setup = true; paintProfile(); enterTab('home'); toast(`Welcome, ${P.name}`); }
+function finishSetup() { P.setup = true; if (NATIVE) nativeSave(); paintProfile(); enterTab('home'); toast(`Welcome, ${P.name}`); }
 function enterSetup() { S.screen = 'setup'; show('setup'); setMood('home'); fillSetup(); }
 
 /* ================= tabs ================= */
@@ -2234,13 +2241,17 @@ function enterTab(tab) {   // Home is the base; the others slide up over it as a
   if (tab === 'home') refreshHome(); else if (tab === 'library') refreshLibrary(true); else if (tab === 'museum') enterMuseum(); else refreshApps();
 }
 function refreshTab() { S.tab === 'home' ? refreshHome() : S.tab === 'library' ? refreshLibrary(false) : S.tab === 'museum' ? refreshMuseum() : refreshApps(); renderTop(); }
-const homeItems = () => P.recent.filter(id => inLibrary(byId[id]) && !(P.hidden && P.hidden.has(id))).slice(0, HOME_MAX);
+const homeItems = () => {
+  const ok = id => byId[id] && inLibrary(byId[id]) && !(P.hidden && P.hidden.has(id)), list = P.recent.filter(ok).slice(0, HOME_MAX);
+  if (NATIVE && list.length < HOME_MAX) GAMES.filter(g => g.sys !== 'android' && !list.includes(g.id) && ok(g.id)).slice(0, HOME_MAX - list.length).forEach(g => list.push(g.id));   // until you've played a few, Home fills up with your games
+  return list;
+};
 function refreshHome() {
   const items = homeItems(), H0 = S.home; H0.i = clamp(H0.i, 0, Math.max(0, items.length - 1)); H0.zone = 'row';
   const id = items[H0.i];
   if (!id) { setMood('home'); $('#hTitle').textContent = 'Nothing played yet'; $('#hMeta').innerHTML = '<span>Your Library is in the top bar</span>'; return renderTop(); }
-  const g = byId[id], r = rec(id), emu = emuFor(g); setMood(g.sys); $('#hTitle').textContent = g.title;
-  $('#hMeta').innerHTML = `<span class="chip"><i></i>${PLAT[g.sys].name}</span><span>${agoText(r.last)}</span><span>${playedText(r.minutes)}</span><span>${isRA(emu) && r.slots.some(Boolean) ? 'A to resume' : 'A to play'}</span><span>▼ More</span>`;
+  const g = byId[id], r = rec(id) || { last: 0, minutes: 0, slots: [] }, emu = emuFor(g); setMood(g.sys); $('#hTitle').textContent = g.title;
+  $('#hMeta').innerHTML = `<span class="chip"><i></i>${PLAT[g.sys].name}</span>${r.last ? `<span>${agoText(r.last)}</span>` : ''}<span>${playedText(r.minutes)}</span><span>${isRA(emu) && r.slots.some(Boolean) ? 'A to resume' : 'A to play'}</span><span>▼ More</span>`;
   renderTop();
 }
 
@@ -2267,7 +2278,7 @@ function refreshLibrary(rebuild) {
   const empty = !L.list.length; $('#libEmpty').style.display = empty ? 'block' : 'none';
   $('#libEmpty').textContent = RI[L.rail].custom ? 'No games here yet. Open any game’s box and choose Add to collection.' : 'Nothing here yet.';
   const onGrid = L.zone === 'grid' && !S.top.on && !empty; $('#lFocus').classList.toggle('on', onGrid);
-  if (onGrid) { const g = L.list[L.i], r = P.played[g.id]; $('#lFocus b').textContent = g.title; $('#lFocus span').textContent = `${PLAT[g.sys].name}, ${g.year}` + (r && r.last ? `, ${agoText(r.last).toLowerCase()}` : ''); setMood(g.sys); }
+  if (onGrid) { const g = L.list[L.i], r = P.played[g.id]; $('#lFocus b').textContent = g.title; $('#lFocus span').textContent = joinKnown(PLAT[g.sys].name, g.year) + (r && r.last ? `, ${agoText(r.last).toLowerCase()}` : ''); setMood(g.sys); }
   else setMood(PLAT[RI[L.rail].k] ? RI[L.rail].k : 'home');
   renderTop();
 }
@@ -2304,11 +2315,11 @@ function fillGame() {
   const g = byId[S.game.id], s = PLAT[g.sys], r = rec(g.id), G0 = S.game, emu = emuFor(g), ra = isRA(emu);
   const acts = gameActions(), slots = r ? r.slots : [null, null, null, null], last = r ? r.lastSlot : -1, media = mediaFor(g);
   let h = `<div class="gp-sys">${s.long}</div><h2>${esc(g.title)}</h2>
-    <div class="facts">${[['Released', g.year], ['Developer', g.dev], ['Genre', g.genre], ['Players', g.players]].map(([a, b]) => `<div>${a}<b>${b}</b></div>`).join('')}</div>
+    <div class="facts">${[['Released', g.year], ['Developer', g.dev], ['Genre', g.genre], ['Players', g.players]].filter(([, b]) => b).map(([a, b]) => `<div>${a}<b>${b}</b></div>`).join('')}</div>
     <div class="actions" data-z="actions">${acts.map((a, i) => `<div class="act ${i === 0 ? 'primary' : ''} ${G0.zone === 'actions' && G0.i === i ? 'focus' : ''}">${a === 'fav' ? `${r && r.fav ? '★' : '☆'} <i class="btn">Y</i>` : a === 'col' ? 'Add to collection' : a === 'emu' ? `Plays with ${esc(emuName(emu))}` : a}</div>`).join('')}</div>`;
   h += `<h3 data-z="saves">Saves${ra ? '<small>Slots are kept per game</small>' : ''}</h3>`;
   h += ra ? `<div class="slots">${slots.map((sl, i) => `<div class="slot ${G0.zone === 'saves' && G0.i === i ? 'focus' : ''}">${sl ? '<canvas></canvas>' : '<div class="none">New game</div>'}${sl && i === last ? '<span class="tag">Last played</span>' : ''}<p>${sl ? agoText(sl.ts) : `Slot ${i + 1}`}</p></div>`).join('')}</div>`
-    : `<div class="managed ${G0.zone === 'saves' ? 'focus' : ''}"><span>${g.sys === 'android' ? 'This app keeps its own saves.' : `<b>${esc(emuName(emu))}</b> keeps this game’s saves. Shelf’s save slots work with RetroArch.`}</span><span class="act ${G0.zone === 'saves' ? 'focus' : ''}">Open ${esc(g.sys === 'android' ? g.title : emuApp(emu))}</span></div>`;
+    : `<div class="managed ${G0.zone === 'saves' ? 'focus' : ''}"><span>${g.sys === 'android' ? 'This app keeps its own saves.' : `<b>${esc(emuName(emu))}</b> keeps this game’s saves.${NATIVE ? '' : ' Shelf’s save slots work with RetroArch.'}`}</span><span class="act ${G0.zone === 'saves' ? 'focus' : ''}">Open ${esc(g.sys === 'android' ? g.title : emuApp(emu))}</span></div>`;
   h += `<h3 data-z="media">Media<small>${media.length} items</small></h3><div class="mrow"><div class="mstrip" id="gMedia">${mediaStrip(g, media, G0.zone === 'media' ? G0.i : -1, 'mthumb')}</div></div>`;
   if (g.sys !== 'android') {
     const A = achievements(g), e = P.ra ? achFor(P, g) : {}, got = A.list.filter(a => e[a.id]), pts = got.reduce((t, a) => t + a.pts, 0), pct = Math.round(got.length / A.list.length * 100);
@@ -2323,12 +2334,12 @@ function fillGame() {
   $('#gpin').style.transform = `translateY(${-off}px)`;
   $('#turnHint').classList.toggle('on', G0.turn);
 }
-function artCredit() { return usingSS() ? 'Art, manuals and details from ScreenScraper.' : 'Art from RetroArch’s thumbnail database. Details from Wikipedia.'; }
+function artCredit() { if (NATIVE) return 'Box art made by Shelf, until art downloads arrive in a later version.'; return usingSS() ? 'Art, manuals and details from ScreenScraper.' : 'Art from RetroArch’s thumbnail database. Details from Wikipedia.'; }
 function gameAction() {
   const g = byId[S.game.id], r = rec(g.id), G0 = S.game;
   if (G0.zone === 'ach') return P.ra ? openAch(g.id) : openSettings(CATS.indexOf('Achievements'));
   if (G0.zone === 'media') return openMedia(G0.i);
-  if (G0.zone === 'saves') { const e = emuFor(g); if (!isRA(e)) { sfx.select(); return toast(`Opens ${g.sys === 'android' ? g.title : emuApp(e)}, where this game’s saves are`); } return launchGame(g, G0.i, !!(r && r.slots[G0.i])); }
+  if (G0.zone === 'saves') { const e = emuFor(g); if (!isRA(e)) { sfx.select(); if (NATIVE) return nativeOpenEmu(g, e); return toast(`Opens ${g.sys === 'android' ? g.title : emuApp(e)}, where this game’s saves are`); } return launchGame(g, G0.i, !!(r && r.slots[G0.i])); }
   if (G0.zone === 'manual') { if (hasManual(g)) return openManual(); return toast(usingSS() ? 'ScreenScraper doesn’t have a manual for this game' : 'Manuals come from ScreenScraper. Sign in under Settings, Art and info.'); }
   if (G0.zone === 'cart') return launchGame(g, r ? r.lastSlot : 0, !!(r && r.slots.some(Boolean)));
   const a = gameActions()[G0.i];
@@ -2347,7 +2358,7 @@ function toggleFav(g) {
 }
 /* ================= Apps ================= */
 const iconUrls = new Map();
-const iconUrl = app => { if (!iconUrls.has(app.name)) iconUrls.set(app.name, appIcon(app).toDataURL()); return iconUrls.get(app.name); };
+const iconUrl = app => { if (app.iconData) return app.iconData; if (!iconUrls.has(app.name)) iconUrls.set(app.name, appIcon(app).toDataURL()); return iconUrls.get(app.name); };
 function refreshApps() {
   S.apps.i = clamp(S.apps.i, 0, APPS.length - 1); setMood('home');
   $('#appCount').textContent = `${APPS.length} apps on this handheld`;
@@ -2366,9 +2377,9 @@ function appOptions() {
 function markAsGame(app) {
   let g = GAMES.find(x => x.sys === 'android' && x.title === app.name);
   if (!g) { g = G('android', app.name, 2024, 'From the app store', 'Game', '1 player', 0, `${app.name} on your handheld. Shelf found its art in a game database, or made a box from its icon.`); GAMES.push(g); byId[g.id] = g; }
-  ANDROID_GAMES.add(app.name); sfx.saved(); toast(`${app.name} is now in your Library, under Android`);
+  g.pkg = app.pkg; ANDROID_GAMES.add(app.name); if (NATIVE) nativeSave(); sfx.saved(); toast(`${app.name} is now in your Library, under Android`);
 }
-function unmarkGame(name) { ANDROID_GAMES.delete(name); sfx.back(); toast(`${name} is back in Apps`); }
+function unmarkGame(name) { ANDROID_GAMES.delete(name); if (NATIVE) nativeSave(); sfx.back(); toast(`${name} is back in Apps`); }
 
 /* ================= settings ================= */
 const CATS = ['Profile', 'Appearance', 'Sound', 'Platforms', 'Emulators', 'Art and info', 'Achievements', 'Controls', 'Home screen and apps', 'About'];
@@ -2434,7 +2445,7 @@ function settingsModel() {
         { label: 'themes', themes: true },
         tog('Accent follows the console', 'accentFollows', 'The accent color and one background field take on each console’s color.'),
         cyc('Case color', Q, 'caseTint', [false, true], 'The plastic of the modern cases.', { false: 'Neutral', true: 'Console color' }),
-        cyc('Home background', Q, 'homeArt', ['box', 'title', 'shot', 'cart', 'off'], 'A picture of the selected game under the row on Home, darkened and fading out toward the top.', { box: 'Box art', title: 'Title screen', shot: 'Screenshot', cart: 'Cartridge art', off: 'Off' }),
+        cyc('Home background', Q, 'homeArt', NATIVE ? ['box', 'cart', 'off'] : ['box', 'title', 'shot', 'cart', 'off'], 'A picture of the selected game under the row on Home, darkened and fading out toward the top.', { box: 'Box art', title: 'Title screen', shot: 'Screenshot', cart: 'Cartridge art', off: 'Off' }),
         tog('Background motion', 'motion', 'Drifting backgrounds, twinkling stars and the slow float of boxes and cartridges.')] };
       case 'Sound': { const M = P.prefs.music, names = Object.fromEntries([...TRACK_KEYS.map(k => [k, TRACKS[k].name]), ['shuffle', 'Shuffle']]); return { cat: 'Sound', intro: 'Music plays quietly in the menus and stops while you play.', items: [
         tog('Menu music', 'on', 'Original tracks written for Shelf.', M),
@@ -2588,6 +2599,12 @@ function drawLaunch(dt) {
 }
 function startPlay(g, slot, resume, from) {
   const r = ensureRec(g), emu = emuFor(g);
+  if (NATIVE) {   // hand the game to the emulator; Shelf waits in the dark until you come back (__nativeResume)
+    S.play = { g, slot, from, t: 0, native: true, start: Date.now() }; S.screen = 'play'; show('play');
+    const fl = $('#flash'); fl.style.transition = 'opacity .5s ease-out'; fl.style.opacity = 0;
+    const err = nativeLaunch(g, emu); if (err) { S.launchErr = err; setTimeout(homeFromPlay, 60); }
+    return;
+  }
   S.play = { g, slot, from, t: 0, seed: hash(g.id + 'play'), scroll: resume && r.slots[slot] ? (r.slots[slot].scroll || 120) : 0 };
   S.screen = 'play'; show('play');
   const gc = $('#gamecv'), [w, h] = PLAT[g.sys].res; gc.width = w; gc.height = h;
@@ -2597,13 +2614,14 @@ function startPlay(g, slot, resume, from) {
   tag.classList.add('show'); setTimeout(() => tag.classList.remove('show'), 3500);
   const fl = $('#flash'); fl.style.transition = 'opacity .5s ease-out'; fl.style.opacity = 0;
 }
-function playUpdate(dt) { const p = S.play; p.t += dt; p.scroll += dt * 40; gameFrame(p.g, p.seed, Math.floor(p.scroll), $('#gamecv')); }
+function playUpdate(dt) { const p = S.play; if (p.native) return; p.t += dt; p.scroll += dt * 40; gameFrame(p.g, p.seed, Math.floor(p.scroll), $('#gamecv')); }
 function homeFromPlay() {
   const p = S.play; if (!p) return; S.play = null;
   const g = p.g, r = ensureRec(g), emu = emuFor(g), ra = isRA(emu) && P.prefs.autosave && !P.prefs.hardcore;
   if (ra) { r.slots[p.slot] = { ts: Date.now(), seed: p.seed, scroll: Math.floor(p.scroll) }; r.lastSlot = p.slot; }
-  r.last = Date.now(); r.minutes += Math.max(1, Math.round(p.t / 60));
-  P.recent = [g.id, ...P.recent.filter(x => x !== g.id)];
+  if (!S.launchErr) { r.last = Date.now(); r.minutes += Math.max(1, Math.round((p.native ? (Date.now() - p.start) / 1000 : p.t) / 60)); }
+  if (NATIVE) nativeSave();
+  if (!S.launchErr) P.recent = [g.id, ...P.recent.filter(x => x !== g.id)];
   const to = p.from === 'game' ? 'game' : 'home';
   if (to === 'home') { S.tab = 'home'; S.home.i = 0; S.home.zone = 'row'; refreshHome(); } else fillGame();
   S.seq = { kind: 'return', g, t: 0, flags: {}, under: to, cp: consolePose(g.sys), saved: ra, emu };
@@ -2617,6 +2635,7 @@ function finishReturn(q) {
   if (q.under === 'home') { S.screen = 'home'; show('home'); Object.assign(pose('home:' + g.id, {}), q.now || homeSlotPose(g), { alpha: 1, bright: 1 }); refreshHome(); }
   else { S.screen = 'game'; show('game'); fillGame(); }
   renderTop();
+  if (S.launchErr) { toast(S.launchErr); S.launchErr = null; return; }
   sfx.saved(); toast(q.saved ? `Saved to slot ${(rec(g.id).lastSlot) + 1}` : g.sys === 'android' ? `Back from ${g.title}` : `Back from ${q.emu}`);
 }
 /* ================= achievements page ================= */
@@ -2712,6 +2731,7 @@ function addToCollection(g) {
 /* ================= media and manuals for a game ================= */
 const usingSS = () => P.art.source === 'ScreenScraper' && !!P.art.ss;
 function mediaFor(g) {
+  if (NATIVE) return [{ kind: 'box', label: 'Box art (made by Shelf)' }];   // real media comes with scraping, in a later version
   const A = P.art, ss = usingSS(), r = rng(hash(g.id + 'media')), out = [];
   if (g.sys === 'android') return [{ kind: 'box', label: 'Store art' }, { kind: 'shot', label: 'Screenshot', seed: hash(g.id + 'shot0'), scroll: 40 }, { kind: 'shot', label: 'Screenshot', seed: hash(g.id + 'shot1'), scroll: 160 }];
   if (ss && A.videos) out.push({ kind: 'video', label: 'Gameplay video', seed: hash(g.id + 'vid'), dur: 30 + Math.floor(r() * 40), scroll: 60 });
@@ -2844,7 +2864,7 @@ const MU_ORDER = Object.keys(MUSEUM).sort((a, b) => MUSEUM[a].year - MUSEUM[b].y
 const MEDIA_NAME = { cart: 'Cartridge', disc: 'Disc', card: 'Game card', umd: 'UMD', acard: 'Game card' };
 const EXHIBITS = sys => ['Console', MEDIA_NAME[PLAT[sys].media], 'Box', 'Open box'];
 const EX_VIEW = [{ yaw: -.55, pitch: .45 }, { yaw: -.4, pitch: .12 }, { yaw: .5, pitch: .12 }, { yaw: 0, pitch: .12 }];
-const sampleGame = sys => GAMES.find(g => g.sys === sys);
+const sampleGame = sys => (NATIVE ? DEMO_GAMES : GAMES).find(g => g.sys === sys);   // the Museum always shows its invented examples
 function enterMuseum() { const U = S.mu; U.zone = U.zone || 'rail'; refreshMuseum(); setMood(MU_ORDER[U.i]); }
 function pickExhibit(i, ex) {
   const U = S.mu; if (i === U.i && ex === U.ex) return;
@@ -2919,6 +2939,75 @@ function drawMuseum(dt) {
     U.yawT += (e.clientX - drag[0]) * k * .01; U.pitchT = clamp(U.pitchT + (e.clientY - drag[1]) * k * .008, -1.1, 1.3); U.yaw = U.yawT; U.pitch = U.pitchT; drag = [e.clientX, e.clientY]; });
   addEventListener('pointerup', () => { drag = null; });
 })();
+/* ================= the Android app: real games, apps and emulators ================= */
+// Inside Shelf's Android app, ShelfNative (Java, in android/) finds your ROMs and apps, launches emulators and keeps
+// Shelf's state between runs. Everything here is skipped in the browser prototype. The invented library stays on as
+// the Museum's examples.
+const DEMO_GAMES = NATIVE ? GAMES.slice() : [];
+let NATIVE_EMUS = [];   // emulator apps found on the handheld, by the names Shelf uses
+const CORE_FILES = {   // RetroArch cores: Shelf's names → the core files RetroArch installs (as in ES-DE's Android setup)
+  'Mesen': 'mesen', 'FCEUmm': 'fceumm', 'Nestopia UE': 'nestopia', 'QuickNES': 'quicknes', 'Snes9x': 'snes9x', 'bsnes': 'bsnes', 'bsnes-hd': 'bsnes_hd_beta',
+  'Snes9x 2010': 'snes9x2010', 'Mesen-S': 'mesen-s', 'Beetle Supafaust': 'mednafen_supafaust', 'Mupen64Plus-Next': 'mupen64plus_next_gles3', 'ParaLLEl N64': 'parallel_n64',
+  'Genesis Plus GX': 'genesis_plus_gx', 'PicoDrive': 'picodrive', 'BlastEm': 'blastem', 'Gambatte': 'gambatte', 'SameBoy': 'sameboy', 'Gearboy': 'gearboy', 'mGBA': 'mgba',
+  'TGB Dual': 'tgbdual', 'gpSP': 'gpsp', 'VBA-M': 'vbam', 'VBA Next': 'vba_next', 'SwanStation': 'swanstation', 'Beetle PSX HW': 'mednafen_psx_hw', 'Beetle PSX': 'mednafen_psx',
+  'PCSX ReARMed': 'pcsx_rearmed', 'melonDS DS': 'melondsds', 'melonDS': 'melonds', 'DeSmuME': 'desmume', 'DeSmuME 2015': 'desmume2015', 'NooDS': 'noods', 'PPSSPP': 'ppsspp',
+};
+function nativeAndroidGame(name, pkg) {   // an app you've marked as a game gets a box in the Library
+  let g = GAMES.find(x => x.sys === 'android' && x.title === name);
+  if (!g) { g = G('android', name, '', '', '', '', 0, ''); GAMES.push(g); byId[g.id] = g; }
+  g.pkg = pkg; ANDROID_GAMES.add(name); return g;
+}
+function nativeScan() {
+  let d; try { d = JSON.parse(ShelfNative.scan()); } catch (e) { console.error(e); return; }
+  const marked = GAMES.filter(g => g.sys === 'android');
+  GAMES.length = 0;
+  for (const r of d.games) GAMES.push({ id: hash(r.path).toString(36), sys: r.sys, title: r.title, year: '', dev: '', genre: '', players: '', ach: 0, desc: '', path: r.path });
+  GAMES.sort((a, b) => a.title.localeCompare(b.title)); GAMES.push(...marked);
+  for (const k in byId) delete byId[k];
+  for (const g of [...DEMO_GAMES, ...GAMES]) byId[g.id] = g;
+  APPS.length = 0; d.apps.forEach(a => APPS.push({ name: a.name, pkg: a.pkg, iconData: a.icon, icon: 'ring', hue: hash(a.pkg) % 360 }));
+  NATIVE_EMUS = d.emus; INSTALLED_APPS.clear(); d.emus.forEach(e => INSTALLED_APPS.add(e));
+  INSTALLED_CORES.clear(); if (d.emus.includes('RetroArch')) Object.keys(CORE_FILES).forEach(c => INSTALLED_CORES.add(c));   // RetroArch's cores can't be listed from outside it
+  for (const k of SYS_ORDER) if (k !== 'android' && !emuInstalled(P.emu[k])) P.emu[k] = PLAT[k].emus.find(emuInstalled) || P.emu[k];
+}
+function nativeSave() {
+  try {
+    ShelfNative.saveState(JSON.stringify({ v: 1, name: P.name, colors: P.colors, setup: P.setup, recent: P.recent, played: P.played, collections: P.collections, prefs: P.prefs,
+      emu: P.emu, gameEmu: P.gameEmu, pf: P.pf, hidden: [...(P.hidden || [])], androidGames: GAMES.filter(g => g.sys === 'android').map(g => ({ name: g.title, pkg: g.pkg })) }));
+  } catch (e) { console.error(e); }
+}
+function nativeLoad() {
+  let s = null; try { s = JSON.parse(ShelfNative.loadState() || 'null'); } catch (e) { console.error(e); }
+  if (!s) return;
+  for (const k of ['name', 'colors', 'setup', 'recent', 'played', 'collections', 'gameEmu']) if (s[k] != null) P[k] = s[k];
+  Object.assign(P.prefs, s.prefs || {}); Object.assign(P.emu, s.emu || {}); Object.assign(P.pf, s.pf || {});
+  P.hidden = new Set(s.hidden || []);
+  (s.androidGames || []).forEach(a => nativeAndroidGame(a.name, a.pkg));
+}
+function nativeLaunch(g, emu) {   // '' when the emulator opened, otherwise what went wrong, in plain words
+  nativeSave();
+  if (g.sys === 'android') return ShelfNative.openApp(g.pkg || '') ? '' : `Couldn’t open ${g.title}`;
+  const ra = emu.startsWith('RetroArch: ');
+  return ShelfNative.launch(JSON.stringify({ emu: ra ? 'RetroArch' : emuApp(emu), core: ra ? CORE_FILES[emu.slice(11)] || '' : '', path: g.path, sys: g.sys })) || '';
+}
+function nativeOpenEmu(g, e) { if (!ShelfNative.openEmulator(emuApp(e))) toast(`${emuApp(e)} isn’t installed`); }
+if (NATIVE) {
+  // start from nothing but your own games: no invented history, collections or sign-ins
+  GAMES.length = 0; P.recent = []; P.played = {}; P.collections = []; P.ra = null; ANDROID_GAMES.clear();
+  P.art = { source: 'Free sources', ss: null, videos: false, manuals: false, backs: false, region: 'USA' };
+  P.prefs.homeArt = 'cart';   // Shelf's own box art is mostly title text; the label art makes a calmer background
+  nativeLoad(); nativeScan();
+  $('#keysHelp').style.display = 'none'; document.body.style.background = '#000';
+  setInterval(nativeSave, 15000);
+  window.__nativeKey = a => { try { if (P.prefs.layout === 'Xbox' && (a === 'a' || a === 'b')) a = a === 'a' ? 'b' : 'a'; act(a); } catch (e) { console.error(e); } };
+  window.__nativePause = () => nativeSave();
+  window.__nativeResume = () => {   // back from an emulator or an app, or from Android's settings
+    if (S.screen === 'play' && S.play) return homeFromPlay();
+    if (S.seq || !['setup', 'home', 'library', 'apps'].includes(S.screen)) return;
+    nativeScan();
+    if (S.screen === 'setup') fillSetup(); else if (S.screen === 'library') refreshLibrary(true); else if (S.screen === 'apps') refreshApps(); else refreshHome();
+  };
+}
 /* ================= input ================= */
 function act(a) {
   audio(); musicEnsure();
@@ -2971,7 +3060,7 @@ function homeInput(a) {
   if (!id) return;
   if (a === 'left' || a === 'right') { const k = clamp(H0.i + (a === 'left' ? -1 : 1), 0, items.length - 1); if (k !== H0.i) { H0.i = k; sfx.move(); refreshHome(); } }
   else if (a === 'down') openGame(id, 'home:' + id, 'home');   // its page opens right here: the box slides in and the cartridge goes into it
-  else if (a === 'a') { const g = byId[id], r = rec(id); launchGame(g, r.lastSlot, isRA(emuFor(g)) && r.slots.some(Boolean)); }
+  else if (a === 'a') { const g = byId[id], r = ensureRec(g); launchGame(g, r.lastSlot, isRA(emuFor(g)) && r.slots.some(Boolean)); }
   else if (a === 'y') toggleFav(byId[id]);
 }
 function libInput(a) {
@@ -3006,7 +3095,7 @@ function appsInput(a) {
   else if (a === 'up') { if (i < cols) { S.top.on = true; S.top.i = TOP.indexOf('apps'); } else S.apps.i -= cols; sfx.move(); }
   else if (a === 'b') { sfx.back(); return enterTab('home'); }
   else if (a === 'down' && i + cols < n) { S.apps.i += cols; sfx.move(); }
-  else if (a === 'a') { const app = APPS[i]; if (ANDROID_GAMES.has(app.name)) { const g = GAMES.find(x => x.title === app.name); return startPlayDirect(g); } toast(`Opens ${app.name}`); }
+  else if (a === 'a') { const app = APPS[i]; if (ANDROID_GAMES.has(app.name)) { const g = GAMES.find(x => x.title === app.name); return startPlayDirect(g); } if (NATIVE) return ShelfNative.openApp(app.pkg); toast(`Opens ${app.name}`); }
   else if (a === 'y') return appOptions();
   refreshApps();
 }
@@ -3089,6 +3178,7 @@ addEventListener('keydown', e => {
 });
 const PAD = { prev: {}, hold: {} };
 function pollPad(dt) {
+  if (NATIVE) return;   // the Android app passes controller buttons in directly (__nativeKey)
   const pads = navigator.getGamepads ? navigator.getGamepads() : [], p = [...pads].find(Boolean); if (!p) return;
   const press = i => !!(p.buttons[i] && p.buttons[i].pressed), ax = p.axes[0] || 0, ay = p.axes[1] || 0;
   const now = { a: press(0), b: press(1), y: press(3), lb: press(4), rb: press(5), home: press(16) || (press(8) && press(9)),
@@ -3334,7 +3424,7 @@ async function boot() {
   if (!gl) { document.body.insertAdjacentHTML('beforeend', '<p style="padding:40px">This prototype needs WebGL.</p>'); return; }
   initGL(); initMeshes(); applyTheme(P.prefs.theme);
   try { await Promise.race([Promise.all([document.fonts.load('600 40px Unbounded'), document.fonts.load('600 20px Manrope')]), new Promise(r => setTimeout(r, 2000))]); } catch (e) { }
-  enterSetup();
+  if (NATIVE && P.setup) { paintProfile(); enterTab('home'); } else enterSetup();
   requestAnimationFrame(loop);
 }
 boot();

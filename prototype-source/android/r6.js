@@ -50,7 +50,7 @@ function homeInput(a) {
   if (!id) return;
   if (a === 'left' || a === 'right') { const k = clamp(H0.i + (a === 'left' ? -1 : 1), 0, items.length - 1); if (k !== H0.i) { H0.i = k; sfx.move(); refreshHome(); } }
   else if (a === 'down') openGame(id, 'home:' + id, 'home');   // its page opens right here: the box slides in and the cartridge goes into it
-  else if (a === 'a') { const g = byId[id], r = rec(id); launchGame(g, r.lastSlot, isRA(emuFor(g)) && r.slots.some(Boolean)); }
+  else if (a === 'a') { const g = byId[id], r = ensureRec(g); launchGame(g, r.lastSlot, isRA(emuFor(g)) && r.slots.some(Boolean)); }
   else if (a === 'y') toggleFav(byId[id]);
 }
 function libInput(a) {
@@ -85,7 +85,7 @@ function appsInput(a) {
   else if (a === 'up') { if (i < cols) { S.top.on = true; S.top.i = TOP.indexOf('apps'); } else S.apps.i -= cols; sfx.move(); }
   else if (a === 'b') { sfx.back(); return enterTab('home'); }
   else if (a === 'down' && i + cols < n) { S.apps.i += cols; sfx.move(); }
-  else if (a === 'a') { const app = APPS[i]; if (ANDROID_GAMES.has(app.name)) { const g = GAMES.find(x => x.title === app.name); return startPlayDirect(g); } toast(`Opens ${app.name}`); }
+  else if (a === 'a') { const app = APPS[i]; if (ANDROID_GAMES.has(app.name)) { const g = GAMES.find(x => x.title === app.name); return startPlayDirect(g); } if (NATIVE) return ShelfNative.openApp(app.pkg); toast(`Opens ${app.name}`); }
   else if (a === 'y') return appOptions();
   refreshApps();
 }
@@ -168,6 +168,7 @@ addEventListener('keydown', e => {
 });
 const PAD = { prev: {}, hold: {} };
 function pollPad(dt) {
+  if (NATIVE) return;   // the Android app passes controller buttons in directly (__nativeKey)
   const pads = navigator.getGamepads ? navigator.getGamepads() : [], p = [...pads].find(Boolean); if (!p) return;
   const press = i => !!(p.buttons[i] && p.buttons[i].pressed), ax = p.axes[0] || 0, ay = p.axes[1] || 0;
   const now = { a: press(0), b: press(1), y: press(3), lb: press(4), rb: press(5), home: press(16) || (press(8) && press(9)),
@@ -413,7 +414,7 @@ async function boot() {
   if (!gl) { document.body.insertAdjacentHTML('beforeend', '<p style="padding:40px">This prototype needs WebGL.</p>'); return; }
   initGL(); initMeshes(); applyTheme(P.prefs.theme);
   try { await Promise.race([Promise.all([document.fonts.load('600 40px Unbounded'), document.fonts.load('600 20px Manrope')]), new Promise(r => setTimeout(r, 2000))]); } catch (e) { }
-  enterSetup();
+  if (NATIVE && P.setup) { paintProfile(); enterTab('home'); } else enterSetup();
   requestAnimationFrame(loop);
 }
 boot();

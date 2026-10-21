@@ -6,30 +6,20 @@
 2. **Revise the prototype** until the user is happy. Keep it a single HTML file, test every screen headlessly, and publish or hand it over.
 3. **Verify the unconfirmed measurements:** the DS case, PSP case, DS card label and keep case (see `RESEARCH.md`).
 
-## Then: the real app (GitHub Actions builds, sideloaded onto the Retroid Pocket 3+)
+## The real app
 
-Build in **vertical slices** that run on the device as early as possible, as planned for the Pi version.
+**Version 0.1 is built** (October 2026): the Shelf interface in a small Java app (see SPEC §16), with real ROMs and
+apps, launching through RetroArch and 24 standalone emulators, the controller, the home-screen role, and builds
+published by GitHub Actions. Next, in order:
 
-1. **Project and pipeline.** A Kotlin and Jetpack Compose project, plus a GitHub Actions workflow that builds a
-   debug APK as a downloadable build output. Walk the user through creating the repository, pushing the code
-   from Windows, and installing the APK (`adb install`, or copying the APK and opening it on the device).
-2. **The thin slice.**
-   - Home launcher registration.
-   - Scanning ROM folders (with All files access).
-   - Detecting the RetroArch package and its cores.
-   - Showing Home with real 3D cartridges (port the renderer to OpenGL ES 3).
-   - Launching a game through RetroArch's intent, with `QUITFOCUS` returning focus to Shelf.
-   - The save-slot copy around each session.
-   - Home → network `QUIT` → save → return.
-3. **Library and boxes:** the case models at real sizes, the flat framed grid, the glow ring, floating and shadows.
-4. **Opening the box:** the hinged cover, the manual booklet and tray, the panel in Compose layered over the 3D view, and turning the closed box.
-5. **Art and info:** the ScreenScraper downloader with free fallbacks, label art, manuals as page images, and media.
-6. **Readers:** the manual reader, media viewer and achievements page (RetroAchievements web API).
-7. **Apps:** the app drawer, Mark as game, and Android game cases and cards.
-8. **Settings:** themes, per-platform and per-game emulator choice, and standalone emulator launching
-   (research each emulator's intent: DuckStation, PPSSPP, melonDS, Mupen64Plus FZ, and so on).
-9. **First-run setup.**
-10. **Polish:** higher-detail models, smoothed edges, materials, motion tuning, and the reduced-motion setting.
+1. **Try it on the Retroid Pocket 3+** and fix what the user finds (buttons, speed, launching each emulator).
+2. **Art and info:** RetroArch's thumbnail server and the libretro database first (free, no account), then
+   ScreenScraper with the user's account. Real box art, labels and details in place of Shelf's generated ones.
+3. **Saves:** Shelf's four save slots around RetroArch, as designed (SPEC §15), and RetroArch's network `QUIT` so
+   the Home button saves before leaving a game.
+4. **RetroAchievements:** sign-in and the achievements page from the web API.
+5. **Manuals and media** from ScreenScraper.
+6. **More models in Blender**, when the user wants to pick that back up.
 
 ## Open questions
 

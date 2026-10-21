@@ -1,2 +1,8 @@
 __pycache__/
 blenv/
+# Android build output, and the interface copied in at build time (android/prepare-assets.sh)
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/app/src/main/assets/index.html

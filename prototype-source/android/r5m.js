@@ -57,7 +57,7 @@ const MU_ORDER = Object.keys(MUSEUM).sort((a, b) => MUSEUM[a].year - MUSEUM[b].y
 const MEDIA_NAME = { cart: 'Cartridge', disc: 'Disc', card: 'Game card', umd: 'UMD', acard: 'Game card' };
 const EXHIBITS = sys => ['Console', MEDIA_NAME[PLAT[sys].media], 'Box', 'Open box'];
 const EX_VIEW = [{ yaw: -.55, pitch: .45 }, { yaw: -.4, pitch: .12 }, { yaw: .5, pitch: .12 }, { yaw: 0, pitch: .12 }];
-const sampleGame = sys => GAMES.find(g => g.sys === sys);
+const sampleGame = sys => (NATIVE ? DEMO_GAMES : GAMES).find(g => g.sys === sys);   // the Museum always shows its invented examples
 function enterMuseum() { const U = S.mu; U.zone = U.zone || 'rail'; refreshMuseum(); setMood(MU_ORDER[U.i]); }
 function pickExhibit(i, ex) {
   const U = S.mu; if (i === U.i && ex === U.ex) return;

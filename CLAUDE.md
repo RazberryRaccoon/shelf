@@ -26,7 +26,11 @@ that we've learned … and make an Android game launcher that's the best it can 
 - New layout built (October 2026): Home is the base, with a row of recent games; a game's page opens in place;
   Library, Apps and Museum slide up as a sheet from round buttons in the top bar. First notes built (up closes
   the page, L1/R1 cycle, a picture of the selected game under the row). Waiting on the user's notes.
-- After that: set up the Android project and GitHub Actions build → build it in vertical slices.
+- **The Android app, version 0.1** (October 2026): `android/`, a Java app running the interface in a WebView with a
+  native bridge (`ShelfNative`). GitHub Actions builds it; pushes to `main` publish `Shelf.apk` as the latest release.
+  Next: the user tries it on the Retroid, then art downloads, saves, achievements (see `docs/ROADMAP.md`).
+- The Android SDK can't be downloaded in Claude's sandbox (dl.google.com is blocked): compile-check the Java against
+  Robolectric's `android-all` jar from Maven Central, and let GitHub Actions do the real build.
 - The user asked to "talk it through" before building anything new. Propose, confirm, then build.
 
 ## The user
@@ -83,6 +87,7 @@ that we've learned … and make an Android game launcher that's the best it can 
 - `prototype-source/`: the prototypes split into the parts they were built from, with a build script.
 - `tools/models/`: Blender scripts that build consoles and cartridges from the user's reference photos (see its
   README). Output goes to `prototype-source/models/`. GBA done; the rest still use the code-built models.
+- `android/`: Shelf for Android, the app (see its README). `prototype-source/android/rn.js` is the page's native mode.
 - `code/`: the Odroid GO firmware integration and the Raspberry Pi C app.
 - `downloads/`: the zips linked from the README. Rebuild them with `bash scripts/make-downloads.sh` whenever
   `code/` or `prototypes/` change, and commit the result.
