@@ -243,3 +243,7 @@
   Museum, and saves state through the bridge. Tested in headless Chrome with a stand-in bridge before the first build.
 - The sandbox can't download the Android SDK, so the Java was compile-checked against Robolectric's `android-all` jar
   and the APK is built only by GitHub Actions.
+- First run on the Retroid: the page came up zoomed in, showing one corner, and could be panned. The WebView wasn't
+  told to honor the page's viewport tag or to stay unzoomed. Fixed on both sides: the WebView uses the viewport tag
+  with zoom off, and the page's `fit()` reads the visible viewport, re-fits on every size change (and when Java says
+  the view changed), and can't be panned. Checked at the Retroid's size and at phone and tablet shapes.

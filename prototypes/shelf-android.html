@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Shelf for Android, prototype</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -439,14 +439,19 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const NATIVE = typeof ShelfNative !== 'undefined';   // running inside the Android app, with real games, apps and emulators
 const joinKnown = (...xs) => xs.filter(Boolean).join(', ');   // real games may not have every detail yet
 
-function fit() {
-  const vw = innerWidth, vh = innerHeight - (NATIVE ? 0 : 30), s = Math.min(vw / W, vh / H);
+function fit() {   // scale the 1334 × 750 screen to whatever screen or window this is, letterboxed if the shape differs
+  const vv = window.visualViewport, vw = (vv && vv.width) || innerWidth || document.documentElement.clientWidth;
+  const vh = ((vv && vv.height) || innerHeight || document.documentElement.clientHeight) - (NATIVE ? 0 : 30);
+  if (!(vw > 0 && vh > 0)) return;   // not laid out yet; called again when it is
+  const s = Math.min(vw / W, vh / H);
   stage.style.transform = `translate(${(vw - W * s) / 2}px, ${(vh - H * s) / 2}px) scale(${s})`;
   const dpr = Math.min(devicePixelRatio || 1, 2);
   const px = Math.max(640, Math.min(NATIVE ? W : W * 1.5, Math.round(W * s * dpr)));   // on the handheld, one canvas pixel per screen pixel
   if (cv.width !== px) { cv.width = px; cv.height = Math.round(px * H / W); }
 }
 addEventListener('resize', fit);
+if (window.visualViewport) visualViewport.addEventListener('resize', fit);
+if (window.ResizeObserver) new ResizeObserver(() => fit()).observe(document.documentElement);
 
 /* ================= platforms ================= */
 // Box sizes are the originals in decimetres (1 = 100 mm). Cardboard boxes become modern clamshell cases at the same size.
@@ -2998,6 +3003,9 @@ if (NATIVE) {
   P.prefs.homeArt = 'cart';   // Shelf's own box art is mostly title text; the label art makes a calmer background
   nativeLoad(); nativeScan();
   $('#keysHelp').style.display = 'none'; document.body.style.background = '#000';
+  stage.style.borderRadius = '0';   // edge to edge on the handheld
+  for (const el of [document.documentElement, document.body]) Object.assign(el.style, { touchAction: 'none', overscrollBehavior: 'none' });   // no panning or zooming the page
+  fit();
   setInterval(nativeSave, 15000);
   window.__nativeKey = a => { try { if (P.prefs.layout === 'Xbox' && (a === 'a' || a === 'b')) a = a === 'a' ? 'b' : 'a'; act(a); } catch (e) { console.error(e); } };
   window.__nativePause = () => nativeSave();

@@ -56,15 +56,23 @@ public class MainActivity extends Activity {
         s.setAllowFileAccess(true);
         s.setMediaPlaybackRequiresUserGesture(false);   // so the menu music and sounds can start
         s.setTextZoom(100);
+        // Lay the page out at the screen's real size (it reads the viewport tag) and never zoom it;
+        // the page then scales Shelf's 1334 × 750 screen to fit whatever display this is.
+        s.setUseWideViewPort(true);
+        s.setLoadWithOverviewMode(true);
         s.setSupportZoom(false);
+        s.setBuiltInZoomControls(false);
+        s.setDisplayZoomControls(false);
         web.setVerticalScrollBarEnabled(false);
         web.setHorizontalScrollBarEnabled(false);
         web.setFocusable(false);   // buttons come in through dispatchKeyEvent, never as page focus changes
         web.addJavascriptInterface(new Bridge(this), "ShelfNative");
         web.setWebChromeClient(new WebChromeClient());
         web.setWebViewClient(new WebViewClient() {
-            @Override public void onPageFinished(WebView view, String url) { loaded = true; }
+            @Override public void onPageFinished(WebView view, String url) { loaded = true; js("window.fit && fit()"); }
         });
+        // and again whenever the view changes size (rotation, split screen, a different display)
+        web.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> { if (r - l != or - ol || b - t != ob - ot) js("window.fit && fit()"); });
         setContentView(web);
         immersive();
         web.loadUrl("file:///android_asset/index.html");
