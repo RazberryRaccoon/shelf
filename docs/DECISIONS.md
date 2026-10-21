@@ -194,6 +194,21 @@ Summarized from the first part of the conversation; the full transcript is kept 
   of rebuilding it in Kotlin, Compose and OpenGL ES, so the look and motion stay exactly as approved. Launch
   commands follow ES-DE's Android configuration. Builds come from GitHub Actions as a release with `Shelf.apk`.
 
+### First notes from the Retroid (October 2026)
+
+- "Let's keep the web version for now for testing and such." (Asked whether to rebuild natively; the user chose to
+  keep the WebView app for now.)
+- "Everything is too small on this screen… Redesign it around the actual size of my screen." Built: type and
+  controls about 1.75 times larger (body text about 22 to 25 px on the 1334 × 750 screen, close to Android's 14sp at
+  2× density), a 124 px top bar, four Library columns, five app columns, wider side lists, and setup lists in two
+  columns when they're long.
+- "I need the ability to change the folder that it's looking for games in… Let me choose the folder for each
+  platform." Built: Settings › Platforms › a console › Games folder (Android's folder picker), and the same from setup.
+  ROMs folders are still searched too.
+- "The tall boxes need some breathing room at the top and bottom." Built: each Library row is as tall as its tallest
+  box when raised, plus room for its title.
+- "Launching android apps works great!" from the app drawer and as a marked game.
+
 ### Prototype v2, part 2 (built)
 
 - "Add in a button that skips the setup, just for debugging… not literally skip all the setup, but instead just

@@ -43,8 +43,9 @@ ten consoles plus Android games:
    and keep your settings.
 3. Open **Shelf**. In setup, **Allow access to my files** lets Shelf find your games: switch on *Allow access to manage
    all files*, then press Back.
-4. Games go in a **ROMs** folder on internal storage or the SD card, one folder per console: `nes`, `snes`, `n64`,
-   `genesis` (or `megadrive`), `gb`, `gbc`, `gba`, `psx`, `nds`, `psp`. Shelf finds them each time you come back to it.
+4. Shelf looks for games in a **ROMs** folder on internal storage or the SD card, one folder per console: `nes`, `snes`,
+   `n64`, `genesis` (or `megadrive`), `gb`, `gbc`, `gba`, `psx`, `nds`, `psp`. If yours are somewhere else, choose the
+   folder for each console in setup, or later in Settings › Platforms › (a console) › Games folder.
 5. To make Shelf the home screen, choose **Use Shelf as my home screen** in setup (or later in Android's Settings ›
    Apps › Default apps › Home app).
 

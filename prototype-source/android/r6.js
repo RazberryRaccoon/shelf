@@ -54,7 +54,7 @@ function homeInput(a) {
   else if (a === 'y') toggleFav(byId[id]);
 }
 function libInput(a) {
-  const L = S.lib, n = L.list.length, cols = 5;
+  const L = S.lib, n = L.list.length, cols = LIB_COLS;
   if (L.zone === 'grid') {
     const col = L.i % cols;
     if (a === 'left') { if (col === 0 || !n) L.zone = 'rail'; else L.i--; sfx.move(); }
@@ -68,7 +68,7 @@ function libInput(a) {
     const stops = railStops(), at = stops.indexOf(L.rail), item = railItems()[L.rail];
     if (a === 'up' && at === 0) { S.top.on = true; S.top.i = TOP.indexOf('library'); sfx.move(); }
     else if (a === 'b') { sfx.back(); return enterTab('home'); }
-    else if (a === 'up' || a === 'down') { const k = clamp(at + (a === 'up' ? -1 : 1), 0, stops.length - 1); if (stops[k] !== L.rail) { L.rail = stops[k]; L.i = 0; L.rowF = .6; sfx.move(); return refreshLibrary(true); } }
+    else if (a === 'up' || a === 'down') { const k = clamp(at + (a === 'up' ? -1 : 1), 0, stops.length - 1); if (stops[k] !== L.rail) { L.rail = stops[k]; L.i = 0; L.off = null; sfx.move(); return refreshLibrary(true); } }
     else if (a === 'y' && item.custom) return collectionOptions(item.custom);
     else if ((a === 'right' || a === 'a') && n) { L.zone = 'grid'; sfx.move(); }
   } else {
@@ -80,7 +80,7 @@ function libInput(a) {
   refreshLibrary(false);
 }
 function appsInput(a) {
-  const cols = 7, n = APPS.length, i = S.apps.i;
+  const cols = APP_COLS, n = APPS.length, i = S.apps.i;
   if (a === 'left' && i % cols > 0) { S.apps.i--; sfx.move(); } else if (a === 'right' && i % cols < cols - 1 && i + 1 < n) { S.apps.i++; sfx.move(); }
   else if (a === 'up') { if (i < cols) { S.top.on = true; S.top.i = TOP.indexOf('apps'); } else S.apps.i -= cols; sfx.move(); }
   else if (a === 'b') { sfx.back(); return enterTab('home'); }
@@ -216,13 +216,14 @@ function drawHomeArt(dt, id, show) {
   const kind = P.prefs.homeArt, key = kind !== 'off' && id ? 'homeart:' + kind + ':' + id : null;
   if (key !== HB.key) { HB.prev = HB.a > .5 ? HB.key : HB.prev; HB.key = key; HB.a = 0; }
   HB.a = Math.min(1, HB.a + dt / .45); approach(HB, { vis: show ? 1 : 0 }, dt, 6);
-  const dim = lightTheme() ? [.62, .62, .66] : [.36, .37, .44], top = 352, hgt = 750 - top;   // the fade's edge sits at the bottom of the row
+  const dim = lightTheme() ? [.62, .62, .66] : [.36, .37, .44], top = HOME_Y + 122, hgt = 750 - top;   // the fade's edge sits at the bottom of the row
   const plate = (k, a) => { if (!k || a < .005 || NODRAW) return; const [, kd, gid] = k.split(':');
     const [x, y] = pw(667, top + hgt / 2); gl.depthMask(false);
     drawPart(PLANE, M4.trs(x, y, -1, 0, 0, 0, [1334 / PX, hgt / PX, 1]), { tex: tex(k, () => homeArtCanvas(byId[gid], kd), true), flat: true, col: dim, alpha: a * HB.vis });
     gl.depthMask(true); };
   plate(HB.prev, 1 - ease(HB.a)); plate(HB.key, ease(HB.a));
 }
+const HOME_Y = 302;   // the selected cartridge's center on Home, under the top bar
 function drawHome(dt, t, strip) {   // strip: a game's page is open here, so the rest of the row waits in a small strip up top
   const items = homeItems(), H0 = S.home, rowFocus = H0.zone === 'row' && !S.top.on && S.screen === 'home', q = S.seq;
   approach(H0, { f: H0.i }, dt, 8);
@@ -232,18 +233,18 @@ function drawHome(dt, t, strip) {   // strip: a game's page is open here, so the
   items.forEach((id, i) => {
     const g = byId[id], o = pose('home:' + id, { s: 0, y: 3 }), foc = !strip && i === H0.i;
     let xpx, ypx, alpha, bob = 0;
-    if (strip) { const j = others.indexOf(id); xpx = 667 + (j - (others.length - 1) / 2) * 76; ypx = 106; alpha = .8; }
+    if (strip) { const j = others.indexOf(id); xpx = 667 + (j - (others.length - 1) / 2) * 80; ypx = 156; alpha = .8; }
     else {
       const off = i - H0.f; xpx = 270 + off * 196 + Math.sign(off) * Math.min(Math.abs(off), 1) * 70;
       alpha = off < 0 ? (off > -1 ? 1 + .6 * off : .4 * (1 - clamp(-off - 1, 0, 1))) : 1 - clamp((off - 5) / 1.2, 0, 1);
-      bob = motion() ? Math.sin(t * .8 + i * 1.7) * (foc ? 4 : 3) : 0; ypx = (foc ? 238 : 262) + bob;
+      bob = motion() ? Math.sin(t * .8 + i * 1.7) * (foc ? 4 : 3) : 0; ypx = (foc ? HOME_Y : HOME_Y + 24) + bob;
     }
     const [x, y] = pw(xpx, ypx);
-    approach(o, { x, z: foc ? .5 : 0, ry: strip ? -.12 : -.2, rx: -.1, s: mediaScale(g.sys, strip ? 50 : foc ? 236 : 150), alpha, bright: foc ? 1.02 : strip ? .62 : .72, glow: foc && rowFocus ? 1 : 0 }, dt, strip ? 7 : 10);
+    approach(o, { x, z: foc ? .5 : 0, ry: strip ? -.12 : -.2, rx: -.1, s: mediaScale(g.sys, strip ? 54 : foc ? 240 : 156), alpha, bright: foc ? 1.02 : strip ? .62 : .72, glow: foc && rowFocus ? 1 : 0 }, dt, strip ? 7 : 10);
     approach(o, { y }, dt, foc ? 7 : strip ? 6 : 10);
     const M = M4.trs(o.x, o.y, o.z, o.rx, o.ry, 0, o.s);
     if ((q && q.g.id === id) || S.skipId === id) return;   // it's drawn elsewhere: in the launch scene, or in its box
-    const hpx = CART[g.sys].h / 2 * o.s * PX, sh = 1 - clamp((262 - (H / 2 - o.y * PX)) / 80, 0, 1);   // shadows fade as they rise into the strip
+    const hpx = CART[g.sys].h / 2 * o.s * PX, sh = 1 - clamp((HOME_Y + 24 - (H / 2 - o.y * PX)) / 80, 0, 1);   // shadows fade as they rise into the strip
     if (o.alpha > .01) { if (sh > .01) shadowUnder(xpx, ypx - bob + hpx + (foc ? 24 : 12), Math.max(CART[g.sys].w, .5) * o.s * PX * .9, o.alpha * sh, foc); drawn.push([g, M, o, foc]); }
   });
   for (const [g, M, o, foc] of drawn) { if (foc && rowFocus) { const m = moodColors(MOOD.cur); drawCartGlowM(g, M, o.s, hexRgb(m.accent), hexRgb(m.planet[0]), o.alpha); } drawCartM(g, M, o); }
@@ -274,35 +275,50 @@ function drawSheet(dt, t) {
   if (!NODRAW) { gl.clear(gl.DEPTH_BUFFER_BIT); gl.viewport(0, -Math.round(SHEETOFF * cv.height / H), cv.width, cv.height); }
   setFlat(); beginMeshes();
   const b = hexRgb(getComputedStyle(stage).getPropertyValue('--bg').trim() || '#070b1e'), f = lightTheme() ? [1, 1, 1] : [.6, .65, 1];
-  drawPlate('sheet', panelArt, 667, 486, 1300, 800, 2, b.map((v, i) => v * .9 + f[i] * .06), .95);
+  drawPlate('sheet', panelArt, 667, 524, 1310, 800, 2, b.map((v, i) => v * .9 + f[i] * .06), .95);
   endMeshes(); if (!NODRAW) gl.clear(gl.DEPTH_BUFFER_BIT);
   S.sheet.cf = Math.min(1, (S.sheet.cf == null ? 1 : S.sheet.cf) + dt / .3); UNDER = ease(S.sheet.cf);   // switching sheets fades the new one in
   if (S.sheet.name === 'library') drawLibrary(dt, t); else if (S.sheet.name === 'museum') drawMuseum(dt);
   UNDER = 1;
   if (!NODRAW) gl.viewport(0, 0, cv.width, cv.height);
 }
+// The Library's grid: four columns in a framed panel. Each row is as tall as its tallest box (raised, as when
+// it's selected) plus room for the title under it, so tall boxes never crowd the rows above and below.
+const LIB_COLS = 4, LIB_VIEW = { x: 352, y: 196, w: 950, h: 530 };
+function libRows() {   // each row's top and height, in pixels from the top of the grid
+  const L = S.lib, out = []; let y = 12;
+  for (let r = 0; r * LIB_COLS < L.list.length; r++) {
+    let tall = 0; for (let c = 0; c < LIB_COLS; c++) { const g = L.list[r * LIB_COLS + c]; if (g) tall = Math.max(tall, BOX[g.sys][1]); }
+    const box = tall * BOXK * 1.08 * PX + 14, h = 26 + box + 76;   // breathing room, the box, its title and the gap to the next row
+    out.push({ top: y, h, box }); y += h;
+  }
+  return { rows: out, total: y + 12 };
+}
 function drawLibrary(dt, t) {
-  const L = S.lib, cols = 5, row = Math.floor(L.i / cols), onGrid = L.zone === 'grid' && !S.top.on;
-  const lastRow = Math.max(0, Math.floor((L.list.length - 1) / cols)), top = .58, bottom = .49;
-  approach(L, { rowF: clamp(row, top, Math.max(top, lastRow - bottom)) }, dt, 9);
-  const CY = 428, ROW = 300, cx = c => 363 + c * 206, s0 = BOXK, still = !motion();
+  const L = S.lib, cols = LIB_COLS, V = LIB_VIEW, row = Math.floor(L.i / cols), onGrid = L.zone === 'grid' && !S.top.on;
+  const { rows, total } = libRows(), R = rows[row] || { top: 0, h: 0 };
+  const want = clamp(R.top + R.h / 2 - V.h / 2, 0, Math.max(0, total - V.h));   // keep the selected row in the middle when there's room
+  if (L.off == null) L.off = want;
+  approach(L, { off: want }, dt, 9);
+  const cx = c => V.x + V.w / (2 * cols) + c * V.w / cols, s0 = BOXK, still = !motion();
   setFlat(); beginMeshes();
-  drawPlate('gridpanel', panelArt, 775, 428, 1062, 584, 0, lightTheme() ? [1, 1, 1] : [.035, .045, .11], lightTheme() ? .4 : .55);
-  clipRect(245, 137, 1305, 719);
+  drawPlate('gridpanel', panelArt, V.x + V.w / 2, V.y + V.h / 2, V.w, V.h, 0, lightTheme() ? [1, 1, 1] : [.035, .045, .11], lightTheme() ? .4 : .55);
+  clipRect(V.x + 1, V.y + 1, V.x + V.w - 1, V.y + V.h - 1);
   let focus = null;
   L.list.forEach((g, i) => {
-    const r = Math.floor(i / cols), c = i % cols, foc = onGrid && i === L.i, o = pose('lib:' + g.id, { s: 0 });
-    const ypx = CY + (r - L.rowF) * ROW, lift = foc ? 14 : 0, bob = still ? 0 : Math.sin(t * .8 + i * 1.7) * (foc ? 4 : 3), [x, y] = pw(cx(c), ypx - lift + bob);
-    const cut = Math.max(0, 276 - ypx, ypx - 600) / 90, vis = 1 - clamp((Math.abs(ypx - CY) - ROW) / 90, 0, 1);
-    approach(o, { x, z: foc ? .4 : 0, ry: .3, rx: -.08, s: s0 * (foc ? 1.08 : 1), alpha: clamp(vis, 0, 1) * (1 - .45 * clamp(cut, 0, 1)), bright: foc ? 1.03 : onGrid ? .66 : .82 }, dt, 11);
+    const r = Math.floor(i / cols), c = i % cols, foc = onGrid && i === L.i, o = pose('lib:' + g.id, { s: 0 }), RW = rows[r];
+    const [bw, bh] = BOX[g.sys], hpx = bh * s0 * PX;
+    const ypx = V.y + RW.top - L.off + 26 + RW.box / 2 + 7, lift = foc ? 14 : 0, bob = still ? 0 : Math.sin(t * .8 + i * 1.7) * (foc ? 4 : 3), [x, y] = pw(cx(c), ypx - lift + bob);
+    const out = Math.max(V.y - (ypx + hpx / 2), (ypx - hpx / 2) - (V.y + V.h)), edge = Math.max(V.y + 30 - (ypx - hpx / 2), (ypx + hpx / 2) - (V.y + V.h - 30));
+    const vis = 1 - clamp(out / 60, 0, 1), cut = clamp(edge / 90, 0, 1);
+    approach(o, { x, z: foc ? .4 : 0, ry: .3, rx: -.08, s: s0 * (foc ? 1.08 : 1), alpha: vis * (1 - .45 * cut), bright: foc ? 1.03 : onGrid ? .66 : .82 }, dt, 11);
     approach(o, { y }, dt, foc ? 7 : 11);
-    const [bw, bh] = BOX[g.sys];
     if (S.skipId === g.id) return;   // it's open in front
     if (o.alpha > .01) shadowUnder(cx(c), ypx + bh / 2 * o.s * PX + (foc ? 22 : 12), bw * o.s * PX * .95, o.alpha, foc);
     if (foc) focus = { g, o, c, ypx: ypx - lift, bh }; else if (o.alpha > .01) drawCase(g, o, 0);
   });
   if (focus) { const m = moodColors(MOOD.cur); drawCaseGlow(focus.g, focus.o, hexRgb(m.accent), hexRgb(m.planet[0])); drawCase(focus.g, focus.o, 0);
-    if (!NODRAW) { const F = $('#lFocus'); F.style.left = cx(focus.c) + 'px'; F.style.top = (focus.ypx + focus.bh / 2 * focus.o.s * PX + 26) + 'px'; } }
+    if (!NODRAW) { const F = $('#lFocus'); F.style.left = cx(focus.c) + 'px'; F.style.top = (focus.ypx + focus.bh / 2 * focus.o.s * PX + 30) + 'px'; } }
   unclip(); endMeshes();
 }
 function lerpPose(a, b, k) { let d = b.ry - a.ry; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
@@ -315,10 +331,11 @@ function drawShade(alpha) {   // darkens everything drawn so far
   if (NODRAW) return; if (alpha <= .001) return gl.clear(gl.DEPTH_BUFFER_BIT);
   setFlat(); beginMeshes(); drawPlate('scrim', panelArt, 667, 375, 1500, 900, 3, [0, 0, .01], alpha); endMeshes(); gl.clear(gl.DEPTH_BUFFER_BIT);
 }
+const CASE_AT = [326, 462], CASE_FIT = [580, 500];   // the open case's center and the room it fits in, left of the details
 function drawGamePage(dt, t) {
   const G0 = S.game, g = byId[G0.id], o = pose('case', {}), m = caseModel(g.sys), [W0, H0] = [m.W, m.H];
-  const sOpen = Math.min(620 / (2 * W0 * PX), 520 / (H0 * PX)), s = G0.turn ? Math.min(sOpen * 1.35, 430 / (Math.max(W0, H0) * PX)) : sOpen;
-  const [cxw, cyw] = pw(345, 392), openT = G0.turn ? 0 : 1;
+  const sOpen = Math.min(CASE_FIT[0] / (2 * W0 * PX), CASE_FIT[1] / (H0 * PX)), s = G0.turn ? Math.min(sOpen * 1.35, 430 / (Math.max(W0, H0) * PX)) : sOpen;
+  const [cxw, cyw] = pw(CASE_AT[0], CASE_AT[1]), openT = G0.turn ? 0 : 1;
   // Opening from Home: the open box slides in from the left while the cartridge lifts off Home and hovers over the
   // tray, then it lowers straight in. Closing to Home is the reverse: up out of the tray, box out to the left, back to Home.
   const home = G0.from === 'home' && (G0.fly || G0.closing), tx = cxw + m.W / 2 * s, offLeft = tx - 9;
@@ -401,7 +418,7 @@ function tick(dt) {
   clockTimer -= dt; if (clockTimer <= 0) { clockTimer = 1; $('#clock').textContent = clockText(); }
   if (!NODRAW) { gl.viewport(0, 0, cv.width, cv.height); const b = hexRgb(getComputedStyle(stage).getPropertyValue('--bg').trim() || '#070b1e'); gl.clearColor(b[0], b[1], b[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); }
   const dim = ['media', 'manual', 'play'].includes(S.screen) ? .45 : 1;
-  drawBackdrop(S.time, { bright: dim, pan: S.screen === 'home' ? S.home.f * .006 : S.screen === 'library' ? S.lib.rowF * .02 : 0, planet: PL.a > .01 ? PL : null });
+  drawBackdrop(S.time, { bright: dim, pan: S.screen === 'home' ? S.home.f * .006 : S.screen === 'library' ? (S.lib.off || 0) * .00007 : 0, planet: PL.a > .01 ? PL : null });
   if (S.screen === 'home' || SHEETS.includes(S.screen)) {
     if (S.homeA > .005) { UNDER = S.homeA; drawHome(dt, S.time); UNDER = 1; }
     drawSheet(dt, S.time);

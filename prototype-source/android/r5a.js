@@ -25,7 +25,7 @@ function approach(o, t, dt, rate = 9) { const k = 1 - Math.exp(-dt * rate); for 
 const motion = () => P.prefs.motion;
 const rec = id => P.played[id];
 function ensureRec(g) { if (!P.played[g.id]) P.played[g.id] = { last: 0, minutes: 0, earned: 0, fav: false, slots: [null, null, null, null], lastSlot: 0 }; return P.played[g.id]; }
-const BOXK = .76;   // boxes in the Library: 1 unit (100 mm) = .76 x PX pixels, so every box keeps its true size relative to the others
+const BOXK = .84;   // boxes in the Library: 1 unit (100 mm) = .84 x PX pixels, so every box keeps its true size relative to the others
 function mediaScale(sys, px) { const c = CART[sys]; return px / PX / Math.max(c.w, c.h); }
 
 /* ================= small DOM helpers ================= */
@@ -62,7 +62,7 @@ function setupOpts() {
   if (s === 1) return [{ k: 'name', label: 'Your name', value: P.name || 'Choose' }, ...PROFILE_COLORS.map((c, i) => ({ k: 'color', i, label: ['Amber', 'Sky', 'Orchid', 'Fern', 'Rose'][i], color: c })), { k: 'next', label: 'Continue', primary: true }, back];
   if (s === 2) return [...Object.keys(THEMES).map(t => ({ k: 'theme', t, label: THEMES[t].name })), { k: 'next', label: 'Continue', primary: true }, back];
   if (s === 3) return NATIVE && !ShelfNative.hasStorage() ? [{ k: 'storage', label: 'Allow access to my files', primary: true }, { k: 'next', label: 'Skip for now' }, back]
-    : [{ k: 'folder', label: 'Add another folder' }, { k: 'next', label: 'Continue', primary: true }, back];
+    : [{ k: 'folder', label: NATIVE ? 'Choose a folder for a console' : 'Add another folder' }, { k: 'next', label: 'Continue', primary: true }, back];
   if (s === 4) return [{ k: 'ss', label: 'ScreenScraper', value: P.art.ss ? 'Signed in' : 'Sign in' }, { k: 'ra', label: 'RetroAchievements', value: P.ra ? 'Signed in' : 'Sign in' }, { k: 'next', label: 'Continue', primary: true }, back];
   return [{ k: 'launcher', label: 'Use Shelf as my home screen', primary: true }, { k: 'skip', label: 'Not now' }, back];
 }
@@ -74,7 +74,7 @@ function fillSetup() {
     ['Step 1 of 5', 'Who’s playing?', 'Shelf keeps one profile. Your name and color show at the top of the screen.'],
     ['Step 2 of 5', 'Pick a look', 'You can change it any time in Settings.'],
     NATIVE && !ShelfNative.hasStorage() ? ['Step 3 of 5', 'Let Shelf find your games', 'Shelf looks in the ROMs folder on internal storage and the SD card. Android asks you to allow access to all files; switch it on, then come back.']
-      : ['Step 3 of 5', `Found ${GAMES.filter(g => g.sys !== 'android').length} games`, 'In Internal storage › ROMs and SD card › ROMs, sorted into consoles by folder and file type.'],
+      : ['Step 3 of 5', `Found ${GAMES.filter(g => g.sys !== 'android').length} games`, NATIVE ? 'In ROMs folders on internal storage and SD cards, and in any folder you choose for a console.' : 'In Internal storage › ROMs and SD card › ROMs, sorted into consoles by folder and file type.'],
     ['Step 4 of 5', 'Art, manuals and achievements', 'Sign in to download box art, manuals and videos, and to earn achievements. Both are free, and both can wait.'],
     ['Step 5 of 5', 'Make Shelf your home screen?', 'Then the Home button always brings you back here, and Shelf can save a game in RetroArch before you leave it. Your apps are one button away.'],
   ][s];
@@ -82,10 +82,10 @@ function fillSetup() {
   if (s === 3 && !(NATIVE && !ShelfNative.hasStorage())) extra = `<div class="found">${counts.filter(([, c]) => c || !NATIVE).map(([n, c]) => `<div class="ok">${n} <b>${c}</b></div>`).join('')}</div>
     <div class="found">${NATIVE ? (NATIVE_EMUS.length ? NATIVE_EMUS.map(e => `<div class="ok">${e}</div>`).join('') : '<div>No emulators found yet. RetroArch is a good start.</div>')
       : '<div class="ok">RetroArch <b>with 9 cores</b></div><div class="ok">DuckStation</div><div class="ok">melonDS</div><div class="ok">PPSSPP</div><div class="ok">Mupen64Plus FZ</div>'}</div>`;
-  $('#setup').innerHTML = `<div class="step">${head[0]}</div><h1>${head[1]}</h1><p class="lead">${head[2]}</p>${extra}<div class="opts">` + opts.map((o, i) => {
+  $('#setup').innerHTML = `<div class="step">${head[0]}</div><h1>${head[1]}</h1><p class="lead">${head[2]}</p>${extra}<div class="opts ${opts.length > 6 ? 'two' : ''}">` + opts.map((o, i) => {
     const cur = (o.k === 'theme' && P.prefs.theme === o.t) || (o.k === 'color' && P.colors === o.color);
-    const T = o.t && THEMES[o.t], sw = o.color ? `<span style="width:20px;height:20px;border-radius:50%;background:${avatarCss(o.color)}"></span>`
-      : T ? `<span style="width:34px;height:20px;border-radius:6px;border:1px solid var(--line);background:${T.space ? 'radial-gradient(circle at 70% 130%, #8b78e6 0, #2a1a5e 45%, #070b1e 80%)' : `linear-gradient(135deg, ${T.top}, ${T.c[0]} 55%, ${T.c[1]})`}"></span>` : '';
+    const T = o.t && THEMES[o.t], sw = o.color ? `<span style="width:32px;height:32px;border-radius:50%;background:${avatarCss(o.color)}"></span>`
+      : T ? `<span style="width:54px;height:32px;border-radius:9px;border:1px solid var(--line);background:${T.space ? 'radial-gradient(circle at 70% 130%, #8b78e6 0, #2a1a5e 45%, #070b1e 80%)' : `linear-gradient(135deg, ${T.top}, ${T.c[0]} 55%, ${T.c[1]})`}"></span>` : '';
     return `<div class="opt ${o.primary ? 'primary' : ''} ${o.debug ? 'debug' : ''} ${o.back ? 'back' : ''} ${i === S.setup.i ? 'focus' : ''}"><span class="optlabel">${sw}${o.label}${cur ? ' ✓' : ''}</span>${o.value ? `<small>${esc(o.value)}</small>` : ''}</div>`;
   }).join('') + `</div><div class="dots">${Array.from({ length: SETUP_STEPS }, (_, i) => `<i class="${i <= s ? 'on' : ''}"></i>`).join('')}</div>`;
 }
@@ -98,7 +98,7 @@ function setupAct() {
   if (o.k === 'theme') { applyTheme(o.t); return fillSetup(); }
   if (o.k === 'webview') return ShelfNative.openStore('com.google.android.webview');
   if (o.k === 'storage') return ShelfNative.requestStorage();   // Shelf rescans when you come back
-  if (o.k === 'folder') return toast(NATIVE ? 'For now, put games in a ROMs folder, one folder per console' : 'Opens Android’s folder picker');
+  if (o.k === 'folder') return NATIVE ? chooseFolders() : toast('Opens Android’s folder picker');
   if (NATIVE && (o.k === 'ss' || o.k === 'ra')) return toast('Signing in comes in a later version');
   if (o.k === 'ss') { P.art.ss = P.art.ss ? null : 'player_one'; P.art.source = P.art.ss ? 'ScreenScraper' : 'Free sources'; return fillSetup(); }
   if (o.k === 'ra') { P.ra = P.ra ? null : 'player_one'; return fillSetup(); }
@@ -138,6 +138,10 @@ function refreshHome() {
 }
 
 /* ================= library ================= */
+function railScroll(rin, view) {   // keeps a side list's current item in the middle of its panel
+  const cur = rin && rin.querySelector('.cur'); if (!cur) return;
+  const off = clamp(cur.offsetTop + cur.offsetHeight / 2 - view / 2, 0, Math.max(0, rin.scrollHeight - view)); rin.style.transform = `translateY(${-off}px)`;
+}
 const railStops = () => railItems().map((r, i) => r.head ? -1 : i).filter(i => i >= 0);
 function libList() {
   const RI = railItems(); S.lib.rail = clamp(S.lib.rail, 0, RI.length - 1);
@@ -153,8 +157,7 @@ function refreshLibrary(rebuild) {
   $('#rail').innerHTML = '<nav class="railin">' + RI.map((r, i) => r.head ? `<h5>${r.head}</h5>` :
     `<div class="${i === L.rail ? 'cur' : ''} ${!S.top.on && L.zone === 'rail' && i === L.rail ? 'focus' : ''}">${esc(r.label)}<span>${GAMES.filter(inLibrary).filter(g => railMatch(r.k, g)).length}</span></div>`).join('')
     + (!S.top.on && L.zone === 'rail' && RI[L.rail].custom ? '<p class="railhint"><i class="btn">Y</i> Rename or delete</p>' : '') + '</nav>';
-  const rin = $('#rail .railin'), cur = rin.querySelector('.cur');
-  if (cur) { const view = 584, off = clamp(cur.offsetTop + cur.offsetHeight / 2 - view / 2, 0, Math.max(0, rin.scrollHeight - view)); rin.style.transform = `translateY(${-off}px)`; }
+  railScroll($('#rail .railin'), 506);
   $('#filters').innerHTML = `<div class="filter ${!S.top.on && L.zone === 'filters' ? 'focus' : ''}">Sort<em>${SORTS[L.sort]}</em></div>`;
   $('#libHead').textContent = `${L.list.length} ${L.list.length === 1 ? 'game' : 'games'}`;
   const empty = !L.list.length; $('#libEmpty').style.display = empty ? 'block' : 'none';
@@ -171,7 +174,7 @@ function openGame(id, fromKey, from) {
   const f = anim.get(fromKey), bp = pose('case', {});
   Object.assign(bp, f ? { x: f.x, y: f.y, z: f.z || 0, rx: f.rx || 0, ry: f.ry || 0, s: f.s, alpha: 1, open: 0, lift: 0 } : { x: 0, y: 0, z: 0, s: .5, alpha: 0, open: 0 });
   if (fromKey && fromKey.startsWith('home:')) {   // from Home: the open box slides in from the left, and the cartridge is put into it
-    const m = caseModel(g.sys), s = Math.min(620 / (2 * m.W * PX), 520 / (m.H * PX)), [cx, cy] = pw(345, 392);
+    const m = caseModel(g.sys), s = Math.min(CASE_FIT[0] / (2 * m.W * PX), CASE_FIT[1] / (m.H * PX)), [cx, cy] = pw(CASE_AT[0], CASE_AT[1]);
     Object.assign(bp, { x: cx + m.W / 2 * s - 9, y: cy, z: 0, rx: -.18, ry: 0, s, alpha: 1, open: 1 });
     S.game.fly = { t: 0, from: f ? { x: f.x, y: f.y, z: 0, rx: f.rx, ry: f.ry, s: f.s } : null };
   }
@@ -210,9 +213,9 @@ function fillGame() {
   h += `<p class="desc">${esc(g.desc)}</p><p class="credit">${artCredit()}</p>`;
   $('#gpin').innerHTML = h;
   $('#gpin').querySelectorAll('.slot').forEach((el, i) => { const sl = slots[i], c = el.querySelector('canvas'); if (sl && c) gameFrame(g, sl.seed, sl.scroll || 100, c); });
-  $('#gMedia').style.transform = `translateX(${-Math.max(0, Math.min((G0.zone === 'media' ? G0.i : 0) - 2, media.length - 4.3)) * 137}px)`;
+  $('#gMedia').style.transform = `translateX(${-Math.max(0, Math.min((G0.zone === 'media' ? G0.i : 0) - 2, media.length - 3.6)) * 155.5}px)`;
   // keep the focused section in view
-  const zoneEl = $('#gpin').querySelector(`[data-z="${G0.zone}"]`), off = zoneEl && G0.zone !== 'actions' ? clamp(zoneEl.offsetTop - 150, 0, 400) : 0;
+  const zoneEl = $('#gpin').querySelector(`[data-z="${G0.zone}"]`), off = zoneEl && G0.zone !== 'actions' ? clamp(zoneEl.offsetTop - 120, 0, 1600) : 0;
   $('#gpin').style.transform = `translateY(${-off}px)`;
   $('#turnHint').classList.toggle('on', G0.turn);
 }
