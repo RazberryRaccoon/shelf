@@ -279,3 +279,5 @@
 - NES opened RetroArch to a black screen: the default core (Mesen) is probably not downloaded on the user's RetroArch,
   and Shelf can't see RetroArch's private core folder. Settings now say so on each console's emulator choice.
 - Lesson: test a cold start with every kind of saved state, not just a fresh one.
+- RetroArch cores: Shelf used to assume every core was there. It now keeps the list of cores you have (`P.cores`), asks
+  on the first launch of a console whose core isn't on it, and has a tick list in Settings › Emulators.

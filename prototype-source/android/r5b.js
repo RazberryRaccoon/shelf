@@ -35,17 +35,22 @@ P.gf = {}; P.hidden = new Set();
 function pickEmulator(sys, current, onPick, o = {}) {
   const items = [];
   if (o.withDefault) items.push({ label: `Default (${emuName(P.emu[sys])})`, v: null });
-  PLAT[sys].emus.forEach(e => items.push({ label: emuName(e), v: e, sub: e.startsWith('RetroArch') ? (emuInstalled(e) ? 'RetroArch core' : 'Core downloads on first use') : emuInstalled(e) ? 'Installed' : 'Not installed' }));
+  PLAT[sys].emus.forEach(e => items.push({ label: emuName(e), v: e, sub: e.startsWith('RetroArch') ? (emuInstalled(e) ? (NATIVE ? 'You have this core' : 'RetroArch core') : NATIVE ? 'RetroArch core' : 'Core downloads on first use') : emuInstalled(e) ? 'Installed' : 'Not installed' }));
   if (!o.once) items.push({ label: 'Other app…', v: 'other', sub: 'Any installed app' });
   const at = Math.max(0, items.findIndex(it => it.v === current));
   openDlg(o.title || `${PLAT[sys].name}: play with`, items, i => {
     const it = items[i]; closeDlg();
     if (it.v === 'other') { toast('Opens Android’s app picker. Shown here: Lemuroid.'); return onPick('Other app: Lemuroid'); }
     if (it.v && !it.v.startsWith('RetroArch') && !emuInstalled(it.v)) return toast(`Opens ${it.v} in the app store`);
+    if (NATIVE && it.v && it.v.startsWith('RetroArch: ')) knowCore(it.v.slice(11));   // choosing a core means you have it
     onPick(it.v);
   }, at);
 }
 function launchGame(g, slot, resume) {   // asks which emulator first, if that console is set to ask every time
+  if (NATIVE && g.sys !== 'android') {   // a RetroArch core Shelf doesn't know you have: ask which one you use, first
+    const e = emuFor(g);
+    if (e.startsWith('RetroArch: ') && !P.cores.includes(e.slice(11))) return askCore(g.sys, ne => { if (P.gameEmu[g.id]) P.gameEmu[g.id] = ne; launchGame(g, slot, resume); });
+  }
   if (g.sys !== 'android' && P.pf[g.sys].ask && !P.gameEmu[g.id]) return pickEmulator(g.sys, P.emu[g.sys], e => { S.onceEmu = { id: g.id, e }; startLaunch(g, slot, resume && isRA(e)); }, { once: true, title: `Play ${g.title} with` });
   startLaunch(g, slot, resume);
 }
@@ -107,7 +112,8 @@ function settingsModel() {
       case 'Platforms': return { cat: 'Platforms', intro: 'Choose a platform for its default emulator, filters and folders.', items: SYS_ORDER.map(k =>
         nav(PLAT[k].long, k === 'android' ? 'Apps' : P.pf[k].ask ? 'Ask every time' : emuName(P.emu[k]), `${GAMES.filter(g => g.sys === k && inLibrary(g)).length} games`, () => { S.set.sub = k; S.set.i = 0; })) };
       case 'Emulators': return { cat: 'Emulators', intro: 'Emulators found on this handheld. Shelf launches them for you.', items: [
-        ...ALL_EMUS.map(e => INSTALLED_APPS.has(e) ? info(e, e === 'RetroArch' ? `Installed, ${INSTALLED_CORES.size} cores` : 'Installed', e === 'RetroArch' ? 'Shelf manages save slots and achievements through RetroArch. Other cores download when first used.' : `A standalone emulator for ${SYS_ORDER.filter(k => (PLAT[k].emus || []).includes(e)).map(k => PLAT[k].name).join(', ')}. It keeps its own saves.`)
+        ...(NATIVE && INSTALLED_APPS.has('RetroArch') ? [action('RetroArch cores', `${P.cores.length} marked`, 'Tick the cores you’ve downloaded in RetroArch, so Shelf only uses ones you have. Otherwise it asks the first time you play each console.', () => { editCores(); return true; })] : []),
+        ...ALL_EMUS.map(e => INSTALLED_APPS.has(e) ? info(e, e === 'RetroArch' ? `Installed, ${INSTALLED_CORES.size} core${INSTALLED_CORES.size === 1 ? '' : 's'}` : 'Installed', e === 'RetroArch' ? 'Shelf manages save slots and achievements through RetroArch. Other cores download when first used.' : `A standalone emulator for ${SYS_ORDER.filter(k => (PLAT[k].emus || []).includes(e)).map(k => PLAT[k].name).join(', ')}. It keeps its own saves.`)
           : action(e, 'Get it', `Not installed. Plays ${SYS_ORDER.filter(k => (PLAT[k].emus || []).includes(e)).map(k => PLAT[k].name).join(', ')}.`, () => toast(`Opens ${e} in the app store`))),
         action('Look for emulators again', '', 'After installing or removing one.', () => toast(`Found ${INSTALLED_APPS.size} emulators`))] };
       case 'Art and info': if (NATIVE) { const have = GAMES.filter(g => P.meta[g.id]).length, all = GAMES.filter(g => g.sys !== 'android').length; return { cat: 'Art and info',

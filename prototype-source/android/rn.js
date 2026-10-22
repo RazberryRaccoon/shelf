@@ -26,7 +26,7 @@ function nativeScan() {
   for (const g of [...DEMO_GAMES, ...GAMES]) byId[g.id] = g;
   APPS.length = 0; d.apps.forEach(a => APPS.push({ name: a.name, pkg: a.pkg, iconData: a.icon, icon: 'ring', hue: hash(a.pkg) % 360 }));
   NATIVE_EMUS = d.emus; INSTALLED_APPS.clear(); d.emus.forEach(e => INSTALLED_APPS.add(e));
-  INSTALLED_CORES.clear(); if (d.emus.includes('RetroArch')) Object.keys(CORE_FILES).forEach(c => INSTALLED_CORES.add(c));   // RetroArch's cores can't be listed from outside it
+  INSTALLED_CORES.clear(); if (d.emus.includes('RetroArch')) P.cores.forEach(c => INSTALLED_CORES.add(c));   // RetroArch's cores can't be listed from outside it, so Shelf goes by the ones you've told it about
   for (const k of SYS_ORDER) if (k !== 'android' && !emuInstalled(P.emu[k])) P.emu[k] = PLAT[k].emus.find(emuInstalled) || P.emu[k];
 }
 // Games folders: by default ROMs/<console> on internal storage and SD cards; each console can also have a folder you choose
@@ -44,13 +44,13 @@ function chooseFolders() {   // from setup: which console's folder to choose
 function nativeSave() {
   try {
     ShelfNative.saveState(JSON.stringify({ v: 1, name: P.name, colors: P.colors, setup: P.setup, recent: P.recent, played: P.played, collections: P.collections, prefs: P.prefs,
-      emu: P.emu, gameEmu: P.gameEmu, pf: P.pf, playing: P.playing || null, meta: P.meta, hidden: [...(P.hidden || [])], androidGames: GAMES.filter(g => g.sys === 'android').map(g => ({ name: g.title, pkg: g.pkg })) }));
+      emu: P.emu, gameEmu: P.gameEmu, pf: P.pf, playing: P.playing || null, meta: P.meta, cores: P.cores, hidden: [...(P.hidden || [])], androidGames: GAMES.filter(g => g.sys === 'android').map(g => ({ name: g.title, pkg: g.pkg })) }));
   } catch (e) { console.error(e); }
 }
 function nativeLoad() {
   let s = null; try { s = JSON.parse(ShelfNative.loadState() || 'null'); } catch (e) { console.error(e); }
   if (!s) return;
-  for (const k of ['name', 'colors', 'setup', 'recent', 'played', 'collections', 'gameEmu', 'playing', 'meta']) if (s[k] != null) P[k] = s[k];
+  for (const k of ['name', 'colors', 'setup', 'recent', 'played', 'collections', 'gameEmu', 'playing', 'meta', 'cores']) if (s[k] != null) P[k] = s[k];
   Object.assign(P.prefs, s.prefs || {}); Object.assign(P.emu, s.emu || {}); Object.assign(P.pf, s.pf || {});
   P.hidden = new Set(s.hidden || []);
   (s.androidGames || []).forEach(a => nativeAndroidGame(a.name, a.pkg));
@@ -70,6 +70,26 @@ function nativeBackFromGame() {
   if (S.screen === 'setup') { P.playing = null; return false; }
   S.game.id = g.id; S.play = { g, slot: 0, from: pl.from === 'game' ? 'home' : pl.from, t: 0, native: true, start: pl.start || Date.now() }; S.screen = 'play';
   homeFromPlay(); return true;
+}
+// RetroArch cores: Shelf can't see which ones RetroArch has downloaded (Android keeps that folder private), so it
+// asks the first time you play a console, and keeps the list you can change in Settings › Emulators.
+const coresFor = k => (EMU_LIST[k] || { cores: [] }).cores;
+function knowCore(c) { if (!P.cores.includes(c)) P.cores.push(c); if (INSTALLED_APPS.has('RetroArch')) INSTALLED_CORES.add(c); }
+function askCore(sys, then) {
+  const cs = coresFor(sys), items = [...cs.map(c => ({ label: c, sub: P.cores.includes(c) ? 'You have this one' : '' })), { label: 'How do I check?', sub: '' }];
+  openDlg(`Which RetroArch core do you use for ${PLAT[sys].name}?`, items, i => {
+    if (i === cs.length) return toast('In RetroArch: Main Menu › Load Core lists your cores. Download a Core adds more.');
+    closeDlg(); knowCore(cs[i]); P.emu[sys] = 'RetroArch: ' + cs[i]; nativeSave(); toast(`${PLAT[sys].name} games use RetroArch, ${cs[i]}. Change it in Settings › Platforms.`); then('RetroArch: ' + cs[i]);
+  }, Math.max(0, cs.findIndex(c => P.cores.includes(c))));
+}
+function editCores() {   // tick the cores you have
+  const all = [...new Set(SYS_ORDER.flatMap(coresFor))];
+  const items = () => [...all.map(c => ({ label: c, sub: SYS_ORDER.filter(k => coresFor(k).includes(c)).map(k => PLAT[k].name).join(', '), check: P.cores.includes(c) })), { label: 'Done', sub: '' }];
+  openDlg('RetroArch cores you have', items(), i => {
+    if (i === all.length) { closeDlg(); nativeScan(); nativeSave(); return fillSettings(); }
+    const c = all[i]; if (P.cores.includes(c)) { P.cores = P.cores.filter(x => x !== c); INSTALLED_CORES.delete(c); } else knowCore(c);
+    S.dlg.items = items(); renderDlg();
+  });
 }
 function nativeOpenEmu(g, e) { if (!ShelfNative.openEmulator(emuApp(e))) toast(`${emuApp(e)} isn’t installed`); }
 
@@ -154,7 +174,7 @@ function artAll(again) {
 
 if (NATIVE) {   // start-up in the app; runs last, so everything it uses is defined
   // start from nothing but your own games: no invented history, collections or sign-ins
-  GAMES.length = 0; P.recent = []; P.played = {}; P.collections = []; P.ra = null; P.meta = {}; ANDROID_GAMES.clear();
+  GAMES.length = 0; P.recent = []; P.played = {}; P.collections = []; P.ra = null; P.meta = {}; P.cores = []; ANDROID_GAMES.clear();
   P.art = { source: 'Free sources', ss: null, videos: false, manuals: false, backs: false, region: 'USA' };
   P.prefs.homeArt = 'cart';   // Shelf's own box art is mostly title text; the label art makes a calmer background
   try { nativeLoad(); } catch (e) { console.error('Shelf couldn’t read its saved state', e); }

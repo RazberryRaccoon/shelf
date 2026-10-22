@@ -291,6 +291,9 @@ plastic color, shadow color, and the 3D rim light.
   RetroArch gets `ROM`, `LIBRETRO` (`/data/data/<package>/cores/<core>_libretro_android.so`), `CONFIGFILE` and
   `QUITFOCUS`. Standalone emulators get either the storage document link (ES-DE's `%ROMSAF%`), Shelf's own read-only
   `content://` link (`RomProvider`, ES-DE's `%ROMPROVIDER%`), or a plain path, as each expects. 25 emulators.
+- **RetroArch cores:** Android keeps RetroArch's core folder private, so Shelf can't list the downloaded cores. It keeps
+  its own list: the first time you play a console whose core isn't on it, Shelf asks which core you use and makes it
+  that console's default. Settings › Emulators › RetroArch cores ticks them on and off.
 - **Coming back:** when Shelf returns to the front after a launch, the page plays the return animation and records
   the play time.
 - **Controller:** Android's key events (D-pad, A, B, Y, L1, R1, Back) and the left stick or hat are passed in as
