@@ -291,6 +291,9 @@ plastic color, shadow color, and the 3D rim light.
   RetroArch gets `ROM`, `LIBRETRO` (`/data/data/<package>/cores/<core>_libretro_android.so`), `CONFIGFILE` and
   `QUITFOCUS`. Standalone emulators get either the storage document link (ES-DE's `%ROMSAF%`), Shelf's own read-only
   `content://` link (`RomProvider`, ES-DE's `%ROMPROVIDER%`), or a plain path, as each expects. 25 emulators.
+- **RetroArch cores:** Android keeps RetroArch's core folder private, so Shelf can't list the downloaded cores. It keeps
+  its own list: the first time you play a console whose core isn't on it, Shelf asks which core you use and makes it
+  that console's default. Settings › Emulators › RetroArch cores ticks them on and off.
 - **Coming back:** when Shelf returns to the front after a launch, the page plays the return animation and records
   the play time.
 - **Controller:** Android's key events (D-pad, A, B, Y, L1, R1, Back) and the left stick or hat are passed in as
@@ -306,7 +309,14 @@ plastic color, shadow color, and the 3D rim light.
   free, no account. Find art for every game (Settings › Art and info) matches each ROM by checksum or a near-exact
   name and leaves the rest; a game's settings › Art and details shows the closest matches with their box art, starting
   from the file name, with a search you can change. Real box art also becomes the cartridge label and the disc print.
-- **Not yet:** ScreenScraper (manuals, videos, more art), Shelf's own save slots
+- **Art from several services** (built): libretro (no account), ScreenScraper, TheGamesDB, RetroAchievements,
+  SteamGridDB and IGDB. A game's settings has a picker for each kind (box front, box back, spine, cartridge label or
+  disc art, title screen, screenshot); each says which services give it and which you've connected, and searches all
+  the connected ones at once. Accounts are entered in Settings › Art and info with Android's own text box (type or
+  paste), checked with a small search, and kept in Shelf's private storage. Find art for every game also uses
+  ScreenScraper, by the ROM itself, for the kinds libretro doesn't have. Back, spine and label art are drawn on the box
+  and cartridge.
+- **Not yet:** manuals and videos (ScreenScraper), Shelf's own save slots
   (RetroArch keeps its own saves for now), RetroAchievements, manuals and media, the RetroArch network commands.
   These stay as designed above.
 

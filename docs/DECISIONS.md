@@ -220,6 +220,13 @@ Summarized from the first part of the conversation; the full transcript is kept 
   search term. It should search automatically based on the game/rom name." Built with libretro's free database and art
   (no account): Settings › Art and info › Find art for every game, and a game's settings › Art and details.
 - "We're getting close to a full native rebuild & release!" Next round, the user tests launching on every console.
+- NES opened RetroArch to a black screen (the default core, Mesen, wasn't downloaded). "Make it expect alternate
+  RetroArch cores, like Nestopia for example, and make that adjustable." Built: Shelf asks which core you use the first
+  time you play a console with a core it doesn't know you have, and Settings › Emulators › RetroArch cores lists them.
+- Art from more services, with a picker per art type: proposed (ScreenScraper, TheGamesDB, RetroAchievements,
+  SteamGridDB, IGDB; MobyGames skipped, its API is now paid). The user: "Yes, all except MobyGames." "I already have most
+  of them." Built: a picker per art type in each game's settings, results from every connected service, and accounts
+  entered with Android's own text box in Settings › Art and info.
 
 ### Prototype v2, part 2 (built)
 

@@ -50,8 +50,9 @@ ten consoles plus Android games:
    Apps › Default apps › Home app).
 
 It launches games in RetroArch or a standalone emulator (DuckStation, PPSSPP, melonDS, Mupen64Plus FZ and others).
-Art and details (box art, title screens, screenshots, year, developer, genre) come from libretro's free database:
-Settings › Art and info › Find art for every game, or a game's settings › Art and details to choose one yourself.
+Art and details come from libretro's free database, and from ScreenScraper, TheGamesDB, RetroAchievements, SteamGridDB
+and IGDB once you connect your accounts in Settings › Art and info. A game's settings has a picker for each kind of art
+(box front and back, spine, label, title screen, screenshot) showing results from every connected service.
 Save slots and achievements come next; see
 [docs/ROADMAP.md](docs/ROADMAP.md). The app's source is in [`android/`](android).
 

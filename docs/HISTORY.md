@@ -272,3 +272,18 @@
   `__nativeArt` and `__nativeArtProgress`. The page draws covers, labels, discs, media and Home's picture from them.
 - Lesson: libretro's art server is blocked in Claude's sandbox but its GitHub mirrors aren't; the database names are
   the same names the art files use, so no file listing is needed.
+- Bug: after scraping, Shelf couldn't start again. The app's start-up code (in `rn.js`) ran before a constant defined
+  further down (`cleanDetail`), which only mattered once saved details existed. Any restart of the page (Android does
+  that when RetroArch hangs, or to free memory) left a dead page showing the keyboard help, with Home not working.
+  Start-up now runs at the end of `rn.js` and is guarded. Tested by reloading with saved details.
+- NES opened RetroArch to a black screen: the default core (Mesen) is probably not downloaded on the user's RetroArch,
+  and Shelf can't see RetroArch's private core folder. Settings now say so on each console's emulator choice.
+- Lesson: test a cold start with every kind of saved state, not just a fresh one.
+- RetroArch cores: Shelf used to assume every core was there. It now keeps the list of cores you have (`P.cores`), asks
+  on the first launch of a console whose core isn't on it, and has a tick list in Settings › Emulators.
+- Art from several services: `ArtSources.java` searches one kind of art at a time in libretro, ScreenScraper
+  (jeuRecherche, and jeuInfos by the ROM for Find art for every game), TheGamesDB (Games/ByGameName and Games/Images),
+  RetroAchievements (API_GetGameList and API_GetGame), SteamGridDB (search/autocomplete and grids) and IGDB (Twitch
+  token, then /v4/games), following each one's published API. Only libretro could be tested for real from Claude's
+  sandbox; TheGamesDB was reachable and refused a fake key as expected; the rest are blocked there and need checking on
+  the device with real accounts. Account fields use Android's own text box (`ShelfNative.askText`).

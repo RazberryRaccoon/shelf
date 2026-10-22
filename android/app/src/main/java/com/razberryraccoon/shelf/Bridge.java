@@ -28,7 +28,32 @@ public class Bridge {
     // ---------- art and details (answers arrive as __nativeArt / __nativeArtProgress) ----------
     @JavascriptInterface public void artSearch(String req, String sys, String query, String path) { art.search(req, sys, query, path); }
     @JavascriptInterface public void artApply(String req, String key, String sys, String name) { art.apply(req, key, sys, name); }
-    @JavascriptInterface public void artAuto(String req, String list) { art.auto(req, list); }
+    @JavascriptInterface public void artAuto(String req, String list, String keys) { art.auto(req, list, keys); }
+    @JavascriptInterface public void artFind(String req, String kind, String sys, String query, String path, String keys) { art.find(req, kind, sys, query, path, keys); }
+    @JavascriptInterface public void artTake(String req, String key, String kind, String url) { art.take(req, key, kind, url); }
+    @JavascriptInterface public void artTest(String req, String id, String keys) { art.test(req, id, keys); }
+
+    /** Android's own text box, for typing or pasting account details. Answers through __nativeText (null if cancelled). */
+    @JavascriptInterface
+    public void askText(String req, String title, String value, boolean secret) {
+        ui.post(() -> {
+            android.widget.EditText field = new android.widget.EditText(act);
+            field.setSingleLine(true);
+            field.setText(value == null ? "" : value);
+            field.setSelection(field.getText().length());
+            field.setInputType(android.text.InputType.TYPE_CLASS_TEXT | (secret ? android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD : 0));
+            int pad = (int) (20 * act.getResources().getDisplayMetrics().density);
+            android.widget.FrameLayout box = new android.widget.FrameLayout(act); box.setPadding(pad, pad / 2, pad, 0); box.addView(field);
+            String quoted = org.json.JSONObject.quote(req);
+            new android.app.AlertDialog.Builder(act, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle(title).setView(box)
+                .setPositiveButton("OK", (d, w) -> act.js("window.__nativeText && __nativeText(" + quoted + ", " + org.json.JSONObject.quote(field.getText().toString().trim()) + ")"))
+                .setNegativeButton("Cancel", (d, w) -> act.js("window.__nativeText && __nativeText(" + quoted + ", null)"))
+                .setOnCancelListener(d -> act.js("window.__nativeText && __nativeText(" + quoted + ", null)"))
+                .show();
+            field.requestFocus();
+        });
+    }
     @JavascriptInterface public void artStop() { art.stop(); }
     @JavascriptInterface public String artData(String key, String kind) { return art.data(key, kind); }
     @JavascriptInterface public void artRemove(String key) { art.remove(key); }

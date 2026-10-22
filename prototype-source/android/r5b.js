@@ -35,17 +35,22 @@ P.gf = {}; P.hidden = new Set();
 function pickEmulator(sys, current, onPick, o = {}) {
   const items = [];
   if (o.withDefault) items.push({ label: `Default (${emuName(P.emu[sys])})`, v: null });
-  PLAT[sys].emus.forEach(e => items.push({ label: emuName(e), v: e, sub: e.startsWith('RetroArch') ? (emuInstalled(e) ? 'RetroArch core' : 'Core downloads on first use') : emuInstalled(e) ? 'Installed' : 'Not installed' }));
+  PLAT[sys].emus.forEach(e => items.push({ label: emuName(e), v: e, sub: e.startsWith('RetroArch') ? (emuInstalled(e) ? (NATIVE ? 'You have this core' : 'RetroArch core') : NATIVE ? 'RetroArch core' : 'Core downloads on first use') : emuInstalled(e) ? 'Installed' : 'Not installed' }));
   if (!o.once) items.push({ label: 'Other app…', v: 'other', sub: 'Any installed app' });
   const at = Math.max(0, items.findIndex(it => it.v === current));
   openDlg(o.title || `${PLAT[sys].name}: play with`, items, i => {
     const it = items[i]; closeDlg();
     if (it.v === 'other') { toast('Opens Android’s app picker. Shown here: Lemuroid.'); return onPick('Other app: Lemuroid'); }
     if (it.v && !it.v.startsWith('RetroArch') && !emuInstalled(it.v)) return toast(`Opens ${it.v} in the app store`);
+    if (NATIVE && it.v && it.v.startsWith('RetroArch: ')) knowCore(it.v.slice(11));   // choosing a core means you have it
     onPick(it.v);
   }, at);
 }
 function launchGame(g, slot, resume) {   // asks which emulator first, if that console is set to ask every time
+  if (NATIVE && g.sys !== 'android') {   // a RetroArch core Shelf doesn't know you have: ask which one you use, first
+    const e = emuFor(g);
+    if (e.startsWith('RetroArch: ') && !P.cores.includes(e.slice(11))) return askCore(g.sys, ne => { if (P.gameEmu[g.id]) P.gameEmu[g.id] = ne; launchGame(g, slot, resume); });
+  }
   if (g.sys !== 'android' && P.pf[g.sys].ask && !P.gameEmu[g.id]) return pickEmulator(g.sys, P.emu[g.sys], e => { S.onceEmu = { id: g.id, e }; startLaunch(g, slot, resume && isRA(e)); }, { once: true, title: `Play ${g.title} with` });
   startLaunch(g, slot, resume);
 }
@@ -66,15 +71,18 @@ function settingsModel() {
       { label: 'Screen filter', desc: 'Overrides the platform’s filter.', value: gf.filter || `Default (${P.pf[g.sys].filter})`, act: () => { const v = [null, 'None', 'Scanlines', 'LCD grid'], i = v.indexOf(gf.filter); gf.filter = v[(i + 1) % v.length]; } },
       ...(NATIVE ? [] : [action('Box art', 'Choose', 'Pick other box art from ScreenScraper.', () => toast('Shows other box art to choose from'))]),
       ...(NATIVE ? [] : [info('Manual', hasManual(g) ? `${manualPages(g)} pages` : 'Not found', hasManual(g) ? 'Downloaded from ScreenScraper.' : 'ScreenScraper doesn’t have one for this game.')]),
-      ...(NATIVE ? [action('Art and details', P.meta[g.id] ? P.meta[g.id].name : 'Not found yet', 'Choose from the closest matches, or change the search.', () => { openArtPicker(g); return true; }),
-        ...(P.meta[g.id] ? [action('Remove art and details', '', 'Go back to the box Shelf makes for it.', () => { ShelfNative.artRemove(g.id); delete P.meta[g.id]; nativeScan(); nativeSave(); toast('Art removed'); })] : [])] : []),
+      ...(NATIVE ? [
+        action('Details', P.meta[g.id] && P.meta[g.id].name ? P.meta[g.id].name : 'Not found yet', 'Year, developer, genre and description, plus matching box art, title screen and screenshot. From libretro (no account).', () => { openArtPicker(g); return true; }),
+        ...ART_KINDS.map(({ k }) => { const m = P.meta[g.id] || {}, has = m.art && m.art[k];
+          return action(kindName(g, k), has ? (m.src && m.src[k]) || 'Downloaded' : 'Shelf’s own', kindTip(k), () => { openKindPicker(g, k); return true; }); }),
+        ...(P.meta[g.id] ? [action('Remove all art and details', '', 'Go back to the box Shelf makes for it.', () => { ShelfNative.artRemove(g.id); delete P.meta[g.id]; nativeScan(); nativeSave(); toast('Art removed'); })] : [])] : []),
       tog('Show on Home', 'show', 'Include it in your recently played cartridges.', { get show() { return !P.hidden.has(g.id); }, set show(v) { v ? P.hidden.delete(g.id) : P.hidden.add(g.id); } })] }];
   }
   if (S.set.sub) {      // one platform's page
     const k = S.set.sub, pl = PLAT[k], emu = P.emu[k];
     return CATS.map(c => c === 'Platforms' ? { cat: pl.long, intro: `${GAMES.filter(g => g.sys === k && inLibrary(g)).length} games. Press B to go back to all platforms.`, items: k === 'android' ? [
       info('Launching', 'Opens the app', 'Android games open in their own app.'), info('Box', 'Keep case', 'A generic keep case at Blu-ray size.')] : [
-      { label: 'Default emulator', desc: `Used by every game on this platform unless a game chooses its own. ${pl.emus.length} to choose from.`, value: emuName(emu), act: () => { pickEmulator(k, emu, v => { P.emu[k] = v; fillSettings(); }); return true; } },
+      { label: 'Default emulator', desc: `Used by every game on this platform unless a game chooses its own. ${pl.emus.length} to choose from.` + (NATIVE ? ' A RetroArch core has to be downloaded in RetroArch first (Main Menu › Load Core › Download a Core); if a game opens to a black screen, pick a core you have.' : ''), value: emuName(emu), act: () => { pickEmulator(k, emu, v => { P.emu[k] = v; fillSettings(); }); return true; } },
       tog('Ask every time', 'ask', 'Choose the emulator each time you play, unless a game has its own.', P.pf[k]),
       info('Saves', isRA(emu) ? 'Shelf’s slots' : `Kept by ${emuApp(emu)}`, isRA(emu) ? 'RetroArch saves into Shelf’s four slots per game.' : NATIVE ? 'The emulator keeps its own saves. Shelf’s save slots come in a later version.' : 'Standalone emulators keep their own saves.'),
       cyc('Screen filter', P.pf[k], 'filter', ['None', 'Scanlines', 'LCD grid'], 'A filter over the game picture, when the emulator supports one.'),
@@ -107,14 +115,16 @@ function settingsModel() {
       case 'Platforms': return { cat: 'Platforms', intro: 'Choose a platform for its default emulator, filters and folders.', items: SYS_ORDER.map(k =>
         nav(PLAT[k].long, k === 'android' ? 'Apps' : P.pf[k].ask ? 'Ask every time' : emuName(P.emu[k]), `${GAMES.filter(g => g.sys === k && inLibrary(g)).length} games`, () => { S.set.sub = k; S.set.i = 0; })) };
       case 'Emulators': return { cat: 'Emulators', intro: 'Emulators found on this handheld. Shelf launches them for you.', items: [
-        ...ALL_EMUS.map(e => INSTALLED_APPS.has(e) ? info(e, e === 'RetroArch' ? `Installed, ${INSTALLED_CORES.size} cores` : 'Installed', e === 'RetroArch' ? 'Shelf manages save slots and achievements through RetroArch. Other cores download when first used.' : `A standalone emulator for ${SYS_ORDER.filter(k => (PLAT[k].emus || []).includes(e)).map(k => PLAT[k].name).join(', ')}. It keeps its own saves.`)
+        ...(NATIVE && INSTALLED_APPS.has('RetroArch') ? [action('RetroArch cores', `${P.cores.length} marked`, 'Tick the cores you’ve downloaded in RetroArch, so Shelf only uses ones you have. Otherwise it asks the first time you play each console.', () => { editCores(); return true; })] : []),
+        ...ALL_EMUS.map(e => INSTALLED_APPS.has(e) ? info(e, e === 'RetroArch' ? `Installed, ${INSTALLED_CORES.size} core${INSTALLED_CORES.size === 1 ? '' : 's'}` : 'Installed', e === 'RetroArch' ? 'Shelf manages save slots and achievements through RetroArch. Other cores download when first used.' : `A standalone emulator for ${SYS_ORDER.filter(k => (PLAT[k].emus || []).includes(e)).map(k => PLAT[k].name).join(', ')}. It keeps its own saves.`)
           : action(e, 'Get it', `Not installed. Plays ${SYS_ORDER.filter(k => (PLAT[k].emus || []).includes(e)).map(k => PLAT[k].name).join(', ')}.`, () => toast(`Opens ${e} in the app store`))),
         action('Look for emulators again', '', 'After installing or removing one.', () => toast(`Found ${INSTALLED_APPS.size} emulators`))] };
       case 'Art and info': if (NATIVE) { const have = GAMES.filter(g => P.meta[g.id]).length, all = GAMES.filter(g => g.sys !== 'android').length; return { cat: 'Art and info',
-        intro: 'Box art, title screens, screenshots and details (year, developer, genre) from libretro’s free database. No account needed. To choose a particular match for one game, open its box, then Game settings › Art and details.', items: [
+        intro: 'Find art for every game uses libretro (free), and ScreenScraper too when it’s connected. To choose each kind of art for one game from every connected service, open its box, then Game settings.', items: [
         action(ART_RUN.on ? 'Stop finding art' : 'Find art for every game', ART_RUN.on ? `${ART_RUN.i} of ${ART_RUN.n}` : `${have} of ${all} have art`, ART_RUN.on ? 'Finding art in the background. You can keep using Shelf.' : 'Looks up each game by its file. Games it can’t match for certain are left for you to choose.', () => { artAll(false); }),
         ...(ART_RUN.on ? [] : [action('Find art again for every game', '', 'Replaces the art and details already found.', () => { artAll(true); })]),
-        info('ScreenScraper', 'Later', 'Manuals, videos and more art, with a free account. Coming in a later version.')] }; }
+        ...ART_SOURCES.map(s => action(s.name, !s.fields.length ? 'No account needed' : srcConnected(s) ? 'Connected' : 'Connect',
+          `Gives ${s.kinds.map(k => ART_KINDS.find(a => a.k === k).name.toLowerCase()).join(', ')}. ${s.needs}.`, () => { sourceOptions(s); return true; }))] }; }
         { const A = P.art, ss = A.source === 'ScreenScraper'; return { cat: 'Art and info', intro: 'Box art, manuals, media and details are downloaded for you. Cartridge labels too, where the source has them.', items: [
         { label: 'Source', value: A.source, desc: ss ? 'The most complete: boxes, manuals, videos and details.' : 'RetroArch’s databases and Wikipedia. No account needed.', act: () => { A.source = ss ? 'Free sources' : 'ScreenScraper'; } },
         ...(ss ? [action('ScreenScraper account', A.ss || 'Sign in', A.ss ? 'Signed in.' : 'A free account from screenscraper.fr.', () => { A.ss = A.ss ? null : 'player_one'; })] : []),
