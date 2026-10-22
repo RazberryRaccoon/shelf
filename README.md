@@ -71,7 +71,7 @@ plan for the real app is in [docs/ROADMAP.md](docs/ROADMAP.md).
 | Enter | A |
 | Esc | B |
 | F | Y |
-| Q / E | L1 / R1 (step through Home, Library, Apps and Museum) |
+| Q / E | L1 / R1 (step through Home, Library, Apps, Museum and Settings) |
 | H | Home |
 
 A controller plugged into the computer works too.

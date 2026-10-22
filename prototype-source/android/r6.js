@@ -26,7 +26,7 @@ function act(a) {
   if (sc === 'play') return;
   if (TABS.includes(sc)) {
     if ((a === 'lb' || a === 'rb') && !(sc === 'museum' && S.mu.zone === 'stage' && !S.top.on)) {   // L and R step through Home, Library, Apps and Museum
-      const k = (TABS.indexOf(sc) + (a === 'rb' ? 1 : TABS.length - 1)) % TABS.length; sfx.tab(); return enterTab(TABS[k]); }
+      return cycleScreen(sc, a === 'rb' ? 1 : -1); }
     if (S.top.on) return topInput(a);
     return sc === 'home' ? homeInput(a) : sc === 'library' ? libInput(a) : sc === 'museum' ? museumInput(a) : appsInput(a);
   }
@@ -34,7 +34,14 @@ function act(a) {
   if (sc === 'ach') return achInput(a);
   if (sc === 'media') return mediaInput(a);
   if (sc === 'manual') return manualInput(a);
-  if (sc === 'settings') return setInput(a);
+  if (sc === 'settings') { if ((a === 'lb' || a === 'rb') && !S.set.game && S.set.back !== 'game') return cycleScreen('settings', a === 'rb' ? 1 : -1); return setInput(a); }
+}
+const CYCLE = [...TABS, 'settings'];   // L and R step through these, Home first, wrapping round
+function cycleScreen(from, dir) {
+  const k = CYCLE[(CYCLE.indexOf(from) + dir + CYCLE.length) % CYCLE.length]; sfx.tab(); S.top.on = false;
+  if (k === 'settings') return openSettings(0);
+  if (from === 'settings') S.set.back = k;
+  enterTab(k);
 }
 function topInput(a) {
   if (a === 'left' || a === 'right') { const k = clamp(S.top.i + (a === 'left' ? -1 : 1), 0, TOP.length - 1); if (k !== S.top.i) { S.top.i = k; sfx.move(); renderTop(); } }
@@ -318,7 +325,7 @@ function drawLibrary(dt, t) {
     if (foc) focus = { g, o, c, ypx: ypx - lift, bh }; else if (o.alpha > .01) drawCase(g, o, 0);
   });
   if (focus) { const m = moodColors(MOOD.cur); drawCaseGlow(focus.g, focus.o, hexRgb(m.accent), hexRgb(m.planet[0])); drawCase(focus.g, focus.o, 0);
-    if (!NODRAW) { const F = $('#lFocus'); F.style.left = cx(focus.c) + 'px'; F.style.top = (focus.ypx + focus.bh / 2 * focus.o.s * PX + 30) + 'px'; } }
+    if (!NODRAW) { const F = $('#lFocus'); F.style.left = cx(focus.c) + 'px'; F.style.top = (H / 2 - focus.o.y * PX + focus.bh / 2 * focus.o.s * PX + 30) + 'px'; } }
   unclip(); endMeshes();
 }
 function lerpPose(a, b, k) { let d = b.ry - a.ry; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;

@@ -77,7 +77,7 @@ The on-screen keyboard is **QWERTY**, with staggered rows like a real keyboard.
 - **A plays or resumes immediately. Down opens the game's page in place:** the open case slides in from the left,
   the cartridge or disc lifts into its tray, the rest of the row moves up into a small strip under the top bar,
   and the details rise from the bottom once the cartridge is in. Up from the top of the page (or B) plays it backwards.
-- **L1 and R1** step through Home, Library, Apps and Museum in that order (wrapping), Home being the first. In the
+- **L1 and R1** step through Home, Library, Apps, Museum and Settings in that order (wrapping), Home being the first. In the
   Museum's viewing mode they switch exhibits instead.
 - **Home's picture:** under the row, the selected game's media fills the lower part of the screen, darkened and
   fading out toward the top, with the fade's edge at the bottom of the row. Settings › Appearance › Home background:

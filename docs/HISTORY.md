@@ -258,3 +258,7 @@
   Apps, Museum, Settings, setup, dialogs, keyboard); the Library rows size themselves to their tallest box; Apps and the
   Museum's list scroll; a games folder per console through Android's folder picker (`ShelfNative.pickFolder`, answered
   by `__nativeFolder`; the tree link is turned back into a file path and scanned with the ROMs folders).
+- Fourth round: the Library's side list is rebuilt on every move, and the new list started at the top and slid back
+  (the "hiccup", visible once the list scrolls, from Game Boy down). It now starts where the last one was. The title
+  under a box follows the box's own animated position. Museum exhibits are sized by their diagonal, so nothing reaches
+  past the stage as it turns. L1/R1 continue into Settings.
