@@ -74,7 +74,7 @@ function settingsModel() {
     const k = S.set.sub, pl = PLAT[k], emu = P.emu[k];
     return CATS.map(c => c === 'Platforms' ? { cat: pl.long, intro: `${GAMES.filter(g => g.sys === k && inLibrary(g)).length} games. Press B to go back to all platforms.`, items: k === 'android' ? [
       info('Launching', 'Opens the app', 'Android games open in their own app.'), info('Box', 'Keep case', 'A generic keep case at Blu-ray size.')] : [
-      { label: 'Default emulator', desc: `Used by every game on this platform unless a game chooses its own. ${pl.emus.length} to choose from.`, value: emuName(emu), act: () => { pickEmulator(k, emu, v => { P.emu[k] = v; fillSettings(); }); return true; } },
+      { label: 'Default emulator', desc: `Used by every game on this platform unless a game chooses its own. ${pl.emus.length} to choose from.` + (NATIVE ? ' A RetroArch core has to be downloaded in RetroArch first (Main Menu › Load Core › Download a Core); if a game opens to a black screen, pick a core you have.' : ''), value: emuName(emu), act: () => { pickEmulator(k, emu, v => { P.emu[k] = v; fillSettings(); }); return true; } },
       tog('Ask every time', 'ask', 'Choose the emulator each time you play, unless a game has its own.', P.pf[k]),
       info('Saves', isRA(emu) ? 'Shelf’s slots' : `Kept by ${emuApp(emu)}`, isRA(emu) ? 'RetroArch saves into Shelf’s four slots per game.' : NATIVE ? 'The emulator keeps its own saves. Shelf’s save slots come in a later version.' : 'Standalone emulators keep their own saves.'),
       cyc('Screen filter', P.pf[k], 'filter', ['None', 'Scanlines', 'LCD grid'], 'A filter over the game picture, when the emulator supports one.'),

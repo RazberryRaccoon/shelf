@@ -72,33 +72,6 @@ function nativeBackFromGame() {
   homeFromPlay(); return true;
 }
 function nativeOpenEmu(g, e) { if (!ShelfNative.openEmulator(emuApp(e))) toast(`${emuApp(e)} isn’t installed`); }
-if (NATIVE) {
-  // start from nothing but your own games: no invented history, collections or sign-ins
-  GAMES.length = 0; P.recent = []; P.played = {}; P.collections = []; P.ra = null; P.meta = {}; ANDROID_GAMES.clear();
-  P.art = { source: 'Free sources', ss: null, videos: false, manuals: false, backs: false, region: 'USA' };
-  P.prefs.homeArt = 'cart';   // Shelf's own box art is mostly title text; the label art makes a calmer background
-  nativeLoad(); nativeScan();
-  $('#keysHelp').style.display = 'none'; document.body.style.background = '#000';
-  stage.style.borderRadius = '0';   // edge to edge on the handheld
-  for (const el of [document.documentElement, document.body]) Object.assign(el.style, { touchAction: 'none', overscrollBehavior: 'none' });   // no panning or zooming the page
-  fit();
-  setInterval(nativeSave, 15000);
-  window.__nativeKey = a => { try { if (P.prefs.layout === 'Xbox' && (a === 'a' || a === 'b')) a = a === 'a' ? 'b' : 'a'; act(a); } catch (e) { console.error(e); } };
-  window.__nativePause = () => nativeSave();
-  window.__nativeFolder = (k, path) => {
-    if (!path) return toast('That folder can’t be used. Choose one on internal storage or an SD card.');
-    P.pf[k].folder = path; nativeSave(); nativeScan();
-    const n = GAMES.filter(g => g.sys === k).length; toast(`${PLAT[k].name}: found ${n} game${n === 1 ? '' : 's'}`);
-    if (S.screen === 'settings') fillSettings(); else if (S.screen === 'setup') fillSetup(); else if (S.screen === 'library') refreshLibrary(true); else if (S.screen === 'home') refreshHome();
-  };
-  window.__nativeResume = () => {   // back from an emulator or an app, or from Android's settings
-    if (S.screen === 'play' && S.play) return homeFromPlay();
-    if (nativeBackFromGame()) return;
-    if (S.seq || !['setup', 'home', 'library', 'apps'].includes(S.screen)) return;
-    nativeScan();
-    if (S.screen === 'setup') fillSetup(); else if (S.screen === 'library') refreshLibrary(true); else if (S.screen === 'apps') refreshApps(); else refreshHome();
-  };
-}
 
 /* ---------- art and details: found with libretro's free database and art (android/…/Art.java) ---------- */
 // P.meta[game id] = { name (libretro's), releaseyear, developer, publisher, genre, description, art: {box, title, shot}, t }
@@ -177,4 +150,33 @@ function artAll(again) {
     if (S.screen === 'settings') fillSettings();
   };
   ShelfNative.artAuto(id, JSON.stringify(list.map(g => ({ key: g.id, sys: g.sys, path: g.path, query: romQuery(g) }))));
+}
+
+if (NATIVE) {   // start-up in the app; runs last, so everything it uses is defined
+  // start from nothing but your own games: no invented history, collections or sign-ins
+  GAMES.length = 0; P.recent = []; P.played = {}; P.collections = []; P.ra = null; P.meta = {}; ANDROID_GAMES.clear();
+  P.art = { source: 'Free sources', ss: null, videos: false, manuals: false, backs: false, region: 'USA' };
+  P.prefs.homeArt = 'cart';   // Shelf's own box art is mostly title text; the label art makes a calmer background
+  try { nativeLoad(); } catch (e) { console.error('Shelf couldn’t read its saved state', e); }
+  try { nativeScan(); } catch (e) { console.error('Shelf couldn’t list games', e); }
+  $('#keysHelp').style.display = 'none'; document.body.style.background = '#000';
+  stage.style.borderRadius = '0';   // edge to edge on the handheld
+  for (const el of [document.documentElement, document.body]) Object.assign(el.style, { touchAction: 'none', overscrollBehavior: 'none' });   // no panning or zooming the page
+  fit();
+  setInterval(nativeSave, 15000);
+  window.__nativeKey = a => { try { if (P.prefs.layout === 'Xbox' && (a === 'a' || a === 'b')) a = a === 'a' ? 'b' : 'a'; act(a); } catch (e) { console.error(e); } };
+  window.__nativePause = () => nativeSave();
+  window.__nativeFolder = (k, path) => {
+    if (!path) return toast('That folder can’t be used. Choose one on internal storage or an SD card.');
+    P.pf[k].folder = path; nativeSave(); nativeScan();
+    const n = GAMES.filter(g => g.sys === k).length; toast(`${PLAT[k].name}: found ${n} game${n === 1 ? '' : 's'}`);
+    if (S.screen === 'settings') fillSettings(); else if (S.screen === 'setup') fillSetup(); else if (S.screen === 'library') refreshLibrary(true); else if (S.screen === 'home') refreshHome();
+  };
+  window.__nativeResume = () => {   // back from an emulator or an app, or from Android's settings
+    if (S.screen === 'play' && S.play) return homeFromPlay();
+    if (nativeBackFromGame()) return;
+    if (S.seq || !['setup', 'home', 'library', 'apps'].includes(S.screen)) return;
+    nativeScan();
+    if (S.screen === 'setup') fillSetup(); else if (S.screen === 'library') refreshLibrary(true); else if (S.screen === 'apps') refreshApps(); else refreshHome();
+  };
 }
