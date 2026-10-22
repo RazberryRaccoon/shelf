@@ -59,13 +59,15 @@ function settingsModel() {
     const g = byId[S.set.game], own = P.gameEmu[g.id], opts = [null, ...PLAT[g.sys].emus], emu = emuFor(g), gf = P.gf[g.id] || (P.gf[g.id] = { filter: null });
     return [{ cat: g.title, intro: `${PLAT[g.sys].long}. These override the platform’s settings for this game only.`, items: g.sys === 'android' ? [
       action('Move back to Apps', '', 'Takes it out of the Library. It stays installed.', () => { unmarkGame(g.title); S.set.game = null; enterTab('apps'); return true; }),
-      action('Box art', 'Choose', 'Pick other art from the game databases, or make a box from the icon.', () => toast('Shows other art to choose from')),
+      ...(NATIVE ? [] : [action('Box art', 'Choose', 'Pick other art from the game databases, or make a box from the icon.', () => toast('Shows other art to choose from'))]),
       tog('Show on Home', 'show', 'Include it in your recently played cartridges.', { get show() { return !P.hidden.has(g.id); }, set show(v) { v ? P.hidden.delete(g.id) : P.hidden.add(g.id); } })] : [
       { label: 'Emulator', desc: own ? 'Chosen for this game.' : `Using the ${PLAT[g.sys].name} default. Choose to override it.`, value: own ? emuName(own) : `Default (${emuName(P.emu[g.sys])})`, act: () => { pickEmulator(g.sys, own || null, v => { if (v) P.gameEmu[g.id] = v; else delete P.gameEmu[g.id]; fillSettings(); }, { withDefault: true, title: `${g.title}: play with` }); return true; } },
       info('Saves', isRA(emu) ? 'Shelf’s slots' : `Kept by ${emu}`, isRA(emu) ? 'Four save slots with screenshots, per game.' : 'Standalone emulators keep their own saves.'),
       { label: 'Screen filter', desc: 'Overrides the platform’s filter.', value: gf.filter || `Default (${P.pf[g.sys].filter})`, act: () => { const v = [null, 'None', 'Scanlines', 'LCD grid'], i = v.indexOf(gf.filter); gf.filter = v[(i + 1) % v.length]; } },
-      action('Box art', 'Choose', 'Pick other box art from ScreenScraper.', () => toast('Shows other box art to choose from')),
-      info('Manual', hasManual(g) ? `${manualPages(g)} pages` : 'Not found', hasManual(g) ? 'Downloaded from ScreenScraper.' : 'ScreenScraper doesn’t have one for this game.'),
+      ...(NATIVE ? [] : [action('Box art', 'Choose', 'Pick other box art from ScreenScraper.', () => toast('Shows other box art to choose from'))]),
+      ...(NATIVE ? [] : [info('Manual', hasManual(g) ? `${manualPages(g)} pages` : 'Not found', hasManual(g) ? 'Downloaded from ScreenScraper.' : 'ScreenScraper doesn’t have one for this game.')]),
+      ...(NATIVE ? [action('Art and details', P.meta[g.id] ? P.meta[g.id].name : 'Not found yet', 'Choose from the closest matches, or change the search.', () => { openArtPicker(g); return true; }),
+        ...(P.meta[g.id] ? [action('Remove art and details', '', 'Go back to the box Shelf makes for it.', () => { ShelfNative.artRemove(g.id); delete P.meta[g.id]; nativeScan(); nativeSave(); toast('Art removed'); })] : [])] : []),
       tog('Show on Home', 'show', 'Include it in your recently played cartridges.', { get show() { return !P.hidden.has(g.id); }, set show(v) { v ? P.hidden.delete(g.id) : P.hidden.add(g.id); } })] }];
   }
   if (S.set.sub) {      // one platform's page
@@ -95,7 +97,7 @@ function settingsModel() {
         { label: 'themes', themes: true },
         tog('Accent follows the console', 'accentFollows', 'The accent color and one background field take on each console’s color.'),
         cyc('Case color', Q, 'caseTint', [false, true], 'The plastic of the modern cases.', { false: 'Neutral', true: 'Console color' }),
-        cyc('Home background', Q, 'homeArt', NATIVE ? ['box', 'cart', 'off'] : ['box', 'title', 'shot', 'cart', 'off'], 'A picture of the selected game under the row on Home, darkened and fading out toward the top.', { box: 'Box art', title: 'Title screen', shot: 'Screenshot', cart: 'Cartridge art', off: 'Off' }),
+        cyc('Home background', Q, 'homeArt', ['box', 'title', 'shot', 'cart', 'off'], 'A picture of the selected game under the row on Home, darkened and fading out toward the top.', { box: 'Box art', title: 'Title screen', shot: 'Screenshot', cart: 'Cartridge art', off: 'Off' }),
         tog('Background motion', 'motion', 'Drifting backgrounds, twinkling stars and the slow float of boxes and cartridges.')] };
       case 'Sound': { const M = P.prefs.music, names = Object.fromEntries([...TRACK_KEYS.map(k => [k, TRACKS[k].name]), ['shuffle', 'Shuffle']]); return { cat: 'Sound', intro: 'Music plays quietly in the menus and stops while you play.', items: [
         tog('Menu music', 'on', 'Original tracks written for Shelf.', M),
@@ -108,7 +110,12 @@ function settingsModel() {
         ...ALL_EMUS.map(e => INSTALLED_APPS.has(e) ? info(e, e === 'RetroArch' ? `Installed, ${INSTALLED_CORES.size} cores` : 'Installed', e === 'RetroArch' ? 'Shelf manages save slots and achievements through RetroArch. Other cores download when first used.' : `A standalone emulator for ${SYS_ORDER.filter(k => (PLAT[k].emus || []).includes(e)).map(k => PLAT[k].name).join(', ')}. It keeps its own saves.`)
           : action(e, 'Get it', `Not installed. Plays ${SYS_ORDER.filter(k => (PLAT[k].emus || []).includes(e)).map(k => PLAT[k].name).join(', ')}.`, () => toast(`Opens ${e} in the app store`))),
         action('Look for emulators again', '', 'After installing or removing one.', () => toast(`Found ${INSTALLED_APPS.size} emulators`))] };
-      case 'Art and info': { const A = P.art, ss = A.source === 'ScreenScraper'; return { cat: 'Art and info', intro: 'Box art, manuals, media and details are downloaded for you. Cartridge labels too, where the source has them.', items: [
+      case 'Art and info': if (NATIVE) { const have = GAMES.filter(g => P.meta[g.id]).length, all = GAMES.filter(g => g.sys !== 'android').length; return { cat: 'Art and info',
+        intro: 'Box art, title screens, screenshots and details (year, developer, genre) from libretro’s free database. No account needed. To choose a particular match for one game, open its box, then Game settings › Art and details.', items: [
+        action(ART_RUN.on ? 'Stop finding art' : 'Find art for every game', ART_RUN.on ? `${ART_RUN.i} of ${ART_RUN.n}` : `${have} of ${all} have art`, ART_RUN.on ? 'Finding art in the background. You can keep using Shelf.' : 'Looks up each game by its file. Games it can’t match for certain are left for you to choose.', () => { artAll(false); }),
+        ...(ART_RUN.on ? [] : [action('Find art again for every game', '', 'Replaces the art and details already found.', () => { artAll(true); })]),
+        info('ScreenScraper', 'Later', 'Manuals, videos and more art, with a free account. Coming in a later version.')] }; }
+        { const A = P.art, ss = A.source === 'ScreenScraper'; return { cat: 'Art and info', intro: 'Box art, manuals, media and details are downloaded for you. Cartridge labels too, where the source has them.', items: [
         { label: 'Source', value: A.source, desc: ss ? 'The most complete: boxes, manuals, videos and details.' : 'RetroArch’s databases and Wikipedia. No account needed.', act: () => { A.source = ss ? 'Free sources' : 'ScreenScraper'; } },
         ...(ss ? [action('ScreenScraper account', A.ss || 'Sign in', A.ss ? 'Signed in.' : 'A free account from screenscraper.fr.', () => { A.ss = A.ss ? null : 'player_one'; })] : []),
         tog('Gameplay videos', 'videos', 'Short clips for each game’s media.', A), tog('Manuals', 'manuals', 'Scans of the original manuals.', A),
@@ -251,11 +258,15 @@ function drawLaunch(dt) {
   endMeshes();
 }
 function startPlay(g, slot, resume, from) {
-  const r = ensureRec(g), emu = emuFor(g);
+  const r = ensureRec(g), emu = emuFor(g), before = P.recent.slice();
+  // a game moves to the front of Home the moment it's launched, not when you come back from it
+  r.last = Date.now(); P.recent = [g.id, ...P.recent.filter(x => x !== g.id)];
   if (NATIVE) {   // hand the game to the emulator; Shelf waits in the dark until you come back (__nativeResume)
     S.play = { g, slot, from, t: 0, native: true, start: Date.now() }; S.screen = 'play'; show('play');
+    P.playing = { id: g.id, from, start: S.play.start };   // saved, so coming back works even if Android restarted Shelf meanwhile
     const fl = $('#flash'); fl.style.transition = 'opacity .5s ease-out'; fl.style.opacity = 0;
-    const err = nativeLaunch(g, emu); if (err) { S.launchErr = err; setTimeout(homeFromPlay, 60); }
+    const err = nativeLaunch(g, emu);
+    if (err) { S.launchErr = err; P.recent = before; P.playing = null; setTimeout(homeFromPlay, 60); }
     return;
   }
   S.play = { g, slot, from, t: 0, seed: hash(g.id + 'play'), scroll: resume && r.slots[slot] ? (r.slots[slot].scroll || 120) : 0 };
@@ -272,9 +283,8 @@ function homeFromPlay() {
   const p = S.play; if (!p) return; S.play = null;
   const g = p.g, r = ensureRec(g), emu = emuFor(g), ra = isRA(emu) && P.prefs.autosave && !P.prefs.hardcore;
   if (ra) { r.slots[p.slot] = { ts: Date.now(), seed: p.seed, scroll: Math.floor(p.scroll) }; r.lastSlot = p.slot; }
-  if (!S.launchErr) { r.last = Date.now(); r.minutes += Math.max(1, Math.round((p.native ? (Date.now() - p.start) / 1000 : p.t) / 60)); }
-  if (NATIVE) nativeSave();
-  if (!S.launchErr) P.recent = [g.id, ...P.recent.filter(x => x !== g.id)];
+  if (!S.launchErr) r.minutes += Math.max(1, Math.round((p.native ? (Date.now() - p.start) / 1000 : p.t) / 60));
+  P.playing = null; if (NATIVE) nativeSave();
   const to = p.from === 'game' ? 'game' : 'home';
   if (to === 'home') { S.tab = 'home'; S.home.i = 0; S.home.zone = 'row'; refreshHome(); } else fillGame();
   S.seq = { kind: 'return', g, t: 0, flags: {}, under: to, cp: consolePose(g.sys), saved: ra, emu };

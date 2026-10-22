@@ -212,6 +212,14 @@ Summarized from the first part of the conversation; the full transcript is kept 
   Library: the side list "hiccups with each click" past Game Boy; the title under a box "lags behind the box art";
   no "how long ago" text under the selected box. Museum: big consoles reach past their space; the info panel is too
   wide and overlaps the middle. All fixed.
+- Then: "The most recently played game showing up first should be based on what was most recently launched, not what
+  was most recently closed," and the return animation must always play. Built: Home reorders at launch; the running
+  game is saved, so the return plays even if Android closed Shelf's page meanwhile.
+- Art: "automatically scrape everything when the scrape button is pressed, but I also want the ability to scrape
+  individual games from their settings pages… present me with multiple options… and I need to be able to edit the
+  search term. It should search automatically based on the game/rom name." Built with libretro's free database and art
+  (no account): Settings › Art and info › Find art for every game, and a game's settings › Art and details.
+- "We're getting close to a full native rebuild & release!" Next round, the user tests launching on every console.
 
 ### Prototype v2, part 2 (built)
 

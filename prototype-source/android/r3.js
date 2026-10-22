@@ -93,6 +93,7 @@ function drawTitle(ctx, text, cx, y, maxW, size, align = 'center') {
 function canvas(w, h) { const c = document.createElement('canvas'); c.width = Math.round(w); c.height = Math.round(h); return c; }
 
 function labelArt(g, aspect) {        // aspect = width / height of the cartridge label
+  const real = artImg(g, 'box'); if (real) return fillWith(real, 512, Math.round(512 / aspect), .3);   // the box art, cropped to the label
   const w = 512, h = Math.round(512 / aspect), c = canvas(w, h), ctx = c.getContext('2d');
   drawScene(ctx, w, h, g);
   const sh = ctx.createLinearGradient(0, h * .55, 0, h); sh.addColorStop(0, 'rgba(8,6,24,0)'); sh.addColorStop(1, 'rgba(8,6,24,.7)');
@@ -101,7 +102,12 @@ function labelArt(g, aspect) {        // aspect = width / height of the cartridg
   drawTitle(ctx, g.title, w / 2, h - size * (lines > 1 ? 2.6 : 1.6), w * .86, size);
   return c;
 }
+function fillWith(im, w, h, ay = .5) {   // a downloaded picture, filling w × h and cropped to fit
+  const c = canvas(w, h), x = c.getContext('2d'), k = Math.max(w / im.width, h / im.height);
+  x.drawImage(im, (w - im.width * k) / 2, (h - im.height * k) * ay, im.width * k, im.height * k); return c;
+}
 function coverFront(g, w, h) {
+  const real = artImg(g, 'box'); if (real) return fillWith(real, w, h);
   if (g.sys === 'android') return androidCover(g, w, h);
   const c = canvas(w, h), ctx = c.getContext('2d'), s = SYS[g.sys];
   drawScene(ctx, w, h, g);
@@ -244,14 +250,15 @@ function titleFrame(g, out) {   // a pretend title screen at the console's resol
 }
 const mediaCache = new Map();
 function mediaCanvas(g, m) {   // the full-size picture for one media item
-  const key = g.id + m.kind + (m.seed || ''); if (mediaCache.has(key)) return mediaCache.get(key);
+  const key = g.id + m.kind + (m.seed || '') + artStamp(g); if (mediaCache.has(key)) return mediaCache.get(key);
   const [bw, bh] = BOX[g.sys], k = 900 / Math.max(bw, bh);
-  const c = m.kind === 'title' ? titleFrame(g) : m.kind === 'box' ? coverFront(g, bw * k, bh * k) : m.kind === 'back' ? coverBack(g, bw * k, bh * k) : gameFrame(g, m.seed, m.scroll);
+  const real = (m.kind === 'title' || m.kind === 'shot') && artImg(g, m.kind);
+  const c = real ? fillWith(real, real.width, real.height) : m.kind === 'title' ? titleFrame(g) : m.kind === 'box' ? coverFront(g, bw * k, bh * k) : m.kind === 'back' ? coverBack(g, bw * k, bh * k) : gameFrame(g, m.seed, m.scroll);
   mediaCache.set(key, c); return c;
 }
 function mediaThumb(g, m) {   // a small picture for the strips, cached as an image
-  const key = 'thumb' + g.id + m.kind + (m.seed || ''); if (mediaCache.has(key)) return mediaCache.get(key);
-  const src = mediaCanvas(g, m), t = canvas(240, 176), x = t.getContext('2d'), pixel = m.kind !== 'box' && m.kind !== 'back';
+  const key = 'thumb' + g.id + m.kind + (m.seed || '') + artStamp(g); if (mediaCache.has(key)) return mediaCache.get(key);
+  const src = mediaCanvas(g, m), t = canvas(240, 176), x = t.getContext('2d'), pixel = m.kind !== 'box' && m.kind !== 'back' && !m.real;
   x.fillStyle = '#0a0d22'; x.fillRect(0, 0, 240, 176); x.imageSmoothingEnabled = !pixel;
   const sc = pixel ? Math.max(240 / src.width, 176 / src.height) : Math.min(240 / src.width, 176 / src.height);   // screens fill, boxes fit
   x.drawImage(src, (240 - src.width * sc) / 2, (176 - src.height * sc) / 2, src.width * sc, src.height * sc);
@@ -372,11 +379,11 @@ function androidCover(g, w, h) {   // store-style art built from the app's icon
 }
 function discArt(g, size = 512) {   // a printed disc: art inside a ring, with the center hole
   const c = canvas(size, size), x = c.getContext('2d'), R = size / 2;
-  const scene = canvas(size, size); drawScene(scene.getContext('2d'), size, size, g);
+  const real = artImg(g, 'box'), scene = real ? fillWith(real, size, size, .35) : canvas(size, size); if (!real) drawScene(scene.getContext('2d'), size, size, g);
   x.save(); x.beginPath(); x.arc(R, R, R - 1, 0, 7); x.clip(); x.drawImage(scene, 0, 0);
   const sh = x.createLinearGradient(0, R * .9, 0, R * 1.6); sh.addColorStop(0, 'rgba(8,6,24,0)'); sh.addColorStop(1, 'rgba(8,6,24,.65)'); x.fillStyle = sh; x.fillRect(0, 0, size, size);
   x.restore();
-  drawTitle(x, g.title, R, R * 1.32, size * .62, size * .07);
+  if (!real) drawTitle(x, g.title, R, R * 1.32, size * .62, size * .07);
   x.fillStyle = 'rgba(210,214,226,1)'; x.beginPath(); x.arc(R, R, R * .32, 0, 7); x.fill();       // the clear center ring
   x.fillStyle = 'rgba(160,166,182,1)'; x.beginPath(); x.arc(R, R, R * .25, 0, 7); x.fill();
   x.globalCompositeOperation = 'destination-out'; x.beginPath(); x.arc(R, R, R * .125, 0, 7); x.fill(); x.globalCompositeOperation = 'source-over';

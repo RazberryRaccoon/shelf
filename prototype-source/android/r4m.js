@@ -307,9 +307,9 @@ function cartModel(sys) {
   return (cartMeshes[sys] = B.build({ c, ring: ringMesh(ccw(out)) }));
 }
 const labelAspect = sys => { const c = CART[sys]; return c.disc || c.umd ? 1 : c.label[2] / c.label[3]; };
-function labelTex(g) { const c = CART[g.sys]; return c.disc || c.umd ? tex('disc' + g.id, () => discArt(g), true) : tex('label' + g.id, () => labelArt(g, labelAspect(g.sys)), true); }
+function labelTex(g) { const c = CART[g.sys]; return c.disc || c.umd ? tex('disc' + g.id + artStamp(g), () => discArt(g), true) : tex('label' + g.id + artStamp(g), () => labelArt(g, labelAspect(g.sys)), true); }
 function foldTex(g) {   // the strip of label that folds over the top: the label's top edge, mirrored so the two meet
-  return tex('fold' + g.id, () => { const a = labelArt(g, labelAspect(g.sys)), c = canvas(512, 64), x = c.getContext('2d');
+  return tex('fold' + g.id + artStamp(g), () => { const a = labelArt(g, labelAspect(g.sys)), c = canvas(512, 64), x = c.getContext('2d');
     x.translate(0, 64); x.scale(1, -1); x.drawImage(a, 0, 0, a.width, a.height * .12, 0, 0, 512, 64); x.setTransform(1, 0, 0, 1, 0, 0);
     x.fillStyle = 'rgba(8,6,24,.18)'; x.fillRect(0, 0, 512, 64); return c; });
 }
@@ -395,7 +395,7 @@ function drawCase(g, st, open = 0, lift = 0, hideMedia = false) {
   if (NODRAW) return;
   const m = caseModel(g.sys), C = caseColors(g.sys), M = st.M || M4.trs(st.x, st.y, st.z, st.rx || 0, st.ry || 0, 0, st.s);
   const { W, D, bh, by, top } = m, k = 360 / Math.min(W, bh), x = { roles: C.roles }, al = st.alpha == null ? 1 : st.alpha;
-  const front = tex('front' + g.id, () => coverFront(g, W * k, bh * k)), back = tex('back' + g.id, () => coverBack(g, W * k, bh * k));
+  const front = tex('front' + g.id + artStamp(g), () => coverFront(g, W * k, bh * k)), back = tex('back' + g.id, () => coverBack(g, W * k, bh * k));
   const spine = tex('spine' + g.id, () => spineArt(g, bh * k, Math.max(28, D * k)));
   const o = (extra) => Object.assign({ alpha: al, bright: st.bright, spec: .35 }, extra);
   drawParts(m.base, M, st, x, 'opaque');
@@ -409,7 +409,7 @@ function drawCase(g, st, open = 0, lift = 0, hideMedia = false) {
   if (open > .01) {
     const [mw, mh] = m.manualSize, inner = top;
     drawPart(m.manual, M4.mul(CM, M4.trs(0, by, inner - .008, 0, 0, 0, [mw, mh, .012])), o({ col: [.93, .91, .87], spec: .1 }));
-    const mtex = hasManual(g) ? tex('mancover' + g.id, () => coverFront(g, Math.round(mw * 400), Math.round(mh * 400)), true) : null;
+    const mtex = hasManual(g) ? tex('mancover' + g.id + artStamp(g), () => coverFront(g, Math.round(mw * 400), Math.round(mh * 400)), true) : null;
     drawPart(PLANE, M4.mul(CM, M4.trs(0, by, inner - .0145, 0, Math.PI, 0, [mw - .01, mh - .01, 1])), o(mtex ? { tex: mtex, spec: .2 } : { col: C.inner.map(v => v * .85), spec: .1 }));
   }
   drawParts(m.cover, CM, st, x, 'glass');

@@ -22,7 +22,16 @@ public class Bridge {
     private final MainActivity act;
     private final Handler ui = new Handler(Looper.getMainLooper());
 
-    Bridge(MainActivity act) { this.act = act; }
+    private final Art art;
+    Bridge(MainActivity act) { this.act = act; this.art = new Art(act); }
+
+    // ---------- art and details (answers arrive as __nativeArt / __nativeArtProgress) ----------
+    @JavascriptInterface public void artSearch(String req, String sys, String query, String path) { art.search(req, sys, query, path); }
+    @JavascriptInterface public void artApply(String req, String key, String sys, String name) { art.apply(req, key, sys, name); }
+    @JavascriptInterface public void artAuto(String req, String list) { art.auto(req, list); }
+    @JavascriptInterface public void artStop() { art.stop(); }
+    @JavascriptInterface public String artData(String key, String kind) { return art.data(key, kind); }
+    @JavascriptInterface public void artRemove(String key) { art.remove(key); }
 
     /** Runs on the main thread and waits for the answer (starting activities belongs there). */
     private String onUi(java.util.concurrent.Callable<String> job) {

@@ -49,8 +49,10 @@ ten consoles plus Android games:
 5. To make Shelf the home screen, choose **Use Shelf as my home screen** in setup (or later in Android's Settings ›
    Apps › Default apps › Home app).
 
-Version 0.1 launches games in RetroArch or a standalone emulator (DuckStation, PPSSPP, melonDS, Mupen64Plus FZ and
-others), with Shelf's own generated box art. Downloaded art, save slots and achievements come next; see
+It launches games in RetroArch or a standalone emulator (DuckStation, PPSSPP, melonDS, Mupen64Plus FZ and others).
+Art and details (box art, title screens, screenshots, year, developer, genre) come from libretro's free database:
+Settings › Art and info › Find art for every game, or a game's settings › Art and details to choose one yourself.
+Save slots and achievements come next; see
 [docs/ROADMAP.md](docs/ROADMAP.md). The app's source is in [`android/`](android).
 
 ### The prototype
