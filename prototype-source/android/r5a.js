@@ -138,9 +138,14 @@ function refreshHome() {
 }
 
 /* ================= library ================= */
+const railOff = {};   // where each side list was scrolled to
 function railScroll(rin, view) {   // keeps a side list's current item in the middle of its panel
   const cur = rin && rin.querySelector('.cur'); if (!cur) return;
-  const off = clamp(cur.offsetTop + cur.offsetHeight / 2 - view / 2, 0, Math.max(0, rin.scrollHeight - view)); rin.style.transform = `translateY(${-off}px)`;
+  const key = rin.parentNode.id, was = railOff[key] || 0;
+  const off = clamp(cur.offsetTop + cur.offsetHeight / 2 - view / 2, 0, Math.max(0, rin.scrollHeight - view)); railOff[key] = off;
+  // the list was just rebuilt: put it back where it was without animating, then glide only if it actually moves
+  rin.style.transition = 'none'; rin.style.transform = `translateY(${-was}px)`; void rin.offsetHeight;
+  rin.style.transition = ''; if (off !== was) rin.style.transform = `translateY(${-off}px)`;
 }
 const railStops = () => railItems().map((r, i) => r.head ? -1 : i).filter(i => i >= 0);
 function libList() {
@@ -163,7 +168,7 @@ function refreshLibrary(rebuild) {
   const empty = !L.list.length; $('#libEmpty').style.display = empty ? 'block' : 'none';
   $('#libEmpty').textContent = RI[L.rail].custom ? 'No games here yet. Open any game’s box and choose Add to collection.' : 'Nothing here yet.';
   const onGrid = L.zone === 'grid' && !S.top.on && !empty; $('#lFocus').classList.toggle('on', onGrid);
-  if (onGrid) { const g = L.list[L.i], r = P.played[g.id]; $('#lFocus b').textContent = g.title; $('#lFocus span').textContent = joinKnown(PLAT[g.sys].name, g.year) + (r && r.last ? `, ${agoText(r.last).toLowerCase()}` : ''); setMood(g.sys); }
+  if (onGrid) { const g = L.list[L.i], r = P.played[g.id]; $('#lFocus b').textContent = g.title; $('#lFocus span').textContent = joinKnown(PLAT[g.sys].name, g.year); setMood(g.sys); }
   else setMood(PLAT[RI[L.rail].k] ? RI[L.rail].k : 'home');
   renderTop();
 }

@@ -103,8 +103,9 @@ function exhibitBounds(sys, ex, open) {
 }
 function drawExhibit(sys, ex, k, yaw, pitch, open) {
   const g = sampleGame(sys), [lo, hi] = exhibitBounds(sys, ex, ex >= 2 ? open : 0), c = lo.map((v, i) => (v + hi[i]) / 2);
-  const span = Math.max(hi[0] - lo[0], (hi[1] - lo[1]) * 1.25, hi[2] - lo[2]), fit = (ex === 0 ? 2.8 : ex === 3 ? 3.3 : 2.55) / span;
-  const s = fit * (.94 + .06 * k), bob = motion() ? Math.sin(S.time * .8) * .025 : 0, [x, y] = pw(582, 450);
+  // sized by the widest it can look as it turns (the diagonal across width and depth), and its height
+  const span = Math.max(Math.hypot(hi[0] - lo[0], hi[2] - lo[2]), (hi[1] - lo[1]) * 1.3), fit = (ex === 0 ? 3.0 : ex === 3 ? 3.2 : 2.6) / span;
+  const s = fit * (.94 + .06 * k), bob = motion() ? Math.sin(S.time * .8) * .025 : 0, [x, y] = pw(618, 446);
   const R = M4.mul(M4.trs(x, y + bob, 0, pitch, 0, 0, 1), M4.trs(0, 0, 0, 0, yaw, 0, s)), st = { alpha: k, bright: 1, s, detail: 1 };
   if (ex >= 2) {   // cases draw from their own pose, so fold the turn and the centering into it
     drawCaseAt(g, M4.mul(R, M4.trs(-c[0], -c[1], -c[2], 0, 0, 0, 1)), st, open);
@@ -119,7 +120,7 @@ function drawMuseum(dt) {
   approach(U, { yaw: U.yawT, pitch: U.pitchT, open: U.ex === 3 ? 1 : 0 }, dt, 5);
   U.fade = Math.min(1, U.fade + dt / .5);
   setCamera(0, CAMZ, 0);
-  shadowUnder(582, 640, 400, .8, true);
+  shadowUnder(618, 640, 380, .8, true);
   beginMeshes();
   if (U.prev && U.fade < 1) drawExhibit(U.prev.sys, U.prev.ex, 1 - easeOut(U.fade * 1.6), U.prev.yaw, U.prev.pitch, U.prev.open);
   if (!NODRAW) gl.clear(gl.DEPTH_BUFFER_BIT);   // the outgoing exhibit never hides the incoming one

@@ -129,10 +129,10 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 #muRail div { font-size: 20px; }
 #muRail div span { margin-left: 15px; }
 .filter.cur { color: var(--fg); border-color: var(--fg3); }
-.mu-drag { position: absolute; left: 352px; top: 196px; width: 460px; height: 530px; cursor: grab; touch-action: none; }
-.mu-hint { position: absolute; left: 582px; bottom: 32px; transform: translateX(-50%); white-space: nowrap; padding: 10.5px 21px; border-radius: 24px; background: var(--panel); border: 1px solid var(--line); font-size: 22px; color: var(--fg2); pointer-events: none; }
+.mu-drag { position: absolute; left: 352px; top: 196px; width: 532px; height: 530px; cursor: grab; touch-action: none; }
+.mu-hint { position: absolute; left: 618px; bottom: 32px; transform: translateX(-50%); white-space: nowrap; padding: 10.5px 21px; border-radius: 24px; background: var(--panel); border: 1px solid var(--line); font-size: 22px; color: var(--fg2); pointer-events: none; }
 .mu-hint .btn { margin: 0 3px; }
-.mu-info { position: absolute; right: 32px; top: 138px; width: 480px; height: 588px; padding: 30px 34px; overflow: hidden; }
+.mu-info { position: absolute; right: 32px; top: 138px; width: 400px; height: 588px; padding: 30px 34px; overflow: hidden; }
 .mu-info h2 { margin: 6px 0 0; font-family: var(--display); font-weight: 500; font-size: 35px; line-height: 1.15; }
 .mu-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 15px 27px; margin-top: 21px; font-size: 21px; color: var(--fg2); }
 .mu-facts b { display: block; margin-top: 3px; color: var(--fg); font-size: 23px; font-weight: 700; }
@@ -2306,9 +2306,14 @@ function refreshHome() {
 }
 
 /* ================= library ================= */
+const railOff = {};   // where each side list was scrolled to
 function railScroll(rin, view) {   // keeps a side list's current item in the middle of its panel
   const cur = rin && rin.querySelector('.cur'); if (!cur) return;
-  const off = clamp(cur.offsetTop + cur.offsetHeight / 2 - view / 2, 0, Math.max(0, rin.scrollHeight - view)); rin.style.transform = `translateY(${-off}px)`;
+  const key = rin.parentNode.id, was = railOff[key] || 0;
+  const off = clamp(cur.offsetTop + cur.offsetHeight / 2 - view / 2, 0, Math.max(0, rin.scrollHeight - view)); railOff[key] = off;
+  // the list was just rebuilt: put it back where it was without animating, then glide only if it actually moves
+  rin.style.transition = 'none'; rin.style.transform = `translateY(${-was}px)`; void rin.offsetHeight;
+  rin.style.transition = ''; if (off !== was) rin.style.transform = `translateY(${-off}px)`;
 }
 const railStops = () => railItems().map((r, i) => r.head ? -1 : i).filter(i => i >= 0);
 function libList() {
@@ -2331,7 +2336,7 @@ function refreshLibrary(rebuild) {
   const empty = !L.list.length; $('#libEmpty').style.display = empty ? 'block' : 'none';
   $('#libEmpty').textContent = RI[L.rail].custom ? 'No games here yet. Open any game’s box and choose Add to collection.' : 'Nothing here yet.';
   const onGrid = L.zone === 'grid' && !S.top.on && !empty; $('#lFocus').classList.toggle('on', onGrid);
-  if (onGrid) { const g = L.list[L.i], r = P.played[g.id]; $('#lFocus b').textContent = g.title; $('#lFocus span').textContent = joinKnown(PLAT[g.sys].name, g.year) + (r && r.last ? `, ${agoText(r.last).toLowerCase()}` : ''); setMood(g.sys); }
+  if (onGrid) { const g = L.list[L.i], r = P.played[g.id]; $('#lFocus b').textContent = g.title; $('#lFocus span').textContent = joinKnown(PLAT[g.sys].name, g.year); setMood(g.sys); }
   else setMood(PLAT[RI[L.rail].k] ? RI[L.rail].k : 'home');
   renderTop();
 }
@@ -2974,8 +2979,9 @@ function exhibitBounds(sys, ex, open) {
 }
 function drawExhibit(sys, ex, k, yaw, pitch, open) {
   const g = sampleGame(sys), [lo, hi] = exhibitBounds(sys, ex, ex >= 2 ? open : 0), c = lo.map((v, i) => (v + hi[i]) / 2);
-  const span = Math.max(hi[0] - lo[0], (hi[1] - lo[1]) * 1.25, hi[2] - lo[2]), fit = (ex === 0 ? 2.8 : ex === 3 ? 3.3 : 2.55) / span;
-  const s = fit * (.94 + .06 * k), bob = motion() ? Math.sin(S.time * .8) * .025 : 0, [x, y] = pw(582, 450);
+  // sized by the widest it can look as it turns (the diagonal across width and depth), and its height
+  const span = Math.max(Math.hypot(hi[0] - lo[0], hi[2] - lo[2]), (hi[1] - lo[1]) * 1.3), fit = (ex === 0 ? 3.0 : ex === 3 ? 3.2 : 2.6) / span;
+  const s = fit * (.94 + .06 * k), bob = motion() ? Math.sin(S.time * .8) * .025 : 0, [x, y] = pw(618, 446);
   const R = M4.mul(M4.trs(x, y + bob, 0, pitch, 0, 0, 1), M4.trs(0, 0, 0, 0, yaw, 0, s)), st = { alpha: k, bright: 1, s, detail: 1 };
   if (ex >= 2) {   // cases draw from their own pose, so fold the turn and the centering into it
     drawCaseAt(g, M4.mul(R, M4.trs(-c[0], -c[1], -c[2], 0, 0, 0, 1)), st, open);
@@ -2990,7 +2996,7 @@ function drawMuseum(dt) {
   approach(U, { yaw: U.yawT, pitch: U.pitchT, open: U.ex === 3 ? 1 : 0 }, dt, 5);
   U.fade = Math.min(1, U.fade + dt / .5);
   setCamera(0, CAMZ, 0);
-  shadowUnder(582, 640, 400, .8, true);
+  shadowUnder(618, 640, 380, .8, true);
   beginMeshes();
   if (U.prev && U.fade < 1) drawExhibit(U.prev.sys, U.prev.ex, 1 - easeOut(U.fade * 1.6), U.prev.yaw, U.prev.pitch, U.prev.open);
   if (!NODRAW) gl.clear(gl.DEPTH_BUFFER_BIT);   // the outgoing exhibit never hides the incoming one
@@ -3124,7 +3130,7 @@ function act(a) {
   if (sc === 'play') return;
   if (TABS.includes(sc)) {
     if ((a === 'lb' || a === 'rb') && !(sc === 'museum' && S.mu.zone === 'stage' && !S.top.on)) {   // L and R step through Home, Library, Apps and Museum
-      const k = (TABS.indexOf(sc) + (a === 'rb' ? 1 : TABS.length - 1)) % TABS.length; sfx.tab(); return enterTab(TABS[k]); }
+      return cycleScreen(sc, a === 'rb' ? 1 : -1); }
     if (S.top.on) return topInput(a);
     return sc === 'home' ? homeInput(a) : sc === 'library' ? libInput(a) : sc === 'museum' ? museumInput(a) : appsInput(a);
   }
@@ -3132,7 +3138,14 @@ function act(a) {
   if (sc === 'ach') return achInput(a);
   if (sc === 'media') return mediaInput(a);
   if (sc === 'manual') return manualInput(a);
-  if (sc === 'settings') return setInput(a);
+  if (sc === 'settings') { if ((a === 'lb' || a === 'rb') && !S.set.game && S.set.back !== 'game') return cycleScreen('settings', a === 'rb' ? 1 : -1); return setInput(a); }
+}
+const CYCLE = [...TABS, 'settings'];   // L and R step through these, Home first, wrapping round
+function cycleScreen(from, dir) {
+  const k = CYCLE[(CYCLE.indexOf(from) + dir + CYCLE.length) % CYCLE.length]; sfx.tab(); S.top.on = false;
+  if (k === 'settings') return openSettings(0);
+  if (from === 'settings') S.set.back = k;
+  enterTab(k);
 }
 function topInput(a) {
   if (a === 'left' || a === 'right') { const k = clamp(S.top.i + (a === 'left' ? -1 : 1), 0, TOP.length - 1); if (k !== S.top.i) { S.top.i = k; sfx.move(); renderTop(); } }
@@ -3416,7 +3429,7 @@ function drawLibrary(dt, t) {
     if (foc) focus = { g, o, c, ypx: ypx - lift, bh }; else if (o.alpha > .01) drawCase(g, o, 0);
   });
   if (focus) { const m = moodColors(MOOD.cur); drawCaseGlow(focus.g, focus.o, hexRgb(m.accent), hexRgb(m.planet[0])); drawCase(focus.g, focus.o, 0);
-    if (!NODRAW) { const F = $('#lFocus'); F.style.left = cx(focus.c) + 'px'; F.style.top = (focus.ypx + focus.bh / 2 * focus.o.s * PX + 30) + 'px'; } }
+    if (!NODRAW) { const F = $('#lFocus'); F.style.left = cx(focus.c) + 'px'; F.style.top = (H / 2 - focus.o.y * PX + focus.bh / 2 * focus.o.s * PX + 30) + 'px'; } }
   unclip(); endMeshes();
 }
 function lerpPose(a, b, k) { let d = b.ry - a.ry; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;

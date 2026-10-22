@@ -208,6 +208,10 @@ Summarized from the first part of the conversation; the full transcript is kept 
 - "The tall boxes need some breathing room at the top and bottom." Built: each Library row is as tall as its tallest
   box when raised, plus room for its title.
 - "Launching android apps works great!" from the app drawer and as a marked game.
+- Next round: GBA and Android games launch fine. "Use the shoulder buttons to cycle into settings after the museum."
+  Library: the side list "hiccups with each click" past Game Boy; the title under a box "lags behind the box art";
+  no "how long ago" text under the selected box. Museum: big consoles reach past their space; the info panel is too
+  wide and overlaps the middle. All fixed.
 
 ### Prototype v2, part 2 (built)
 
