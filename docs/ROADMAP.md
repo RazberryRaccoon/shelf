@@ -13,8 +13,8 @@ apps, launching through RetroArch and 24 standalone emulators, the controller, t
 published by GitHub Actions. Next, in order:
 
 1. **Try it on the Retroid Pocket 3+** and fix what the user finds (buttons, speed, launching each emulator).
-2. **Art and info:** RetroArch's thumbnail server and the libretro database first (free, no account), then
-   ScreenScraper with the user's account. Real box art, labels and details in place of Shelf's generated ones.
+2. **Art and info:** libretro's database and art are built (version 0.2). Still to come: ScreenScraper with the
+   user's account, for manuals, videos and more art.
 3. **Saves:** Shelf's four save slots around RetroArch, as designed (SPEC §15), and RetroArch's network `QUIT` so
    the Home button saves before leaving a game.
 4. **RetroAchievements:** sign-in and the achievements page from the web API.

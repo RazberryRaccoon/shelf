@@ -262,3 +262,13 @@
   (the "hiccup", visible once the list scrolls, from Game Boy down). It now starts where the last one was. The title
   under a box follows the box's own animated position. Museum exhibits are sized by their diagonal, so nothing reaches
   past the stage as it turns. L1/R1 continue into Settings.
+- Fifth round: Home's order moved to launch time (it was saved before it changed, on return). The running game is in
+  the saved state (`P.playing`), so a page Android killed mid-game (`onRenderProcessGone` now recreates instead of
+  crashing) still plays the return. Art: `ArtIndex.java` (plain Java, tested on a computer against the real files)
+  reads libretro's database (no-intro or redump names, plus developer, publisher, genre and year files; PlayStation's
+  also has descriptions), ranks names by shared words with region and disc bonuses, and matches a cartridge ROM exactly
+  by its CRC (zips by their header). `Art.java` downloads Named_Boxarts, Named_Titles and Named_Snaps from the
+  libretro-thumbnails repositories on GitHub, shrinks them to JPEGs in the app's storage, and answers the page through
+  `__nativeArt` and `__nativeArtProgress`. The page draws covers, labels, discs, media and Home's picture from them.
+- Lesson: libretro's art server is blocked in Claude's sandbox but its GitHub mirrors aren't; the database names are
+  the same names the art files use, so no file listing is needed.

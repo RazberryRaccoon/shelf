@@ -211,6 +211,7 @@ function homeArtCanvas(g, kind) {
   let src = null;
   if (kind === 'cart') { src = canvas(w, h); drawScene(src.getContext('2d'), w, h, g); }
   else if (kind === 'box') src = mediaCanvas(g, { kind: 'box' });
+  else if (NATIVE) src = (kind === 'title' || kind === 'shot') && artImg(g, kind) || mediaCanvas(g, { kind: 'box' });   // in the app: downloaded art, or the box
   else if (kind === 'title' && g.sys !== 'android') src = mediaCanvas(g, { kind: 'title' });
   else src = mediaCanvas(g, { kind: 'shot', seed: hash(g.id + 'shot0'), scroll: 30 });
   const k = Math.max(w / src.width, h / src.height), sw = w / k, sh = h / k;
@@ -220,7 +221,7 @@ function homeArtCanvas(g, kind) {
   return c;
 }
 function drawHomeArt(dt, id, show) {
-  const kind = P.prefs.homeArt, key = kind !== 'off' && id ? 'homeart:' + kind + ':' + id : null;
+  const kind = P.prefs.homeArt, key = kind !== 'off' && id ? 'homeart:' + kind + ':' + id + ':' + artStamp(byId[id]) : null;
   if (key !== HB.key) { HB.prev = HB.a > .5 ? HB.key : HB.prev; HB.key = key; HB.a = 0; }
   HB.a = Math.min(1, HB.a + dt / .45); approach(HB, { vis: show ? 1 : 0 }, dt, 6);
   const dim = lightTheme() ? [.62, .62, .66] : [.36, .37, .44], top = HOME_Y + 122, hgt = 750 - top;   // the fade's edge sits at the bottom of the row
@@ -438,7 +439,7 @@ async function boot() {
   if (!gl) { document.body.insertAdjacentHTML('beforeend', '<p style="padding:40px">This prototype needs WebGL.</p>'); return; }
   initGL(); initMeshes(); applyTheme(P.prefs.theme);
   try { await Promise.race([Promise.all([document.fonts.load('600 40px Unbounded'), document.fonts.load('600 20px Manrope')]), new Promise(r => setTimeout(r, 2000))]); } catch (e) { }
-  if (NATIVE && P.setup) { paintProfile(); enterTab('home'); } else enterSetup();
+  if (NATIVE && P.setup) { paintProfile(); enterTab('home'); nativeBackFromGame(); } else enterSetup();
   requestAnimationFrame(loop);
 }
 boot();

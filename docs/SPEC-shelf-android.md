@@ -301,7 +301,12 @@ plastic color, shadow color, and the 3D rim light.
   drawer and emulator detection.
 - **Build:** a Gradle project built by GitHub Actions (`.github/workflows/android.yml`). Every push to `main` publishes
   a release with `Shelf.apk`; one fixed signing key (checked in, debug only) lets each build install over the last.
-- **Not in the first version:** art and info downloads (ScreenScraper and the fallbacks), Shelf's own save slots
+- **Art and details** (built): libretro's database gives every official game name for a console, with year, developer,
+  publisher, genre and sometimes a description; libretro's thumbnails give box art, title screens and screenshots. All
+  free, no account. Find art for every game (Settings › Art and info) matches each ROM by checksum or a near-exact
+  name and leaves the rest; a game's settings › Art and details shows the closest matches with their box art, starting
+  from the file name, with a search you can change. Real box art also becomes the cartridge label and the disc print.
+- **Not yet:** ScreenScraper (manuals, videos, more art), Shelf's own save slots
   (RetroArch keeps its own saves for now), RetroAchievements, manuals and media, the RetroArch network commands.
   These stay as designed above.
 

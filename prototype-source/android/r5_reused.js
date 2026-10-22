@@ -33,7 +33,7 @@ function openDlg(title, items, onPick, i = 0) { S.dlg = { open: true, title, ite
 function closeDlg() { S.dlg.open = false; renderDlg(); }
 function renderDlg() {
   const d = S.dlg, el = $('#dlg'); el.classList.toggle('open', !!d.open); if (!d.open) return;
-  el.innerHTML = `<h3>${esc(d.title)}</h3><div class="dlist">` + d.items.map((it, i) => `<div class="ditem ${i === d.i ? 'focus' : ''}">${it.check != null ? `<span class="chk ${it.check ? 'on' : ''}"></span>` : ''}<span>${esc(it.label)}</span>${it.sub ? `<small>${esc(it.sub)}</small>` : ''}</div>`).join('') + '</div>';
+  el.innerHTML = `<h3>${esc(d.title)}</h3><div class="dlist">` + d.items.map((it, i) => `<div class="ditem ${i === d.i ? 'focus' : ''}">${it.check != null ? `<span class="chk ${it.check ? 'on' : ''}"></span>` : ''}${it.img != null ? (it.img ? `<img class="dthumb" src="${it.img}" alt="">` : '<i class="dthumb"></i>') : ''}<span>${esc(it.label)}</span>${it.sub ? `<small>${esc(it.sub)}</small>` : ''}</div>`).join('') + '</div>';
   const L = el.querySelector('.dlist'), f = L.querySelector('.focus'); if (f) L.scrollTop = clamp(f.offsetTop - L.clientHeight / 2 + f.offsetHeight / 2, 0, L.scrollHeight);   // long lists keep the choice in view
 }
 const KB_ROWS = [[...'1234567890'], [...'QWERTYUIOP'], [...'ASDFGHJKL'], [...'ZXCVBNM'], ['&', "'", '-', '!', 'Space', 'Delete', 'Done']];
@@ -91,7 +91,8 @@ function addToCollection(g) {
 /* ================= media and manuals for a game ================= */
 const usingSS = () => P.art.source === 'ScreenScraper' && !!P.art.ss;
 function mediaFor(g) {
-  if (NATIVE) return [{ kind: 'box', label: 'Box art (made by Shelf)' }];   // real media comes with scraping, in a later version
+  if (NATIVE) { const a = (P.meta[g.id] || {}).art || {};   // what was downloaded for it, or Shelf's own box art
+    return [{ kind: 'box', label: a.box ? 'Box art' : 'Box art (made by Shelf)' }, ...(a.title ? [{ kind: 'title', label: 'Title screen', real: 1 }] : []), ...(a.shot ? [{ kind: 'shot', label: 'Screenshot', real: 1 }] : [])]; }
   const A = P.art, ss = usingSS(), r = rng(hash(g.id + 'media')), out = [];
   if (g.sys === 'android') return [{ kind: 'box', label: 'Store art' }, { kind: 'shot', label: 'Screenshot', seed: hash(g.id + 'shot0'), scroll: 40 }, { kind: 'shot', label: 'Screenshot', seed: hash(g.id + 'shot1'), scroll: 160 }];
   if (ss && A.videos) out.push({ kind: 'video', label: 'Gameplay video', seed: hash(g.id + 'vid'), dur: 30 + Math.floor(r() * 40), scroll: 60 });

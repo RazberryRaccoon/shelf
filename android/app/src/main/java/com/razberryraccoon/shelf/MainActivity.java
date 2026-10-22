@@ -73,6 +73,12 @@ public class MainActivity extends Activity {
         web.setWebChromeClient(new WebChromeClient());
         web.setWebViewClient(new WebViewClient() {
             @Override public void onPageFinished(WebView view, String url) { loaded = true; js("window.fit && fit()"); }
+            // Android can end the page's process to free memory while a big emulator runs. Start a fresh page instead
+            // of letting that close Shelf; it remembers the running game and plays the return animation.
+            @Override public boolean onRenderProcessGone(WebView view, android.webkit.RenderProcessGoneDetail detail) {
+                ui.post(MainActivity.this::recreate);
+                return true;
+            }
         });
         // and again whenever the view changes size (rotation, split screen, a different display)
         web.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> { if (r - l != or - ol || b - t != ob - ot) js("window.fit && fit()"); });
@@ -105,6 +111,12 @@ public class MainActivity extends Activity {
         resumed = true;
         if (loaded) js("window.__nativeResume && __nativeResume()");   // back from a game, an app or Android's settings
         launchedOut = false;
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (web != null) { web.destroy(); web = null; }
+        super.onDestroy();
     }
 
     @Override

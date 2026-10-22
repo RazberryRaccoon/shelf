@@ -344,6 +344,8 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .dialog h3, .kb h3 { margin: 0 0 18px 15px; font-family: var(--display); font-weight: 500; font-size: 26px; }
 .dialog p.dl { margin: -6px 15px 18px; font-size: 23px; color: var(--fg2); line-height: 1.45; }
 .ditem { display: flex; align-items: center; gap: 18px; padding: 15px 21px; border-radius: 19.5px; font-size: 25.5px; font-weight: 700; color: var(--fg3); }
+.ditem .dthumb { flex: none; width: 76px; height: 76px; object-fit: contain; border-radius: 8px; background: var(--chip); }
+.ditem.art { color: var(--fg); }
 .ditem small { margin-left: auto; font-size: 21px; font-weight: 600; color: var(--fg2); }
 .ditem.focus { background: var(--sel); color: var(--selfg); } .ditem.focus small { color: var(--selfg); opacity: .7; }
 .chk { position: relative; width: 32px; height: 32px; border-radius: 9px; border: 2px solid currentColor; flex: none; }
@@ -873,6 +875,7 @@ function drawTitle(ctx, text, cx, y, maxW, size, align = 'center') {
 function canvas(w, h) { const c = document.createElement('canvas'); c.width = Math.round(w); c.height = Math.round(h); return c; }
 
 function labelArt(g, aspect) {        // aspect = width / height of the cartridge label
+  const real = artImg(g, 'box'); if (real) return fillWith(real, 512, Math.round(512 / aspect), .3);   // the box art, cropped to the label
   const w = 512, h = Math.round(512 / aspect), c = canvas(w, h), ctx = c.getContext('2d');
   drawScene(ctx, w, h, g);
   const sh = ctx.createLinearGradient(0, h * .55, 0, h); sh.addColorStop(0, 'rgba(8,6,24,0)'); sh.addColorStop(1, 'rgba(8,6,24,.7)');
@@ -881,7 +884,12 @@ function labelArt(g, aspect) {        // aspect = width / height of the cartridg
   drawTitle(ctx, g.title, w / 2, h - size * (lines > 1 ? 2.6 : 1.6), w * .86, size);
   return c;
 }
+function fillWith(im, w, h, ay = .5) {   // a downloaded picture, filling w × h and cropped to fit
+  const c = canvas(w, h), x = c.getContext('2d'), k = Math.max(w / im.width, h / im.height);
+  x.drawImage(im, (w - im.width * k) / 2, (h - im.height * k) * ay, im.width * k, im.height * k); return c;
+}
 function coverFront(g, w, h) {
+  const real = artImg(g, 'box'); if (real) return fillWith(real, w, h);
   if (g.sys === 'android') return androidCover(g, w, h);
   const c = canvas(w, h), ctx = c.getContext('2d'), s = SYS[g.sys];
   drawScene(ctx, w, h, g);
@@ -1024,14 +1032,15 @@ function titleFrame(g, out) {   // a pretend title screen at the console's resol
 }
 const mediaCache = new Map();
 function mediaCanvas(g, m) {   // the full-size picture for one media item
-  const key = g.id + m.kind + (m.seed || ''); if (mediaCache.has(key)) return mediaCache.get(key);
+  const key = g.id + m.kind + (m.seed || '') + artStamp(g); if (mediaCache.has(key)) return mediaCache.get(key);
   const [bw, bh] = BOX[g.sys], k = 900 / Math.max(bw, bh);
-  const c = m.kind === 'title' ? titleFrame(g) : m.kind === 'box' ? coverFront(g, bw * k, bh * k) : m.kind === 'back' ? coverBack(g, bw * k, bh * k) : gameFrame(g, m.seed, m.scroll);
+  const real = (m.kind === 'title' || m.kind === 'shot') && artImg(g, m.kind);
+  const c = real ? fillWith(real, real.width, real.height) : m.kind === 'title' ? titleFrame(g) : m.kind === 'box' ? coverFront(g, bw * k, bh * k) : m.kind === 'back' ? coverBack(g, bw * k, bh * k) : gameFrame(g, m.seed, m.scroll);
   mediaCache.set(key, c); return c;
 }
 function mediaThumb(g, m) {   // a small picture for the strips, cached as an image
-  const key = 'thumb' + g.id + m.kind + (m.seed || ''); if (mediaCache.has(key)) return mediaCache.get(key);
-  const src = mediaCanvas(g, m), t = canvas(240, 176), x = t.getContext('2d'), pixel = m.kind !== 'box' && m.kind !== 'back';
+  const key = 'thumb' + g.id + m.kind + (m.seed || '') + artStamp(g); if (mediaCache.has(key)) return mediaCache.get(key);
+  const src = mediaCanvas(g, m), t = canvas(240, 176), x = t.getContext('2d'), pixel = m.kind !== 'box' && m.kind !== 'back' && !m.real;
   x.fillStyle = '#0a0d22'; x.fillRect(0, 0, 240, 176); x.imageSmoothingEnabled = !pixel;
   const sc = pixel ? Math.max(240 / src.width, 176 / src.height) : Math.min(240 / src.width, 176 / src.height);   // screens fill, boxes fit
   x.drawImage(src, (240 - src.width * sc) / 2, (176 - src.height * sc) / 2, src.width * sc, src.height * sc);
@@ -1152,11 +1161,11 @@ function androidCover(g, w, h) {   // store-style art built from the app's icon
 }
 function discArt(g, size = 512) {   // a printed disc: art inside a ring, with the center hole
   const c = canvas(size, size), x = c.getContext('2d'), R = size / 2;
-  const scene = canvas(size, size); drawScene(scene.getContext('2d'), size, size, g);
+  const real = artImg(g, 'box'), scene = real ? fillWith(real, size, size, .35) : canvas(size, size); if (!real) drawScene(scene.getContext('2d'), size, size, g);
   x.save(); x.beginPath(); x.arc(R, R, R - 1, 0, 7); x.clip(); x.drawImage(scene, 0, 0);
   const sh = x.createLinearGradient(0, R * .9, 0, R * 1.6); sh.addColorStop(0, 'rgba(8,6,24,0)'); sh.addColorStop(1, 'rgba(8,6,24,.65)'); x.fillStyle = sh; x.fillRect(0, 0, size, size);
   x.restore();
-  drawTitle(x, g.title, R, R * 1.32, size * .62, size * .07);
+  if (!real) drawTitle(x, g.title, R, R * 1.32, size * .62, size * .07);
   x.fillStyle = 'rgba(210,214,226,1)'; x.beginPath(); x.arc(R, R, R * .32, 0, 7); x.fill();       // the clear center ring
   x.fillStyle = 'rgba(160,166,182,1)'; x.beginPath(); x.arc(R, R, R * .25, 0, 7); x.fill();
   x.globalCompositeOperation = 'destination-out'; x.beginPath(); x.arc(R, R, R * .125, 0, 7); x.fill(); x.globalCompositeOperation = 'source-over';
@@ -1859,9 +1868,9 @@ function cartModel(sys) {
   return (cartMeshes[sys] = B.build({ c, ring: ringMesh(ccw(out)) }));
 }
 const labelAspect = sys => { const c = CART[sys]; return c.disc || c.umd ? 1 : c.label[2] / c.label[3]; };
-function labelTex(g) { const c = CART[g.sys]; return c.disc || c.umd ? tex('disc' + g.id, () => discArt(g), true) : tex('label' + g.id, () => labelArt(g, labelAspect(g.sys)), true); }
+function labelTex(g) { const c = CART[g.sys]; return c.disc || c.umd ? tex('disc' + g.id + artStamp(g), () => discArt(g), true) : tex('label' + g.id + artStamp(g), () => labelArt(g, labelAspect(g.sys)), true); }
 function foldTex(g) {   // the strip of label that folds over the top: the label's top edge, mirrored so the two meet
-  return tex('fold' + g.id, () => { const a = labelArt(g, labelAspect(g.sys)), c = canvas(512, 64), x = c.getContext('2d');
+  return tex('fold' + g.id + artStamp(g), () => { const a = labelArt(g, labelAspect(g.sys)), c = canvas(512, 64), x = c.getContext('2d');
     x.translate(0, 64); x.scale(1, -1); x.drawImage(a, 0, 0, a.width, a.height * .12, 0, 0, 512, 64); x.setTransform(1, 0, 0, 1, 0, 0);
     x.fillStyle = 'rgba(8,6,24,.18)'; x.fillRect(0, 0, 512, 64); return c; });
 }
@@ -1947,7 +1956,7 @@ function drawCase(g, st, open = 0, lift = 0, hideMedia = false) {
   if (NODRAW) return;
   const m = caseModel(g.sys), C = caseColors(g.sys), M = st.M || M4.trs(st.x, st.y, st.z, st.rx || 0, st.ry || 0, 0, st.s);
   const { W, D, bh, by, top } = m, k = 360 / Math.min(W, bh), x = { roles: C.roles }, al = st.alpha == null ? 1 : st.alpha;
-  const front = tex('front' + g.id, () => coverFront(g, W * k, bh * k)), back = tex('back' + g.id, () => coverBack(g, W * k, bh * k));
+  const front = tex('front' + g.id + artStamp(g), () => coverFront(g, W * k, bh * k)), back = tex('back' + g.id, () => coverBack(g, W * k, bh * k));
   const spine = tex('spine' + g.id, () => spineArt(g, bh * k, Math.max(28, D * k)));
   const o = (extra) => Object.assign({ alpha: al, bright: st.bright, spec: .35 }, extra);
   drawParts(m.base, M, st, x, 'opaque');
@@ -1961,7 +1970,7 @@ function drawCase(g, st, open = 0, lift = 0, hideMedia = false) {
   if (open > .01) {
     const [mw, mh] = m.manualSize, inner = top;
     drawPart(m.manual, M4.mul(CM, M4.trs(0, by, inner - .008, 0, 0, 0, [mw, mh, .012])), o({ col: [.93, .91, .87], spec: .1 }));
-    const mtex = hasManual(g) ? tex('mancover' + g.id, () => coverFront(g, Math.round(mw * 400), Math.round(mh * 400)), true) : null;
+    const mtex = hasManual(g) ? tex('mancover' + g.id + artStamp(g), () => coverFront(g, Math.round(mw * 400), Math.round(mh * 400)), true) : null;
     drawPart(PLANE, M4.mul(CM, M4.trs(0, by, inner - .0145, 0, Math.PI, 0, [mw - .01, mh - .01, 1])), o(mtex ? { tex: mtex, spec: .2 } : { col: C.inner.map(v => v * .85), spec: .1 }));
   }
   drawParts(m.cover, CM, st, x, 'glass');
@@ -2475,13 +2484,15 @@ function settingsModel() {
     const g = byId[S.set.game], own = P.gameEmu[g.id], opts = [null, ...PLAT[g.sys].emus], emu = emuFor(g), gf = P.gf[g.id] || (P.gf[g.id] = { filter: null });
     return [{ cat: g.title, intro: `${PLAT[g.sys].long}. These override the platform’s settings for this game only.`, items: g.sys === 'android' ? [
       action('Move back to Apps', '', 'Takes it out of the Library. It stays installed.', () => { unmarkGame(g.title); S.set.game = null; enterTab('apps'); return true; }),
-      action('Box art', 'Choose', 'Pick other art from the game databases, or make a box from the icon.', () => toast('Shows other art to choose from')),
+      ...(NATIVE ? [] : [action('Box art', 'Choose', 'Pick other art from the game databases, or make a box from the icon.', () => toast('Shows other art to choose from'))]),
       tog('Show on Home', 'show', 'Include it in your recently played cartridges.', { get show() { return !P.hidden.has(g.id); }, set show(v) { v ? P.hidden.delete(g.id) : P.hidden.add(g.id); } })] : [
       { label: 'Emulator', desc: own ? 'Chosen for this game.' : `Using the ${PLAT[g.sys].name} default. Choose to override it.`, value: own ? emuName(own) : `Default (${emuName(P.emu[g.sys])})`, act: () => { pickEmulator(g.sys, own || null, v => { if (v) P.gameEmu[g.id] = v; else delete P.gameEmu[g.id]; fillSettings(); }, { withDefault: true, title: `${g.title}: play with` }); return true; } },
       info('Saves', isRA(emu) ? 'Shelf’s slots' : `Kept by ${emu}`, isRA(emu) ? 'Four save slots with screenshots, per game.' : 'Standalone emulators keep their own saves.'),
       { label: 'Screen filter', desc: 'Overrides the platform’s filter.', value: gf.filter || `Default (${P.pf[g.sys].filter})`, act: () => { const v = [null, 'None', 'Scanlines', 'LCD grid'], i = v.indexOf(gf.filter); gf.filter = v[(i + 1) % v.length]; } },
-      action('Box art', 'Choose', 'Pick other box art from ScreenScraper.', () => toast('Shows other box art to choose from')),
-      info('Manual', hasManual(g) ? `${manualPages(g)} pages` : 'Not found', hasManual(g) ? 'Downloaded from ScreenScraper.' : 'ScreenScraper doesn’t have one for this game.'),
+      ...(NATIVE ? [] : [action('Box art', 'Choose', 'Pick other box art from ScreenScraper.', () => toast('Shows other box art to choose from'))]),
+      ...(NATIVE ? [] : [info('Manual', hasManual(g) ? `${manualPages(g)} pages` : 'Not found', hasManual(g) ? 'Downloaded from ScreenScraper.' : 'ScreenScraper doesn’t have one for this game.')]),
+      ...(NATIVE ? [action('Art and details', P.meta[g.id] ? P.meta[g.id].name : 'Not found yet', 'Choose from the closest matches, or change the search.', () => { openArtPicker(g); return true; }),
+        ...(P.meta[g.id] ? [action('Remove art and details', '', 'Go back to the box Shelf makes for it.', () => { ShelfNative.artRemove(g.id); delete P.meta[g.id]; nativeScan(); nativeSave(); toast('Art removed'); })] : [])] : []),
       tog('Show on Home', 'show', 'Include it in your recently played cartridges.', { get show() { return !P.hidden.has(g.id); }, set show(v) { v ? P.hidden.delete(g.id) : P.hidden.add(g.id); } })] }];
   }
   if (S.set.sub) {      // one platform's page
@@ -2511,7 +2522,7 @@ function settingsModel() {
         { label: 'themes', themes: true },
         tog('Accent follows the console', 'accentFollows', 'The accent color and one background field take on each console’s color.'),
         cyc('Case color', Q, 'caseTint', [false, true], 'The plastic of the modern cases.', { false: 'Neutral', true: 'Console color' }),
-        cyc('Home background', Q, 'homeArt', NATIVE ? ['box', 'cart', 'off'] : ['box', 'title', 'shot', 'cart', 'off'], 'A picture of the selected game under the row on Home, darkened and fading out toward the top.', { box: 'Box art', title: 'Title screen', shot: 'Screenshot', cart: 'Cartridge art', off: 'Off' }),
+        cyc('Home background', Q, 'homeArt', ['box', 'title', 'shot', 'cart', 'off'], 'A picture of the selected game under the row on Home, darkened and fading out toward the top.', { box: 'Box art', title: 'Title screen', shot: 'Screenshot', cart: 'Cartridge art', off: 'Off' }),
         tog('Background motion', 'motion', 'Drifting backgrounds, twinkling stars and the slow float of boxes and cartridges.')] };
       case 'Sound': { const M = P.prefs.music, names = Object.fromEntries([...TRACK_KEYS.map(k => [k, TRACKS[k].name]), ['shuffle', 'Shuffle']]); return { cat: 'Sound', intro: 'Music plays quietly in the menus and stops while you play.', items: [
         tog('Menu music', 'on', 'Original tracks written for Shelf.', M),
@@ -2524,7 +2535,12 @@ function settingsModel() {
         ...ALL_EMUS.map(e => INSTALLED_APPS.has(e) ? info(e, e === 'RetroArch' ? `Installed, ${INSTALLED_CORES.size} cores` : 'Installed', e === 'RetroArch' ? 'Shelf manages save slots and achievements through RetroArch. Other cores download when first used.' : `A standalone emulator for ${SYS_ORDER.filter(k => (PLAT[k].emus || []).includes(e)).map(k => PLAT[k].name).join(', ')}. It keeps its own saves.`)
           : action(e, 'Get it', `Not installed. Plays ${SYS_ORDER.filter(k => (PLAT[k].emus || []).includes(e)).map(k => PLAT[k].name).join(', ')}.`, () => toast(`Opens ${e} in the app store`))),
         action('Look for emulators again', '', 'After installing or removing one.', () => toast(`Found ${INSTALLED_APPS.size} emulators`))] };
-      case 'Art and info': { const A = P.art, ss = A.source === 'ScreenScraper'; return { cat: 'Art and info', intro: 'Box art, manuals, media and details are downloaded for you. Cartridge labels too, where the source has them.', items: [
+      case 'Art and info': if (NATIVE) { const have = GAMES.filter(g => P.meta[g.id]).length, all = GAMES.filter(g => g.sys !== 'android').length; return { cat: 'Art and info',
+        intro: 'Box art, title screens, screenshots and details (year, developer, genre) from libretro’s free database. No account needed. To choose a particular match for one game, open its box, then Game settings › Art and details.', items: [
+        action(ART_RUN.on ? 'Stop finding art' : 'Find art for every game', ART_RUN.on ? `${ART_RUN.i} of ${ART_RUN.n}` : `${have} of ${all} have art`, ART_RUN.on ? 'Finding art in the background. You can keep using Shelf.' : 'Looks up each game by its file. Games it can’t match for certain are left for you to choose.', () => { artAll(false); }),
+        ...(ART_RUN.on ? [] : [action('Find art again for every game', '', 'Replaces the art and details already found.', () => { artAll(true); })]),
+        info('ScreenScraper', 'Later', 'Manuals, videos and more art, with a free account. Coming in a later version.')] }; }
+        { const A = P.art, ss = A.source === 'ScreenScraper'; return { cat: 'Art and info', intro: 'Box art, manuals, media and details are downloaded for you. Cartridge labels too, where the source has them.', items: [
         { label: 'Source', value: A.source, desc: ss ? 'The most complete: boxes, manuals, videos and details.' : 'RetroArch’s databases and Wikipedia. No account needed.', act: () => { A.source = ss ? 'Free sources' : 'ScreenScraper'; } },
         ...(ss ? [action('ScreenScraper account', A.ss || 'Sign in', A.ss ? 'Signed in.' : 'A free account from screenscraper.fr.', () => { A.ss = A.ss ? null : 'player_one'; })] : []),
         tog('Gameplay videos', 'videos', 'Short clips for each game’s media.', A), tog('Manuals', 'manuals', 'Scans of the original manuals.', A),
@@ -2667,11 +2683,15 @@ function drawLaunch(dt) {
   endMeshes();
 }
 function startPlay(g, slot, resume, from) {
-  const r = ensureRec(g), emu = emuFor(g);
+  const r = ensureRec(g), emu = emuFor(g), before = P.recent.slice();
+  // a game moves to the front of Home the moment it's launched, not when you come back from it
+  r.last = Date.now(); P.recent = [g.id, ...P.recent.filter(x => x !== g.id)];
   if (NATIVE) {   // hand the game to the emulator; Shelf waits in the dark until you come back (__nativeResume)
     S.play = { g, slot, from, t: 0, native: true, start: Date.now() }; S.screen = 'play'; show('play');
+    P.playing = { id: g.id, from, start: S.play.start };   // saved, so coming back works even if Android restarted Shelf meanwhile
     const fl = $('#flash'); fl.style.transition = 'opacity .5s ease-out'; fl.style.opacity = 0;
-    const err = nativeLaunch(g, emu); if (err) { S.launchErr = err; setTimeout(homeFromPlay, 60); }
+    const err = nativeLaunch(g, emu);
+    if (err) { S.launchErr = err; P.recent = before; P.playing = null; setTimeout(homeFromPlay, 60); }
     return;
   }
   S.play = { g, slot, from, t: 0, seed: hash(g.id + 'play'), scroll: resume && r.slots[slot] ? (r.slots[slot].scroll || 120) : 0 };
@@ -2688,9 +2708,8 @@ function homeFromPlay() {
   const p = S.play; if (!p) return; S.play = null;
   const g = p.g, r = ensureRec(g), emu = emuFor(g), ra = isRA(emu) && P.prefs.autosave && !P.prefs.hardcore;
   if (ra) { r.slots[p.slot] = { ts: Date.now(), seed: p.seed, scroll: Math.floor(p.scroll) }; r.lastSlot = p.slot; }
-  if (!S.launchErr) { r.last = Date.now(); r.minutes += Math.max(1, Math.round((p.native ? (Date.now() - p.start) / 1000 : p.t) / 60)); }
-  if (NATIVE) nativeSave();
-  if (!S.launchErr) P.recent = [g.id, ...P.recent.filter(x => x !== g.id)];
+  if (!S.launchErr) r.minutes += Math.max(1, Math.round((p.native ? (Date.now() - p.start) / 1000 : p.t) / 60));
+  P.playing = null; if (NATIVE) nativeSave();
   const to = p.from === 'game' ? 'game' : 'home';
   if (to === 'home') { S.tab = 'home'; S.home.i = 0; S.home.zone = 'row'; refreshHome(); } else fillGame();
   S.seq = { kind: 'return', g, t: 0, flags: {}, under: to, cp: consolePose(g.sys), saved: ra, emu };
@@ -2742,7 +2761,7 @@ function openDlg(title, items, onPick, i = 0) { S.dlg = { open: true, title, ite
 function closeDlg() { S.dlg.open = false; renderDlg(); }
 function renderDlg() {
   const d = S.dlg, el = $('#dlg'); el.classList.toggle('open', !!d.open); if (!d.open) return;
-  el.innerHTML = `<h3>${esc(d.title)}</h3><div class="dlist">` + d.items.map((it, i) => `<div class="ditem ${i === d.i ? 'focus' : ''}">${it.check != null ? `<span class="chk ${it.check ? 'on' : ''}"></span>` : ''}<span>${esc(it.label)}</span>${it.sub ? `<small>${esc(it.sub)}</small>` : ''}</div>`).join('') + '</div>';
+  el.innerHTML = `<h3>${esc(d.title)}</h3><div class="dlist">` + d.items.map((it, i) => `<div class="ditem ${i === d.i ? 'focus' : ''}">${it.check != null ? `<span class="chk ${it.check ? 'on' : ''}"></span>` : ''}${it.img != null ? (it.img ? `<img class="dthumb" src="${it.img}" alt="">` : '<i class="dthumb"></i>') : ''}<span>${esc(it.label)}</span>${it.sub ? `<small>${esc(it.sub)}</small>` : ''}</div>`).join('') + '</div>';
   const L = el.querySelector('.dlist'), f = L.querySelector('.focus'); if (f) L.scrollTop = clamp(f.offsetTop - L.clientHeight / 2 + f.offsetHeight / 2, 0, L.scrollHeight);   // long lists keep the choice in view
 }
 const KB_ROWS = [[...'1234567890'], [...'QWERTYUIOP'], [...'ASDFGHJKL'], [...'ZXCVBNM'], ['&', "'", '-', '!', 'Space', 'Delete', 'Done']];
@@ -2800,7 +2819,8 @@ function addToCollection(g) {
 /* ================= media and manuals for a game ================= */
 const usingSS = () => P.art.source === 'ScreenScraper' && !!P.art.ss;
 function mediaFor(g) {
-  if (NATIVE) return [{ kind: 'box', label: 'Box art (made by Shelf)' }];   // real media comes with scraping, in a later version
+  if (NATIVE) { const a = (P.meta[g.id] || {}).art || {};   // what was downloaded for it, or Shelf's own box art
+    return [{ kind: 'box', label: a.box ? 'Box art' : 'Box art (made by Shelf)' }, ...(a.title ? [{ kind: 'title', label: 'Title screen', real: 1 }] : []), ...(a.shot ? [{ kind: 'shot', label: 'Screenshot', real: 1 }] : [])]; }
   const A = P.art, ss = usingSS(), r = rng(hash(g.id + 'media')), out = [];
   if (g.sys === 'android') return [{ kind: 'box', label: 'Store art' }, { kind: 'shot', label: 'Screenshot', seed: hash(g.id + 'shot0'), scroll: 40 }, { kind: 'shot', label: 'Screenshot', seed: hash(g.id + 'shot1'), scroll: 160 }];
   if (ss && A.videos) out.push({ kind: 'video', label: 'Gameplay video', seed: hash(g.id + 'vid'), dur: 30 + Math.floor(r() * 40), scroll: 60 });
@@ -3033,7 +3053,7 @@ function nativeScan() {
   const marked = GAMES.filter(g => g.sys === 'android');
   GAMES.length = 0;
   for (const r of d.games) GAMES.push({ id: hash(r.path).toString(36), sys: r.sys, title: r.title, year: '', dev: '', genre: '', players: '', ach: 0, desc: '', path: r.path });
-  GAMES.sort((a, b) => a.title.localeCompare(b.title)); GAMES.push(...marked);
+  GAMES.forEach(applyMeta); GAMES.sort((a, b) => a.title.localeCompare(b.title)); GAMES.push(...marked);
   for (const k in byId) delete byId[k];
   for (const g of [...DEMO_GAMES, ...GAMES]) byId[g.id] = g;
   APPS.length = 0; d.apps.forEach(a => APPS.push({ name: a.name, pkg: a.pkg, iconData: a.icon, icon: 'ring', hue: hash(a.pkg) % 360 }));
@@ -3056,13 +3076,13 @@ function chooseFolders() {   // from setup: which console's folder to choose
 function nativeSave() {
   try {
     ShelfNative.saveState(JSON.stringify({ v: 1, name: P.name, colors: P.colors, setup: P.setup, recent: P.recent, played: P.played, collections: P.collections, prefs: P.prefs,
-      emu: P.emu, gameEmu: P.gameEmu, pf: P.pf, hidden: [...(P.hidden || [])], androidGames: GAMES.filter(g => g.sys === 'android').map(g => ({ name: g.title, pkg: g.pkg })) }));
+      emu: P.emu, gameEmu: P.gameEmu, pf: P.pf, playing: P.playing || null, meta: P.meta, hidden: [...(P.hidden || [])], androidGames: GAMES.filter(g => g.sys === 'android').map(g => ({ name: g.title, pkg: g.pkg })) }));
   } catch (e) { console.error(e); }
 }
 function nativeLoad() {
   let s = null; try { s = JSON.parse(ShelfNative.loadState() || 'null'); } catch (e) { console.error(e); }
   if (!s) return;
-  for (const k of ['name', 'colors', 'setup', 'recent', 'played', 'collections', 'gameEmu']) if (s[k] != null) P[k] = s[k];
+  for (const k of ['name', 'colors', 'setup', 'recent', 'played', 'collections', 'gameEmu', 'playing', 'meta']) if (s[k] != null) P[k] = s[k];
   Object.assign(P.prefs, s.prefs || {}); Object.assign(P.emu, s.emu || {}); Object.assign(P.pf, s.pf || {});
   P.hidden = new Set(s.hidden || []);
   (s.androidGames || []).forEach(a => nativeAndroidGame(a.name, a.pkg));
@@ -3075,10 +3095,18 @@ function nativeLaunch(g, emu) {   // '' when the emulator opened, otherwise what
 }
 const WEBVIEW_OK = 100;   // older engines get a suggestion to update Android System WebView
 function nativeInfo() { try { return JSON.parse(ShelfNative.info()); } catch (e) { return { model: 'Android device', android: '', version: '' }; } }
+// Back from a game Shelf no longer remembers launching (Android closed Shelf's page while the game ran): rebuild
+// what's needed from the saved state and play the return animation anyway.
+function nativeBackFromGame() {
+  const pl = P.playing, g = pl && byId[pl.id]; if (!g || S.seq) return false;
+  if (S.screen === 'setup') { P.playing = null; return false; }
+  S.game.id = g.id; S.play = { g, slot: 0, from: pl.from === 'game' ? 'home' : pl.from, t: 0, native: true, start: pl.start || Date.now() }; S.screen = 'play';
+  homeFromPlay(); return true;
+}
 function nativeOpenEmu(g, e) { if (!ShelfNative.openEmulator(emuApp(e))) toast(`${emuApp(e)} isn’t installed`); }
 if (NATIVE) {
   // start from nothing but your own games: no invented history, collections or sign-ins
-  GAMES.length = 0; P.recent = []; P.played = {}; P.collections = []; P.ra = null; ANDROID_GAMES.clear();
+  GAMES.length = 0; P.recent = []; P.played = {}; P.collections = []; P.ra = null; P.meta = {}; ANDROID_GAMES.clear();
   P.art = { source: 'Free sources', ss: null, videos: false, manuals: false, backs: false, region: 'USA' };
   P.prefs.homeArt = 'cart';   // Shelf's own box art is mostly title text; the label art makes a calmer background
   nativeLoad(); nativeScan();
@@ -3097,10 +3125,90 @@ if (NATIVE) {
   };
   window.__nativeResume = () => {   // back from an emulator or an app, or from Android's settings
     if (S.screen === 'play' && S.play) return homeFromPlay();
+    if (nativeBackFromGame()) return;
     if (S.seq || !['setup', 'home', 'library', 'apps'].includes(S.screen)) return;
     nativeScan();
     if (S.screen === 'setup') fillSetup(); else if (S.screen === 'library') refreshLibrary(true); else if (S.screen === 'apps') refreshApps(); else refreshHome();
   };
+}
+
+/* ---------- art and details: found with libretro's free database and art (android/…/Art.java) ---------- */
+// P.meta[game id] = { name (libretro's), releaseyear, developer, publisher, genre, description, art: {box, title, shot}, t }
+const ART = new Map();   // "id:kind" → { img, ready }
+function artImg(g, kind) {   // a downloaded picture for this game, once it has loaded (null otherwise, and always in the browser)
+  if (!NATIVE || !g) return null;
+  const m = P.meta[g.id]; if (!m || !m.art || !m.art[kind]) return null;
+  const key = g.id + ':' + kind + ':' + m.t; let a = ART.get(key);
+  if (!a) {
+    a = { img: new Image(), ready: false }; ART.set(key, a);
+    a.img.onload = () => { a.ready = true; artLoaded(g); };
+    a.img.src = ShelfNative.artData(g.id, kind);
+  }
+  return a.ready ? a.img : null;
+}
+function artStamp(g) {   // changes whenever a game's art changes or finishes loading, so textures and pictures are made again
+  if (!NATIVE || !g || !P.meta[g.id]) return '';
+  const m = P.meta[g.id]; let n = 0; for (const k of ['box', 'title', 'shot']) { const a = ART.get(g.id + ':' + k + ':' + m.t); if (a && a.ready) n++; }
+  return ':' + m.t + '.' + n;
+}
+let artRefresh = 0;
+function artLoaded(g) {   // throw away what was drawn with the old art, and redraw what's on screen
+  for (const k of [...texCache.keys()]) if (k.includes(g.id) && !k.endsWith(artStamp(g))) { gl.deleteTexture(texCache.get(k)); texCache.delete(k); }
+  clearTimeout(artRefresh); artRefresh = setTimeout(() => { if (S.screen === 'game') fillGame(); else if (S.screen === 'home') refreshHome(); }, 120);
+}
+const cleanDetail = s => (s || '').replace(/\s*\?+$/, '').trim();
+function applyMeta(g) {   // libretro's details onto the game
+  const m = P.meta[g.id]; if (!m) return;
+  if (m.releaseyear) g.year = m.releaseyear; if (m.developer) g.dev = cleanDetail(m.developer);
+  if (m.genre) g.genre = m.genre.replace(/\s*\(.*\)$/, ''); if (m.description) g.desc = m.description;
+}
+const ART_REQ = {}; let artSeq = 0;
+function artCall(fn, ...args) { return new Promise(res => { const id = 'a' + (++artSeq); ART_REQ[id] = res; ShelfNative[fn](id, ...args); }); }
+window.__nativeArt = (id, body) => { const f = ART_REQ[id]; delete ART_REQ[id]; if (f) f(body); };
+function artSaved(g, res) {   // a download finished: remember it, use it
+  if (!res || res.error) return false;
+  P.meta[g.id] = { name: res.name, releaseyear: res.releaseyear, developer: res.developer, publisher: res.publisher, genre: res.genre, description: res.description, art: res.art || {}, t: res.t };
+  applyMeta(g); nativeSave(); return true;
+}
+const romQuery = g => (g.path || g.title).split('/').pop().replace(/\.[^.]+$/, '');   // the file's name, tags and all: the closest to libretro's names
+
+// One game: search (starting from its file name), show the closest matches with their box art, and use the one you pick.
+function openArtPicker(g, query = romQuery(g)) {
+  const head = { label: `Search: “${query}”`, sub: 'Change' };
+  openDlg(`Art and details for ${g.title}`, [head, { label: 'Searching…', sub: '' }], i => { if (i === 0) editQuery(); });
+  const editQuery = () => { closeDlg(); openKb('Search for', query, v => openArtPicker(g, v || romQuery(g))); };
+  artCall('artSearch', g.sys, query, g.path || '').then(res => {
+    if (!S.dlg.open || !S.dlg.items[0] || S.dlg.items[0].label !== head.label) return;   // closed, or a newer search
+    if (res.error) { S.dlg.items = [head, { label: res.error, sub: '' }]; return renderDlg(); }
+    const list = res.results || [];
+    S.dlg.items = [head, ...(list.length ? list.map(r => ({ label: r.name, img: r.thumb || '', sub: r.exact ? 'Exact match' : r.thumb ? '' : 'No box art', cls: 'art' })) : [{ label: 'Nothing found. Try fewer or different words.', sub: '' }])];
+    S.dlg.onPick = i => {
+      if (i === 0) return editQuery();
+      const r = list[i - 1]; if (!r) return;
+      closeDlg(); toast(`Downloading art for ${g.title}…`);
+      artCall('artApply', g.id, g.sys, r.name).then(res => { if (artSaved(g, res)) toast(`Art and details updated for ${g.title}`); else toast(res.error || 'Couldn’t download the art'); refreshAfterArt(); });
+    };
+    S.dlg.i = list.length ? 1 : 0; renderDlg();
+  });
+}
+function refreshAfterArt() { if (S.screen === 'settings') fillSettings(); else if (S.screen === 'game') fillGame(); else if (S.screen === 'home') refreshHome(); else if (S.screen === 'library') refreshLibrary(false); }
+
+// Every game: matched by the ROM's checksum, or by a close match of its file name, in the background.
+const ART_RUN = { on: false, i: 0, n: 0, found: 0 };
+function artAll(again) {
+  if (ART_RUN.on) { ShelfNative.artStop(); return; }
+  const list = GAMES.filter(g => g.sys !== 'android' && g.path && (again || !P.meta[g.id]));
+  if (!list.length) return toast('Every game already has art. Use Find art again to replace it.');
+  Object.assign(ART_RUN, { on: true, i: 0, n: list.length, found: 0 }); toast(`Finding art for ${list.length} games…`); refreshAfterArt();
+  const id = 'r' + (++artSeq);
+  window.__nativeArtProgress = (rid, p) => {
+    if (rid !== id) return;
+    if (p.done || p.error) { ART_RUN.on = false; toast(p.error ? p.error : `Found art for ${p.found} of ${ART_RUN.n} games${p.cancelled ? ' (stopped)' : ''}`); return refreshAfterArt(); }
+    ART_RUN.i = p.i + 1; const g = byId[p.key];
+    if (g && p.result && artSaved(g, p.result)) ART_RUN.found++;
+    if (S.screen === 'settings') fillSettings();
+  };
+  ShelfNative.artAuto(id, JSON.stringify(list.map(g => ({ key: g.id, sys: g.sys, path: g.path, query: romQuery(g) }))));
 }
 /* ================= input ================= */
 function act(a) {
@@ -3315,6 +3423,7 @@ function homeArtCanvas(g, kind) {
   let src = null;
   if (kind === 'cart') { src = canvas(w, h); drawScene(src.getContext('2d'), w, h, g); }
   else if (kind === 'box') src = mediaCanvas(g, { kind: 'box' });
+  else if (NATIVE) src = (kind === 'title' || kind === 'shot') && artImg(g, kind) || mediaCanvas(g, { kind: 'box' });   // in the app: downloaded art, or the box
   else if (kind === 'title' && g.sys !== 'android') src = mediaCanvas(g, { kind: 'title' });
   else src = mediaCanvas(g, { kind: 'shot', seed: hash(g.id + 'shot0'), scroll: 30 });
   const k = Math.max(w / src.width, h / src.height), sw = w / k, sh = h / k;
@@ -3324,7 +3433,7 @@ function homeArtCanvas(g, kind) {
   return c;
 }
 function drawHomeArt(dt, id, show) {
-  const kind = P.prefs.homeArt, key = kind !== 'off' && id ? 'homeart:' + kind + ':' + id : null;
+  const kind = P.prefs.homeArt, key = kind !== 'off' && id ? 'homeart:' + kind + ':' + id + ':' + artStamp(byId[id]) : null;
   if (key !== HB.key) { HB.prev = HB.a > .5 ? HB.key : HB.prev; HB.key = key; HB.a = 0; }
   HB.a = Math.min(1, HB.a + dt / .45); approach(HB, { vis: show ? 1 : 0 }, dt, 6);
   const dim = lightTheme() ? [.62, .62, .66] : [.36, .37, .44], top = HOME_Y + 122, hgt = 750 - top;   // the fade's edge sits at the bottom of the row
@@ -3542,7 +3651,7 @@ async function boot() {
   if (!gl) { document.body.insertAdjacentHTML('beforeend', '<p style="padding:40px">This prototype needs WebGL.</p>'); return; }
   initGL(); initMeshes(); applyTheme(P.prefs.theme);
   try { await Promise.race([Promise.all([document.fonts.load('600 40px Unbounded'), document.fonts.load('600 20px Manrope')]), new Promise(r => setTimeout(r, 2000))]); } catch (e) { }
-  if (NATIVE && P.setup) { paintProfile(); enterTab('home'); } else enterSetup();
+  if (NATIVE && P.setup) { paintProfile(); enterTab('home'); nativeBackFromGame(); } else enterSetup();
   requestAnimationFrame(loop);
 }
 boot();
