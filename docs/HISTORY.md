@@ -281,3 +281,9 @@
 - Lesson: test a cold start with every kind of saved state, not just a fresh one.
 - RetroArch cores: Shelf used to assume every core was there. It now keeps the list of cores you have (`P.cores`), asks
   on the first launch of a console whose core isn't on it, and has a tick list in Settings › Emulators.
+- Art from several services: `ArtSources.java` searches one kind of art at a time in libretro, ScreenScraper
+  (jeuRecherche, and jeuInfos by the ROM for Find art for every game), TheGamesDB (Games/ByGameName and Games/Images),
+  RetroAchievements (API_GetGameList and API_GetGame), SteamGridDB (search/autocomplete and grids) and IGDB (Twitch
+  token, then /v4/games), following each one's published API. Only libretro could be tested for real from Claude's
+  sandbox; TheGamesDB was reachable and refused a fake key as expected; the rest are blocked there and need checking on
+  the device with real accounts. Account fields use Android's own text box (`ShelfNative.askText`).

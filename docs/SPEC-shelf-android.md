@@ -309,7 +309,14 @@ plastic color, shadow color, and the 3D rim light.
   free, no account. Find art for every game (Settings › Art and info) matches each ROM by checksum or a near-exact
   name and leaves the rest; a game's settings › Art and details shows the closest matches with their box art, starting
   from the file name, with a search you can change. Real box art also becomes the cartridge label and the disc print.
-- **Not yet:** ScreenScraper (manuals, videos, more art), Shelf's own save slots
+- **Art from several services** (built): libretro (no account), ScreenScraper, TheGamesDB, RetroAchievements,
+  SteamGridDB and IGDB. A game's settings has a picker for each kind (box front, box back, spine, cartridge label or
+  disc art, title screen, screenshot); each says which services give it and which you've connected, and searches all
+  the connected ones at once. Accounts are entered in Settings › Art and info with Android's own text box (type or
+  paste), checked with a small search, and kept in Shelf's private storage. Find art for every game also uses
+  ScreenScraper, by the ROM itself, for the kinds libretro doesn't have. Back, spine and label art are drawn on the box
+  and cartridge.
+- **Not yet:** manuals and videos (ScreenScraper), Shelf's own save slots
   (RetroArch keeps its own saves for now), RetroAchievements, manuals and media, the RetroArch network commands.
   These stay as designed above.
 

@@ -395,8 +395,8 @@ function drawCase(g, st, open = 0, lift = 0, hideMedia = false) {
   if (NODRAW) return;
   const m = caseModel(g.sys), C = caseColors(g.sys), M = st.M || M4.trs(st.x, st.y, st.z, st.rx || 0, st.ry || 0, 0, st.s);
   const { W, D, bh, by, top } = m, k = 360 / Math.min(W, bh), x = { roles: C.roles }, al = st.alpha == null ? 1 : st.alpha;
-  const front = tex('front' + g.id + artStamp(g), () => coverFront(g, W * k, bh * k)), back = tex('back' + g.id, () => coverBack(g, W * k, bh * k));
-  const spine = tex('spine' + g.id, () => spineArt(g, bh * k, Math.max(28, D * k)));
+  const front = tex('front' + g.id + artStamp(g), () => coverFront(g, W * k, bh * k)), back = tex('back' + g.id + artStamp(g), () => coverBack(g, W * k, bh * k));
+  const spine = tex('spine' + g.id + artStamp(g), () => spineArt(g, bh * k, Math.max(28, D * k)));
   const o = (extra) => Object.assign({ alpha: al, bright: st.bright, spec: .35 }, extra);
   drawParts(m.base, M, st, x, 'opaque');
   drawPart(artPlane(W - .04, bh - .04, m.r), M4.mul(M, M4.trs(0, by, -D / 2 - .0015, 0, Math.PI, 0, 1)), o({ tex: back, spec: .5, gloss: .35 }));

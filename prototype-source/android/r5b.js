@@ -71,8 +71,11 @@ function settingsModel() {
       { label: 'Screen filter', desc: 'Overrides the platform’s filter.', value: gf.filter || `Default (${P.pf[g.sys].filter})`, act: () => { const v = [null, 'None', 'Scanlines', 'LCD grid'], i = v.indexOf(gf.filter); gf.filter = v[(i + 1) % v.length]; } },
       ...(NATIVE ? [] : [action('Box art', 'Choose', 'Pick other box art from ScreenScraper.', () => toast('Shows other box art to choose from'))]),
       ...(NATIVE ? [] : [info('Manual', hasManual(g) ? `${manualPages(g)} pages` : 'Not found', hasManual(g) ? 'Downloaded from ScreenScraper.' : 'ScreenScraper doesn’t have one for this game.')]),
-      ...(NATIVE ? [action('Art and details', P.meta[g.id] ? P.meta[g.id].name : 'Not found yet', 'Choose from the closest matches, or change the search.', () => { openArtPicker(g); return true; }),
-        ...(P.meta[g.id] ? [action('Remove art and details', '', 'Go back to the box Shelf makes for it.', () => { ShelfNative.artRemove(g.id); delete P.meta[g.id]; nativeScan(); nativeSave(); toast('Art removed'); })] : [])] : []),
+      ...(NATIVE ? [
+        action('Details', P.meta[g.id] && P.meta[g.id].name ? P.meta[g.id].name : 'Not found yet', 'Year, developer, genre and description, plus matching box art, title screen and screenshot. From libretro (no account).', () => { openArtPicker(g); return true; }),
+        ...ART_KINDS.map(({ k }) => { const m = P.meta[g.id] || {}, has = m.art && m.art[k];
+          return action(kindName(g, k), has ? (m.src && m.src[k]) || 'Downloaded' : 'Shelf’s own', kindTip(k), () => { openKindPicker(g, k); return true; }); }),
+        ...(P.meta[g.id] ? [action('Remove all art and details', '', 'Go back to the box Shelf makes for it.', () => { ShelfNative.artRemove(g.id); delete P.meta[g.id]; nativeScan(); nativeSave(); toast('Art removed'); })] : [])] : []),
       tog('Show on Home', 'show', 'Include it in your recently played cartridges.', { get show() { return !P.hidden.has(g.id); }, set show(v) { v ? P.hidden.delete(g.id) : P.hidden.add(g.id); } })] }];
   }
   if (S.set.sub) {      // one platform's page
@@ -117,10 +120,11 @@ function settingsModel() {
           : action(e, 'Get it', `Not installed. Plays ${SYS_ORDER.filter(k => (PLAT[k].emus || []).includes(e)).map(k => PLAT[k].name).join(', ')}.`, () => toast(`Opens ${e} in the app store`))),
         action('Look for emulators again', '', 'After installing or removing one.', () => toast(`Found ${INSTALLED_APPS.size} emulators`))] };
       case 'Art and info': if (NATIVE) { const have = GAMES.filter(g => P.meta[g.id]).length, all = GAMES.filter(g => g.sys !== 'android').length; return { cat: 'Art and info',
-        intro: 'Box art, title screens, screenshots and details (year, developer, genre) from libretro’s free database. No account needed. To choose a particular match for one game, open its box, then Game settings › Art and details.', items: [
+        intro: 'Find art for every game uses libretro (free), and ScreenScraper too when it’s connected. To choose each kind of art for one game from every connected service, open its box, then Game settings.', items: [
         action(ART_RUN.on ? 'Stop finding art' : 'Find art for every game', ART_RUN.on ? `${ART_RUN.i} of ${ART_RUN.n}` : `${have} of ${all} have art`, ART_RUN.on ? 'Finding art in the background. You can keep using Shelf.' : 'Looks up each game by its file. Games it can’t match for certain are left for you to choose.', () => { artAll(false); }),
         ...(ART_RUN.on ? [] : [action('Find art again for every game', '', 'Replaces the art and details already found.', () => { artAll(true); })]),
-        info('ScreenScraper', 'Later', 'Manuals, videos and more art, with a free account. Coming in a later version.')] }; }
+        ...ART_SOURCES.map(s => action(s.name, !s.fields.length ? 'No account needed' : srcConnected(s) ? 'Connected' : 'Connect',
+          `Gives ${s.kinds.map(k => ART_KINDS.find(a => a.k === k).name.toLowerCase()).join(', ')}. ${s.needs}.`, () => { sourceOptions(s); return true; }))] }; }
         { const A = P.art, ss = A.source === 'ScreenScraper'; return { cat: 'Art and info', intro: 'Box art, manuals, media and details are downloaded for you. Cartridge labels too, where the source has them.', items: [
         { label: 'Source', value: A.source, desc: ss ? 'The most complete: boxes, manuals, videos and details.' : 'RetroArch’s databases and Wikipedia. No account needed.', act: () => { A.source = ss ? 'Free sources' : 'ScreenScraper'; } },
         ...(ss ? [action('ScreenScraper account', A.ss || 'Sign in', A.ss ? 'Signed in.' : 'A free account from screenscraper.fr.', () => { A.ss = A.ss ? null : 'player_one'; })] : []),

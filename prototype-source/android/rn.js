@@ -44,13 +44,13 @@ function chooseFolders() {   // from setup: which console's folder to choose
 function nativeSave() {
   try {
     ShelfNative.saveState(JSON.stringify({ v: 1, name: P.name, colors: P.colors, setup: P.setup, recent: P.recent, played: P.played, collections: P.collections, prefs: P.prefs,
-      emu: P.emu, gameEmu: P.gameEmu, pf: P.pf, playing: P.playing || null, meta: P.meta, cores: P.cores, hidden: [...(P.hidden || [])], androidGames: GAMES.filter(g => g.sys === 'android').map(g => ({ name: g.title, pkg: g.pkg })) }));
+      emu: P.emu, gameEmu: P.gameEmu, pf: P.pf, playing: P.playing || null, meta: P.meta, cores: P.cores, keys: P.keys, hidden: [...(P.hidden || [])], androidGames: GAMES.filter(g => g.sys === 'android').map(g => ({ name: g.title, pkg: g.pkg })) }));
   } catch (e) { console.error(e); }
 }
 function nativeLoad() {
   let s = null; try { s = JSON.parse(ShelfNative.loadState() || 'null'); } catch (e) { console.error(e); }
   if (!s) return;
-  for (const k of ['name', 'colors', 'setup', 'recent', 'played', 'collections', 'gameEmu', 'playing', 'meta', 'cores']) if (s[k] != null) P[k] = s[k];
+  for (const k of ['name', 'colors', 'setup', 'recent', 'played', 'collections', 'gameEmu', 'playing', 'meta', 'cores', 'keys']) if (s[k] != null) P[k] = s[k];
   Object.assign(P.prefs, s.prefs || {}); Object.assign(P.emu, s.emu || {}); Object.assign(P.pf, s.pf || {});
   P.hidden = new Set(s.hidden || []);
   (s.androidGames || []).forEach(a => nativeAndroidGame(a.name, a.pkg));
@@ -109,7 +109,7 @@ function artImg(g, kind) {   // a downloaded picture for this game, once it has 
 }
 function artStamp(g) {   // changes whenever a game's art changes or finishes loading, so textures and pictures are made again
   if (!NATIVE || !g || !P.meta[g.id]) return '';
-  const m = P.meta[g.id]; let n = 0; for (const k of ['box', 'title', 'shot']) { const a = ART.get(g.id + ':' + k + ':' + m.t); if (a && a.ready) n++; }
+  const m = P.meta[g.id]; let n = 0; for (const k of ART_KINDS.map(a => a.k)) { const a = ART.get(g.id + ':' + k + ':' + m.t); if (a && a.ready) n++; }
   return ':' + m.t + '.' + n;
 }
 let artRefresh = 0;
@@ -128,7 +128,8 @@ function artCall(fn, ...args) { return new Promise(res => { const id = 'a' + (++
 window.__nativeArt = (id, body) => { const f = ART_REQ[id]; delete ART_REQ[id]; if (f) f(body); };
 function artSaved(g, res) {   // a download finished: remember it, use it
   if (!res || res.error) return false;
-  P.meta[g.id] = { name: res.name, releaseyear: res.releaseyear, developer: res.developer, publisher: res.publisher, genre: res.genre, description: res.description, art: res.art || {}, t: res.t };
+  const old = P.meta[g.id] || {}, src = {}; for (const k in res.art || {}) src[k] = res.src || 'libretro';
+  P.meta[g.id] = { name: res.name, releaseyear: res.releaseyear, developer: res.developer, publisher: res.publisher, genre: res.genre, description: res.description, art: res.art || {}, src: Object.assign({}, old.src || {}, src), t: res.t };
   applyMeta(g); nativeSave(); return true;
 }
 const romQuery = g => (g.path || g.title).split('/').pop().replace(/\.[^.]+$/, '');   // the file's name, tags and all: the closest to libretro's names
@@ -169,12 +170,75 @@ function artAll(again) {
     if (g && p.result && artSaved(g, p.result)) ART_RUN.found++;
     if (S.screen === 'settings') fillSettings();
   };
-  ShelfNative.artAuto(id, JSON.stringify(list.map(g => ({ key: g.id, sys: g.sys, path: g.path, query: romQuery(g) }))));
+  ShelfNative.artAuto(id, JSON.stringify(list.map(g => ({ key: g.id, sys: g.sys, path: g.path, query: romQuery(g) }))), JSON.stringify(P.keys));
 }
+
+
+/* ---------- art from several services, one kind at a time ---------- */
+const ART_KINDS = [{ k: 'box', name: 'Box front' }, { k: 'back', name: 'Box back' }, { k: 'spine', name: 'Spine' },
+  { k: 'label', name: 'Label' }, { k: 'title', name: 'Title screen' }, { k: 'shot', name: 'Screenshot' }];
+const kindName = (g, k) => k === 'label' ? (CART[g.sys] && (CART[g.sys].disc || CART[g.sys].umd) ? 'Disc art' : 'Cartridge label') : ART_KINDS.find(a => a.k === k).name;
+// each service: what it gives, and what you need to connect it (fields are asked for with Android's own text box)
+const ART_SOURCES = [
+  { id: 'libretro', name: 'libretro', kinds: ['box', 'title', 'shot'], needs: 'No account needed', fields: [] },
+  { id: 'ss', name: 'ScreenScraper', kinds: ['box', 'back', 'spine', 'label', 'title', 'shot'], needs: 'A free screenscraper.fr account, plus developer credentials you request once on their forum',
+    fields: [['devid', 'Developer ID'], ['devpassword', 'Developer password', 1], ['user', 'Your ScreenScraper username', 0, 1], ['password', 'Your ScreenScraper password', 1, 1]] },
+  { id: 'tgdb', name: 'TheGamesDB', kinds: ['box', 'back', 'title', 'shot'], needs: 'An API key from thegamesdb.net (request it under API Access)', fields: [['key', 'TheGamesDB API key', 1]] },
+  { id: 'ra', name: 'RetroAchievements', kinds: ['box', 'title', 'shot'], needs: 'Your RetroAchievements username and web API key (Settings › Keys on the site)', fields: [['user', 'RetroAchievements username'], ['key', 'Web API key', 1]] },
+  { id: 'sgdb', name: 'SteamGridDB', kinds: ['box'], needs: 'An API key from steamgriddb.com (Preferences › API)', fields: [['key', 'SteamGridDB API key', 1]] },
+  { id: 'igdb', name: 'IGDB', kinds: ['box', 'shot'], needs: 'A Twitch developer app’s client ID and secret (dev.twitch.tv › Your Console)', fields: [['id', 'Twitch client ID'], ['secret', 'Twitch client secret', 1]] },
+];
+const srcConnected = s => s.fields.filter(f => !f[3]).every(f => (P.keys[s.id] || {})[f[0]]);   // [field, label, secret, optional]
+function kindTip(k) {   // which services give this kind of art, and which of those you've connected
+  const all = ART_SOURCES.filter(s => s.kinds.includes(k)), on = all.filter(srcConnected);
+  return `From ${all.map(s => s.name + (s.fields.length ? '' : ' (no account)')).join(', ')}. ` + (on.length ? `Connected: ${on.map(s => s.name).join(', ')}.` : 'Connect one in Settings › Art and info.');
+}
+const askText = (title, value, secret) => new Promise(res => { const id = 't' + (++artSeq); ART_REQ[id] = res; ShelfNative.askText(id, title, value || '', !!secret); });
+window.__nativeText = (id, v) => { const f = ART_REQ[id]; delete ART_REQ[id]; if (f) f(v); };
+async function connectSource(s) {   // fill in an account, field by field, then try it
+  const k = Object.assign({}, P.keys[s.id] || {});
+  for (const [f, label, secret, optional] of s.fields) { const v = await askText(label + (optional ? ' (optional)' : ''), k[f], secret); if (v == null) return; k[f] = v; }
+  P.keys[s.id] = k; nativeSave(); toast(`Checking ${s.name}…`); fillSettings();
+  const r = await artCall('artTest', s.id, JSON.stringify(P.keys));
+  toast(r.error ? `${s.name}: ${r.error}` : `${s.name}: ${r.message}`);
+}
+function sourceOptions(s) {
+  if (!s.fields.length) return toast('libretro needs no account');
+  if (!srcConnected(s)) return connectSource(s);
+  openDlg(s.name, [{ label: 'Check the connection' }, { label: 'Change the account details' }, { label: 'Disconnect' }], async i => {
+    closeDlg();
+    if (i === 0) { toast(`Checking ${s.name}…`); const r = await artCall('artTest', s.id, JSON.stringify(P.keys)); toast(r.error ? `${s.name}: ${r.error}` : `${s.name}: ${r.message}`); }
+    else if (i === 1) connectSource(s);
+    else { delete P.keys[s.id]; nativeSave(); fillSettings(); toast(`${s.name} disconnected`); }
+  });
+}
+// One kind of art for one game: every connected service at once, from a search you can change
+function openKindPicker(g, k, query = romQuery(g)) {
+  const head = { label: `Search: “${query}”`, sub: 'Change' }, title = `${kindName(g, k)} for ${g.title}`;
+  openDlg(title, [head, { label: 'Searching…', sub: '' }], i => { if (i === 0) editQuery(); });
+  const editQuery = () => { closeDlg(); openKb('Search for', query, v => openKindPicker(g, k, v || romQuery(g))); };
+  artCall('artFind', k, g.sys, query, g.path || '', JSON.stringify(P.keys)).then(res => {
+    if (!S.dlg.open || S.dlg.title !== title || S.dlg.items[0].label !== head.label) return;
+    const list = res.results || [], probs = (res.problems || []).map(p => ({ label: p.replace(/^(\w+):/, (m, id) => (ART_SOURCES.find(s => s.id === id) || { name: id }).name + ':'), sub: '' }));
+    S.dlg.items = [head, ...(res.error ? [{ label: res.error, sub: '' }] : list.length ? list.map(r => ({ label: r.game, img: r.thumb, sub: r.source })) : [{ label: 'Nothing found. Try fewer or different words, or connect more services.', sub: '' }]), ...probs];
+    S.dlg.onPick = i => {
+      if (i === 0) return editQuery();
+      const r = list[i - 1]; if (!r) return;
+      closeDlg(); toast(`Downloading ${kindName(g, k).toLowerCase()}…`);
+      artCall('artTake', g.id, k, r.url).then(t => {
+        if (t.error) return toast(t.error);
+        const m = P.meta[g.id] || (P.meta[g.id] = { art: {}, src: {} }); m.art = Object.assign({}, m.art, { [k]: 1 }); m.src = Object.assign({}, m.src, { [k]: r.source }); m.t = t.t;
+        nativeSave(); toast(`${kindName(g, k)} updated, from ${r.source}`); refreshAfterArt();
+      });
+    };
+    S.dlg.i = list.length ? 1 : 0; renderDlg();
+  });
+}
+function removeKind(g, k) { const m = P.meta[g.id]; if (!m || !m.art) return; delete m.art[k]; if (m.src) delete m.src[k]; m.t = Date.now(); nativeSave(); refreshAfterArt(); }
 
 if (NATIVE) {   // start-up in the app; runs last, so everything it uses is defined
   // start from nothing but your own games: no invented history, collections or sign-ins
-  GAMES.length = 0; P.recent = []; P.played = {}; P.collections = []; P.ra = null; P.meta = {}; P.cores = []; ANDROID_GAMES.clear();
+  GAMES.length = 0; P.recent = []; P.played = {}; P.collections = []; P.ra = null; P.meta = {}; P.cores = []; P.keys = {}; ANDROID_GAMES.clear();
   P.art = { source: 'Free sources', ss: null, videos: false, manuals: false, backs: false, region: 'USA' };
   P.prefs.homeArt = 'cart';   // Shelf's own box art is mostly title text; the label art makes a calmer background
   try { nativeLoad(); } catch (e) { console.error('Shelf couldn’t read its saved state', e); }

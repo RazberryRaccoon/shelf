@@ -93,6 +93,7 @@ function drawTitle(ctx, text, cx, y, maxW, size, align = 'center') {
 function canvas(w, h) { const c = document.createElement('canvas'); c.width = Math.round(w); c.height = Math.round(h); return c; }
 
 function labelArt(g, aspect) {        // aspect = width / height of the cartridge label
+  const label = artImg(g, 'label'); if (label) return fillWith(label, 512, Math.round(512 / aspect));   // a scan of the real label
   const real = artImg(g, 'box'); if (real) return fillWith(real, 512, Math.round(512 / aspect), .3);   // the box art, cropped to the label
   const w = 512, h = Math.round(512 / aspect), c = canvas(w, h), ctx = c.getContext('2d');
   drawScene(ctx, w, h, g);
@@ -122,6 +123,7 @@ function coverFront(g, w, h) {
   return c;
 }
 function coverBack(g, w, h) {   // sized by the box's shorter side, so wide boxes (SNES, N64) fit as well as tall ones
+  const real = artImg(g, 'back'); if (real) return fillWith(real, w, h);
   const c = canvas(w, h), ctx = c.getContext('2d'), p = pal(g), s = SYS[g.sys], u = Math.min(w, h * .8);
   ctx.fillStyle = `hsl(${p.h},35%,12%)`; ctx.fillRect(0, 0, w, h);
   const m = u * .07, by = h - m - u * .1; let y = m;
@@ -142,6 +144,11 @@ function coverBack(g, w, h) {   // sized by the box's shorter side, so wide boxe
   return c;
 }
 function spineArt(g, len, thick) {   // drawn upright: len tall, thick wide
+  const real = artImg(g, 'spine');
+  if (real) {   // a spine scan, turned upright if it was saved lying down
+    if (real.width <= real.height) return fillWith(real, thick, len);
+    const c = canvas(thick, len), x = c.getContext('2d'); x.translate(thick, 0); x.rotate(Math.PI / 2); x.drawImage(fillWith(real, len, thick), 0, 0); return c;
+  }
   const c = canvas(thick, len), ctx = c.getContext('2d'), p = pal(g), s = SYS[g.sys];
   ctx.fillStyle = `hsl(${p.h},40%,14%)`; ctx.fillRect(0, 0, thick, len);
   ctx.fillStyle = s.accent; ctx.fillRect(0, 0, thick, len * .1);
@@ -379,7 +386,7 @@ function androidCover(g, w, h) {   // store-style art built from the app's icon
 }
 function discArt(g, size = 512) {   // a printed disc: art inside a ring, with the center hole
   const c = canvas(size, size), x = c.getContext('2d'), R = size / 2;
-  const real = artImg(g, 'box'), scene = real ? fillWith(real, size, size, .35) : canvas(size, size); if (!real) drawScene(scene.getContext('2d'), size, size, g);
+  const real = artImg(g, 'label') || artImg(g, 'box'), scene = real ? fillWith(real, size, size, .35) : canvas(size, size); if (!real) drawScene(scene.getContext('2d'), size, size, g);
   x.save(); x.beginPath(); x.arc(R, R, R - 1, 0, 7); x.clip(); x.drawImage(scene, 0, 0);
   const sh = x.createLinearGradient(0, R * .9, 0, R * 1.6); sh.addColorStop(0, 'rgba(8,6,24,0)'); sh.addColorStop(1, 'rgba(8,6,24,.65)'); x.fillStyle = sh; x.fillRect(0, 0, size, size);
   x.restore();

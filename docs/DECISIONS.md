@@ -224,7 +224,9 @@ Summarized from the first part of the conversation; the full transcript is kept 
   RetroArch cores, like Nestopia for example, and make that adjustable." Built: Shelf asks which core you use the first
   time you play a console with a core it doesn't know you have, and Settings › Emulators › RetroArch cores lists them.
 - Art from more services, with a picker per art type: proposed (ScreenScraper, TheGamesDB, RetroAchievements,
-  SteamGridDB, IGDB; MobyGames skipped, its API is now paid), waiting on which accounts the user has.
+  SteamGridDB, IGDB; MobyGames skipped, its API is now paid). The user: "Yes, all except MobyGames." "I already have most
+  of them." Built: a picker per art type in each game's settings, results from every connected service, and accounts
+  entered with Android's own text box in Settings › Art and info.
 
 ### Prototype v2, part 2 (built)
 
