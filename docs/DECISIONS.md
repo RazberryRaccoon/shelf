@@ -228,6 +228,13 @@ Summarized from the first part of the conversation; the full transcript is kept 
   of them." Built: a picker per art type in each game's settings, results from every connected service, and accounts
   entered with Android's own text box in Settings › Art and info.
 
+### Premium cartridges (October 2026)
+
+- A brief from the user, "Make the 3D cartridges look premium", with the rule "Use our own original cartridge
+  outlines; don't copy any other app's assets or exact geometry." A three.js generator (outlines in a data file, ExtrudeGeometry with bevels, MeshPhysicalMaterial, a
+  studio HDR through PMREM, ACES filmic, contact shadow) and a tuning page with .glb export. Built as
+  `tools/cartridge-studio/`, in the brief's order of work.
+
 ### Prototype v2, part 2 (built)
 
 - "Add in a button that skips the setup, just for debugging… not literally skip all the setup, but instead just
