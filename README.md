@@ -147,6 +147,7 @@ Shift is Select, Esc or M is Menu, V is Volume.
 | [`prototypes/`](prototypes) | The three browser prototypes, each a single HTML file. |
 | [`prototype-source/`](prototype-source) | The prototypes split into the parts they're built from. |
 | [`android/`](android) | Shelf for Android, the app (built by GitHub Actions). |
+| [`tools/cartridge-studio/`](tools/cartridge-studio) | Cartridge Studio: premium 3D cartridges from outlines, with a tuning page and .glb export ([open it](https://razberryraccoon.github.io/shelf/tools/cartridge-studio/)). |
 | [`code/shelf-retrogo/`](code/shelf-retrogo) | Shelf for Odroid GO (retro-go launcher and PC tools). |
 | [`code/shelf-tv-pi/`](code/shelf-tv-pi) | Shelf for TV on the Raspberry Pi (C, SDL2, OpenGL ES 2). |
 | [`docs/`](docs) | The Android spec, every design decision, the history of each version, research and the roadmap. |

@@ -287,3 +287,9 @@
   token, then /v4/games), following each one's published API. Only libretro could be tested for real from Claude's
   sandbox; TheGamesDB was reachable and refused a fake key as expected; the rest are blocked there and need checking on
   the device with real accounts. Account fields use Android's own text box (`ShelfNative.askText`).
+
+**Cartridge Studio (October 2026):** `tools/cartridge-studio/`, from the user's brief. Eight styles from Shelf's
+outlines. Problems found in testing: pulling an outline in by the bevel folded corners smaller than the bevel, leaving
+spikes (fixed by dropping points whose edges turn around); a studio HDR at exposure 1 washed light plastics out to white
+(defaults now exposure .72, environment .85). Poly Haven is blocked in Claude's sandbox, so the bundled studio EXR was
+what got tested. Shelf's own renderer (WebGL 1, its own model format) doesn't use these models yet.
