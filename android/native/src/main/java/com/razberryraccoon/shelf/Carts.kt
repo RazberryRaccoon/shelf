@@ -131,13 +131,18 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
         labelMat?.set("baseColorFactor", bright, bright, bright, 1f)
     }
 
-    /** Places it: (x, y) in layout pixels from the top left, z toward you, turned by ry and rx, `px` tall at its largest. */
-    fun place(x: Float, y: Float, z: Float, ry: Float, rx: Float, px: Float) {
+    /**
+     * Places it: (x, y) in layout pixels from the top left, z toward you, turned by ry and rx, `px` tall at its largest.
+     * `held`: tip it toward you around the screen's own horizontal axis (as when you turn something in your hands)
+     * rather than its own, so it turns the way the stick points from any side.
+     */
+    fun place(x: Float, y: Float, z: Float, ry: Float, rx: Float, px: Float, held: Boolean = false) {
         val s = px / maxOf(style.w, style.h)
         Matrix.setIdentityM(m, 0)
         Matrix.translateM(m, 0, x, Stage.H - y, z)
+        if (held) Matrix.rotateM(m, 0, Math.toDegrees(rx.toDouble()).toFloat(), 1f, 0f, 0f)
         Matrix.rotateM(m, 0, Math.toDegrees(ry.toDouble()).toFloat(), 0f, 1f, 0f)
-        Matrix.rotateM(m, 0, Math.toDegrees(rx.toDouble()).toFloat(), 1f, 0f, 0f)
+        if (!held) Matrix.rotateM(m, 0, Math.toDegrees(rx.toDouble()).toFloat(), 1f, 0f, 0f)
         Matrix.scaleM(m, 0, s, s, s)
         tm.setTransform(tm.getInstance(asset.root), m)
     }

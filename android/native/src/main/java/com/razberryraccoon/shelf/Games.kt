@@ -50,6 +50,7 @@ class Games(private val ctx: Context) {
     var lightEnv: Float get() = prefs.getFloat("light:env", Look.ENV); set(v) = prefs.edit().putFloat("light:env", v).apply()
     var lightExposure: Float get() = prefs.getFloat("light:exposure", Look.EXPOSURE); set(v) = prefs.edit().putFloat("light:exposure", v).apply()
     var lightKey: Float get() = prefs.getFloat("light:key", Look.KEY); set(v) = prefs.edit().putFloat("light:key", v).apply()
+    var sounds: Boolean get() = prefs.getBoolean("sounds", true); set(v) = prefs.edit().putBoolean("sounds", v).apply()
     var setupDone: Boolean get() = prefs.getBoolean("setup", false); set(v) = prefs.edit().putBoolean("setup", v).apply()
 
     /** Folders you chose: one per console, and main folders that hold a folder per console. */
@@ -76,6 +77,9 @@ class Games(private val ctx: Context) {
     fun recent(): List<Game> = all.sortedWith(compareByDescending<Game> { lastPlayed(it) }.thenBy { it.title.lowercase() })
 
     fun lastPlayed(g: Game) = prefs.getLong("played:" + g.path, 0L)
+    fun timesPlayed(g: Game) = prefs.getInt("plays:" + g.path, 0)
+    fun favorite(g: Game) = prefs.getBoolean("fav:" + g.path, false)
+    fun setFavorite(g: Game, on: Boolean) = prefs.edit().putBoolean("fav:" + g.path, on).apply()
     fun variant(g: Game): String? = prefs.getString("variant:" + g.path, null)
     fun setVariant(g: Game, name: String) = prefs.edit().putString("variant:" + g.path, name).apply()
 
@@ -103,7 +107,7 @@ class Games(private val ctx: Context) {
         val req = JSONObject().put("emu", if (ra) "RetroArch" else emu).put("core", if (ra) CORE_FILES[emu.removePrefix(RA)] ?: "" else "")
             .put("path", g.path).put("sys", g.sys)
         val err = Emulators.launch(ctx, req) ?: ""
-        if (err.isEmpty()) prefs.edit().putLong("played:" + g.path, System.currentTimeMillis()).apply()
+        if (err.isEmpty()) prefs.edit().putLong("played:" + g.path, System.currentTimeMillis()).putInt("plays:" + g.path, timesPlayed(g) + 1).apply()
         return err
     }
 }

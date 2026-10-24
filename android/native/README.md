@@ -35,12 +35,25 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Stage.kt` | Filament: engine, transparent view, studio lighting, camera, the frame loop. |
 | `Carts.kt` | Loads the models, draws each game's label, applies shell colors, places each cartridge. |
 | `Home.kt` | Home: the row of recent games, the top bar, details, the shell color and emulator pickers. |
+| `GamePage.kt` | A game's page: the cartridge to turn with the right stick, the details and icon tiles, live shell colors. |
+| `Sounds.kt` | The quiet interface sounds, synthesized on the device. |
 | `Setup.kt` | First-run setup (welcome, your name and color, games folders, emulators, done); its pages are also Settings. |
 | `Backdrop.kt` | Everything behind the 3D layer. |
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
-## What's in version 0.2
+## What's in version 0.3
+
+A game's page, opened in place from Home (Down): the cartridge lifts out of the row in an arc and grows on the left
+while the rest of the row sinks away; the right stick turns it in your hands (it coasts when you let go, then settles
+back to facing you), X flips it over, and the key light swings a little as it turns so the plastic catches a sweep of
+highlight. On the right: the console, the title, when you last played it and how often, its emulator and shell, and a
+row of icon tiles (Play, Emulator, Shell color, Favorite, Back). Shell color lists the real colors and shows each one
+on the big cartridge as you move through them; A keeps it, B puts the old one back. Up or B closes the page. Sounds:
+short, quiet sine-tone clicks and chimes made on the device (`Sounds.kt`), off in Settings › Sounds. Box models and
+the box opening come with the Library.
+
+## What was in version 0.2
 
 First-run setup, which the prototype has: welcome; your name and color; finding your games (storage access, then a
 folder for any console, or one main folder with a folder per console inside); each console's emulator; done. Settings

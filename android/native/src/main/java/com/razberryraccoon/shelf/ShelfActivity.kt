@@ -62,6 +62,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host {
         stage = Stage(this, surface)
         games = Games(this)
         stage.setLook(games.lightEnv, games.lightExposure, games.lightKey)
+        Sounds.init(this, games.sounds)
         carts = Carts(stage)
         home = Home(this, stage, board, backdrop, games, carts, this)
         if (!games.setupDone) openSetup(settings = false)
@@ -251,6 +252,8 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host {
     override fun onGenericMotionEvent(e: MotionEvent): Boolean {
         val pad = e.source and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK || e.source and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD
         if (!pad || e.action != MotionEvent.ACTION_MOVE) return super.onGenericMotionEvent(e)
+        // the right stick turns the cartridge on a game's page
+        if (!safeMode) home.stick(e.getAxisValue(MotionEvent.AXIS_Z), e.getAxisValue(MotionEvent.AXIS_RZ))
         // the left stick, or a D-pad that reports itself as a hat
         var x = e.getAxisValue(MotionEvent.AXIS_HAT_X); var y = e.getAxisValue(MotionEvent.AXIS_HAT_Y)
         if (abs(x) < .5f && abs(y) < .5f) { x = e.getAxisValue(MotionEvent.AXIS_X); y = e.getAxisValue(MotionEvent.AXIS_Y) }

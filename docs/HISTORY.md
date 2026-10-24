@@ -347,3 +347,8 @@ panel no longer clips the list to its padding (the cause of the cut sides) and t
 ring; the message lasts 2.5 seconds by the clock; the cartridge keeps changing on every page unless a console's row is
 focused; gold and silver are fully metallic, colored by measured metal reflectance. The user's lighting (environment
 .1, exposure .3, key light .2) is now the default, and the Lighting page stays.
+
+**Shelf Native 0.3 (October 2026):** the game page, cartridge first. The full design opens the game's box, but Shelf
+Native has no box models yet, so the user chose to start with the cartridge as the page's centerpiece (boxes come with
+the Library). The user picked all four suggested touches: spin with momentum, the light catching it as it turns, live
+shell color previews, and soft sounds (synthesized sine tones, quiet, with a Settings switch).
