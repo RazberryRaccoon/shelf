@@ -1,6 +1,7 @@
 package com.razberryraccoon.shelf
 
 import android.content.Context
+import org.json.JSONArray
 import org.json.JSONObject
 
 data class Game(val sys: String, val title: String, val path: String)
@@ -42,9 +43,26 @@ class Games(private val ctx: Context) {
         const val RA = "RetroArch: "
     }
 
-    /** Looks for games in every ROMs folder (the shared Scanner). Slow; call it off the main thread. */
+    // ---------- you, and where your games are ----------
+
+    var name: String get() = prefs.getString("name", "") ?: ""; set(v) = prefs.edit().putString("name", v).apply()
+    var color: Int get() = prefs.getInt("color", 0); set(v) = prefs.edit().putInt("color", v).apply()
+    var setupDone: Boolean get() = prefs.getBoolean("setup", false); set(v) = prefs.edit().putBoolean("setup", v).apply()
+
+    /** Folders you chose: one per console, and main folders that hold a folder per console. */
+    fun folder(sys: String): String? = prefs.getString("folder:$sys", null)
+    fun setFolder(sys: String, path: String?) = prefs.edit().apply { if (path == null) remove("folder:$sys") else putString("folder:$sys", path) }.apply()
+    var roots: List<String>
+        get() = JSONArray(prefs.getString("roots", "[]")).let { a -> (0 until a.length()).map { a.getString(it) } }
+        set(v) = prefs.edit().putString("roots", JSONArray(v).toString()).apply()
+    private fun foldersJson() = JSONObject().apply { for (k in NAMES.keys) folder(k)?.let { put(k, it) }; put("roots", JSONArray(roots)) }.toString()
+
+    /** How many games were found for each console. */
+    fun counts(): Map<String, Int> = all.groupingBy { it.sys }.eachCount()
+
+    /** Looks for games in every ROMs folder and the folders you chose (the shared Scanner). Slow; call it off the main thread. */
     fun scan() {
-        val r = Scanner.scan(ctx, "{}")
+        val r = Scanner.scan(ctx, foldersJson())
         val list = ArrayList<Game>()
         r.optJSONArray("games")?.let { a -> for (i in 0 until a.length()) a.getJSONObject(i).let { g -> if (g.optString("sys") in NAMES) list.add(Game(g.getString("sys"), g.getString("title"), g.getString("path"))) } }
         installed = r.optJSONArray("emus")?.let { a -> (0 until a.length()).map { a.getString(it) }.toSet() } ?: emptySet()
@@ -63,6 +81,14 @@ class Games(private val ctx: Context) {
         val e = EMUS[sys] ?: return emptyList()
         return e.cores.map { RA + it to ("RetroArch" in installed) } + e.apps.map { it to (it in installed) }
     }
+    /** A good first choice for this console: its preferred standalone emulator if installed, else RetroArch, else any installed app. */
+    fun suggestion(sys: String): String? {
+        val e = EMUS[sys] ?: return null
+        e.first?.let { if (it in installed) return it }
+        if ("RetroArch" in installed) return RA + e.cores[0]
+        return e.apps.firstOrNull { it in installed }
+    }
+
     /** The emulator you chose for this console, if you have. */
     fun emulator(sys: String): String? = prefs.getString("emu:$sys", null)
     fun setEmulator(sys: String, emu: String) = prefs.edit().putString("emu:$sys", emu).apply()
@@ -78,3 +104,7 @@ class Games(private val ctx: Context) {
         return err
     }
 }
+
+/** "/storage/emulated/0/ROMs/gba" → "Internal storage › ROMs › gba" (as the prototype's prettyPath). */
+fun prettyPath(p: String): String = p.replace(Regex("^/storage/emulated/0/?"), "Internal storage/").replace(Regex("^/storage/[^/]+/?"), "SD card/")
+    .trimEnd('/').split('/').joinToString(" › ")

@@ -28,7 +28,7 @@ import kotlin.math.sin
  */
 class Home(private val ctx: Context, private val stage: Stage, private val board: Board, private val backdrop: Backdrop,
            private val games: Games, private val carts: Carts, private val actions: Actions) {
-    interface Actions { fun play(g: Game); fun allowStorage() }
+    interface Actions { fun play(g: Game); fun allowStorage(); fun openSettings() }
 
     private class Slot(val game: Game, var cart: Cart?, var x: Float = 270f, var y: Float = 326f, var z: Float = 0f, var px: Float = 156f, var bright: Float = .72f)
     private val slots = ArrayList<Slot>()
@@ -41,6 +41,9 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     private var picFor: Game? = null
     var picker: Picker? = null; private set
     var needsStorage = false
+    /** Home hides while setup or settings are open; coming back, the cartridges rise into place one after another. */
+    var visible = true; set(v) { if (v && !field) rise = 0f; field = v }
+    private var rise = 0f
 
     private val title = text(48f, Fonts.display, Theme.fg)
     private val meta = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
@@ -49,7 +52,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     private val message = text(28f, Fonts.body, Theme.fg2).apply { gravity = Gravity.CENTER; setLineSpacing(0f, 1.35f) }
     private val toast = text(23f, Fonts.bold, Theme.fg).apply { background = round(Theme.panel, 27f, Theme.line); setPadding(30, 14, 30, 14); alpha = 0f }
     private val clock = text(24.5f, Fonts.bold, Theme.fg2)
-    private val profile = Chip(ctx, "Shelf Native")
+    private val profile = Chip(ctx)
     private val dock = listOf("library", "apps", "museum", "settings").map { DockButton(ctx, it) }
     private val dockNames = listOf("Library", "Apps", "Museum", "Settings")
     private val dockLabel = text(20f, Fonts.bold, Theme.fg).apply { gravity = Gravity.CENTER; alpha = 0f }
@@ -72,8 +75,10 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         board.put(meta, 64, 600)
         board.put(message, 167, 300, 1000)
         board.put(toast, 0, 640); toast.layoutParams = (toast.layoutParams as android.widget.FrameLayout.LayoutParams).apply { width = -2; gravity = Gravity.CENTER_HORIZONTAL }
-        refreshTop(); clockTick()
+        refreshTop(); clockTick(); refreshProfile()
     }
+
+    fun refreshProfile() = profile.set(games.name.ifEmpty { "Player" }, games.color)
 
     // ---------- games in the row ----------
 
@@ -96,7 +101,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         if (g != null) { chipText.text = Games.NAMES[g.sys]; dot.background = round(Theme.accentOf(g.sys), 6.5f); backdrop.mood(Theme.accentOf(g.sys)) }
         message.text = when {
             needsStorage -> "Shelf Native needs permission to see your games folders.\n\nPress A to allow it in Android’s settings."
-            slots.isEmpty() -> "No games found yet.\nShelf Native looks in every ROMs folder on internal storage and SD cards, in folders named for each console (nes, snes, gba…)."
+            slots.isEmpty() -> "No games found yet.\n\nPress A to choose your games folders."
             else -> ""
         }
         message.visibility = if (message.text.isEmpty()) View.GONE else View.VISIBLE
@@ -108,7 +113,13 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     fun tick(dt: Float) {
         time += dt
         f += (i - f) * min(1f, dt * 8f)
-        backdrop.shadows.clear()
+        rise = if (visible) min(1f, rise + dt / 1.4f) else maxOf(0f, rise - dt / .35f)
+        val shownK = Backdrop.ease(min(1f, rise * 2f))
+        for (v in listOf(title, meta, message, clock, profile) + dock) v.alpha = shownK
+        dockLabel.alpha = minOf(dockLabel.alpha, shownK)
+        backdrop.picVisible = shownK
+        if (!visible && rise == 0f) { slots.forEach { it.cart?.place(-2000f, 0f, 0f, 0f, 0f, 1f) }; return }
+        if (visible) backdrop.shadows.clear()
         slots.forEachIndexed { k, s ->
             val off = k - f; val foc = k == i && picker == null
             val bob = sin(time * .8f + k * 1.7f) * (if (foc) 4f else 3f)
@@ -120,11 +131,13 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
             s.px += ((if (k == i) 240f else 156f) - s.px) * ease
             s.bright += ((if (k == i) 1.02f else .72f) - s.bright) * ease
             val cart = s.cart ?: return@forEachIndexed
-            cart.place(s.x, s.y + bob, s.z, -.2f, -.1f, s.px)
+            // rising into place, each a moment after the one before
+            val up = Backdrop.ease(((rise * 1.4f) - k * .07f).coerceIn(0f, 1f)); val lift = (1 - up) * 560f
+            cart.place(s.x, s.y + bob + lift, s.z, -.2f, -.1f, s.px)
             cart.brightness(s.bright)
             if (s.x > -200 && s.x < 1534) {
                 val big = maxOf(cart.style.w, cart.style.h)
-                backdrop.shadows.add(floatArrayOf(s.x, s.y + cart.style.h / big * s.px / 2 + (if (k == i) 24f else 12f), cart.style.w / big * s.px * .9f, if (k == i) 1f else .7f))
+                backdrop.shadows.add(floatArrayOf(s.x, s.y + cart.style.h / big * s.px / 2 + (if (k == i) 24f else 12f), cart.style.w / big * s.px * .9f, (if (k == i) 1f else .7f) * up))
             }
         }
         if (picTimer > 0) { picTimer -= dt; if (picTimer <= 0) current().let { g -> if (g != picFor) { picFor = g; backdrop.picture(g?.let { Paintings.picture(800, 196, it.title) }) } } }
@@ -137,6 +150,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     fun input(a: String) {
         picker?.let { if (it.input(a)) return }
         if (needsStorage) { if (a == "a") actions.allowStorage(); return }
+        if (slots.isEmpty() && zone == "row") { if (a == "a") actions.openSettings() else if (a == "up") { zone = "top"; refreshTop() }; return }
         when (zone) {
             "row" -> when (a) {
                 "left" -> if (i > 0) { i--; refreshInfo() }
@@ -149,7 +163,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
                 "left" -> if (topI > 0) { topI--; refreshTop() }
                 "right" -> if (topI < dock.size) { topI++; refreshTop() }
                 "down", "b" -> { zone = "row"; refreshTop() }
-                "a" -> show(if (topI == 0) "Profiles come to Shelf Native in a later version" else "${dockNames[topI - 1]} comes to Shelf Native in a later version. The web Shelf has it today.")
+                "a" -> if (topI == 0 || topI == dock.size) actions.openSettings() else show("${dockNames[topI - 1]} comes to Shelf Native in a later version. The web Shelf has it today.")
             }
         }
     }
@@ -202,7 +216,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     }
 
     private var toastLeft = 0f
-    fun show(msg: String) { toast.text = msg; toast.alpha = 1f; toastLeft = 3f }
+    fun show(msg: String) { toast.text = msg; toast.alpha = 1f; toastLeft = 3f; toast.bringToFront() }
 
     private var clockLeft = 0f
     private fun clockTick() {
@@ -227,14 +241,18 @@ fun round(fill: Int, radius: Float, stroke: Int = 0, strokeW: Float = 1f) = Grad
     setColor(fill); cornerRadius = radius; if (stroke != 0) setStroke(strokeW.toInt().coerceAtLeast(1), stroke)
 }
 
-/** The profile chip at the top left. */
-class Chip(ctx: Context, name: String) : LinearLayout(ctx) {
+/** The profile chip at the top left: your avatar and name. */
+class Chip(ctx: Context) : LinearLayout(ctx) {
     var focused = false; set(v) { field = v; background = if (v) round(Theme.chip, 36f, Theme.sel, 2f) else null }
+    private var color = 0
+    private val avatar = object : View(ctx) { override fun onDraw(c: Canvas) = Theme.drawAvatar(c, width / 2f, height / 2f, width / 2f, color) }
+    private val label = TextView(ctx).apply { setTextSize(TypedValue.COMPLEX_UNIT_PX, 25.5f); typeface = Fonts.bold; setTextColor(Theme.fg) }
     init {
         orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(10, 0, 26, 0)
-        addView(View(ctx).apply { background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(Color.parseColor("#ffb36b"), Color.parseColor("#e0606a"))).apply { shape = GradientDrawable.OVAL } }, LayoutParams(52, 52).apply { rightMargin = 15 })
-        addView(TextView(ctx).apply { text = name; setTextSize(TypedValue.COMPLEX_UNIT_PX, 25.5f); typeface = Fonts.bold; setTextColor(Theme.fg) })
+        addView(avatar, LayoutParams(52, 52).apply { rightMargin = 15 })
+        addView(label)
     }
+    fun set(name: String, k: Int) { label.text = name; color = k; avatar.invalidate() }
 }
 
 /** A round button in the top bar, with its icon drawn as simple strokes (books, apps, a museum, the sun). */

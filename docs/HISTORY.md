@@ -316,3 +316,7 @@ app's package, so both apps install together. Found while compile-checking: Fila
 Kotlin 2.4 (an older Kotlin can't read them), and the renderer's clear color takes doubles. Found by
 GitHub's build: Filament's libraries need AndroidX switched on, and from 1.76 they need compileSdk 37 (newer than
 the project's Android Gradle plugin), so Shelf Native uses Filament 1.75.1.
+
+**Shelf Native 0.2 (October 2026):** first-run setup and Settings › Games folders, after 0.1 found no games on the
+Retroid (it only looked in ROMs/<console>, and had no setup to choose folders). The scanner now also takes a main folder
+with a folder per console inside, matches folder names written out, and looks in Games and Emulation/roms.

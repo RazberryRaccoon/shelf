@@ -34,11 +34,21 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Stage.kt` | Filament: engine, transparent view, studio lighting, camera, the frame loop. |
 | `Carts.kt` | Loads the models, draws each game's label, applies shell colors, places each cartridge. |
 | `Home.kt` | Home: the row of recent games, the top bar, details, the shell color and emulator pickers. |
+| `Setup.kt` | First-run setup (welcome, your name and color, games folders, emulators, done); its pages are also Settings. |
 | `Backdrop.kt` | Everything behind the 3D layer. |
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
-## What's in version 0.1
+## What's in version 0.2
+
+First-run setup, which the prototype has: welcome; your name and color; finding your games (storage access, then a
+folder for any console, or one main folder with a folder per console inside); each console's emulator; done. Settings
+(the round button, or your profile) opens the same pages later. Polish added: each page rises in, a Studio cartridge
+turns beside the panel and follows the console you're on, the found-games count climbs, and Home's cartridges rise
+into place one after another when you arrive. The shared Scanner also recognizes folder names written out ("Game Boy
+Advance", "PlayStation", "Mega Drive") and looks in Games and Emulation/roms as well as ROMs.
+
+## What was in version 0.1
 
 Home only: your most recently played games as Studio cartridges (PlayStation discs, PSP UMDs and Android game cards
 too), the top bar, the picture and backdrop, launching, and Y for a game's shell color and its console's emulator.
