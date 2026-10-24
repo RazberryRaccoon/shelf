@@ -36,6 +36,10 @@ that we've learned … and make an Android game launcher that's the best it can 
 - The Android SDK can't be downloaded in Claude's sandbox (dl.google.com is blocked): compile-check the Java against
   Robolectric's `android-all` jar from Maven Central, and let GitHub Actions do the real build.
 - The user asked to "talk it through" before building anything new. Propose, confirm, then build.
+- **Shelf Native polish (standing request):** while porting each screen, add extra polish, detail and charm on your own
+  initiative ("on par with the quality and polish of a Nintendo console. I want to be impressed"). Small touches don't
+  need asking; keep to the taste rules below, and still propose new screens or big changes first. Tell the user what
+  you added each round so they can veto it.
 
 ## The user
 

@@ -238,6 +238,12 @@ Summarized from the first part of the conversation; the full transcript is kept 
   Central so it can be compile-checked in Claude's sandbox, and the existing Java is reused.
 - Chosen: **side by side**. The native app installs as "Shelf Native" next to the WebView Shelf until it does
   everything, then takes over the name.
+- **Creative liberty for polish** (the user, after 0.1): "all throughout the native build as we add more and more
+  features from the prototype, add in extra polish, extra detail, extra charm. Use your own discretion and take some
+  creative liberties. Add in fun little details that make it feel like a full, complete package, on par with the
+  quality and polish of a Nintendo console. I want to be impressed." So each round brings its screen over with extra
+  touches chosen by Claude (motion, sound, small surprises), within the taste rules: calm, modern, no nostalgiaslop,
+  no wobble, no loud sounds or white flashes. New screens and big design changes are still proposed first.
 - Version 0.1: Home with the Studio's models and lighting, per-game shell colors, launching. Discs, UMDs and Android
   game cards added to the Studio so every console has a model. The SNES is the North American shape here; the WebView
   app keeps its old one.
