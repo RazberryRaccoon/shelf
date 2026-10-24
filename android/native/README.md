@@ -19,8 +19,8 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
   read their clear coat, transmission and volume, so the plastic looks as it does in the Studio.
 - **Lighting** matches the Studio: the Poly Haven studio HDR (`assets/env/studio.hdr`, CC0) made into image-based
   light on the device (`IBLPrefilterContext`), one key light, ACES filmic tone mapping, 4× multisampling. The Studio's
-  numbers (exposure .72, environment .85) read far too bright on the device, so it starts at exposure .5, environment
-  .5, key light .6 (`Stage.Look`), and Settings › Lighting changes them live.
+  numbers (exposure .72, environment .85) read far too bright on the device; the user tuned it there to environment .1,
+  exposure .3, key light .2 (`Stage.Look`), and Settings › Lighting changes them live.
 - **Color variants:** each game's shell color comes from `cartridges.json` (the Studio's research); the Studio's rules
   are repeated in `Cart.apply`. Clear and frosted colors use the see-through model, with its circuit board inside.
 - **The camera** is a long lens (14°) at Shelf's layout, so a point at depth 0 lands on that pixel of the

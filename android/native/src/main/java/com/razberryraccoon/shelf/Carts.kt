@@ -108,12 +108,17 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
     fun apply(v: Variant) {
         variant = v
         val lin = intArrayOf(Color.red(v.color), Color.green(v.color), Color.blue(v.color)).map { srgbToLinear(it / 255f) }.toFloatArray()
-        base = if (v.clear != null) FloatArray(3) { lin[it] + (1 - lin[it]) * .15f } else lin   // the Studio uses .35; on the device that read as milky
+        base = when {
+            v.clear != null -> FloatArray(3) { lin[it] + (1 - lin[it]) * .15f }   // the Studio uses .35; on the device that read as milky
+            // metal's color is what it reflects: measured gold and silver (Filament's metal table), not the paint swatch
+            v.sheen -> if (Color.red(v.color) - Color.blue(v.color) > 60) floatArrayOf(1f, .766f, .336f) else floatArrayOf(.972f, .96f, .915f)
+            else -> lin
+        }
         val mi = plastic ?: return
         val r = style.roughness
-        mi.set("roughnessFactor", when (v.clear) { "transparent" -> .06f; "frosted" -> maxOf(.4f, r); else -> if (v.sheen) r * .8f else r })
-        mi.set("metallicFactor", if (v.sheen) .45f else 0f)
-        mi.set("clearCoatFactor", style.clearcoat)
+        mi.set("roughnessFactor", when (v.clear) { "transparent" -> .06f; "frosted" -> maxOf(.4f, r); else -> if (v.sheen) .28f else r })
+        mi.set("metallicFactor", if (v.sheen) 1f else 0f)
+        mi.set("clearCoatFactor", if (v.sheen) .5f else style.clearcoat)
         mi.set("clearCoatRoughnessFactor", if (v.clear == "transparent") .05f else style.clearcoatRoughness)
         if (v.clear != null) { mi.set("attenuationColor", lin[0], lin[1], lin[2]); mi.set("attenuationDistance", if (v.clear == "transparent") 30f else 10f) }
         tint()

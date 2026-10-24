@@ -339,3 +339,11 @@ mixed with much less white; the setup box is bigger and stacks its parts so text
 animation now runs from when Home appears, rather than piling up per cartridge (the cause of the sinking row); the
 lighting starts lower (environment .5, exposure .5, key light .6) and Settings › Lighting lets the user tune it live
 on the device, since why Filament reads brighter than the Studio's three.js isn't yet known.
+
+Second round of notes on 0.2: the setup box should also use the space at its top and left, with the cartridge centered
+in what's left; the list's first row (and every row's sides) was cut off; the "Found … games" message stayed too long;
+the cartridge stopped changing after the first page; gold looked yellow. The box now fills the left from 34 px in; the
+panel no longer clips the list to its padding (the cause of the cut sides) and the list leaves room for the focus
+ring; the message lasts 2.5 seconds by the clock; the cartridge keeps changing on every page unless a console's row is
+focused; gold and silver are fully metallic, colored by measured metal reflectance. The user's lighting (environment
+.1, exposure .3, key light .2) is now the default, and the Lighting page stays.
