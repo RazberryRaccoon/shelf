@@ -1,5 +1,6 @@
-# Builds the Shelf Android app (APK). Every push to main also publishes it as the newest release, so the
-# latest APK is always at https://github.com/RazberryRaccoon/shelf/releases/latest/download/Shelf.apk
+# Builds both Shelf Android apps: Shelf (the WebView app) and Shelf Native (Kotlin + Filament, being built up screen by
+# screen). Every push to main also publishes them as the newest release, so the latest APKs are always at
+# https://github.com/RazberryRaccoon/shelf/releases/latest/download/Shelf.apk and …/ShelfNative.apk
 name: Android app
 
 on:
@@ -29,17 +30,21 @@ jobs:
       - name: Put the interface into the app
         run: bash android/prepare-assets.sh
 
-      - name: Build the APK
+      - name: Build the APKs
         working-directory: android
         run: ./gradlew --no-daemon assembleDebug
 
-      - name: Name it Shelf.apk
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk Shelf.apk
+      - name: Name them Shelf.apk and ShelfNative.apk
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk Shelf.apk
+          cp android/native/build/outputs/apk/debug/native-debug.apk ShelfNative.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Shelf-apk
-          path: Shelf.apk
+          name: Shelf-apks
+          path: |
+            Shelf.apk
+            ShelfNative.apk
 
       - name: Publish as the newest release
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -50,5 +55,8 @@ jobs:
           body: |
             Built from ${{ github.sha }}.
             Download **Shelf.apk** below onto the Retroid Pocket 3+ and open it to install or update.
-          files: Shelf.apk
+            **ShelfNative.apk** is the native app in progress; it installs next to Shelf as "Shelf Native".
+          files: |
+            Shelf.apk
+            ShelfNative.apk
           make_latest: true

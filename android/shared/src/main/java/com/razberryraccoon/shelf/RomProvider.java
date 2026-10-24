@@ -2,6 +2,7 @@ package com.razberryraccoon.shelf;
 
 import android.content.ContentProvider;
 import android.content.ContentValues;
+import android.content.Context;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.net.Uri;
@@ -17,10 +18,11 @@ import java.io.IOException;
  * app Shelf granted the link to (the provider isn't exported).
  */
 public class RomProvider extends ContentProvider {
-    static final String AUTHORITY = "com.razberryraccoon.shelf.roms";
+    /** Each Shelf app has its own (two apps can't share one): the app's package name plus ".roms". */
+    static String authority(Context ctx) { return ctx.getPackageName() + ".roms"; }
 
-    static Uri uriFor(File f) {
-        return new Uri.Builder().scheme("content").authority(AUTHORITY).path(f.getAbsolutePath()).build();
+    static Uri uriFor(Context ctx, File f) {
+        return new Uri.Builder().scheme("content").authority(authority(ctx)).path(f.getAbsolutePath()).build();
     }
 
     private static File fileFor(Uri uri) throws FileNotFoundException {

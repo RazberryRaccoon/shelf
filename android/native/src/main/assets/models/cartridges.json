@@ -1,0 +1,479 @@
+{
+ "nes": {
+  "name": "NES",
+  "size": [
+   120,
+   133
+  ],
+  "depth": 17,
+  "label": [
+   0,
+   17.5,
+   55,
+   90,
+   1.5,
+   1
+  ],
+  "finish": {
+   "color": "#8f8b86",
+   "roughness": 0.5,
+   "clearcoat": 0.3,
+   "clearcoatRoughness": 0.75
+  },
+  "variants": [
+   {
+    "name": "Gray",
+    "color": "#8f8b86",
+    "games": "Standard"
+   },
+   {
+    "name": "Gold",
+    "color": "#c9a24a",
+    "games": "The Legend of Zelda, Zelda II",
+    "sheen": true
+   },
+   {
+    "name": "Black",
+    "color": "#222326",
+    "games": "Unlicensed (Tengen)"
+   },
+   {
+    "name": "Baby blue",
+    "color": "#8db6d6",
+    "games": "Unlicensed (Color Dreams, Wisdom Tree)"
+   },
+   {
+    "name": "Silver",
+    "color": "#b9bcc2",
+    "games": "Unlicensed (Camerica, later releases)",
+    "sheen": true
+   }
+  ]
+ },
+ "snes": {
+  "name": "Super Nintendo",
+  "size": [
+   136,
+   88
+  ],
+  "depth": 20,
+  "label": [
+   0,
+   21.5,
+   82.5,
+   37,
+   1.5,
+   0.9
+  ],
+  "finish": {
+   "color": "#9d9ba6",
+   "roughness": 0.45,
+   "clearcoat": 0.35,
+   "clearcoatRoughness": 0.75
+  },
+  "variants": [
+   {
+    "name": "Gray",
+    "color": "#9d9ba6",
+    "games": "Standard"
+   },
+   {
+    "name": "Black",
+    "color": "#1f2024",
+    "games": "Killer Instinct"
+   }
+  ]
+ },
+ "n64": {
+  "name": "Nintendo 64",
+  "size": [
+   116,
+   80
+  ],
+  "depth": 18,
+  "label": [
+   0,
+   2,
+   54.5,
+   62.5,
+   1.5,
+   0.9
+  ],
+  "finish": {
+   "color": "#5a5d66",
+   "roughness": 0.4,
+   "clearcoat": 0.45,
+   "clearcoatRoughness": 0.75
+  },
+  "variants": [
+   {
+    "name": "Gray",
+    "color": "#5a5d66",
+    "games": "Standard"
+   },
+   {
+    "name": "Black",
+    "color": "#1d1e22",
+    "games": "Turok 2, Turok 3, Turok: Rage Wars"
+   },
+   {
+    "name": "Blue",
+    "color": "#2f5fb3",
+    "games": "007: The World Is Not Enough, Hydro Thunder"
+   },
+   {
+    "name": "Red",
+    "color": "#b3282d",
+    "games": "Rocket: Robot on Wheels, Spider-Man"
+   },
+   {
+    "name": "Green",
+    "color": "#2f8a4a",
+    "games": "A few third-party games"
+   },
+   {
+    "name": "Yellow",
+    "color": "#e0b51f",
+    "games": "Donkey Kong 64"
+   },
+   {
+    "name": "Gold",
+    "color": "#c9a24a",
+    "games": "Ocarina of Time, Majora's Mask, Pokémon Stadium 2",
+    "sheen": true
+   }
+  ]
+ },
+ "genesis": {
+  "name": "Sega Genesis",
+  "size": [
+   100,
+   130
+  ],
+  "depth": 18,
+  "label": [
+   0,
+   25,
+   74,
+   60,
+   1.5,
+   0.9
+  ],
+  "finish": {
+   "color": "#1d1e23",
+   "roughness": 0.38,
+   "clearcoat": 0.55,
+   "clearcoatRoughness": 0.75
+  },
+  "variants": [
+   {
+    "name": "Black",
+    "color": "#1d1e23",
+    "games": "Standard (the only color found)"
+   }
+  ]
+ },
+ "gb": {
+  "name": "Game Boy",
+  "size": [
+   57,
+   65
+  ],
+  "depth": 8,
+  "label": [
+   0,
+   -3.5,
+   42,
+   37,
+   1,
+   0.6
+  ],
+  "finish": {
+   "color": "#bdbcc4",
+   "roughness": 0.48,
+   "clearcoat": 0.3,
+   "clearcoatRoughness": 0.75
+  },
+  "variants": [
+   {
+    "name": "Gray",
+    "color": "#bdbcc4",
+    "games": "Standard"
+   },
+   {
+    "name": "Red",
+    "color": "#c0392b",
+    "games": "Pokémon Red"
+   },
+   {
+    "name": "Blue",
+    "color": "#2d5fa8",
+    "games": "Pokémon Blue"
+   },
+   {
+    "name": "Yellow",
+    "color": "#e8c228",
+    "games": "Pokémon Yellow, Donkey Kong Land"
+   },
+   {
+    "name": "Black",
+    "color": "#2a2b30",
+    "games": "Color games that also play on the original"
+   }
+  ]
+ },
+ "gbc": {
+  "name": "Game Boy Color",
+  "size": [
+   57,
+   65
+  ],
+  "depth": 8,
+  "label": [
+   0,
+   -3.5,
+   42,
+   37,
+   1,
+   0.6
+  ],
+  "finish": {
+   "color": "#2e3036",
+   "roughness": 0.4,
+   "clearcoat": 0.45,
+   "clearcoatRoughness": 0.75
+  },
+  "variants": [
+   {
+    "name": "Black",
+    "color": "#2e3036",
+    "games": "Plays on both (dual-mode)"
+   },
+   {
+    "name": "Clear",
+    "color": "#e4ebf0",
+    "games": "Game Boy Color only",
+    "clear": "transparent"
+   },
+   {
+    "name": "Gold",
+    "color": "#c9a24a",
+    "games": "Pokémon Gold",
+    "sheen": true
+   },
+   {
+    "name": "Silver",
+    "color": "#b9bcc2",
+    "games": "Pokémon Silver",
+    "sheen": true
+   },
+   {
+    "name": "Clear blue",
+    "color": "#4f9fde",
+    "games": "Pokémon Crystal",
+    "clear": "transparent"
+   }
+  ]
+ },
+ "gba": {
+  "name": "Game Boy Advance",
+  "size": [
+   57.5,
+   33.5
+  ],
+  "depth": 8,
+  "label": [
+   0,
+   -4.5,
+   44,
+   21.2,
+   1,
+   0.5
+  ],
+  "finish": {
+   "color": "#303236",
+   "roughness": 0.4,
+   "clearcoat": 0.5,
+   "clearcoatRoughness": 0.75
+  },
+  "variants": [
+   {
+    "name": "Dark gray",
+    "color": "#303236",
+    "games": "Standard"
+   },
+   {
+    "name": "Clear red",
+    "color": "#d23a3a",
+    "games": "Pokémon Ruby",
+    "clear": "transparent"
+   },
+   {
+    "name": "Clear blue",
+    "color": "#2f6fd0",
+    "games": "Pokémon Sapphire",
+    "clear": "transparent"
+   },
+   {
+    "name": "Clear green",
+    "color": "#2fa860",
+    "games": "Pokémon Emerald",
+    "clear": "transparent"
+   },
+   {
+    "name": "Frosted red",
+    "color": "#e0453a",
+    "games": "Pokémon FireRed",
+    "clear": "frosted"
+   },
+   {
+    "name": "Frosted green",
+    "color": "#5cc06a",
+    "games": "Pokémon LeafGreen",
+    "clear": "frosted"
+   }
+  ]
+ },
+ "ds": {
+  "name": "Nintendo DS",
+  "size": [
+   35,
+   33
+  ],
+  "depth": 3.8,
+  "label": [
+   0,
+   -3,
+   28,
+   20,
+   0.8,
+   0.35
+  ],
+  "finish": {
+   "color": "#3b3d47",
+   "roughness": 0.42,
+   "clearcoat": 0.45,
+   "clearcoatRoughness": 0.75
+  },
+  "variants": [
+   {
+    "name": "Gray",
+    "color": "#3b3d47",
+    "games": "Standard"
+   },
+   {
+    "name": "White",
+    "color": "#e6e6ea",
+    "games": "DSi-only games"
+   },
+   {
+    "name": "Smoked black",
+    "color": "#24252b",
+    "games": "Infrared games: HeartGold, SoulSilver, Pokémon Black and White",
+    "clear": "frosted"
+   }
+  ]
+ },
+ "psp": {
+  "name": "PSP (UMD)",
+  "size": [
+   65,
+   64.5
+  ],
+  "depth": 4.2,
+  "label": [
+   0,
+   2,
+   44,
+   44,
+   22,
+   0.4
+  ],
+  "finish": {
+   "color": "#2a2b31",
+   "roughness": 0.35,
+   "clearcoat": 0.55,
+   "clearcoatRoughness": 0.75
+  },
+  "variants": [
+   {
+    "name": "Dark gray",
+    "color": "#2a2b31",
+    "games": "Standard"
+   }
+  ]
+ },
+ "android": {
+  "name": "Android game card",
+  "size": [
+   42,
+   30
+  ],
+  "depth": 3.5,
+  "label": [
+   0,
+   -2,
+   34,
+   20,
+   1.2,
+   0.35
+  ],
+  "finish": {
+   "color": "#262a3a",
+   "roughness": 0.4,
+   "clearcoat": 0.5,
+   "clearcoatRoughness": 0.75
+  },
+  "variants": [
+   {
+    "name": "Midnight",
+    "color": "#262a3a",
+    "games": "Standard"
+   },
+   {
+    "name": "White",
+    "color": "#e6e6ea",
+    "games": ""
+   },
+   {
+    "name": "Red",
+    "color": "#c0392b",
+    "games": ""
+   },
+   {
+    "name": "Blue",
+    "color": "#2d5fa8",
+    "games": ""
+   }
+  ]
+ },
+ "ps1": {
+  "name": "PlayStation disc",
+  "size": [
+   120,
+   120
+  ],
+  "depth": 1.2,
+  "label": [
+   0,
+   0,
+   120,
+   120,
+   60,
+   0
+  ],
+  "finish": {
+   "color": "#121216",
+   "roughness": 0.12,
+   "clearcoat": 0.9,
+   "clearcoatRoughness": 0.75
+  },
+  "variants": [
+   {
+    "name": "Black",
+    "color": "#121216",
+    "games": "Standard: every PlayStation disc has a black data side"
+   }
+  ]
+ }
+}

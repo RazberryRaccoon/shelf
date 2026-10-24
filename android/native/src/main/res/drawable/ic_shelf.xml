@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shelf's icon: a cartridge-shaped card over a planet's edge, on deep space -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#070B1E" android:pathData="M18,6h72a12,12 0,0 1,12 12v72a12,12 0,0 1,-12 12h-72a12,12 0,0 1,-12 -12v-72a12,12 0,0 1,12 -12z" />
+    <path android:fillColor="#3A2E8C" android:pathData="M6,84 C30,66 78,66 102,84 L102,90 a12,12 0,0 1,-12 12 h-72 a12,12 0,0 1,-12 -12z" />
+    <path android:fillColor="#B3A6FF" android:pathData="M6,84 C30,66 78,66 102,84 L102,86 C78,69 30,69 6,86z" />
+    <path android:fillColor="#EEF1FF" android:pathData="M36,26h36a4,4 0,0 1,4 4v38a4,4 0,0 1,-4 4h-36a4,4 0,0 1,-4 -4v-38a4,4 0,0 1,4 -4z" />
+    <path android:fillColor="#7C6CF0" android:pathData="M40,34h28a2,2 0,0 1,2 2v18a2,2 0,0 1,-2 2h-28a2,2 0,0 1,-2 -2v-18a2,2 0,0 1,2 -2z" />
+</vector>

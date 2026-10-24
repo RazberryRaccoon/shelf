@@ -308,3 +308,9 @@ you looked at, so new defaults never reached you, fixed by saving only what you 
 tiles, Close the box moved to the middle with the details out of the way, and Home's picture darker, zoomed, panning,
 with a windshield-style dot fade. The pan needed a new shader mode: the picture's texture coordinates move while a
 second texture, the dot mask, stays fixed to the screen.
+
+**Shelf Native 0.1 (October 2026):** `android/native/`, Kotlin + Filament, Home only. The Studio's models exported as
+.glb (`tools/cartridge-studio/export-models.mjs`) and rendered with Filament's built-in glTF materials; the studio HDR
+prefiltered on the device. The shared Java moved into `android/shared/` and the ROM provider's name now follows each
+app's package, so both apps install together. Found while compile-checking: Filament 1.77's utilities are built with
+Kotlin 2.4 (an older Kotlin can't read them), and the renderer's clear color takes doubles.

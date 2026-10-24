@@ -229,6 +229,19 @@ Summarized from the first part of the conversation; the full transcript is kept 
   of them." Built: a picker per art type in each game's settings, results from every connected service, and accounts
   entered with Android's own text box in Settings › Art and info.
 
+### Shelf Native (October 2026)
+
+- The user: "I think this prototype is now good enough for a full android release - no more glorified web file. Start
+  building that, and implement all the new cartridge lighting, rendering, and color options."
+- Proposed and chosen: **Kotlin + Google's Filament** (over Godot or our own OpenGL renderer): Filament's PBR matches
+  the Studio's plastic (clear coat, studio HDR lighting, see-through shells), it's small and fast to open, it's on Maven
+  Central so it can be compile-checked in Claude's sandbox, and the existing Java is reused.
+- Chosen: **side by side**. The native app installs as "Shelf Native" next to the WebView Shelf until it does
+  everything, then takes over the name.
+- Version 0.1: Home with the Studio's models and lighting, per-game shell colors, launching. Discs, UMDs and Android
+  game cards added to the Studio so every console has a model. The SNES is the North American shape here; the WebView
+  app keeps its old one.
+
 ### Game page and Home picture notes (October 2026)
 
 1. "All the saves are showing as 'handled by the app,' even for RetroArch ones. That's fine with me for now, so you

@@ -1,7 +1,7 @@
 // Builds a cartridge from a style in cartridges.js: a beveled, extruded body in physically based plastic, a label
 // recess with rounded edges, a matte label set into it, and beveled grip ridges. Units are millimetres.
 import * as THREE from 'three';
-import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
+import { toCreasedNormals, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // ---------- outlines ----------
 
@@ -101,6 +101,7 @@ export function labelMaterial(texture, f = {}) {
 
 // opts: { bevel, segments, finish: {color, roughness, clearcoat, clearcoatRoughness, envIntensity}, labelTexture }
 export function buildCartridge(style, opts) {
+  if (style.kind === 'disc') return buildDisc(style, opts);
   const { bevel, segments } = opts, D = style.depth, front = D / 2, back = -D / 2;
   const body = outlinePoints(style.outline);
   const [lx, ly, lw, lh, lr, recess] = style.label;
@@ -145,6 +146,25 @@ export function buildCartridge(style, opts) {
     c.position.set(-bw / 2 + (i + .5) * bw / n, by - bh / 2 + bh * .07, bz + Math.min(.55, D * .07)); inside.add(c);
   }
   group.add(inside);
+  group.userData.materials = { plastic, label: label.material };
+  return group;
+}
+
+// A disc: a thin ring, glossy underneath, with the label printed across the top and a clear hub around the hole.
+function buildDisc(style, opts) {
+  const { radius: R, hole, hub, depth: D } = style, plastic = plasticMaterial(opts.finish);
+  const group = new THREE.Group(); group.name = style.name;
+  const prof = [[hole, -D / 2], [R - .4, -D / 2], [R, -D / 2 + .3], [R, D / 2 - .3], [R - .4, D / 2], [hole, D / 2]].map(([r, z]) => new THREE.Vector2(r, z));
+  const g = new THREE.LatheGeometry(prof, 96); g.rotateX(Math.PI / 2);   // the disc's edge, turned around z
+  const caps = [new THREE.RingGeometry(hole, R - .4, 96, 1), new THREE.RingGeometry(hole, R - .4, 96, 1)];
+  caps[0].translate(0, 0, D / 2); caps[1].rotateX(Math.PI); caps[1].translate(0, 0, -D / 2);
+  const body = new THREE.Mesh(mergeGeometries([g, ...caps].map(x => x.toNonIndexed())), plastic); body.name = 'body';
+  const lg = new THREE.RingGeometry(hub, R - 1, 96, 1); lg.translate(0, 0, D / 2 + .05);   // planar UVs: the square label across the whole disc
+  const label = new THREE.Mesh(lg, labelMaterial(opts.labelTexture, opts.finish)); label.name = 'label';
+  const ring = new THREE.Mesh(new THREE.RingGeometry(hole + .5, hub, 64, 1).translate(0, 0, D / 2 + .03),
+    new THREE.MeshPhysicalMaterial({ color: '#c8ccd4', roughness: .25, transmission: .6, thickness: .8, clearcoat: .6 })); ring.name = 'hub';
+  group.add(body, label, ring);
+  group.add(Object.assign(new THREE.Group(), { name: 'inside', visible: false }));
   group.userData.materials = { plastic, label: label.material };
   return group;
 }

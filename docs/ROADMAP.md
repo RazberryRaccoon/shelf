@@ -20,10 +20,15 @@ published by GitHub Actions. Next, in order:
 4. **RetroAchievements:** sign-in and the achievements page from the web API.
 5. **Manuals and media** from ScreenScraper.
 6. **More models in Blender**, when the user wants to pick that back up.
-7. **The Cartridge Studio look in Shelf** (`tools/cartridge-studio/`), once the user approves it: the beveled models,
+7. **Shelf Native** (`android/native/`, started October 2026), round by round until it replaces the WebView app:
+   0.1 Home (built); then the game page (the box opening, tiles, details); Library and Apps; art downloads and the
+   per-game art pickers; Settings and first-run setup; the Museum with the Studio's consoles; the launch animation
+   (the cartridge going into the console); outline glows on the selected object (a custom Filament material); then
+   it takes the name "Shelf" and the home-screen role.
+8. **The Cartridge Studio look in Shelf** (`tools/cartridge-studio/`), once the user approves it: the beveled models,
    physical plastic and studio lighting in Shelf's own renderer, the North American SNES shapes (the prototype still
    has the Japanese and European ones), and the cartridge **color variant as a per-game setting** ("Eventually I want
-   this feature in the per game settings of the actual launcher").
+   this feature in the per game settings of the actual launcher"). Being done in Shelf Native (0.1 has the colors).
 
 ## Open questions
 
