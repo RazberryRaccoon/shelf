@@ -36,13 +36,29 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Carts.kt` | Loads the models, draws each game's label, applies shell colors, places each cartridge. |
 | `Home.kt` | Home: the row of recent games, the top bar, details, the shell color and emulator pickers. |
 | `GamePage.kt` | A game's page: the cartridge to turn with the right stick, the details and icon tiles, live shell colors. |
+| `Meta.kt` | A game's details and pictures from libretro's database, saved on the device. |
 | `Sounds.kt` | The quiet interface sounds, synthesized on the device. |
 | `Setup.kt` | First-run setup (welcome, your name and color, games folders, emulators, done); its pages are also Settings. |
 | `Backdrop.kt` | Everything behind the 3D layer. |
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
-## What's in version 0.3
+## What's in version 0.4
+
+The game page, filled in. Under the title: the year, developer and genre, when you last played it, and what it plays
+with. The tiles are Play, Emulator (this game's own, or the same as its console's), Shell color, Favorite, Settings and
+Back. Down goes to Pictures (box, title screen, screenshot; A shows them full screen, left and right go through them)
+and then About (the description, which up and down scroll). Game settings: its emulator, shell color, whether it shows
+on Home, which game it is (when Shelf guessed wrong), and looking it up again. Details and pictures come from libretro's
+database (`Meta.kt`, using the shared `ArtIndex`), free and with no account, matched by the ROM's checksum or the
+closest name, and saved on the device. Home's picture is now the game's screenshot once it's been looked up.
+
+Fixes: clear and frosted shells are see-through again (Filament's glTF transmission drew them solid, so the shell is
+loaded as a blended material instead; `seeThrough` in `Carts.kt`); the key light comes from higher and more to the
+side, so the cartridges' fronts no longer catch its full reflection on Home (that washed gold out to tan); the tiles'
+focus ring is no longer cut off; the line under the tiles has a fixed height, so the tiles don't move.
+
+## What was in version 0.3
 
 A game's page, opened in place from Home (Down): the cartridge lifts out of the row in an arc and grows on the left
 while the rest of the row sinks away; the right stick turns it in your hands (it coasts when you let go, then settles

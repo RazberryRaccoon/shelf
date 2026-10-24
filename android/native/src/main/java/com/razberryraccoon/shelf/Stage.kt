@@ -76,7 +76,7 @@ class Stage(private val ctx: Context, private val surface: TextureView) : Choreo
         view.colorGrading = ColorGrading.Builder().toneMapper(ToneMapper.ACESLegacy()).build(engine)
         camera.setExposure(Look.EXPOSURE)
         LightManager.Builder(LightManager.Type.DIRECTIONAL)
-            .color(1f, 1f, 1f).intensity(Look.KEY).direction(.48f, -.62f, -.62f).castShadows(false)
+            .color(1f, 1f, 1f).intensity(Look.KEY).direction(KEY_DIR[0], KEY_DIR[1], KEY_DIR[2]).castShadows(false)
             .build(engine, sun)
         scene.addEntity(sun)
         loadEnvironment()
@@ -122,7 +122,8 @@ class Stage(private val ctx: Context, private val surface: TextureView) : Choreo
     /** Swings the key light around the vertical axis by `a` radians, so a cartridge you turn catches a sweep of highlight. */
     fun turnKey(a: Float) {
         val c = kotlin.math.cos(a); val s = kotlin.math.sin(a)
-        engine.lightManager.let { it.setDirection(it.getInstance(sun), .48f * c - .62f * s, -.62f, -.48f * s - .62f * c) }
+        val (x, y, z) = KEY_DIR
+        engine.lightManager.let { it.setDirection(it.getInstance(sun), x * c + z * s, y, -x * s + z * c) }
     }
 
     fun readAsset(path: String): ByteBuffer {
@@ -169,4 +170,12 @@ class Stage(private val ctx: Context, private val surface: TextureView) : Choreo
  * came out much brighter than in the Studio, washing dark plastic out to light grey, so these start well below them;
  * Settings › Lighting tunes them on the device.
  */
+/**
+ * Where the key light shines from: high on the upper left, and more from the side than from in front. It used to come
+ * from just over your left shoulder, which on Home's slight up-and-left turn is almost the mirror angle for the
+ * cartridges' flat fronts, so the whole front caught the highlight and read pale (gold as tan). From here its mirror
+ * angle is about 45° away from the fronts: they show their real color, and the highlight sweeps across only as you turn.
+ */
+private val KEY_DIR = floatArrayOf(.55f, -.72f, -.42f)
+
 object Look { const val ENV = .1f; const val EXPOSURE = .3f; const val KEY = .2f }

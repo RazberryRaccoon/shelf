@@ -247,6 +247,15 @@ Summarized from the first part of the conversation; the full transcript is kept 
 - After trying 0.1: "It's stuck on 'no games found yet,' and there's no way to point it at the correct folders. Maybe
   focus on the setup/tutorial part next, building in at least pointing to the correct rom folders." Version 0.2:
   setup with games folders (per console, or one main folder), and Settings to change them later.
+- Lighting, tuned by the user on the device (Settings › Lighting): environment .1, exposure .3, key light .2, now the
+  defaults. "Keep these lighting settings in the app, though - it's nice to be able to adjust as many things as possible."
+- The key light's direction (after 0.3): the fronts read pale at Home's angle and "properly gold" when turned a little,
+  so the key light moved high and to the side, away from the fronts' mirror angle.
+- Version 0.3, the game page: "Cartridge first" (boxes and the box opening come with the Library), with all four
+  suggested touches (spin with momentum, light catching it, live shell color previews, soft sounds). After trying it:
+  "This game view page isn't complete; its missing the settings page for the game, screenshots, metadata, etc. Finish
+  fleshing it out." Version 0.4 fills it in from libretro's database (no account); the scraper accounts come later.
+- The rarer shell colors: "let's pause that for now and look into it again later" (they couldn't be seen big yet).
 - Version 0.1: Home with the Studio's models and lighting, per-game shell colors, launching. Discs, UMDs and Android
   game cards added to the Studio so every console has a model. The SNES is the North American shape here; the WebView
   app keeps its old one.

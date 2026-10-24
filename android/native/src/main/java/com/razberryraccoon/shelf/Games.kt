@@ -73,13 +73,18 @@ class Games(private val ctx: Context) {
         all = list
     }
 
-    /** Home's row: what you played most recently first, then everything else by name. */
-    fun recent(): List<Game> = all.sortedWith(compareByDescending<Game> { lastPlayed(it) }.thenBy { it.title.lowercase() })
+    /** Home's row: what you played most recently first, then everything else by name (minus games you hid from Home). */
+    fun recent(): List<Game> = all.filter { onHome(it) }.sortedWith(compareByDescending<Game> { lastPlayed(it) }.thenBy { it.title.lowercase() })
 
     fun lastPlayed(g: Game) = prefs.getLong("played:" + g.path, 0L)
     fun timesPlayed(g: Game) = prefs.getInt("plays:" + g.path, 0)
     fun favorite(g: Game) = prefs.getBoolean("fav:" + g.path, false)
     fun setFavorite(g: Game, on: Boolean) = prefs.edit().putBoolean("fav:" + g.path, on).apply()
+    fun onHome(g: Game) = !prefs.getBoolean("hide:" + g.path, false)
+    fun setOnHome(g: Game, on: Boolean) = prefs.edit().putBoolean("hide:" + g.path, !on).apply()
+    /** Which game in libretro's database this file is, when you've told Shelf (Game settings › Which game is this?). */
+    fun match(g: Game): String? = prefs.getString("match:" + g.path, null)
+    fun setMatch(g: Game, name: String?) = prefs.edit().apply { if (name == null) remove("match:" + g.path) else putString("match:" + g.path, name) }.apply()
     fun variant(g: Game): String? = prefs.getString("variant:" + g.path, null)
     fun setVariant(g: Game, name: String) = prefs.edit().putString("variant:" + g.path, name).apply()
 
@@ -99,10 +104,14 @@ class Games(private val ctx: Context) {
     /** The emulator you chose for this console, if you have. */
     fun emulator(sys: String): String? = prefs.getString("emu:$sys", null)
     fun setEmulator(sys: String, emu: String) = prefs.edit().putString("emu:$sys", emu).apply()
+    /** This game's own emulator, if you chose one for it (the game page), otherwise its console's. */
+    fun emulatorFor(g: Game): String? = ownEmulator(g) ?: emulator(g.sys)
+    fun ownEmulator(g: Game): String? = prefs.getString("emu-game:" + g.path, null)
+    fun setOwnEmulator(g: Game, emu: String?) = prefs.edit().apply { if (emu == null) remove("emu-game:" + g.path) else putString("emu-game:" + g.path, emu) }.apply()
 
     /** Starts the game. Returns "" when it opened, otherwise what went wrong in plain words. */
     fun launch(g: Game): String {
-        val emu = emulator(g.sys) ?: return "Choose an emulator first"
+        val emu = emulatorFor(g) ?: return "Choose an emulator first"
         val ra = emu.startsWith(RA)
         val req = JSONObject().put("emu", if (ra) "RetroArch" else emu).put("core", if (ra) CORE_FILES[emu.removePrefix(RA)] ?: "" else "")
             .put("path", g.path).put("sys", g.sys)
