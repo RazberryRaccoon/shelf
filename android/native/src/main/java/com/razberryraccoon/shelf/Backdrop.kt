@@ -1,0 +1,117 @@
+package com.razberryraccoon.shelf
+
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.LightingColorFilter
+import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.graphics.RadialGradient
+import android.graphics.Shader
+import android.view.View
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.random.Random
+
+/**
+ * Everything behind the 3D layer, drawn with Android's own canvas in layout pixels: the night sky with a nebula in the
+ * selected console's color, stars, the planet up in the top half, Home's picture of the selected game (dark, zoomed in,
+ * panning slowly, fading out at the top in a windshield-style dot pattern), and soft shadows under the cartridges.
+ */
+class Backdrop(ctx: Context) : View(ctx) {
+    var scale = 1f; var ox = 0f; var oy = 0f
+    private var time = 0f
+    private val p = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val stars = Random(7).let { r -> List(240) { floatArrayOf(r.nextFloat() * Stage.W, r.nextFloat() * Stage.H, .5f + r.nextFloat() * 1.2f, r.nextFloat() * 6.3f) } }
+
+    // the nebula and planet take the selected console's color, easing from one to the next
+    private var mood = Theme.accentOf(null); private var moodFrom = mood; private var moodTo = mood; private var moodT = 1f
+    fun mood(c: Int) { if (c != moodTo) { moodFrom = mood; moodTo = c; moodT = 0f } }
+
+    // Home's picture: crossfades between games
+    private var pic: Bitmap? = null; private var picFrom: Bitmap? = null; private var picT = 1f
+    var picVisible = 1f
+    fun picture(b: Bitmap?) { if (b === pic) return; picFrom?.takeIf { it !== b }?.recycle(); picFrom = pic; pic = b; picT = 0f }
+    private val picTop = 424f; private val picH = Stage.H - picTop
+    private val dots: Bitmap = dotMask()
+    private val dim = LightingColorFilter(Color.rgb(51, 54, 66), 0)   // the prototype's [.2, .21, .26]: far in the background
+
+    /** Shadows to draw under the cartridges: x, y (center), width, strength. */
+    val shadows = ArrayList<FloatArray>()
+
+    fun tick(dt: Float) {
+        time += dt
+        moodT = minOf(1f, moodT + dt / .8f); mood = blend(moodFrom, moodTo, ease(moodT))
+        picT = minOf(1f, picT + dt / .45f)
+        invalidate()
+    }
+
+    override fun onDraw(c: Canvas) {
+        c.drawColor(Theme.bg)
+        c.save(); c.translate(ox, oy); c.scale(scale, scale)
+        // the nebula: two soft glows in the console's color
+        p.shader = RadialGradient(300f, 160f, 700f, Color.argb(70, Color.red(mood), Color.green(mood), Color.blue(mood)), Color.TRANSPARENT, Shader.TileMode.CLAMP)
+        c.drawRect(0f, 0f, Stage.W, Stage.H, p)
+        p.shader = RadialGradient(1100f, 700f, 600f, Color.argb(40, Color.red(mood), Color.green(mood), Color.blue(mood)), Color.TRANSPARENT, Shader.TileMode.CLAMP)
+        c.drawRect(0f, 0f, Stage.W, Stage.H, p); p.shader = null
+        // stars, twinkling slowly
+        for (s in stars) { p.color = Color.argb((90 + 110 * (.5f + .5f * sin(time * .6f + s[3]))).toInt(), 238, 241, 255); c.drawCircle(s[0], s[1], s[2], p) }
+        planet(c)
+        // the picture, then the shadows on top of it
+        val sweep = .5f - .5f * cos(time * 2 * PI.toFloat() / 92f)   // there and back over about 46 seconds each way
+        picFrom?.let { if (picT < 1) drawPicture(c, it, (1 - ease(picT)) * picVisible, sweep) }
+        pic?.let { drawPicture(c, it, ease(picT) * picVisible, sweep) }
+        for (s in shadows) {
+            p.shader = RadialGradient(s[0], s[1], s[2] / 2, Color.argb((150 * s[3]).toInt(), 0, 0, 0), Color.TRANSPARENT, Shader.TileMode.CLAMP)
+            c.save(); c.scale(1f, .22f, s[0], s[1]); c.drawCircle(s[0], s[1], s[2] / 2, p); c.restore()
+        }
+        p.shader = null
+        c.restore()
+    }
+
+    private fun planet(c: Canvas) {
+        val x = 1190f; val y = -175f; val r = 390f
+        p.shader = RadialGradient(x, y, r * 1.18f, intArrayOf(Color.argb(90, Color.red(mood), Color.green(mood), Color.blue(mood)), Color.TRANSPARENT), floatArrayOf(.82f, 1f), Shader.TileMode.CLAMP)
+        c.drawCircle(x, y, r * 1.18f, p)   // the atmosphere's glow
+        p.shader = RadialGradient(x - r * .35f, y + r * .55f, r * 1.25f, intArrayOf(blend(mood, Color.WHITE, .55f), blend(mood, Theme.bg, .45f), Color.rgb(6, 8, 20)), floatArrayOf(0f, .55f, 1f), Shader.TileMode.CLAMP)
+        c.drawCircle(x, y, r, p)
+        p.shader = null
+    }
+
+    private fun drawPicture(c: Canvas, b: Bitmap, a: Float, sweep: Float) {
+        if (a < .01f) return
+        val zoom = 1.3f; val k = maxOf(Stage.W / b.width, picH / b.height) * zoom
+        val m = Matrix(); m.setScale(k, k); m.postTranslate(-(b.width * k - Stage.W) * sweep, picTop - (b.height * k - picH) / 2)
+        val layer = c.saveLayer(0f, picTop, Stage.W, Stage.H, null)
+        p.colorFilter = dim; p.alpha = (255 * a).toInt(); c.drawBitmap(b, m, p); p.colorFilter = null; p.alpha = 255
+        p.xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN); c.drawBitmap(dots, 0f, picTop, p); p.xfermode = null
+        c.restoreToCount(layer)
+    }
+
+    /** Solid at the bottom, then rows of dots that shrink toward the top (as in the prototype's homeDotMask). */
+    private fun dotMask(): Bitmap {
+        val w = Stage.W.toInt(); val h = picH.toInt(); val b = Bitmap.createBitmap(w, h, Bitmap.Config.ALPHA_8); val c = Canvas(b)
+        val q = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
+        val pitch = 13f; val solid = h * .5f
+        c.drawRect(0f, solid, w.toFloat(), h.toFloat(), q)
+        var y = solid; var row = 0
+        while (y > -pitch) {
+            val t = (y / solid).coerceIn(0f, 1f); val r = pitch * (.06f + .66f * Math.pow(t.toDouble(), 1.25).toFloat())
+            q.alpha = ((.45f + .55f * t) * 255).toInt()
+            var x = if (row % 2 == 1) pitch / 2 else 0f
+            while (x < w + pitch) { c.drawCircle(x, y, r, q); x += pitch }
+            y -= pitch * .866f; row++
+        }
+        return b
+    }
+
+    companion object {
+        fun ease(t: Float) = t * t * (3 - 2 * t)
+        fun blend(a: Int, b: Int, t: Float) = Color.rgb(
+            (Color.red(a) + (Color.red(b) - Color.red(a)) * t).toInt(), (Color.green(a) + (Color.green(b) - Color.green(a)) * t).toInt(), (Color.blue(a) + (Color.blue(b) - Color.blue(a)) * t).toInt())
+    }
+}

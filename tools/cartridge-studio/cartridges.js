@@ -99,4 +99,26 @@ export const STYLES = {
     variants: [v('Gray', '#3b3d47', 'Standard'), v('White', '#e6e6ea', 'DSi-only games'),
       v('Smoked black', '#24252b', 'Infrared games: HeartGold, SoulSilver, Pokémon Black and White', { clear: 'frosted' })],
   },
+  psp: {   // a UMD: the disc's shell, rounded across the top, with the label over the disc
+    name: 'PSP (UMD)', size: [65, 64.5], depth: 4.2,
+    outline: [[-32.5, -32, 3], [32.5, -32, 3], [32.5, 0, 0], ['arc', 0, 0, 32.5, 0, 180], [-32.5, 0, 0]],
+    label: [0, 2, 44, 44, 22, .4],
+    ridges: [],
+    finish: plastic('#2a2b31', .35, .55),
+    variants: [v('Dark gray', '#2a2b31', 'Standard')],
+  },
+  android: {   // Android games: a small game card, the size of a memory card's case
+    name: 'Android game card', size: [42, 30], depth: 3.5,
+    outline: [[-21, -15, 2.2], [21, -15, 2.2], [21, 15, 2.2], [-21, 15, 2.2]],
+    label: [0, -2, 34, 20, 1.2, .35],
+    ridges: repeat(3, i => ({ x: 0, y: 10.6 + i * 1.5, w: 20, h: .6, r: .3, height: .25, side: 'front' })),
+    finish: plastic('#262a3a', .4, .5),
+    variants: [v('Midnight', '#262a3a', 'Standard'), v('White', '#e6e6ea', ''), v('Red', '#c0392b', ''), v('Blue', '#2d5fa8', '')],
+  },
+  ps1: {   // a CD: printed on top, the black data side underneath
+    name: 'PlayStation disc', kind: 'disc', size: [120, 120], depth: 1.2, radius: 60, hole: 7.5, hub: 23,
+    outline: [], label: [0, 0, 120, 120, 60, 0], ridges: [],
+    finish: plastic('#121216', .12, .9),
+    variants: [v('Black', '#121216', 'Standard: every PlayStation disc has a black data side')],
+  },
 };

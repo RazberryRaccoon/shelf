@@ -5,7 +5,8 @@ in [`cartridges.js`](cartridges.js), Shelf's own outlines at the real sizes in m
 and finished in physically based plastic. The consoles in [`consoles.js`](consoles.js) are Shelf's own code-built
 consoles (from `prototype-source/android/r4c.js`), rebuilt the same way: NES, Super Nintendo, Nintendo 64, Genesis,
 Game Boy, Game Boy Color, Game Boy Advance, PlayStation, Nintendo DS, PSP and a generic Android handheld. The SNES
-cartridge and console are the North American versions.
+cartridge and console are the North American versions. Besides cartridges there's a PlayStation disc, a PSP UMD and an
+Android game card, so every console Shelf supports has a model.
 
 **Open it:** https://razberryraccoon.github.io/shelf/tools/cartridge-studio/ (GitHub Pages). It uses JavaScript
 modules, which browsers won't load from a file on disk, so opening `index.html` directly doesn't work; on a computer, run
@@ -41,5 +42,12 @@ modules, which browsers won't load from a file on disk, so opening `index.html` 
 Add an entry to `STYLES` in `cartridges.js`: an outline, depth, label recess, any ridges, and a starting finish. A
 console is an entry in `CONSOLES` in `consoles.js`: a finish and a `build` function that places parts with the kit
 described at the top of that file.
+
+## Exporting for Shelf Native
+
+`node export-models.mjs` (needs Node and Playwright) builds every cartridge with the Studio's default settings and
+writes `.glb` files into `android/native/src/main/assets/models/`: each cartridge in its standard plastic, a
+see-through version for those with clear or frosted colors, and `cartridges.json` with sizes and color variants.
+`--consoles` adds the consoles. Run it again after changing `cartridges.js` and commit the results.
 
 `vendor/` holds three.js 0.160.0 (MIT, see `THREE-LICENSE`) and the files it needs, so the page works offline.

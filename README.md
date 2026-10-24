@@ -10,7 +10,7 @@ Shelf has been built three times, each one learning from the last:
 
 | Version | Device | State | Download |
 |---|---|---|---|
-| **Shelf for Android** | Retroid Pocket 3+ (Android 11) | 🚧 **Current focus.** First version of the real app (0.1), plus the design prototype. | [**Shelf.apk**](https://github.com/RazberryRaccoon/shelf/releases/latest/download/Shelf.apk) · [Prototype](https://github.com/RazberryRaccoon/shelf/raw/main/downloads/shelf-android-prototype.zip) |
+| **Shelf for Android** | Retroid Pocket 3+ (Android 11) | 🚧 **Current focus.** First version of the real app (0.1), plus the design prototype. | [**Shelf.apk**](https://github.com/RazberryRaccoon/shelf/releases/latest/download/Shelf.apk) · [Shelf Native (in progress)](https://github.com/RazberryRaccoon/shelf/releases/latest/download/ShelfNative.apk) · [Prototype](https://github.com/RazberryRaccoon/shelf/raw/main/downloads/shelf-android-prototype.zip) |
 | **Shelf for TV** | Raspberry Pi 3B+ on a TV | 🧪 Prototype finished. A first version for the Pi is written but has never been tried on a real Pi. | [Pi installer](https://github.com/RazberryRaccoon/shelf/raw/main/downloads/shelf-tv.tar.gz) · [Prototype](https://github.com/RazberryRaccoon/shelf/raw/main/downloads/shelf-tv-prototype.zip) |
 | **Shelf for Odroid GO** | Odroid GO (320×240 handheld) | ✅ **Finished and working** on the device. NES, Game Boy and Game Boy Color. | [Launcher + tools](https://github.com/RazberryRaccoon/shelf/raw/main/downloads/shelf-odroid-go.zip) |
 
@@ -146,7 +146,7 @@ Shift is Select, Esc or M is Menu, V is Volume.
 | [`downloads/`](downloads) | The ready-to-download files linked above. |
 | [`prototypes/`](prototypes) | The three browser prototypes, each a single HTML file. |
 | [`prototype-source/`](prototype-source) | The prototypes split into the parts they're built from. |
-| [`android/`](android) | Shelf for Android, the app (built by GitHub Actions). |
+| [`android/`](android) | Shelf for Android, the app (built by GitHub Actions), and Shelf Native, its native rebuild ([`android/native`](android/native)). |
 | [`tools/cartridge-studio/`](tools/cartridge-studio) | Cartridge Studio: premium 3D cartridges and consoles, with a tuning page and .glb export ([open it](https://razberryraccoon.github.io/shelf/tools/cartridge-studio/)). |
 | [`code/shelf-retrogo/`](code/shelf-retrogo) | Shelf for Odroid GO (retro-go launcher and PC tools). |
 | [`code/shelf-tv-pi/`](code/shelf-tv-pi) | Shelf for TV on the Raspberry Pi (C, SDL2, OpenGL ES 2). |

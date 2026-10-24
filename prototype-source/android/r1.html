@@ -130,9 +130,14 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 #muRail div span { margin-left: 15px; }
 .filter.cur { color: var(--fg); border-color: var(--fg3); }
 .mu-drag { position: absolute; left: 352px; top: 196px; width: 532px; height: 530px; cursor: grab; touch-action: none; }
-.mu-hint { position: absolute; left: 618px; bottom: 32px; transform: translateX(-50%); white-space: nowrap; padding: 10.5px 21px; border-radius: 24px; background: var(--panel); border: 1px solid var(--line); font-size: 22px; color: var(--fg2); pointer-events: none; }
+.mu-hint { position: absolute; left: 618px; bottom: 32px; transform: translateX(-50%); width: max-content; max-width: 512px; text-align: center; line-height: 1.6; padding: 8px 20px; border-radius: 24px; background: var(--panel); border: 1px solid var(--line); font-size: 20px; color: var(--fg2); pointer-events: none; }   /* stays between the list and the info panel */
+.mu-hint span { white-space: nowrap; margin: 0 7px; }
 .mu-hint .btn { margin: 0 3px; }
-.mu-info { position: absolute; right: 32px; top: 148px; width: 400px; height: 578px; padding: 30px 34px; overflow: hidden; }
+.mu-info { position: absolute; right: 32px; top: 148px; width: 400px; height: 578px; padding: 0; overflow: hidden; transition: box-shadow .2s; }
+.mu-info.focus { box-shadow: 0 0 0 2px var(--sel); }
+.mu-scroll { height: 100%; box-sizing: border-box; padding: 30px 34px; overflow-x: hidden; overflow-y: auto; scrollbar-width: none; }   /* the notes scroll inside the panel */
+.mu-scroll::-webkit-scrollbar { display: none; }
+.mu-scroll.more { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 70px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 70px), transparent); }   /* more to read below */
 .mu-info h2 { margin: 6px 0 0; font-family: var(--display); font-weight: 500; font-size: 35px; line-height: 1.15; }
 .mu-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 15px 27px; margin-top: 21px; font-size: 21px; color: var(--fg2); }
 .mu-facts b { display: block; margin-top: 3px; color: var(--fg); font-size: 23px; font-weight: 700; }

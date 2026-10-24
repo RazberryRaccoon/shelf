@@ -229,6 +229,25 @@ Summarized from the first part of the conversation; the full transcript is kept 
   of them." Built: a picker per art type in each game's settings, results from every connected service, and accounts
   entered with Android's own text box in Settings › Art and info.
 
+### Shelf Native (October 2026)
+
+- The user: "I think this prototype is now good enough for a full android release - no more glorified web file. Start
+  building that, and implement all the new cartridge lighting, rendering, and color options."
+- Proposed and chosen: **Kotlin + Google's Filament** (over Godot or our own OpenGL renderer): Filament's PBR matches
+  the Studio's plastic (clear coat, studio HDR lighting, see-through shells), it's small and fast to open, it's on Maven
+  Central so it can be compile-checked in Claude's sandbox, and the existing Java is reused.
+- Chosen: **side by side**. The native app installs as "Shelf Native" next to the WebView Shelf until it does
+  everything, then takes over the name.
+- **Creative liberty for polish** (the user, after 0.1): "all throughout the native build as we add more and more
+  features from the prototype, add in extra polish, extra detail, extra charm. Use your own discretion and take some
+  creative liberties. Add in fun little details that make it feel like a full, complete package, on par with the
+  quality and polish of a Nintendo console. I want to be impressed." So each round brings its screen over with extra
+  touches chosen by Claude (motion, sound, small surprises), within the taste rules: calm, modern, no nostalgiaslop,
+  no wobble, no loud sounds or white flashes. New screens and big design changes are still proposed first.
+- Version 0.1: Home with the Studio's models and lighting, per-game shell colors, launching. Discs, UMDs and Android
+  game cards added to the Studio so every console has a model. The SNES is the North American shape here; the WebView
+  app keeps its old one.
+
 ### Game page and Home picture notes (October 2026)
 
 1. "All the saves are showing as 'handled by the app,' even for RetroArch ones. That's fine with me for now, so you
@@ -249,6 +268,10 @@ Summarized from the first part of the conversation; the full transcript is kept 
    The sheet's top edge moved down 12 px (its headers with it) and the tab names got a little smaller and closer.
 7. "In the App drawer, selecting a game on the left or right edge, part of the selector gets cut off." The drawer now
    has room inside its edges for the focus ring, clips below its header, and fades rows out at the top and bottom.
+8. "The same issue with overlapping text appears in the Museum too - the 3D model controls, switch exhibit, etc. Also,
+   there's no way to scroll through the information in the right panel." The controls hint is shorter and wraps within
+   the stage. The info panel is now a stop of its own: right from the console list, up and down to scroll (touch works
+   too), left or B to go back; A still takes a closer look. A fade at its bottom shows there's more to read.
 
 ### Premium cartridges (October 2026)
 

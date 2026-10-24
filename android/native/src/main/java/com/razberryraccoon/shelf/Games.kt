@@ -1,0 +1,80 @@
+package com.razberryraccoon.shelf
+
+import android.content.Context
+import org.json.JSONObject
+
+data class Game(val sys: String, val title: String, val path: String)
+
+/**
+ * Your games (found by the shared Scanner), what you've played, and how each one starts. Everything Shelf remembers is
+ * kept in the app's own preferences: when you last played each game, its shell color, and each console's emulator.
+ */
+class Games(private val ctx: Context) {
+    private val prefs = ctx.getSharedPreferences("shelf", Context.MODE_PRIVATE)
+    var all: List<Game> = emptyList(); private set
+    var installed: Set<String> = emptySet(); private set
+
+    companion object {
+        /** Console names, from the prototype's PLAT table. */
+        val NAMES = mapOf("nes" to "NES", "snes" to "Super Nintendo", "n64" to "Nintendo 64", "genesis" to "Sega Genesis", "gb" to "Game Boy",
+            "gbc" to "Game Boy Color", "gba" to "Game Boy Advance", "ps1" to "PlayStation", "ds" to "Nintendo DS", "psp" to "PlayStation Portable")
+        /** RetroArch cores and standalone emulators for each console (the prototype's list); `first` is preferred when installed. */
+        private class Emus(val cores: List<String>, val apps: List<String>, val first: String? = null)
+        private val EMUS = mapOf(
+            "nes" to Emus(listOf("Mesen", "FCEUmm", "Nestopia UE", "QuickNES"), listOf("NES.emu", "Nesoid")),
+            "snes" to Emus(listOf("Snes9x", "bsnes", "bsnes-hd", "Snes9x 2010", "Mesen-S", "Beetle Supafaust"), listOf("Snes9x EX+")),
+            "n64" to Emus(listOf("Mupen64Plus-Next", "ParaLLEl N64"), listOf("Mupen64Plus FZ", "Mupen64Plus AE"), "Mupen64Plus FZ"),
+            "genesis" to Emus(listOf("Genesis Plus GX", "PicoDrive", "BlastEm"), listOf("MD.emu", "Pizza Boy SC")),
+            "gb" to Emus(listOf("Gambatte", "SameBoy", "Gearboy", "mGBA", "TGB Dual"), listOf("Pizza Boy GBC", "My OldBoy!", "GBC.emu", "Linkboy", "SkyEmu")),
+            "gbc" to Emus(listOf("Gambatte", "SameBoy", "Gearboy", "mGBA", "TGB Dual"), listOf("Pizza Boy GBC", "My OldBoy!", "GBC.emu", "Linkboy", "SkyEmu")),
+            "gba" to Emus(listOf("mGBA", "gpSP", "VBA-M", "VBA Next"), listOf("Pizza Boy GBA", "My Boy!", "GBA.emu", "Linkboy", "NooDS", "SkyEmu")),
+            "ps1" to Emus(listOf("SwanStation", "Beetle PSX HW", "Beetle PSX", "PCSX ReARMed"), listOf("DuckStation", "ePSXe", "FPseNG", "FPse"), "DuckStation"),
+            "ds" to Emus(listOf("melonDS DS", "melonDS", "DeSmuME", "DeSmuME 2015", "NooDS"), listOf("melonDS", "DraStic", "NooDS", "SkyEmu"), "melonDS"),
+            "psp" to Emus(listOf("PPSSPP"), listOf("PPSSPP", "PPSSPP Gold"), "PPSSPP"))
+        /** RetroArch core names → the core files RetroArch installs (as in rn.js). */
+        private val CORE_FILES = mapOf("Mesen" to "mesen", "FCEUmm" to "fceumm", "Nestopia UE" to "nestopia", "QuickNES" to "quicknes", "Snes9x" to "snes9x",
+            "bsnes" to "bsnes", "bsnes-hd" to "bsnes_hd_beta", "Snes9x 2010" to "snes9x2010", "Mesen-S" to "mesen-s", "Beetle Supafaust" to "mednafen_supafaust",
+            "Mupen64Plus-Next" to "mupen64plus_next_gles3", "ParaLLEl N64" to "parallel_n64", "Genesis Plus GX" to "genesis_plus_gx", "PicoDrive" to "picodrive",
+            "BlastEm" to "blastem", "Gambatte" to "gambatte", "SameBoy" to "sameboy", "Gearboy" to "gearboy", "mGBA" to "mgba", "TGB Dual" to "tgbdual",
+            "gpSP" to "gpsp", "VBA-M" to "vbam", "VBA Next" to "vba_next", "SwanStation" to "swanstation", "Beetle PSX HW" to "mednafen_psx_hw",
+            "Beetle PSX" to "mednafen_psx", "PCSX ReARMed" to "pcsx_rearmed", "melonDS DS" to "melondsds", "melonDS" to "melonds", "DeSmuME" to "desmume",
+            "DeSmuME 2015" to "desmume2015", "NooDS" to "noods", "PPSSPP" to "ppsspp")
+        const val RA = "RetroArch: "
+    }
+
+    /** Looks for games in every ROMs folder (the shared Scanner). Slow; call it off the main thread. */
+    fun scan() {
+        val r = Scanner.scan(ctx, "{}")
+        val list = ArrayList<Game>()
+        r.optJSONArray("games")?.let { a -> for (i in 0 until a.length()) a.getJSONObject(i).let { g -> if (g.optString("sys") in NAMES) list.add(Game(g.getString("sys"), g.getString("title"), g.getString("path"))) } }
+        installed = r.optJSONArray("emus")?.let { a -> (0 until a.length()).map { a.getString(it) }.toSet() } ?: emptySet()
+        all = list
+    }
+
+    /** Home's row: what you played most recently first, then everything else by name. */
+    fun recent(): List<Game> = all.sortedWith(compareByDescending<Game> { lastPlayed(it) }.thenBy { it.title.lowercase() })
+
+    fun lastPlayed(g: Game) = prefs.getLong("played:" + g.path, 0L)
+    fun variant(g: Game): String? = prefs.getString("variant:" + g.path, null)
+    fun setVariant(g: Game, name: String) = prefs.edit().putString("variant:" + g.path, name).apply()
+
+    /** Every way this console's games can start: RetroArch's cores first, then standalone emulators, installed ones marked. */
+    fun emulatorChoices(sys: String): List<Pair<String, Boolean>> {
+        val e = EMUS[sys] ?: return emptyList()
+        return e.cores.map { RA + it to ("RetroArch" in installed) } + e.apps.map { it to (it in installed) }
+    }
+    /** The emulator you chose for this console, if you have. */
+    fun emulator(sys: String): String? = prefs.getString("emu:$sys", null)
+    fun setEmulator(sys: String, emu: String) = prefs.edit().putString("emu:$sys", emu).apply()
+
+    /** Starts the game. Returns "" when it opened, otherwise what went wrong in plain words. */
+    fun launch(g: Game): String {
+        val emu = emulator(g.sys) ?: return "Choose an emulator first"
+        val ra = emu.startsWith(RA)
+        val req = JSONObject().put("emu", if (ra) "RetroArch" else emu).put("core", if (ra) CORE_FILES[emu.removePrefix(RA)] ?: "" else "")
+            .put("path", g.path).put("sys", g.sys)
+        val err = Emulators.launch(ctx, req) ?: ""
+        if (err.isEmpty()) prefs.edit().putLong("played:" + g.path, System.currentTimeMillis()).apply()
+        return err
+    }
+}

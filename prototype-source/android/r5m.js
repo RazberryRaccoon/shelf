@@ -65,6 +65,7 @@ function pickExhibit(i, ex) {
   if (!sameBox) { U.prev = { sys: MU_ORDER[U.i], ex: U.ex, yaw: U.yaw, pitch: U.pitch, open: U.open }; U.fade = 0; }
   if (i !== U.i || !sameBox) { const v = EX_VIEW[ex]; U.yawT = v.yaw; U.pitchT = v.pitch; if (!sameBox) { U.yaw = v.yaw + (i !== U.i ? .5 : .3); U.pitch = v.pitch; } }
   if (!sameBox) U.open = ex === 3 ? .6 : 0;
+  if (i !== U.i) U.infoTop = 0;   // a new console's notes start at the top
   U.i = i; U.ex = ex; setMood(MU_ORDER[i]); refreshMuseum();
 }
 function refreshMuseum() {
@@ -72,20 +73,33 @@ function refreshMuseum() {
   $('#muRail').innerHTML = '<nav class="railin"><h5>Consoles, oldest first</h5>' + MU_ORDER.map((k, i) => `<div class="${i === U.i ? 'cur' : ''} ${!S.top.on && U.zone === 'rail' && i === U.i ? 'focus' : ''}">${esc(PLAT[k].name)}<span>${MUSEUM[k].year}</span></div>`).join('') + '</nav>';
   railScroll($('#muRail .railin'), 506);
   $('#muChips').innerHTML = EXHIBITS(sys).map((e, i) => `<div class="filter ${i === U.ex ? (stage0 ? 'focus' : 'cur') : ''}">${e}</div>`).join('');
-  $('#muInfo').innerHTML = `<div class="gp-sys">${esc(d.maker)} · ${d.year}</div><h2>${esc(PLAT[sys].long)}</h2>
+  $('#muInfo').innerHTML = `<div class="mu-scroll" id="muScroll"><div class="gp-sys">${esc(d.maker)} · ${d.year}</div><h2>${esc(PLAT[sys].long)}</h2>
     <div class="mu-facts"><div>Released in North America<b>${esc(d.released)}</b></div><div>Sold<b>${esc(d.sold)}</b></div><div>Processor<b>${esc(d.cpu)}</b></div><div>Plays<b>${esc(d.plays)}</b></div></div>
     <h3>Did you know?</h3><ul>${d.facts.map(f => `<li>${esc(f)}</li>`).join('')}</ul>
-    <p class="mu-note">Shelf’s models are stylized: the real shapes and sizes, with no logos. Shown with ${esc(g.title)}, an invented game.</p>`;
-  $('#muHint').innerHTML = stage0 ? '<i class="btn">◀▶</i><i class="btn">▲▼</i> Turn it &nbsp; <i class="btn">LB</i><i class="btn">RB</i> Switch exhibit &nbsp; <i class="btn">Y</i> Reset the view &nbsp; <i class="btn">B</i> Back to the list'
-    : '<i class="btn">▲▼</i> Choose a console &nbsp; <i class="btn">A</i> Take a closer look';
+    <p class="mu-note">Shelf’s models are stylized: the real shapes and sizes, with no logos. Shown with ${esc(g.title)}, an invented game.</p></div>`;
+  $('#muScroll').scrollTop = U.infoTop || 0; $('#muInfo').classList.toggle('focus', !S.top.on && U.zone === 'info'); moreBelow();
+  $('#muScroll').addEventListener('scroll', () => { S.mu.infoTop = $('#muScroll').scrollTop; moreBelow(); });   // touch scrolling
+  const hint = (keys, say) => `<span>${keys.map(k => `<i class="btn">${k}</i>`).join('')} ${say}</span>`;
+  $('#muHint').innerHTML = stage0 ? hint(['◀▶', '▲▼'], 'Turn') + hint(['LB', 'RB'], 'Exhibit') + hint(['Y'], 'Reset') + hint(['B'], 'Back')
+    : U.zone === 'info' ? hint(['▲▼'], 'Scroll') + hint(['◀'], 'Back to the list')
+    : hint(['▲▼'], 'Choose') + hint(['A'], 'Closer look') + hint(['▶'], 'Read more');
   renderTop();
 }
+function moreBelow() { const el = $('#muScroll'); if (!el) return; el.classList.toggle('more', el.scrollTop + el.clientHeight < el.scrollHeight - 4); }
 function museumInput(a) {
   const U = S.mu, n = MU_ORDER.length;
+  if (U.zone === 'info') {   // reading the notes: up and down scroll them
+    const el = $('#muScroll');
+    if (a === 'up' || a === 'down') { const to = clamp(el.scrollTop + (a === 'up' ? -1 : 1) * 150, 0, el.scrollHeight - el.clientHeight); if (to !== el.scrollTop) sfx.move();
+      U.infoTop = to; el.scrollTo ? el.scrollTo({ top: to, behavior: motion() ? 'smooth' : 'auto' }) : (el.scrollTop = to); }
+    else if (a === 'left' || a === 'b') { U.zone = 'rail'; sfx.back(); refreshMuseum(); }
+    return;
+  }
   if (U.zone === 'rail') {
     if (a === 'up' && U.i === 0) { S.top.on = true; S.top.i = TOP.indexOf('museum'); sfx.move(); return refreshMuseum(); }
     if (a === 'up' || a === 'down') { const k = clamp(U.i + (a === 'up' ? -1 : 1), 0, n - 1); if (k !== U.i) { pickExhibit(k, U.ex); sfx.move(); } }
-    else if (a === 'right' || a === 'a') { U.zone = 'stage'; sfx.move(); refreshMuseum(); }
+    else if (a === 'a') { U.zone = 'stage'; sfx.move(); refreshMuseum(); }
+    else if (a === 'right') { U.zone = 'info'; sfx.move(); refreshMuseum(); }
     else if (a === 'b') { sfx.back(); enterTab('home'); }
     return;
   }

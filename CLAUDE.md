@@ -29,9 +29,17 @@ that we've learned … and make an Android game launcher that's the best it can 
 - **The Android app, version 0.1** (October 2026): `android/`, a Java app running the interface in a WebView with a
   native bridge (`ShelfNative`). GitHub Actions builds it; pushes to `main` publish `Shelf.apk` as the latest release.
   Next: the user tries it on the Retroid, then art downloads, saves, achievements (see `docs/ROADMAP.md`).
+- **Shelf Native** (October 2026, the user: "good enough for a full android release - no more glorified web file"):
+  `android/native/`, Kotlin + Google's Filament, installed next to the WebView app until it does everything. Version
+  0.1 is Home with the Cartridge Studio's models, lighting and color variants. Next rounds port the other screens.
+  Kotlin is compile-checked locally with the Kotlin 2.4 compiler against `android-all` and Filament's AARs.
 - The Android SDK can't be downloaded in Claude's sandbox (dl.google.com is blocked): compile-check the Java against
   Robolectric's `android-all` jar from Maven Central, and let GitHub Actions do the real build.
 - The user asked to "talk it through" before building anything new. Propose, confirm, then build.
+- **Shelf Native polish (standing request):** while porting each screen, add extra polish, detail and charm on your own
+  initiative ("on par with the quality and polish of a Nintendo console. I want to be impressed"). Small touches don't
+  need asking; keep to the taste rules below, and still propose new screens or big changes first. Tell the user what
+  you added each round so they can veto it.
 
 ## The user
 
@@ -87,8 +95,10 @@ that we've learned … and make an Android game launcher that's the best it can 
 - `prototype-source/`: the prototypes split into the parts they were built from, with a build script.
 - `tools/models/`: Blender scripts that build consoles and cartridges from the user's reference photos (see its
   README). Output goes to `prototype-source/models/`. GBA done; the rest still use the code-built models.
-- `android/`: Shelf for Android, the app (see its README). `prototype-source/android/rn.js` is the page's native mode.
-- `tools/cartridge-studio/`: three.js cartridge and console generator and tuning page (beveled extrusions, physical plastic, studio
+- `android/`: Shelf for Android, the app (see its README); `android/shared/` is the Java both apps use;
+  `android/native/` is Shelf Native. `prototype-source/android/rn.js` is the page's native mode.
+- `tools/cartridge-studio/`: three.js cartridge and console generator and tuning page; `export-models.mjs` writes the
+  `.glb` files Shelf Native uses (beveled extrusions, physical plastic, studio
   HDR, .glb export). Not yet used by Shelf's own renderer.
 - `code/`: the Odroid GO firmware integration and the Raspberry Pi C app.
 - `downloads/`: the zips linked from the README. Rebuild them with `bash scripts/make-downloads.sh` whenever

@@ -116,7 +116,7 @@ final class Emulators {
                 break;
             }
             case VIEW_SAF: case DATA_SAF: i.setData(documentUri(ctx, rom)); break;
-            case VIEW_PROVIDER: case DATA_PROVIDER: i.setData(RomProvider.uriFor(rom)); i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION); break;
+            case VIEW_PROVIDER: case DATA_PROVIDER: i.setData(RomProvider.uriFor(ctx, rom)); i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION); break;
             case EXTRA_SAF: i.putExtra(e.extra, documentUri(ctx, rom).toString()); break;
             case EXTRA_PATH: i.putExtra(e.extra, path); break;
             case VIEW_FILE: i.setData(Uri.fromFile(rom)); break;

@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "Shelf"
-include(":app")
+include(":app", ":shared", ":native")
