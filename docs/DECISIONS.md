@@ -242,6 +242,9 @@ Summarized from the first part of the conversation; the full transcript is kept 
    just a regular fade, can it be a dot fade? Like the edges of glass panes on a car windshield." Built: much darker,
    zoomed 1.3×, panning back and forth over about 46 seconds (still with reduced motion), and a windshield-style dot
    fade that stays in place while the picture moves.
+5. "There's currently no way to edit art for Android games. Fix that." Their settings now have the same per-kind
+   pickers (box front, box back, spine, title screen, screenshot), searching ScreenScraper (system 63), TheGamesDB
+   (platform 4916), IGDB (platform 34) and SteamGridDB; libretro and RetroAchievements have no Android games.
 
 ### Premium cartridges (October 2026)
 

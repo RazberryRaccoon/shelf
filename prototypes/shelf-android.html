@@ -2520,11 +2520,16 @@ function settingsModel() {
   const info = (label, value, desc, bar) => ({ label, desc, value, info: true, bar });
   const action = (label, value, desc, act) => ({ label, desc, value, act, action: true });
   const nav = (label, value, desc, go) => ({ label, desc, value, act: go, nav: true });
+  // in the app: a picker for each kind of art, and a way back to Shelf's own box
+  const artRows = g => [...kindsFor(g).map(({ k }) => { const m = P.meta[g.id] || {}, has = m.art && m.art[k];
+      return action(kindName(g, k), has ? (m.src && m.src[k]) || 'Downloaded' : 'Shelf’s own', kindTip(k, g), () => { openKindPicker(g, k); return true; }); }),
+    ...(P.meta[g.id] ? [action('Remove all art and details', '', g.sys === 'android' ? 'Go back to the box Shelf makes from its icon.' : 'Go back to the box Shelf makes for it.', () => { ShelfNative.artRemove(g.id); delete P.meta[g.id]; nativeScan(); nativeSave(); toast('Art removed'); })] : [])];
   if (S.set.game) {   // one game's own settings
     const g = byId[S.set.game], own = P.gameEmu[g.id], opts = [null, ...PLAT[g.sys].emus], emu = emuFor(g), gf = P.gf[g.id] || (P.gf[g.id] = { filter: null });
     return [{ cat: g.title, intro: `${PLAT[g.sys].long}. These override the platform’s settings for this game only.`, items: g.sys === 'android' ? [
       action('Move back to Apps', '', 'Takes it out of the Library. It stays installed.', () => { unmarkGame(g.title); S.set.game = null; enterTab('apps'); return true; }),
       ...(NATIVE ? [] : [action('Box art', 'Choose', 'Pick other art from the game databases, or make a box from the icon.', () => toast('Shows other art to choose from'))]),
+      ...(NATIVE ? artRows(g) : []),
       tog('Show on Home', 'show', 'Include it in your recently played cartridges.', { get show() { return !P.hidden.has(g.id); }, set show(v) { v ? P.hidden.delete(g.id) : P.hidden.add(g.id); } })] : [
       { label: 'Emulator', desc: own ? 'Chosen for this game.' : `Using the ${PLAT[g.sys].name} default. Choose to override it.`, value: own ? emuName(own) : `Default (${emuName(P.emu[g.sys])})`, act: () => { pickEmulator(g.sys, own || null, v => { if (v) P.gameEmu[g.id] = v; else delete P.gameEmu[g.id]; fillSettings(); }, { withDefault: true, title: `${g.title}: play with` }); return true; } },
       info('Saves', isRA(emu) ? 'Shelf’s slots' : `Kept by ${emu}`, isRA(emu) ? 'Four save slots with screenshots, per game.' : 'Standalone emulators keep their own saves.'),
@@ -2533,9 +2538,7 @@ function settingsModel() {
       ...(NATIVE ? [] : [info('Manual', hasManual(g) ? `${manualPages(g)} pages` : 'Not found', hasManual(g) ? 'Downloaded from ScreenScraper.' : 'ScreenScraper doesn’t have one for this game.')]),
       ...(NATIVE ? [
         action('Details', P.meta[g.id] && P.meta[g.id].name ? P.meta[g.id].name : 'Not found yet', 'Year, developer, genre and description, plus matching box art, title screen and screenshot. From libretro (no account).', () => { openArtPicker(g); return true; }),
-        ...ART_KINDS.map(({ k }) => { const m = P.meta[g.id] || {}, has = m.art && m.art[k];
-          return action(kindName(g, k), has ? (m.src && m.src[k]) || 'Downloaded' : 'Shelf’s own', kindTip(k), () => { openKindPicker(g, k); return true; }); }),
-        ...(P.meta[g.id] ? [action('Remove all art and details', '', 'Go back to the box Shelf makes for it.', () => { ShelfNative.artRemove(g.id); delete P.meta[g.id]; nativeScan(); nativeSave(); toast('Art removed'); })] : [])] : []),
+        ...artRows(g)] : []),
       tog('Show on Home', 'show', 'Include it in your recently played cartridges.', { get show() { return !P.hidden.has(g.id); }, set show(v) { v ? P.hidden.delete(g.id) : P.hidden.add(g.id); } })] }];
   }
   if (S.set.sub) {      // one platform's page
@@ -3254,20 +3257,23 @@ function artAll(again) {
 /* ---------- art from several services, one kind at a time ---------- */
 const ART_KINDS = [{ k: 'box', name: 'Box front' }, { k: 'back', name: 'Box back' }, { k: 'spine', name: 'Spine' },
   { k: 'label', name: 'Label' }, { k: 'title', name: 'Title screen' }, { k: 'shot', name: 'Screenshot' }];
+const ANDROID_KINDS = ['box', 'back', 'spine', 'title', 'shot'];   // an Android game's keep case has no cartridge or disc label
+const kindsFor = g => ART_KINDS.filter(a => g.sys !== 'android' || ANDROID_KINDS.includes(a.k));
 const kindName = (g, k) => k === 'label' ? (CART[g.sys] && (CART[g.sys].disc || CART[g.sys].umd) ? 'Disc art' : 'Cartridge label') : ART_KINDS.find(a => a.k === k).name;
 // each service: what it gives, and what you need to connect it (fields are asked for with Android's own text box)
-const ART_SOURCES = [
-  { id: 'libretro', name: 'libretro', kinds: ['box', 'title', 'shot'], needs: 'No account needed', fields: [] },
+const ART_SOURCES = [   // noAndroid: has no Android games
+  { id: 'libretro', name: 'libretro', kinds: ['box', 'title', 'shot'], needs: 'No account needed', fields: [], noAndroid: true },
   { id: 'ss', name: 'ScreenScraper', kinds: ['box', 'back', 'spine', 'label', 'title', 'shot'], needs: 'A free screenscraper.fr account, plus developer credentials you request once on their forum',
     fields: [['devid', 'Developer ID'], ['devpassword', 'Developer password', 1], ['user', 'Your ScreenScraper username', 0, 1], ['password', 'Your ScreenScraper password', 1, 1]] },
   { id: 'tgdb', name: 'TheGamesDB', kinds: ['box', 'back', 'title', 'shot'], needs: 'An API key from thegamesdb.net (request it under API Access)', fields: [['key', 'TheGamesDB API key', 1]] },
-  { id: 'ra', name: 'RetroAchievements', kinds: ['box', 'title', 'shot'], needs: 'Your RetroAchievements username and web API key (Settings › Keys on the site)', fields: [['user', 'RetroAchievements username'], ['key', 'Web API key', 1]] },
+  { id: 'ra', name: 'RetroAchievements', kinds: ['box', 'title', 'shot'], noAndroid: true, needs: 'Your RetroAchievements username and web API key (Settings › Keys on the site)', fields: [['user', 'RetroAchievements username'], ['key', 'Web API key', 1]] },
   { id: 'sgdb', name: 'SteamGridDB', kinds: ['box'], needs: 'An API key from steamgriddb.com (Preferences › API)', fields: [['key', 'SteamGridDB API key', 1]] },
   { id: 'igdb', name: 'IGDB', kinds: ['box', 'shot'], needs: 'A Twitch developer app’s client ID and secret (dev.twitch.tv › Your Console)', fields: [['id', 'Twitch client ID'], ['secret', 'Twitch client secret', 1]] },
 ];
 const srcConnected = s => s.fields.filter(f => !f[3]).every(f => (P.keys[s.id] || {})[f[0]]);   // [field, label, secret, optional]
-function kindTip(k) {   // which services give this kind of art, and which of those you've connected
-  const all = ART_SOURCES.filter(s => s.kinds.includes(k)), on = all.filter(srcConnected);
+function kindTip(k, g) {   // which services give this kind of art (for this game's platform), and which of those you've connected
+  const all = ART_SOURCES.filter(s => s.kinds.includes(k) && !(g && g.sys === 'android' && s.noAndroid)), on = all.filter(srcConnected);
+  if (!all.length) return 'No service has this for Android games.';
   return `From ${all.map(s => s.name + (s.fields.length ? '' : ' (no account)')).join(', ')}. ` + (on.length ? `Connected: ${on.map(s => s.name).join(', ')}.` : 'Connect one in Settings › Art and info.');
 }
 const askText = (title, value, secret) => new Promise(res => { const id = 't' + (++artSeq); ART_REQ[id] = res; ShelfNative.askText(id, title, value || '', !!secret); });

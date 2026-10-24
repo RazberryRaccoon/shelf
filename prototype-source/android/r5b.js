@@ -60,11 +60,16 @@ function settingsModel() {
   const info = (label, value, desc, bar) => ({ label, desc, value, info: true, bar });
   const action = (label, value, desc, act) => ({ label, desc, value, act, action: true });
   const nav = (label, value, desc, go) => ({ label, desc, value, act: go, nav: true });
+  // in the app: a picker for each kind of art, and a way back to Shelf's own box
+  const artRows = g => [...kindsFor(g).map(({ k }) => { const m = P.meta[g.id] || {}, has = m.art && m.art[k];
+      return action(kindName(g, k), has ? (m.src && m.src[k]) || 'Downloaded' : 'Shelf’s own', kindTip(k, g), () => { openKindPicker(g, k); return true; }); }),
+    ...(P.meta[g.id] ? [action('Remove all art and details', '', g.sys === 'android' ? 'Go back to the box Shelf makes from its icon.' : 'Go back to the box Shelf makes for it.', () => { ShelfNative.artRemove(g.id); delete P.meta[g.id]; nativeScan(); nativeSave(); toast('Art removed'); })] : [])];
   if (S.set.game) {   // one game's own settings
     const g = byId[S.set.game], own = P.gameEmu[g.id], opts = [null, ...PLAT[g.sys].emus], emu = emuFor(g), gf = P.gf[g.id] || (P.gf[g.id] = { filter: null });
     return [{ cat: g.title, intro: `${PLAT[g.sys].long}. These override the platform’s settings for this game only.`, items: g.sys === 'android' ? [
       action('Move back to Apps', '', 'Takes it out of the Library. It stays installed.', () => { unmarkGame(g.title); S.set.game = null; enterTab('apps'); return true; }),
       ...(NATIVE ? [] : [action('Box art', 'Choose', 'Pick other art from the game databases, or make a box from the icon.', () => toast('Shows other art to choose from'))]),
+      ...(NATIVE ? artRows(g) : []),
       tog('Show on Home', 'show', 'Include it in your recently played cartridges.', { get show() { return !P.hidden.has(g.id); }, set show(v) { v ? P.hidden.delete(g.id) : P.hidden.add(g.id); } })] : [
       { label: 'Emulator', desc: own ? 'Chosen for this game.' : `Using the ${PLAT[g.sys].name} default. Choose to override it.`, value: own ? emuName(own) : `Default (${emuName(P.emu[g.sys])})`, act: () => { pickEmulator(g.sys, own || null, v => { if (v) P.gameEmu[g.id] = v; else delete P.gameEmu[g.id]; fillSettings(); }, { withDefault: true, title: `${g.title}: play with` }); return true; } },
       info('Saves', isRA(emu) ? 'Shelf’s slots' : `Kept by ${emu}`, isRA(emu) ? 'Four save slots with screenshots, per game.' : 'Standalone emulators keep their own saves.'),
@@ -73,9 +78,7 @@ function settingsModel() {
       ...(NATIVE ? [] : [info('Manual', hasManual(g) ? `${manualPages(g)} pages` : 'Not found', hasManual(g) ? 'Downloaded from ScreenScraper.' : 'ScreenScraper doesn’t have one for this game.')]),
       ...(NATIVE ? [
         action('Details', P.meta[g.id] && P.meta[g.id].name ? P.meta[g.id].name : 'Not found yet', 'Year, developer, genre and description, plus matching box art, title screen and screenshot. From libretro (no account).', () => { openArtPicker(g); return true; }),
-        ...ART_KINDS.map(({ k }) => { const m = P.meta[g.id] || {}, has = m.art && m.art[k];
-          return action(kindName(g, k), has ? (m.src && m.src[k]) || 'Downloaded' : 'Shelf’s own', kindTip(k), () => { openKindPicker(g, k); return true; }); }),
-        ...(P.meta[g.id] ? [action('Remove all art and details', '', 'Go back to the box Shelf makes for it.', () => { ShelfNative.artRemove(g.id); delete P.meta[g.id]; nativeScan(); nativeSave(); toast('Art removed'); })] : [])] : []),
+        ...artRows(g)] : []),
       tog('Show on Home', 'show', 'Include it in your recently played cartridges.', { get show() { return !P.hidden.has(g.id); }, set show(v) { v ? P.hidden.delete(g.id) : P.hidden.add(g.id); } })] }];
   }
   if (S.set.sub) {      // one platform's page
