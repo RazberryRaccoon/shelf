@@ -320,3 +320,7 @@ the project's Android Gradle plugin), so Shelf Native uses Filament 1.75.1.
 **Shelf Native 0.2 (October 2026):** first-run setup and Settings › Games folders, after 0.1 found no games on the
 Retroid (it only looked in ROMs/<console>, and had no setup to choose folders). The scanner now also takes a main folder
 with a folder per console inside, matches folder names written out, and looks in Games and Emulation/roms.
+0.2 closed as soon as it opened on the Retroid: the label texture asked Filament to make mipmaps without the
+GEN_MIPMAPPABLE flag, which Filament treats as a fatal error. 0.1 never drew a cartridge on the device (it found no
+games), so 0.2's setup cartridge was the first. Fixed, material values are now type-checked before they're set, and
+errors in Shelf Native's own code are saved and shown the next time it opens.
