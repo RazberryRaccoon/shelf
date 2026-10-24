@@ -6,7 +6,7 @@ function refreshApps() {
   S.apps.i = clamp(S.apps.i, 0, APPS.length - 1); setMood('home');
   $('#appCount').textContent = `${APPS.length} apps on this handheld`;
   $('#appGrid').innerHTML = APPS.map((a, i) => `<div class="app ${!S.top.on && i === S.apps.i ? 'focus' : ''}"><img src="${iconUrl(a)}" alt=""><span>${esc(a.name)}</span>${ANDROID_GAMES.has(a.name) ? '<small>In Library</small>' : ''}</div>`).join('');
-  const first = $('#appGrid .app'), rowH = first ? first.offsetHeight + 30 : 190, r = Math.floor(S.apps.i / APP_COLS), view = 750 - 196;
+  const first = $('#appGrid .app'), rowH = first ? first.offsetHeight + 30 : 190, r = Math.floor(S.apps.i / APP_COLS), view = 750 - 204;
   const rows = Math.ceil(APPS.length / APP_COLS), off = clamp(r * rowH - (view - rowH) / 2, 0, Math.max(0, rows * rowH - view + 24));
   $('#appGrid').style.transform = `translateY(${-off}px)`;
   renderTop();

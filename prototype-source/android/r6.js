@@ -293,7 +293,8 @@ function drawSheet(dt, t) {
   if (!NODRAW) { gl.clear(gl.DEPTH_BUFFER_BIT); gl.viewport(0, -Math.round(SHEETOFF * cv.height / H), cv.width, cv.height); }
   setFlat(); beginMeshes();
   const b = hexRgb(getComputedStyle(stage).getPropertyValue('--bg').trim() || '#070b1e'), f = lightTheme() ? [1, 1, 1] : [.6, .65, 1];
-  drawPlate('sheet', panelArt, 667, 524, 1310, 800, 2, b.map((v, i) => v * .9 + f[i] * .06), .95);
+  drawPlate('sheet', panelArt, 667, 530, 1310, 788, 2,   // its top edge clears the tab names under the round buttons
+    b.map((v, i) => v * .9 + f[i] * .06), .95);
   endMeshes(); if (!NODRAW) gl.clear(gl.DEPTH_BUFFER_BIT);
   S.sheet.cf = Math.min(1, (S.sheet.cf == null ? 1 : S.sheet.cf) + dt / .3); UNDER = ease(S.sheet.cf);   // switching sheets fades the new one in
   if (S.sheet.name === 'library') drawLibrary(dt, t); else if (S.sheet.name === 'museum') drawMuseum(dt);

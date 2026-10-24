@@ -245,6 +245,10 @@ Summarized from the first part of the conversation; the full transcript is kept 
 5. "There's currently no way to edit art for Android games. Fix that." Their settings now have the same per-kind
    pickers (box front, box back, spine, title screen, screenshot), searching ScreenScraper (system 63), TheGamesDB
    (platform 4916), IGDB (platform 34) and SteamGridDB; libretro and RetroAchievements have no Android games.
+6. "With the library/Apps/museum open, the label for the tab overlaps a bit with the panel popping up from the bottom."
+   The sheet's top edge moved down 12 px (its headers with it) and the tab names got a little smaller and closer.
+7. "In the App drawer, selecting a game on the left or right edge, part of the selector gets cut off." The drawer now
+   has room inside its edges for the focus ring, clips below its header, and fades rows out at the top and bottom.
 
 ### Premium cartridges (October 2026)
 
