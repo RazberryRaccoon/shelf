@@ -313,4 +313,6 @@ second texture, the dot mask, stays fixed to the screen.
 .glb (`tools/cartridge-studio/export-models.mjs`) and rendered with Filament's built-in glTF materials; the studio HDR
 prefiltered on the device. The shared Java moved into `android/shared/` and the ROM provider's name now follows each
 app's package, so both apps install together. Found while compile-checking: Filament 1.77's utilities are built with
-Kotlin 2.4 (an older Kotlin can't read them), and the renderer's clear color takes doubles.
+Kotlin 2.4 (an older Kotlin can't read them), and the renderer's clear color takes doubles. Found by
+GitHub's build: Filament's libraries need AndroidX switched on, and from 1.76 they need compileSdk 37 (newer than
+the project's Android Gradle plugin), so Shelf Native uses Filament 1.75.1.

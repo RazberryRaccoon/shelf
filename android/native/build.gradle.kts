@@ -42,9 +42,9 @@ android {
 
 dependencies {
     implementation(project(":shared"))
-    implementation("com.google.android.filament:filament-android:1.77.3")
-    implementation("com.google.android.filament:gltfio-android:1.77.3")
-    implementation("com.google.android.filament:filament-utils-android:1.77.3")
+    implementation("com.google.android.filament:filament-android:1.75.1")   // 1.76+ needs compileSdk 37
+    implementation("com.google.android.filament:gltfio-android:1.75.1")
+    implementation("com.google.android.filament:filament-utils-android:1.75.1")
 }
 
 kotlin {

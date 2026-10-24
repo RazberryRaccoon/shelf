@@ -4,7 +4,6 @@ import android.content.Context
 import android.view.Choreographer
 import android.view.Surface
 import android.view.TextureView
-import com.google.android.filament.ACESLegacyToneMapper
 import com.google.android.filament.Camera
 import com.google.android.filament.ColorGrading
 import com.google.android.filament.Engine
@@ -15,6 +14,7 @@ import com.google.android.filament.LightManager
 import com.google.android.filament.Renderer
 import com.google.android.filament.Scene
 import com.google.android.filament.SwapChain
+import com.google.android.filament.ToneMapper
 import com.google.android.filament.View
 import com.google.android.filament.Viewport
 import com.google.android.filament.android.DisplayHelper
@@ -71,9 +71,9 @@ class Stage(private val ctx: Context, private val surface: TextureView) : Choreo
         view.scene = scene
         view.camera = camera
         view.blendMode = View.BlendMode.TRANSLUCENT   // keeps the backdrop visible through the empty parts
-        renderer.clearOptions = renderer.clearOptions.apply { clear = true; setClearColor(0.0, 0.0, 0.0, 0.0) }
+        renderer.clearOptions = renderer.clearOptions.apply { clear = true; clearColor = doubleArrayOf(0.0, 0.0, 0.0, 0.0) }
         view.multiSampleAntiAliasingOptions = view.multiSampleAntiAliasingOptions.apply { enabled = true; sampleCount = 4 }
-        view.colorGrading = ColorGrading.Builder().toneMapper(ACESLegacyToneMapper()).build(engine)
+        view.colorGrading = ColorGrading.Builder().toneMapper(ToneMapper.ACESLegacy()).build(engine)
         camera.setExposure(.72f)   // the Studio's defaults: exposure .72, environment .85, key light 1
         LightManager.Builder(LightManager.Type.DIRECTIONAL)
             .color(1f, 1f, 1f).intensity(1f).direction(.48f, -.62f, -.62f).castShadows(false)
