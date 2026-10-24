@@ -42,8 +42,9 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     var picker: Picker? = null; private set
     var needsStorage = false
     /** Home hides while setup or settings are open; coming back, the cartridges rise into place one after another. */
-    var visible = true; set(v) { if (v && !field) rise = 0f; field = v }
+    var visible = true; set(v) { if (v && !field) { rise = 0f; riseT = 0f }; field = v }
     private var rise = 0f
+    private var riseT = 0f   // seconds since Home came back; each cartridge starts rising a moment after the one before
 
     private val title = text(48f, Fonts.display, Theme.fg)
     private val meta = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
@@ -114,6 +115,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         time += dt
         f += (i - f) * min(1f, dt * 8f)
         rise = if (visible) min(1f, rise + dt / 1.4f) else maxOf(0f, rise - dt / .35f)
+        if (visible) riseT += dt
         val shownK = Backdrop.ease(min(1f, rise * 2f))
         for (v in listOf(title, meta, message, clock, profile) + dock) v.alpha = shownK
         dockLabel.alpha = minOf(dockLabel.alpha, shownK)
@@ -132,7 +134,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
             s.bright += ((if (k == i) 1.02f else .72f) - s.bright) * ease
             val cart = s.cart ?: return@forEachIndexed
             // rising into place, each a moment after the one before
-            val up = Backdrop.ease(((rise * 1.4f) - k * .07f).coerceIn(0f, 1f)); val lift = (1 - up) * 560f
+            val up = if (visible) Backdrop.ease(((riseT - k * .07f) / .9f).coerceIn(0f, 1f)) else 1f; val lift = (1 - up) * 560f
             cart.place(s.x, s.y + bob + lift, s.z, -.2f, -.1f, s.px)
             cart.brightness(s.bright)
             if (s.x > -200 && s.x < 1534) {

@@ -81,7 +81,10 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
     private val m = FloatArray(16)
 
     init {
-        TextureHelper.setBitmap(stage.engine, labelTex, 0, label)
+        // Filament reads a texture from the bottom row up, so the label goes in flipped, or it shows upside down
+        val upright = Bitmap.createBitmap(label, 0, 0, label.width, label.height, android.graphics.Matrix().apply { preScale(1f, -1f) }, false)
+        TextureHelper.setBitmap(stage.engine, labelTex, 0, upright)
+        if (upright !== label) upright.recycle()
         labelTex.generateMipmaps(stage.engine)
         label.recycle()
         labelMat?.takeIf { m -> m.material.parameters.any { it.name == "baseColorMap" && it.type == Material.Parameter.Type.SAMPLER_2D } }?.setParameter("baseColorMap", labelTex, sampler)
@@ -105,7 +108,7 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
     fun apply(v: Variant) {
         variant = v
         val lin = intArrayOf(Color.red(v.color), Color.green(v.color), Color.blue(v.color)).map { srgbToLinear(it / 255f) }.toFloatArray()
-        base = if (v.clear != null) FloatArray(3) { lin[it] + (1 - lin[it]) * .35f } else lin
+        base = if (v.clear != null) FloatArray(3) { lin[it] + (1 - lin[it]) * .15f } else lin   // the Studio uses .35; on the device that read as milky
         val mi = plastic ?: return
         val r = style.roughness
         mi.set("roughnessFactor", when (v.clear) { "transparent" -> .06f; "frosted" -> maxOf(.4f, r); else -> if (v.sheen) r * .8f else r })

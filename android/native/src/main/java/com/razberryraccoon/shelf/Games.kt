@@ -47,6 +47,9 @@ class Games(private val ctx: Context) {
 
     var name: String get() = prefs.getString("name", "") ?: ""; set(v) = prefs.edit().putString("name", v).apply()
     var color: Int get() = prefs.getInt("color", 0); set(v) = prefs.edit().putInt("color", v).apply()
+    var lightEnv: Float get() = prefs.getFloat("light:env", Look.ENV); set(v) = prefs.edit().putFloat("light:env", v).apply()
+    var lightExposure: Float get() = prefs.getFloat("light:exposure", Look.EXPOSURE); set(v) = prefs.edit().putFloat("light:exposure", v).apply()
+    var lightKey: Float get() = prefs.getFloat("light:key", Look.KEY); set(v) = prefs.edit().putFloat("light:key", v).apply()
     var setupDone: Boolean get() = prefs.getBoolean("setup", false); set(v) = prefs.edit().putBoolean("setup", v).apply()
 
     /** Folders you chose: one per console, and main folders that hold a folder per console. */

@@ -32,14 +32,15 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         fun finished(setup: Setup)
     }
 
-    private enum class Step { WELCOME, WHO, GAMES, EMUS, DONE, MENU }
+    private enum class Step { WELCOME, WHO, GAMES, EMUS, DONE, MENU, LIGHT }
     private var step = if (settings) Step.MENU else Step.WELCOME
     private val flow = listOf(Step.WELCOME, Step.WHO, Step.GAMES, Step.EMUS, Step.DONE)
 
-    private val panel = FrameLayout(ctx).apply { background = round(Theme.panel, 33f, Theme.line) }
+    // the panel stacks its parts top to bottom, so a long line of text pushes the list down instead of covering it
+    private val panel = android.widget.LinearLayout(ctx).apply { orientation = android.widget.LinearLayout.VERTICAL; background = round(Theme.panel, 33f, Theme.line); setPadding(48, 40, 48, 26) }
     private val label = text(20f, Fonts.bold, Theme.accentOf(null)).apply { letterSpacing = .08f }
     private val title = text(44f, Fonts.display, Theme.fg)
-    private val lead = text(23f, Fonts.body, Theme.fg2).apply { setLineSpacing(0f, 1.32f); maxLines = 3; ellipsize = TextUtils.TruncateAt.END }
+    private val lead = text(23f, Fonts.body, Theme.fg2).apply { setLineSpacing(0f, 1.3f); maxLines = 4; ellipsize = TextUtils.TruncateAt.END }
     private val options = Options(ctx)
     private val dots = Dots(ctx)
     private val views = listOf(label, title, lead, options)
@@ -55,12 +56,13 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
     private var shownCount = 0f   // the found-games count, counting up
 
     init {
-        board.put(panel, 64, 112, 660, 560)
-        panel.addView(label, FrameLayout.LayoutParams(-1, -2).apply { leftMargin = 44; topMargin = 40; rightMargin = 44 })
-        panel.addView(title, FrameLayout.LayoutParams(-1, -2).apply { leftMargin = 44; topMargin = 70; rightMargin = 44 })
-        panel.addView(lead, FrameLayout.LayoutParams(-1, -2).apply { leftMargin = 44; topMargin = 136; rightMargin = 44 })
-        panel.addView(options, FrameLayout.LayoutParams(-1, 290).apply { topMargin = 228 })
-        panel.addView(dots, FrameLayout.LayoutParams(-1, 20).apply { topMargin = 528 })
+        board.put(panel, 48, 100, 790, 626)
+        val lp = { top: Int -> android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = top } }
+        panel.addView(label, lp(0))
+        panel.addView(title, lp(8))
+        panel.addView(lead, lp(14))
+        panel.addView(options, android.widget.LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = 18; leftMargin = -30; rightMargin = -30 })   // the list fills what's left
+        panel.addView(dots, android.widget.LinearLayout.LayoutParams(-1, 20).apply { topMargin = 6 })
         title.maxLines = 1; title.ellipsize = TextUtils.TruncateAt.END
         options.onFocus = { refreshShowcase() }
         show(step)
@@ -142,8 +144,17 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                 rows += Options.Row("go", "Games folders", value = "${games.all.size} games", tag = Step.GAMES)
                 rows += Options.Row("go", "Emulators", tag = Step.EMUS)
                 rows += Options.Row("go", "Your name and color", value = games.name, tag = Step.WHO)
+                rows += Options.Row("go", "Lighting", value = "Brightness of the 3D", tag = Step.LIGHT)
                 rows += Options.Row("again", "Run first-time setup again")
                 rows += Options.Row("close", "Done", primary = true)
+            }
+            Step.LIGHT -> {
+            page("Settings", "Lighting", "Press left or right to change a value, and watch the cartridge. Tell Claude the values you like.")
+            rows += Options.Row("close-light", "Done", primary = true)
+            rows += Options.Row("light", "Environment", value = "%.2f".format(games.lightEnv), sub = "The studio around the cartridges: reflections and fill light", tag = "env")
+            rows += Options.Row("light", "Exposure", value = "%.2f".format(games.lightExposure), sub = "Everything brighter or darker", tag = "exposure")
+            rows += Options.Row("light", "Key light", value = "%.2f".format(games.lightKey), sub = "The light from the upper left that makes highlights", tag = "key")
+            rows += Options.Row("light-reset", "Back to the starting values", value = "%.2f · %.2f · %.2f".format(Look.ENV, Look.EXPOSURE, Look.KEY))
             }
         }
         if (step != Step.WELCOME) title.setTextSize(TypedValue.COMPLEX_UNIT_PX, 44f)
@@ -155,6 +166,8 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
 
     fun input(a: String) {
         picker?.let { it.input(a); return }
+        val r = options.current()
+        if (r?.key == "light" && (a == "left" || a == "right")) return adjustLight(r.tag as String, if (a == "left") -1 else 1)
         when (a) {
             "up" -> options.move(-1)
             "down" -> options.move(1)
@@ -191,8 +204,21 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             "go" -> show(r.tag as Step)
             "again" -> { games.setupDone = false; host.finished(this) }
             "close" -> host.finished(this)
+            "close-light" -> show(Step.MENU)
+            "light-reset" -> { games.lightEnv = Look.ENV; games.lightExposure = Look.EXPOSURE; games.lightKey = Look.KEY; applyLight(); fill() }
         }
     }
+
+    private fun adjustLight(which: String, d: Int) {
+        val step = .05f * d
+        when (which) {
+            "env" -> games.lightEnv = (games.lightEnv + step).coerceIn(0f, 3f)
+            "exposure" -> games.lightExposure = (games.lightExposure + step).coerceIn(.05f, 3f)
+            "key" -> games.lightKey = (games.lightKey + step).coerceIn(0f, 4f)
+        }
+        applyLight(); fill()
+    }
+    private fun applyLight() = stage.setLook(games.lightEnv, games.lightExposure, games.lightKey)
 
     private fun askName(then: () -> Unit) = host.askText("Your name", games.name) { v -> if (v.isNotBlank()) games.name = v.trim().take(24); then() }
 
@@ -220,7 +246,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         val n = games.all.size.toFloat()
         if (shownCount != n) { shownCount = if (shownCount < n) min(n, shownCount + maxOf(1f, (n - shownCount) * dt * 6f)) else n; if (step == Step.GAMES && host.hasStorage()) title.text = "Found ${shownCount.toInt()} ${if (n.toInt() == 1) "game" else "games"}" }
         // on the welcome and done pages the cartridge changes every few seconds
-        if (step == Step.WELCOME || step == Step.WHO || step == Step.DONE || step == Step.MENU) { cycle += dt; if (cycle > 4.5f) { cycle = 0f; want = order[(order.indexOf(want) + 1) % order.size] } }
+        if (step == Step.WELCOME || step == Step.WHO || step == Step.DONE || step == Step.MENU || step == Step.LIGHT) { cycle += dt; if (cycle > 4.5f) { cycle = 0f; want = order[(order.indexOf(want) + 1) % order.size] } }
         if (want != shown) swapK = maxOf(0f, swapK - dt / .28f) else swapK = min(1f, swapK + dt / .4f)
         if (swapK == 0f) { showcase[shown]?.place(-2000f, 0f, 0f, 0f, 0f, 1f); shown = want; backdrop.mood(Theme.accentOf(want)) }
         val cart = shown?.let { s -> showcase.getOrPut(s) { carts.make(s, Games.NAMES[s] ?: "Android games", null) } }
@@ -297,6 +323,6 @@ class Dots(ctx: Context) : View(ctx) {
     var at = 0
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     override fun onDraw(c: Canvas) {
-        for (k in 0 until 5) { p.color = if (k <= at) Theme.accentOf(null) else Theme.chip; c.drawRoundRect(RectF(44f + k * 44, 6f, 44f + k * 44 + 35, 12f), 3f, 3f, p) }
+        for (k in 0 until 5) { p.color = if (k <= at) Theme.accentOf(null) else Theme.chip; c.drawRoundRect(RectF(k * 44f, 6f, k * 44f + 35, 12f), 3f, 3f, p) }
     }
 }

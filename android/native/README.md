@@ -18,8 +18,9 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
   `src/main/assets/models/` by `node export-models.mjs` (see the Studio's README). Filament's built-in glTF materials
   read their clear coat, transmission and volume, so the plastic looks as it does in the Studio.
 - **Lighting** matches the Studio: the Poly Haven studio HDR (`assets/env/studio.hdr`, CC0) made into image-based
-  light on the device (`IBLPrefilterContext`), one key light, ACES filmic tone mapping, exposure .72, environment .85,
-  4× multisampling.
+  light on the device (`IBLPrefilterContext`), one key light, ACES filmic tone mapping, 4× multisampling. The Studio's
+  numbers (exposure .72, environment .85) read far too bright on the device, so it starts at exposure .5, environment
+  .5, key light .6 (`Stage.Look`), and Settings › Lighting changes them live.
 - **Color variants:** each game's shell color comes from `cartridges.json` (the Studio's research); the Studio's rules
   are repeated in `Cart.apply`. Clear and frosted colors use the see-through model, with its circuit board inside.
 - **The camera** is a long lens (14°) at Shelf's layout, so a point at depth 0 lands on that pixel of the
@@ -45,7 +46,7 @@ First-run setup, which the prototype has: welcome; your name and color; finding 
 folder for any console, or one main folder with a folder per console inside); each console's emulator; done. Settings
 (the round button, or your profile) opens the same pages later. Polish added: each page rises in, a Studio cartridge
 turns beside the panel and follows the console you're on, the found-games count climbs, and Home's cartridges rise
-into place one after another when you arrive. The shared Scanner also recognizes folder names written out ("Game Boy
+into place one after another when you arrive. Settings › Lighting tunes the 3D's brightness live. The shared Scanner also recognizes folder names written out ("Game Boy
 Advance", "PlayStation", "Mega Drive") and looks in Games and Emulation/roms as well as ROMs.
 
 ## What was in version 0.1

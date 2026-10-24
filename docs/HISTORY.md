@@ -329,3 +329,13 @@ a gradient with a radius of 0 (an error on the first frame, before the saved err
 shadows are now skipped, and a start that never got going, or ended on an error, is followed by a plain screen
 showing what went wrong (Shelf's saved error, or the app's error lines from Android's log, Filament's included) instead
 of starting the 3D again.
+
+The user's notes on 0.2 once it opened: setup worked and games launched, but (1) some setup cartridges were plain
+white and the labels looked mirrored, (2) text on the welcome and name pages overlapped and was cut off, (3) the setup
+box felt cramped and Continue belonged at the top, (4) Home was far too bright (dark grey read as light grey, the clear
+green GBA looked washed out), and (5) each cartridge further along Home's row sat lower while its shadow stayed put.
+Fixes: the label goes into Filament upside down (Filament reads textures from the bottom row up); clear shells are
+mixed with much less white; the setup box is bigger and stacks its parts so text can't cover the list; Home's rise-in
+animation now runs from when Home appears, rather than piling up per cartridge (the cause of the sinking row); the
+lighting starts lower (environment .5, exposure .5, key light .6) and Settings › Lighting lets the user tune it live
+on the device, since why Filament reads brighter than the Studio's three.js isn't yet known.
