@@ -11,7 +11,7 @@
 <p>Exports every cartridge and console for the Android app. Run <code>node export-models.mjs</code>; see the README.</p>
 <script type="module">
 // Builds each model with the Studio's default settings and hands back .glb files (as base64) for export-models.mjs to
-// save. Cartridges come in their standard plastic, plus a see-through version for those with clear or frosted variants;
+// save. Cartridges come in their standard plastic, plus a see-through version (with the circuit board inside);
 // the app recolors them per game. The label carries a tiny placeholder picture, so its material keeps a texture slot
 // the app fills with the game's own label.
 import * as THREE from 'three';
@@ -34,8 +34,9 @@ window.exportAll = async ({ consoles = false } = {}) => {
     const cart = buildCartridge(style, { bevel: tune.bevel, segments: tune.segments, finish: tune, labelTexture: placeholder() });
     applyVariant(cart, style.variants[0], tune);
     files[`cart-${id}.glb`] = await glb(cart);
-    const clear = style.variants.find(v => v.clear);
-    if (clear) { const c2 = buildCartridge(style, { bevel: tune.bevel, segments: tune.segments, finish: tune, labelTexture: placeholder() }); applyVariant(c2, clear, tune); files[`cart-${id}-clear.glb`] = await glb(c2); }
+    // every style gets a see-through model: the app's Studio offers clear, frosted and smoke finishes for any cartridge
+    const clear = style.variants.find(v => v.clear) || { ...style.variants[0], clear: 'transparent' };
+    { const c2 = buildCartridge(style, { bevel: tune.bevel, segments: tune.segments, finish: tune, labelTexture: placeholder() }); applyVariant(c2, clear, tune); files[`cart-${id}-clear.glb`] = await glb(c2); }
     variants[id] = { name: style.name, size: style.size, depth: style.depth, label: style.label, finish: style.finish, variants: style.variants };
   }
   for (const [id, entry] of consoles ? Object.entries(CONSOLES) : []) {

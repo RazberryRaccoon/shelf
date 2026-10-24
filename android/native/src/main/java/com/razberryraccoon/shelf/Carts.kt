@@ -57,8 +57,10 @@ class Carts(private val stage: Stage, val shells: Shells) {
     /** A cartridge in exactly this shell, saved or not (the Studio's shell while you're still making it). */
     fun make(sys: String, title: String, v: Variant): Cart? {
         val style = styles[sys] ?: return null
-        val name = if (v.clear != null) "cart-$sys-clear.glb" else "cart-$sys.glb"
-        val asset = stage.assets.createAsset(file(name).duplicate()) ?: return null
+        // the see-through model if the shell is see-through; if that file is ever missing, the solid one rather than an error
+        val data = (if (v.clear != null) try { file("cart-$sys-clear.glb") } catch (e: java.io.IOException) { null } else null)
+            ?: try { file("cart-$sys.glb") } catch (e: java.io.IOException) { return null }
+        val asset = stage.assets.createAsset(data.duplicate()) ?: return null
         stage.resources.loadResources(asset)
         asset.releaseSourceData()
         val cart = Cart(stage, asset, style, sampler, labelBitmap(style, title))
