@@ -27,6 +27,17 @@ object Theme {
         "gbc" to "#5fe0d4", "gba" to "#ab98ff", "ps1" to "#9fb2d8", "ds" to "#ff9a82", "psp" to "#a7e8ff", "android" to "#8ff0b4")
         .mapValues { Color.parseColor(it.value) }
     fun accentOf(sys: String?) = accent[sys] ?: Color.parseColor("#b3a6ff")
+    /** The profile colors (the prototype's PROFILE_COLORS): a light, a middle and a dark tone for each avatar. */
+    val profile = listOf(listOf("#ffd38a", "#e8834a", "#6a2a1e"), listOf("#bff3ff", "#3fa4d9", "#13355e"), listOf("#f6c8ff", "#b05ad8", "#401a5e"),
+        listOf("#d6ffc8", "#5ac46a", "#1a4a2a"), listOf("#ffe0f0", "#e0607e", "#5a1a33")).map { l -> l.map { Color.parseColor(it) }.toIntArray() }
+    val profileNames = listOf("Amber", "Sky", "Orchid", "Fern", "Rose")
+    /** A round avatar lit from the top left, as in the prototype. */
+    fun drawAvatar(c: android.graphics.Canvas, x: Float, y: Float, r: Float, k: Int) {
+        val cols = profile[k.coerceIn(0, profile.size - 1)]
+        val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+        p.shader = android.graphics.RadialGradient(x - r * .3f, y - r * .4f, r * 1.6f, cols, floatArrayOf(0f, .55f, 1f), android.graphics.Shader.TileMode.CLAMP)
+        c.drawCircle(x, y, r, p)
+    }
 }
 
 /** Manrope for text and Unbounded for titles, as in the prototype (both SIL Open Font License, in assets/fonts). */

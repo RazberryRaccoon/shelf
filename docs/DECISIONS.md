@@ -244,6 +244,9 @@ Summarized from the first part of the conversation; the full transcript is kept 
   quality and polish of a Nintendo console. I want to be impressed." So each round brings its screen over with extra
   touches chosen by Claude (motion, sound, small surprises), within the taste rules: calm, modern, no nostalgiaslop,
   no wobble, no loud sounds or white flashes. New screens and big design changes are still proposed first.
+- After trying 0.1: "It's stuck on 'no games found yet,' and there's no way to point it at the correct folders. Maybe
+  focus on the setup/tutorial part next, building in at least pointing to the correct rom folders." Version 0.2:
+  setup with games folders (per console, or one main folder), and Settings to change them later.
 - Version 0.1: Home with the Studio's models and lighting, per-game shell colors, launching. Discs, UMDs and Android
   game cards added to the Studio so every console has a model. The SNES is the North American shape here; the WebView
   app keeps its old one.

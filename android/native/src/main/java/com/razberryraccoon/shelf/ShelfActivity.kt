@@ -23,12 +23,14 @@ import kotlin.math.abs
  * TextureView) and the interface (Android views, laid out at 1334 × 750 and scaled to fit). Controller buttons come in
  * here and go to the screen that's showing.
  */
-class ShelfActivity : Activity(), Home.Actions {
+class ShelfActivity : Activity(), Home.Actions, Setup.Host {
     private lateinit var stage: Stage
     private lateinit var backdrop: Backdrop
     private lateinit var board: Board
     private lateinit var games: Games
     private lateinit var home: Home
+    private lateinit var carts: Carts
+    private var setup: Setup? = null
     private val ui = Handler(Looper.getMainLooper())
 
     override fun onCreate(state: Bundle?) {
@@ -48,13 +50,15 @@ class ShelfActivity : Activity(), Home.Actions {
 
         stage = Stage(this, surface)
         games = Games(this)
-        home = Home(this, stage, board, backdrop, games, Carts(stage), this)
+        carts = Carts(stage)
+        home = Home(this, stage, board, backdrop, games, carts, this)
+        if (!games.setupDone) openSetup(settings = false)
         // the interface and backdrop follow the 3D layer's fit, so all three line up
         root.addOnLayoutChangeListener { _, l, t, r, b, _, _, _, _ ->
             val s = minOf((r - l) / Stage.W, (b - t) / Stage.H); val ox = ((r - l) - Stage.W * s) / 2; val oy = ((b - t) - Stage.H * s) / 2
             board.fit(s, ox, oy); backdrop.scale = s; backdrop.ox = ox; backdrop.oy = oy
         }
-        stage.onFrame = { dt -> home.tick(dt); backdrop.tick(dt) }
+        stage.onFrame = { dt -> home.tick(dt); setup?.tick(dt); backdrop.tick(dt) }
     }
 
     override fun onResume() {
@@ -62,7 +66,7 @@ class ShelfActivity : Activity(), Home.Actions {
         immersive()
         stage.start()
         home.needsStorage = !Environment.isExternalStorageManager()
-        rescan()
+        rescan { setup?.fill() }   // back from Android's settings, a game, or the folder picker
     }
 
     override fun onPause() {
@@ -76,12 +80,68 @@ class ShelfActivity : Activity(), Home.Actions {
         super.onDestroy()
     }
 
-    private fun rescan() {
+    private var scanning = false
+    private val afterScan = ArrayList<() -> Unit>()
+    override fun rescan(then: () -> Unit) {
+        afterScan.add(then)
+        if (scanning) return
+        scanning = true
         Thread {
             games.scan()
             val list = games.recent()
-            runOnUiThread { home.setGames(list) }
+            runOnUiThread {
+                scanning = false
+                if (setup == null) home.setGames(list)
+                val done = afterScan.toList(); afterScan.clear(); done.forEach { it() }
+            }
         }.start()
+    }
+
+    // ---------- setup and settings ----------
+
+    private fun openSetup(settings: Boolean) {
+        home.visible = false
+        setup = Setup(this, stage, board, backdrop, games, carts, this, settings)
+    }
+    override fun openSettings() = openSetup(settings = true)
+
+    override fun finished(setup: Setup) {
+        setup.destroy(); this.setup = null
+        if (!games.setupDone) { openSetup(settings = false); return }   // "run first-time setup again"
+        home.refreshProfile()
+        rescan { home.visible = true }
+    }
+
+    override fun hasStorage() = Environment.isExternalStorageManager()
+    override fun toast(msg: String) = home.show(msg)
+
+    private var folderThen: ((String?) -> Unit)? = null
+    override fun pickFolder(then: (String?) -> Unit) {
+        if (!hasStorage()) { allowStorage(); return }
+        folderThen = then
+        try { startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), PICK_FOLDER) }
+        catch (e: Exception) { folderThen = null; toast("This handheld has no folder picker") }
+    }
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(request: Int, result: Int, data: Intent?) {
+        super.onActivityResult(request, result, data)
+        if (request != PICK_FOLDER) return
+        val then = folderThen ?: return; folderThen = null
+        if (result != RESULT_OK) return
+        then(data?.data?.let { Scanner.treePath(this, it) })
+    }
+
+    /** Android's own text box, for typing a name (as the WebView app's Bridge.askText). */
+    override fun askText(title: String, value: String, then: (String) -> Unit) {
+        val field = android.widget.EditText(this).apply { setSingleLine(true); setText(value); setSelection(text.length) }
+        val pad = (20 * resources.displayMetrics.density).toInt()
+        val box = FrameLayout(this).apply { setPadding(pad, pad / 2, pad, 0); addView(field) }
+        android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            .setTitle(title).setView(box)
+            .setPositiveButton("OK") { _, _ -> then(field.text.toString()) }
+            .setNegativeButton("Cancel", null)
+            .show()
+        field.requestFocus()
     }
 
     // ---------- Home's requests ----------
@@ -115,7 +175,9 @@ class ShelfActivity : Activity(), Home.Actions {
 
     private var held: String? = null
     private var lastRepeat = 0L
-    private val repeat = object : Runnable { override fun run() { held?.let { home.input(it); ui.postDelayed(this, 110) } } }
+    private val repeat = object : Runnable { override fun run() { held?.let { input(it); ui.postDelayed(this, 110) } } }
+    /** Buttons go to whichever screen is showing. */
+    private fun input(a: String) { setup?.input(a) ?: home.input(a) }
 
     private fun actionFor(code: Int) = when (code) {
         KeyEvent.KEYCODE_DPAD_UP -> "up"; KeyEvent.KEYCODE_DPAD_DOWN -> "down"
@@ -130,8 +192,8 @@ class ShelfActivity : Activity(), Home.Actions {
     override fun dispatchKeyEvent(e: KeyEvent): Boolean {
         val a = actionFor(e.keyCode) ?: return super.dispatchKeyEvent(e)
         if (e.action == KeyEvent.ACTION_DOWN) {
-            if (e.repeatCount == 0) home.input(a)
-            else if (a in DIRECTIONS) { val now = System.currentTimeMillis(); if (now - lastRepeat >= 110) { lastRepeat = now; home.input(a) } }
+            if (e.repeatCount == 0) input(a)
+            else if (a in DIRECTIONS) { val now = System.currentTimeMillis(); if (now - lastRepeat >= 110) { lastRepeat = now; input(a) } }
         }
         return true   // Shelf handles every one of these, Back included
     }
@@ -145,10 +207,10 @@ class ShelfActivity : Activity(), Home.Actions {
         val dir = if (abs(x) > .55f || abs(y) > .55f) (if (abs(x) > abs(y)) (if (x > 0) "right" else "left") else (if (y > 0) "down" else "up")) else null
         if (dir != held) {
             held = dir; ui.removeCallbacks(repeat)
-            if (dir != null) { home.input(dir); ui.postDelayed(repeat, 380) }
+            if (dir != null) { input(dir); ui.postDelayed(repeat, 380) }
         }
         return true
     }
 
-    companion object { private val DIRECTIONS = setOf("up", "down", "left", "right") }
+    companion object { private val DIRECTIONS = setOf("up", "down", "left", "right"); private const val PICK_FOLDER = 7 }
 }

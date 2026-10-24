@@ -50,6 +50,12 @@ final class Scanner {
             {"psx", "ps1"}, {"ps1", "ps1"}, {"playstation", "ps1"},
             {"nds", "ds"}, {"ds", "ds"},
             {"psp", "psp"},
+            // names written out, compared without spaces or punctuation ("Game Boy Advance" → gameboyadvance)
+            {"nintendo", "nes"}, {"nintendoentertainmentsystem", "nes"}, {"supernintendo", "snes"}, {"supernes", "snes"},
+            {"nintendo64", "n64"}, {"segagenesis", "genesis"}, {"segamegadrive", "genesis"}, {"mastersystem32x", "genesis"},
+            {"gameboy", "gb"}, {"gameboycolor", "gbc"}, {"gameboycolour", "gbc"}, {"gameboyadvance", "gba"},
+            {"playstation1", "ps1"}, {"psone", "ps1"}, {"sonyplaystation", "ps1"},
+            {"nintendods", "ds"}, {"playstationportable", "psp"}, {"sonypsp", "psp"},
         };
         for (String[] p : f) FOLDERS.put(p[0], p[1]);
         ext("nes", "nes fds unf unif zip 7z");
@@ -65,7 +71,13 @@ final class Scanner {
     }
     private static void ext(String sys, String list) { EXT.put(sys, new HashSet<>(Arrays.asList(list.split(" ")))); }
 
-    /** folders: {console: path} for consoles whose games folder you chose; ROMs folders are always searched too. */
+    /** A folder's name as a console, ignoring case, spaces and punctuation ("Game Boy Advance" → gba), or null. */
+    static String consoleFor(String folderName) { return FOLDERS.get(folderName.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "")); }
+
+    /**
+     * folders: {console: path} for consoles whose games folder you chose, plus "roots": [paths] for folders you chose
+     * that hold a folder per console (Shelf Native's "main games folder"). ROMs folders are always searched too.
+     */
     static JSONObject scan(Context ctx, String folders) {
         JSONObject out = new JSONObject();
         try {
@@ -73,10 +85,17 @@ final class Scanner {
             Set<String> seen = new HashSet<>();
             if (Environment.isExternalStorageManager()) {
                 JSONObject chosen = new JSONObject(folders == null || folders.isEmpty() ? "{}" : folders);
-                for (Iterator<String> it = chosen.keys(); it.hasNext(); ) {
+                for (Iterator<String> it = chosen.keys(); it.hasNext(); ) {   // a console's own folder comes first
                     String sys = it.next();
+                    if (sys.equals("roots")) continue;
                     File dir = new File(chosen.getString(sys));
                     if (EXT.containsKey(sys) && dir.isDirectory()) walk(dir, sys, games, seen, 0);
+                }
+                JSONArray mine = chosen.optJSONArray("roots");
+                if (mine != null) for (int i = 0; i < mine.length(); i++) {
+                    File r = new File(mine.getString(i));
+                    String sys = consoleFor(r.getName());
+                    if (sys != null) walk(r, sys, games, seen, 0); else scanRoot(r, games, seen);   // a console's folder, or one with a folder per console
                 }
                 for (File root : romRoots(ctx)) scanRoot(root, games, seen);
             }
@@ -89,7 +108,7 @@ final class Scanner {
         return out;
     }
 
-    /** Every ROMs folder at the top of internal storage and each SD card. */
+    /** Every ROMs (or Games) folder at the top of internal storage and each SD card, and Emulation/roms. */
     static List<File> romRoots(Context ctx) {
         List<File> roots = new ArrayList<>();
         StorageManager sm = ctx.getSystemService(StorageManager.class);
@@ -97,7 +116,12 @@ final class Scanner {
             File dir = v.getDirectory();
             File[] kids = dir == null ? null : dir.listFiles();
             if (kids == null) continue;
-            for (File k : kids) if (k.isDirectory() && k.getName().equalsIgnoreCase("roms")) roots.add(k);
+            for (File k : kids) {
+                if (!k.isDirectory()) continue;
+                String n = k.getName().toLowerCase(Locale.ROOT);
+                if (n.equals("roms") || n.equals("games")) roots.add(k);
+                if (n.equals("emulation")) { File r = new File(k, "roms"); if (r.isDirectory()) roots.add(r); }
+            }
         }
         return roots;
     }
@@ -122,7 +146,7 @@ final class Scanner {
         File[] kids = root.listFiles();
         if (kids == null) return;
         for (File k : kids) {
-            String sys = k.isDirectory() ? FOLDERS.get(k.getName().toLowerCase(Locale.ROOT)) : null;
+            String sys = k.isDirectory() ? consoleFor(k.getName()) : null;
             if (sys != null) walk(k, sys, games, seen, 0);
         }
     }
