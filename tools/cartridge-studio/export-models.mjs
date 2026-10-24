@@ -1,6 +1,7 @@
 // Exports every cartridge and console from the Studio as .glb files for the Android app (android/native/src/main/
 // assets/models/), plus cartridges.json with each cartridge's sizes and color variants.
-// Run from this folder: node export-models.mjs (add --consoles for the consoles too). Needs Node and Playwright
+// Run from this folder: node export-models.mjs (add --consoles and --cases for the consoles and game cases too;
+// --no-carts skips the cartridges). Needs Node and Playwright
 // (npm install playwright).
 import http from 'node:http';
 import fs from 'node:fs';
@@ -24,7 +25,9 @@ const port = server.address().port;
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const page = await browser.newPage(); page.on('pageerror', e => console.error(e));
 await page.goto(`http://127.0.0.1:${port}/export.html`); await page.waitForFunction(() => window.ready);
-const files = await page.evaluate(consoles => window.exportAll({ consoles }), process.argv.includes('--consoles'));
+// --consoles and --cases add those; --no-carts leaves the cartridges (and cartridges.json) as they are
+const want = { consoles: process.argv.includes('--consoles'), cases: process.argv.includes('--cases'), carts: !process.argv.includes('--no-carts') };
+const files = await page.evaluate(w => window.exportAll(w), want);
 fs.mkdirSync(out, { recursive: true });
 for (const [name, b64] of Object.entries(files)) { const buf = Buffer.from(b64, 'base64'); fs.writeFileSync(path.join(out, name), buf); console.log(name.padEnd(28), (buf.length / 1024).toFixed(0) + ' KB'); }
 await browser.close(); server.close();

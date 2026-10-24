@@ -28,7 +28,7 @@ import kotlin.math.sin
  */
 class Home(private val ctx: Context, private val stage: Stage, private val board: Board, private val backdrop: Backdrop,
            private val games: Games, private val carts: Carts, private val lookup: Meta, private val actions: Actions) : GamePage.Host {
-    interface Actions { fun play(g: Game); fun allowStorage(); fun openSettings(); fun askText(title: String, value: String, then: (String) -> Unit) }
+    interface Actions { fun play(g: Game); fun allowStorage(); fun openSettings(); fun openMuseum(sys: String?); fun askText(title: String, value: String, then: (String) -> Unit) }
 
     private class Slot(val game: Game, var cart: Cart?, var x: Float = ROW_X, var y: Float = 326f, var z: Float = 0f, var px: Float = SMALL, var bright: Float = .72f)
     private val slots = ArrayList<Slot>()
@@ -103,7 +103,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         val old = slots.associateBy { it.game.path }
         slots.filter { s -> keep.none { it.path == s.game.path } }.forEach { it.cart?.destroy() }
         slots.clear()
-        for (g in keep) slots.add(old[g.path] ?: Slot(g, carts.make(g.sys, g.title, games.variant(g))))
+        for (g in keep) slots.add(old[g.path] ?: Slot(g, carts.make(g.sys, g.title, carts.shellFor(games, g))))
         i = i.coerceIn(0, maxOf(0, slots.size - 1))
         // back from playing with a page open: the game moved to the front of the row, so follow it there
         page?.let { p -> i = slots.indexOfFirst { it.game.path == p.game.path }; f = i.toFloat(); p.refresh() }
@@ -199,8 +199,18 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
                 "left" -> if (topI > 0) { topI--; refreshTop(); Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
                 "right" -> if (topI < dock.size) { topI++; refreshTop(); Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
                 "down", "b" -> { zone = "row"; refreshTop(); Sounds.play(Sounds.MOVE) }
-                "a" -> if (topI == 0 || topI == dock.size) actions.openSettings() else show("${dockNames[topI - 1]} comes to Shelf Native in a later version. The web Shelf has it today.")
+                "a" -> if (topI == 0 || topI == dock.size) actions.openSettings() else if (topI == 3) actions.openMuseum(current()?.sys) else show("${dockNames[topI - 1]} comes to Shelf Native in a later version. The web Shelf has it today.")
             }
+        }
+    }
+
+    /** After a console's default shell changes (the Museum): every cartridge in the row puts on what it should now wear. */
+    fun reshell() {
+        for (s in slots) {
+            val v = carts.variantFor(s.game.sys, carts.shellFor(games, s.game)) ?: continue
+            val c = s.cart
+            if (c == null || (v.clear != null) != (c.variant.clear != null)) { c?.destroy(); s.cart = carts.make(s.game.sys, s.game.title, v) }
+            else if (c.variant != v) c.apply(v)
         }
     }
 

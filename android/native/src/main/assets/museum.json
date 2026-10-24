@@ -1,0 +1,164 @@
+{
+ "nes": {
+  "maker": "Nintendo",
+  "year": 1985,
+  "released": "October 1985",
+  "sold": "About 62 million",
+  "cpu": "Ricoh 2A03, 1.79 MHz",
+  "plays": "Cartridges",
+  "facts": [
+   "After the video game crash of 1983, stores didn’t want game consoles, so the NES was styled like a VCR, with a door on the front, and sold alongside a toy robot.",
+   "Blowing into cartridges mostly worked because it made people put them back in. The moisture actually corroded the contacts over time.",
+   "In Japan it was the Famicom, a red-and-white console that loaded from the top. Its second controller had a built-in microphone."
+  ],
+  "example": "Lantern Knight"
+ },
+ "snes": {
+  "maker": "Nintendo",
+  "year": 1991,
+  "released": "August 1991",
+  "sold": "About 49 million",
+  "cpu": "Ricoh 5A22, up to 3.58 MHz",
+  "plays": "Cartridges",
+  "facts": [
+   "Its sound chip was designed by Ken Kutaragi at Sony. That partnership is how Sony ended up making the PlayStation.",
+   "“Mode 7” could rotate and scale a background layer, which is how racing games like F-Zero faked a 3D track.",
+   "Some cartridges carried extra chips. The Super FX chip in Star Fox let it draw 3D polygons.",
+   "North America got a boxy purple-gray console. Japan and Europe got this rounder design, and rounder cartridges to match."
+  ],
+  "example": "Aurora Quest"
+ },
+ "n64": {
+  "maker": "Nintendo",
+  "year": 1996,
+  "released": "September 1996",
+  "sold": "About 33 million",
+  "cpu": "NEC VR4300, 93.75 MHz",
+  "plays": "Cartridges",
+  "facts": [
+   "Its controller made the analog stick standard for home consoles.",
+   "The graphics chip was co-designed with Silicon Graphics, the company behind the computers used for movie effects at the time.",
+   "Four controller ports came built in, which made four-player split screen a living-room staple.",
+   "The Expansion Pak doubled its memory from 4 MB to 8 MB. Majora’s Mask wouldn’t run without it."
+  ],
+  "example": "Kite Kingdom"
+ },
+ "genesis": {
+  "maker": "Sega",
+  "year": 1989,
+  "released": "August 1989",
+  "sold": "About 31 million",
+  "cpu": "Motorola 68000, 7.67 MHz",
+  "plays": "Cartridges",
+  "facts": [
+   "Everywhere else it was called the Mega Drive. A trademark got in the way in North America.",
+   "Its main processor, the Motorola 68000, also powered the first Macintosh computers.",
+   "Its music comes from a Yamaha FM synthesis chip, which gives it its distinctive punchy sound.",
+   "A second processor inside lets it play Master System games with an adapter."
+  ],
+  "example": "Blast Velocity"
+ },
+ "gb": {
+  "maker": "Nintendo",
+  "year": 1989,
+  "released": "July 1989",
+  "sold": "About 119 million, with the Game Boy Color",
+  "cpu": "Sharp SM83, 4.19 MHz",
+  "plays": "Cartridges",
+  "facts": [
+   "It was designed by Gunpei Yokoi’s team, who chose a simple screen and long battery life over color.",
+   "One survived a bombing during the Gulf War. Its case is melted, but it still plays Tetris, on display in New York.",
+   "Its screen shows four shades of green-gray.",
+   "In North America it came with Tetris, which became one of the best-selling games ever."
+  ],
+  "example": "Pocket Golem"
+ },
+ "gbc": {
+  "maker": "Nintendo",
+  "year": 1998,
+  "released": "November 1998",
+  "sold": "About 119 million, with the Game Boy",
+  "cpu": "Sharp SM83, up to 8.39 MHz",
+  "plays": "Cartridges",
+  "facts": [
+   "It can show 56 colors at once, out of 32,768.",
+   "It plays original Game Boy games too. Holding buttons on the startup screen picks a color palette for them.",
+   "Most games made only for the Game Boy Color came on clear cartridges, which won’t run on the original. Black ones work on both.",
+   "An infrared port on top let two players swap data without a cable."
+  ],
+  "example": "Crystal Critters"
+ },
+ "gba": {
+  "maker": "Nintendo",
+  "year": 2001,
+  "released": "June 2001",
+  "sold": "About 82 million",
+  "cpu": "ARM7TDMI, 16.78 MHz",
+  "plays": "Cartridges",
+  "facts": [
+   "The original model had no screen light, so people played under lamps. The folding SP model added one in 2003.",
+   "A second processor inside lets it play Game Boy and Game Boy Color cartridges.",
+   "Its wide layout put the screen between your hands for the first time on a Game Boy."
+  ],
+  "example": "Starfall Tactics"
+ },
+ "ps1": {
+  "maker": "Sony",
+  "year": 1995,
+  "released": "September 1995",
+  "sold": "About 102 million",
+  "cpu": "MIPS R3000A, 33.87 MHz",
+  "plays": "CDs",
+  "facts": [
+   "It began as a CD add-on for the Super Nintendo. When that deal fell apart, Sony made its own console.",
+   "Its discs have a black underside, partly to stand out and partly to make copying harder.",
+   "It was the first console to sell more than 100 million.",
+   "A memory card holds 15 save blocks, 128 KB in all."
+  ],
+  "example": "Glass Cathedral"
+ },
+ "ds": {
+  "maker": "Nintendo",
+  "year": 2004,
+  "released": "November 2004",
+  "sold": "About 154 million",
+  "cpu": "ARM9 at 67 MHz and ARM7 at 33 MHz",
+  "plays": "Game cards",
+  "facts": [
+   "Two screens, the lower one touch-sensitive, and a microphone you could blow into.",
+   "It’s the best-selling handheld of all time.",
+   "It came out in North America before Japan, which was unusual for Nintendo.",
+   "A second slot on the bottom plays Game Boy Advance cartridges."
+  ],
+  "example": "Paper Planets"
+ },
+ "psp": {
+  "maker": "Sony",
+  "year": 2005,
+  "released": "March 2005",
+  "sold": "About 80 million",
+  "cpu": "MIPS Allegrex, up to 333 MHz",
+  "plays": "UMDs",
+  "facts": [
+   "The first handheld to use optical discs. A UMD holds 1.8 GB.",
+   "Movies were sold on UMD too.",
+   "It could connect to a PlayStation 3 and stream it over Wi-Fi."
+  ],
+  "example": "Neon Drift"
+ },
+ "android": {
+  "maker": "Many makers",
+  "year": 2008,
+  "released": "September 2008 (Android 1.0)",
+  "sold": "Billions of devices",
+  "cpu": "Varies",
+  "plays": "Apps",
+  "facts": [
+   "Android started out as an operating system for digital cameras.",
+   "The first Android phone, the T-Mobile G1, had a slide-out keyboard.",
+   "In 2011 the Xperia Play put a slide-out game controller on an Android phone.",
+   "Handhelds like the Retroid Pocket run Android and play games from every console in this museum."
+  ],
+  "example": "Moonlight Dash"
+ }
+}

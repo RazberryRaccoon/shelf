@@ -398,3 +398,13 @@ with its own Metallic numbers (a sharp mirror clear coat, roughness .05, and a d
 shell's (a soft coat, measured gold). The Studio's Metallic, Clear, Smoke and Frosted now use the real shells' exact
 numbers; a real gold or silver shell starts the Studio from the color that, as Studio metal, is that measured gold or
 silver (checked: within 1%); and opening the Studio no longer touches the cartridge until something changes.
+
+**Shelf Native 0.6 (October 2026): the Museum** (update B). The user asked that it show "all 3D models and positions:
+console, cartridge, cartridge in box, box closed", with the new lighting and materials on the consoles too. The cases
+had never been made for the native app, so the Studio gained `case.js` (the prototype's clamshell cases at the real
+boxes' sizes) and the export makes cases and consoles. Checked in a headless browser with a contact sheet, which
+found three real bugs before the app saw them: the case wall was thinner than its bevel, so its opening closed and hid
+the tray; the NES cartridge nearly fills its box, so the tray's well came out as wide as the tray (it's capped now);
+and a comment swallowed the line that added the front art. Special editions are recognized from the title against the
+cartridge research (checked against 26 real file names, accents and "Black and White" included). Not checked on a
+device.

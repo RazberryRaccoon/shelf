@@ -137,7 +137,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
             if (played == 0L) "Not played yet" else "Played " + DateUtils.getRelativeTimeSpanString(played, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS) + (if (n > 1) " · $n times" else ""),
             "Plays with " + (games.emulatorFor(game)?.let { emuName(it) } ?: "nothing yet")).joinToString("\n")
         tiles.fav = games.favorite(game)
-        tiles.swatch = carts.variantFor(game.sys, games.variant(game))?.color ?: Theme.fg2
+        tiles.swatch = carts.variantFor(game.sys, carts.shellFor(games, game))?.color ?: Theme.fg2
         tiles.invalidate()
         // pictures: the box, title screen and a screenshot, as they arrive
         if (shotsFor !== i || i == null) shots.set(if (i == null) null else Meta.KINDS.mapNotNull { (k, name) -> i.pics[k]?.let { f2 -> meta.bitmap(f2, 360)?.let { name to it } } })
@@ -332,7 +332,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
 
     private fun startColors(from: Mode, focusKey: String? = null) {
         if (carts.styles[game.sys] == null) return
-        if (mode != Mode.COLORS) { colorsFrom = from; before = carts.variantFor(game.sys, games.variant(game)) }
+        if (mode != Mode.COLORS) { colorsFrom = from; before = carts.variantFor(game.sys, carts.shellFor(games, game)) }
         mode = Mode.COLORS
         fillColors(focusKey ?: list.current()?.tag as? String ?: before?.key)
         Sounds.play(Sounds.OPEN)
@@ -340,7 +340,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
 
     private fun fillColors(focusKey: String?) {
         val style = carts.styles[game.sys] ?: return
-        val chosen = games.variant(game) ?: style.variants[0].name
+        val chosen = carts.shellFor(games, game) ?: style.variants[0].name
         val rows = ArrayList<Options.Row>()
         rows += Options.Row(Options.HEAD, "Defaults for ${Games.NAMES[game.sys] ?: style.name}")
         style.variants.forEach { rows += Options.Row("v", it.name, sub = it.games.ifEmpty { "A color it came in" }, check = it.key == chosen, dot = it.color, tag = it.key) }
@@ -454,7 +454,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val own = games.ownEmulator(game)
         val rows = listOf(
             Options.Row("emu", "Plays with", value = own?.let { emuName(it).substringBefore(",") } ?: "Same as $console", sub = games.emulatorFor(game)?.let { emuName(it) } ?: "Nothing chosen yet"),
-            carts.variantFor(game.sys, games.variant(game)).let { v -> Options.Row("shell", "Customize shell", value = v?.name ?: "", dot = v?.color) },
+            carts.variantFor(game.sys, carts.shellFor(games, game)).let { v -> Options.Row("shell", "Customize shell", value = v?.name ?: "", dot = v?.color) },
             Options.Row("home", "Show on Home", value = if (games.onHome(game)) "Yes" else "No", sub = "Hidden games stay in the Library"),
             Options.Row("which", "Which game is this?", value = if (games.match(game) != null) "Chosen" else "Found by Shelf", sub = info?.name ?: "Not found in libretro’s database"),
             Options.Row("again", "Look up details and pictures again", sub = "From libretro’s database"),

@@ -37,6 +37,8 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Home.kt` | Home: the row of recent games, the top bar, details, the shell color and emulator pickers. |
 | `GamePage.kt` | A game's page: the cartridge to turn with the right stick, the details and icon tiles, live shell colors. |
 | `Meta.kt` | A game's details and pictures from libretro's database, saved on the device. |
+| `Museum.kt` | The Museum: the timeline, the four views of each console, its story and its default shell. |
+| `Models.kt` | Consoles and cases: placing any model, a case's art, its hinged cover and its tray. |
 | `Studio.kt` | The Studio: finishes, named colors, your saved shells, and its controls. |
 | `Sounds.kt` | The quiet interface sounds, synthesized on the device. |
 | `Setup.kt` | First-run setup (welcome, your name and color, games folders, emulators, done); its pages are also Settings. |
@@ -44,7 +46,18 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
-## What's in version 0.5
+## What's in version 0.6
+
+The Museum (the round museum button in the top bar): every console, oldest first, along a timeline at the bottom (L
+and R, or left and right, move through it). Each is shown four ways, turned with the right stick: the console, its
+cartridge, the cartridge in its open box, and the box closed; the views flow into each other (the cartridge settles
+into the tray as the box appears, the cover swings shut). The panel tells its story (maker, release, units sold,
+processor, facts) and sets its **default shell**: what its standard cartridges wear on Home. Special editions keep
+their real colors, recognized from the title (Pokémon Gold, Zelda on the NES, Donkey Kong 64…; `special` in
+`Studio.kt`), and so do games you've customized. The consoles (`console-*.glb`) and cases (`case-*.glb`, `Models.kt`)
+are exported from the Studio and lit like the cartridges.
+
+## What was in version 0.5
 
 The Studio. On a game's page, Customize (or Y on Home) lists the console's real colors under "Defaults for …", then
 your own shells under "Custom", then "+ Add new", which opens the Studio: the cartridge stays on the left to turn, and

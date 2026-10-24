@@ -285,6 +285,8 @@ class Options(ctx: Context) : View(ctx) {
                    val avatar: Int? = null, val check: Boolean = false, val tag: Any? = null, val dot: Int? = null)
     var rows: List<Row> = emptyList(); set(v) { field = v; i = i.coerceIn(0, maxOf(0, v.size - 1)); if (rows.getOrNull(i)?.key == HEAD) move(1) || move(-1) }
     var onFocus: (() -> Unit)? = null
+    /** False while the focus is elsewhere on the screen: the row stays chosen but isn't ringed. */
+    var active = true
     private var i = 0
     private var top = 0f
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -311,7 +313,7 @@ class Options(ctx: Context) : View(ctx) {
         c.save(); c.clipRect(0f, 0f, width.toFloat(), height.toFloat()); c.translate(0f, 4f - top)   // 4: room for the focus ring
         var y = 0f
         rows.forEachIndexed { k, r ->
-            val rh = h(r); val on = k == i; val box = RectF(30f, y, width - 30f, y + rh)
+            val rh = h(r); val on = k == i && active; val box = RectF(30f, y, width - 30f, y + rh)
             if (r.key == HEAD) {
                 p.typeface = Fonts.bold; p.textSize = 17f; p.letterSpacing = .1f; p.color = Theme.accentOf(null)
                 c.drawText(r.label.uppercase(), 42f, y + rh - 14f, p); p.letterSpacing = 0f

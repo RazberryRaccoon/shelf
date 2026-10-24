@@ -47,7 +47,10 @@ described at the top of that file.
 
 `node export-models.mjs` (needs Node and Playwright) builds every cartridge with the Studio's default settings and
 writes `.glb` files into `android/native/src/main/assets/models/`: each cartridge in its standard plastic, a
-see-through version for those with clear or frosted colors, and `cartridges.json` with sizes and color variants.
-`--consoles` adds the consoles. Run it again after changing `cartridges.js` and commit the results.
+see-through version of each (the app's Studio offers clear finishes for every cartridge), and `cartridges.json` with
+sizes and color variants. `--consoles` adds the consoles, `--cases` the game cases ([`case.js`](case.js): the
+prototype's clamshell cases at the real boxes' sizes, with a cover on a hinge, art on the front, back and spine, and a
+tray the cartridge sits in), and `--no-carts` leaves the cartridges as they are. Run it again after changing the models
+and commit the results.
 
 `vendor/` holds three.js 0.160.0 (MIT, see `THREE-LICENSE`) and the files it needs, so the page works offline.

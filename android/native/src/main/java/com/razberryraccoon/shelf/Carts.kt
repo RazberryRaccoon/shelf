@@ -48,6 +48,15 @@ class Carts(private val stage: Stage, val shells: Shells) {
         styles = j.keys().asSequence().associateWith { CartStyle(it, j.getJSONObject(it)) }
     }
 
+    /** Any exported model (a console or a case), added to the scene; null if the file is missing. */
+    fun model(name: String): FilamentAsset? {
+        val data = try { file(name) } catch (e: java.io.IOException) { return null }
+        val asset = stage.assets.createAsset(data.duplicate()) ?: return null
+        stage.resources.loadResources(asset); asset.releaseSourceData()
+        stage.scene.addEntities(asset.entities)
+        return asset
+    }
+
     private fun file(name: String) = files.getOrPut(name) { stage.readAsset("models/$name").let { if (name.endsWith("-clear.glb")) seeThrough(it) else it } }
 
 
@@ -173,6 +182,9 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
         plastic?.set("baseColorFactor", base[0] * bright, base[1] * bright, base[2] * bright, alpha)
         labelMat?.set("baseColorFactor", bright, bright, bright, 1f)
     }
+
+    /** Places it by a whole transform (a cartridge sitting in its case's tray). */
+    fun placeMatrix(t: FloatArray) = tm.setTransform(tm.getInstance(asset.root), t)
 
     /**
      * Places it: (x, y) in layout pixels from the top left, z toward you, turned by ry and rx, `px` tall at its largest.

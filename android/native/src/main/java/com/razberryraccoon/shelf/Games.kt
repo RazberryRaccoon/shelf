@@ -87,6 +87,9 @@ class Games(private val ctx: Context) {
     fun setMatch(g: Game, name: String?) = prefs.edit().apply { if (name == null) remove("match:" + g.path) else putString("match:" + g.path, name) }.apply()
     fun variant(g: Game): String? = prefs.getString("variant:" + g.path, null)
     fun setVariant(g: Game, name: String) = prefs.edit().putString("variant:" + g.path, name).apply()
+    /** The shell a console's standard cartridges wear (the Museum), if you chose one. */
+    fun defaultShell(sys: String): String? = prefs.getString("default-shell:$sys", null)
+    fun setDefaultShell(sys: String, key: String?) = prefs.edit().apply { if (key == null) remove("default-shell:$sys") else putString("default-shell:$sys", key) }.apply()
 
     /** Every way this console's games can start: RetroArch's cores first, then standalone emulators, installed ones marked. */
     fun emulatorChoices(sys: String): List<Pair<String, Boolean>> {
