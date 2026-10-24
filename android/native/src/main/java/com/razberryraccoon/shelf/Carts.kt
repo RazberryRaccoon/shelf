@@ -44,7 +44,8 @@ class Carts(private val stage: Stage) {
         styles = j.keys().asSequence().associateWith { CartStyle(it, j.getJSONObject(it)) }
     }
 
-    private fun file(name: String) = files.getOrPut(name) { stage.readAsset("models/$name") }
+    private fun file(name: String) = files.getOrPut(name) { stage.readAsset("models/$name").let { if (name.endsWith("-clear.glb")) seeThrough(it) else it } }
+
 
     /** A cartridge for this game, in its chosen shell color, with a label drawn for it. */
     fun make(sys: String, title: String, variantName: String?): Cart? {
@@ -78,6 +79,7 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
     var variant: Variant = style.variants[0]; private set
     private var base = floatArrayOf(1f, 1f, 1f)
     private var bright = 1f
+    private var alpha = 1f   // how much of the shell you see, for clear and frosted colors
     private val m = FloatArray(16)
 
     init {
@@ -109,7 +111,7 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
         variant = v
         val lin = intArrayOf(Color.red(v.color), Color.green(v.color), Color.blue(v.color)).map { srgbToLinear(it / 255f) }.toFloatArray()
         base = when {
-            v.clear != null -> FloatArray(3) { lin[it] + (1 - lin[it]) * .15f }   // the Studio uses .35; on the device that read as milky
+            v.clear != null -> lin   // see-through now (seeThrough), so no white mixed in
             // metal's color is what it reflects: measured gold and silver (Filament's metal table), not the paint swatch
             v.sheen -> if (Color.red(v.color) - Color.blue(v.color) > 60) floatArrayOf(1f, .766f, .336f) else floatArrayOf(.972f, .96f, .915f)
             else -> lin
@@ -120,14 +122,14 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
         mi.set("metallicFactor", if (v.sheen) 1f else 0f)
         mi.set("clearCoatFactor", if (v.sheen) .5f else style.clearcoat)
         mi.set("clearCoatRoughnessFactor", if (v.clear == "transparent") .05f else style.clearcoatRoughness)
-        if (v.clear != null) { mi.set("attenuationColor", lin[0], lin[1], lin[2]); mi.set("attenuationDistance", if (v.clear == "transparent") 30f else 10f) }
+        alpha = when (v.clear) { "transparent" -> .38f; "frosted" -> .7f; else -> 1f }
         tint()
     }
 
     /** Dims the cartridges you're not on, a little. */
     fun brightness(k: Float) { if (k != bright) { bright = k; tint() } }
     private fun tint() {
-        plastic?.set("baseColorFactor", base[0] * bright, base[1] * bright, base[2] * bright, 1f)
+        plastic?.set("baseColorFactor", base[0] * bright, base[1] * bright, base[2] * bright, alpha)
         labelMat?.set("baseColorFactor", bright, bright, bright, 1f)
     }
 
@@ -154,4 +156,33 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
     }
 
     private fun srgbToLinear(c: Float) = if (c <= .04045f) c / 12.92f else ((c + .055f) / 1.055f).pow(2.4f)
+}
+
+/**
+ * The Studio's clear shells use glTF transmission (light passing through, bent like real plastic). Filament's
+ * built-in glTF materials draw that as solid color on this phone-class renderer, so the circuit board vanished.
+ * Here the shell becomes an ordinary blended (see-through) material instead: the file's JSON is changed as it
+ * loads, the shell keeps its clear coat for reflections, and Cart.apply sets how see-through each color is.
+ */
+fun seeThrough(glb: ByteBuffer): ByteBuffer {
+    val all = ByteArray(glb.remaining()).also { glb.duplicate().get(it) }
+    val b = ByteBuffer.wrap(all).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+    val jsonLen = b.getInt(12)
+    val j = JSONObject(String(all, 20, jsonLen, Charsets.UTF_8))
+    val mats = j.optJSONArray("materials") ?: return glb
+    for (k in 0 until mats.length()) {
+        val m = mats.getJSONObject(k); val ext = m.optJSONObject("extensions") ?: continue
+        if (!ext.has("KHR_materials_transmission")) continue
+        ext.remove("KHR_materials_transmission"); ext.remove("KHR_materials_volume"); ext.remove("KHR_materials_ior")
+        m.put("alphaMode", "BLEND")
+    }
+    j.optJSONArray("extensionsUsed")?.let { u -> val keep = org.json.JSONArray(); for (k in 0 until u.length()) u.getString(k).takeIf { it !in setOf("KHR_materials_transmission", "KHR_materials_volume", "KHR_materials_ior") }?.let { keep.put(it) }; j.put("extensionsUsed", keep) }
+    var text = j.toString().toByteArray(Charsets.UTF_8)
+    if (text.size % 4 != 0) text += ByteArray(4 - text.size % 4) { ' '.code.toByte() }   // chunks are padded to 4 bytes with spaces
+    val rest = all.size - 20 - jsonLen   // the binary chunk, untouched
+    val out = ByteBuffer.allocateDirect(20 + text.size + rest).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+    out.putInt(0x46546C67).putInt(2).putInt(20 + text.size + rest)
+    out.putInt(text.size).putInt(0x4E4F534A).put(text)
+    out.put(all, 20 + jsonLen, rest)
+    out.flip(); return out
 }

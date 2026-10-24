@@ -64,7 +64,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host {
         stage.setLook(games.lightEnv, games.lightExposure, games.lightKey)
         Sounds.init(this, games.sounds)
         carts = Carts(stage)
-        home = Home(this, stage, board, backdrop, games, carts, this)
+        home = Home(this, stage, board, backdrop, games, carts, Meta(this, games), this)
         if (!games.setupDone) openSetup(settings = false)
         // the interface and backdrop follow the 3D layer's fit, so all three line up
         root.addOnLayoutChangeListener { _, l, t, r, b, _, _, _, _ ->

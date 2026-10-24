@@ -352,3 +352,12 @@ focused; gold and silver are fully metallic, colored by measured metal reflectan
 Native has no box models yet, so the user chose to start with the cartridge as the page's centerpiece (boxes come with
 the Library). The user picked all four suggested touches: spin with momentum, the light catching it as it turns, live
 shell color previews, and soft sounds (synthesized sine tones, quiet, with a Settings switch).
+
+The user's notes on 0.3: (1) clear and frosted shells showed as solid color, without the circuit board the Studio
+shows; (2) Home's angle and the key light's direction lined up so the flat fronts caught the light's whole reflection
+("the gold looks pale yellow/tan in the home screen … when I rotate it just a little bit to the right, it suddenly
+looks properly gold"); (3) the tiles' focus ring was cut off; (4) the tiles moved up and down with the length of the
+line under them; (5) the page needed its settings, pictures and details. **0.4** fixes the first four (blended shells,
+the key light moved high and to the side, about 45° from the fronts' mirror angle, inset tiles, a fixed-height line)
+and fills in the page from libretro's database. Checked: the see-through change was run on the real GBA model and the
+result read back as a valid glTF file. Not checked on a device before handing over.

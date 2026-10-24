@@ -27,7 +27,7 @@ import kotlin.math.sin
  * Positions follow the prototype's drawHome. Library, Apps, Museum and Settings come to the native app in later versions.
  */
 class Home(private val ctx: Context, private val stage: Stage, private val board: Board, private val backdrop: Backdrop,
-           private val games: Games, private val carts: Carts, private val actions: Actions) : GamePage.Host {
+           private val games: Games, private val carts: Carts, private val lookup: Meta, private val actions: Actions) : GamePage.Host {
     interface Actions { fun play(g: Game); fun allowStorage(); fun openSettings() }
 
     private class Slot(val game: Game, var cart: Cart?, var x: Float = 270f, var y: Float = 326f, var z: Float = 0f, var px: Float = 156f, var bright: Float = .72f)
@@ -101,6 +101,14 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
 
     private fun current() = slots.getOrNull(i)?.game
 
+    /** Home's picture of a game: its screenshot or title screen from libretro, or Shelf's own painting until those arrive. */
+    private fun pictureOf(g: Game): android.graphics.Bitmap {
+        val info = lookup.cached(g)
+        val f = info?.pics?.get("shot") ?: info?.pics?.get("title")
+        if (info == null) lookup.get(g) { got -> if (got?.pics?.isNotEmpty() == true && current() == g && page == null) { picFor = null; picTimer = .01f } }   // looks it up quietly, then shows it
+        return f?.let { lookup.bitmap(it, 800) } ?: Paintings.picture(800, 196, g.title)
+    }
+
     private fun refreshInfo() {
         val g = current()
         title.text = g?.title ?: ""
@@ -155,7 +163,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
             }
         }
         page?.tick(dt)
-        if (picTimer > 0) { picTimer -= dt; if (picTimer <= 0) current().let { g -> if (g != picFor) { picFor = g; backdrop.picture(g?.let { Paintings.picture(800, 196, it.title) }) } } }
+        if (picTimer > 0) { picTimer -= dt; if (picTimer <= 0) current().let { g -> if (g != picFor) { picFor = g; backdrop.picture(g?.let { pictureOf(it) }) } } }
         if (toastLeft > 0) { toastLeft = (toastUntil - android.os.SystemClock.uptimeMillis()) / 1000f; toast.alpha = min(1f, toastLeft / .3f).coerceAtLeast(0f) }
         clockLeft -= dt; if (clockLeft <= 0) clockTick()
     }
@@ -173,7 +181,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
                 "right" -> if (i < slots.size - 1) { i++; refreshInfo(); Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
                 "up" -> { zone = "top"; refreshTop(); Sounds.play(Sounds.MOVE) }
                 "down" -> openPage()
-                "a" -> current()?.let { g -> Sounds.play(Sounds.PICK); if (games.emulator(g.sys) == null) chooseEmulator(g, then = true) else actions.play(g) }
+                "a" -> current()?.let { g -> Sounds.play(Sounds.PICK); if (games.emulatorFor(g) == null) chooseEmulator(g, then = true) else actions.play(g) }
                 "y" -> current()?.let { options(it) }
             }
             "top" -> when (a) {
@@ -189,17 +197,19 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
 
     private fun openPage() {
         val s = slots.getOrNull(i) ?: return
-        page = GamePage(ctx, board, backdrop, stage, games, carts, s.game, s.cart, floatArrayOf(s.x, s.y, s.px), this)
+        page = GamePage(ctx, board, backdrop, stage, games, carts, lookup, s.game, s.cart, floatArrayOf(s.x, s.y, s.px), this)
     }
     /** The right stick, for turning the cartridge on a game's page. */
     fun stick(x: Float, y: Float) { page?.stick(x, y) }
 
     override fun play(g: Game) = actions.play(g)
-    override fun chooseEmulator(g: Game) = chooseEmulator(g, then = false)
+    override fun pick(p: Picker) = open(p)
     override fun cartChanged(g: Game, c: Cart?) { slots.firstOrNull { it.game == g }?.cart = c }
-    override fun closed(page: GamePage) {
+    override fun closed(page: GamePage, homeChanged: Boolean) {
         if (this.page === page) this.page = null
         slots.firstOrNull { it.game == page.game }?.let { it.cart?.brightness(it.bright) }
+        if (homeChanged) setGames(games.recent())   // shown on Home or hidden, in its Game settings
+        picFor = null; picTimer = .1f
         refreshInfo()
     }
 
@@ -257,7 +267,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
 
     private var toastLeft = 0f
     private var toastUntil = 0L
-    fun show(msg: String) { toast.text = msg; toast.alpha = 1f; toastLeft = 2.5f; toastUntil = android.os.SystemClock.uptimeMillis() + 2500; toast.bringToFront() }
+    override fun show(msg: String) { toast.text = msg; toast.alpha = 1f; toastLeft = 2.5f; toastUntil = android.os.SystemClock.uptimeMillis() + 2500; toast.bringToFront() }
 
     private var clockLeft = 0f
     private fun clockTick() {
