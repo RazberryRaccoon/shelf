@@ -14,7 +14,11 @@ import java.nio.ByteBuffer
 import kotlin.math.pow
 
 /** One of a cartridge's real shell colors (tools/cartridge-studio/cartridges.js, via cartridges.json). */
-data class Variant(val name: String, val color: Int, val games: String, val clear: String?, val sheen: Boolean)
+data class Variant(val name: String, val color: Int, val games: String, val clear: String?, val sheen: Boolean,
+                   val material: String? = null, val custom: String? = null) {
+    /** What a game saves to remember it: the default's name, or "custom:<id>" for a Studio shell. */
+    val key get() = custom?.let { Shell.KEY + it } ?: name
+}
 
 /** A cartridge style: its size in millimetres, label window, finish and color variants. */
 class CartStyle(val sys: String, j: JSONObject) {
@@ -34,7 +38,7 @@ class CartStyle(val sys: String, j: JSONObject) {
 }
 
 /** The exported Studio models, loaded once and copied for each cartridge on screen. */
-class Carts(private val stage: Stage) {
+class Carts(private val stage: Stage, val shells: Shells) {
     val styles: Map<String, CartStyle>
     private val files = HashMap<String, ByteBuffer>()
     private val sampler = TextureSampler(TextureSampler.MinFilter.LINEAR_MIPMAP_LINEAR, TextureSampler.MagFilter.LINEAR, TextureSampler.WrapMode.CLAMP_TO_EDGE)
@@ -50,7 +54,7 @@ class Carts(private val stage: Stage) {
     /** A cartridge for this game, in its chosen shell color, with a label drawn for it. */
     fun make(sys: String, title: String, variantName: String?): Cart? {
         val style = styles[sys] ?: return null
-        val v = style.variant(variantName)
+        val v = variantFor(sys, variantName) ?: return null
         val name = if (v.clear != null) "cart-$sys-clear.glb" else "cart-$sys.glb"
         val asset = stage.assets.createAsset(file(name).duplicate()) ?: return null
         stage.resources.loadResources(asset)
@@ -109,6 +113,8 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
     /** The Studio's rules (cartridge.js, applyVariant): metallic gold and silver, see-through clear and frosted shells. */
     fun apply(v: Variant) {
         variant = v
+        plastic?.set("emissiveFactor", 0f, 0f, 0f); plastic?.set("sheenColorFactor", 0f, 0f, 0f)
+        if (v.material != null) return applyMaterial(v, Materials.of(v.material))
         val lin = intArrayOf(Color.red(v.color), Color.green(v.color), Color.blue(v.color)).map { srgbToLinear(it / 255f) }.toFloatArray()
         base = when {
             v.clear != null -> lin   // see-through now (seeThrough), so no white mixed in
@@ -123,6 +129,22 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
         mi.set("clearCoatFactor", if (v.sheen) .5f else style.clearcoat)
         mi.set("clearCoatRoughnessFactor", if (v.clear == "transparent") .05f else style.clearcoatRoughness)
         alpha = when (v.clear) { "transparent" -> .38f; "frosted" -> .7f; else -> 1f }
+        mi.set("emissiveFactor", 0f, 0f, 0f)
+        tint()
+    }
+
+    /** A Studio shell: your color in one of the Studio's materials. */
+    private fun applyMaterial(v: Variant, m: Finish) {
+        val lin = intArrayOf(Color.red(v.color), Color.green(v.color), Color.blue(v.color)).map { srgbToLinear(it / 255f) }.toFloatArray()
+        base = FloatArray(3) { (lin[it] + (1 - lin[it]) * m.lift) * m.dim }
+        alpha = m.alpha
+        val mi = plastic ?: return tint()
+        mi.set("roughnessFactor", m.rough ?: style.roughness)
+        mi.set("metallicFactor", m.metallic)
+        mi.set("clearCoatFactor", m.coat ?: style.clearcoat)
+        mi.set("clearCoatRoughnessFactor", m.coatRough ?: style.clearcoatRoughness)
+        if (m.glow > 0) mi.set("emissiveFactor", base[0] * m.glow, base[1] * m.glow, base[2] * m.glow)
+        if (m.sheen > 0) { mi.set("sheenColorFactor", m.sheen, m.sheen, m.sheen); mi.set("sheenRoughnessFactor", .35f) }
         tint()
     }
 

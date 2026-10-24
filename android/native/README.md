@@ -37,13 +37,24 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Home.kt` | Home: the row of recent games, the top bar, details, the shell color and emulator pickers. |
 | `GamePage.kt` | A game's page: the cartridge to turn with the right stick, the details and icon tiles, live shell colors. |
 | `Meta.kt` | A game's details and pictures from libretro's database, saved on the device. |
+| `Studio.kt` | The Studio: finishes, named colors, your saved shells, and its controls. |
 | `Sounds.kt` | The quiet interface sounds, synthesized on the device. |
 | `Setup.kt` | First-run setup (welcome, your name and color, games folders, emulators, done); its pages are also Settings. |
 | `Backdrop.kt` | Everything behind the 3D layer. |
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
-## What's in version 0.4
+## What's in version 0.5
+
+The Studio. On a game's page, Customize (or Y on Home) lists the console's real colors under "Defaults for …", then
+your own shells under "Custom", then "+ Add new", which opens the Studio: the cartridge stays on the left to turn, and
+the panel has twelve finishes (plastic, matte, glossy, frosted, clear, smoke, metallic, brushed metal, anodized
+aluminum, pearl, metal flake, glow in the dark), 44 named colors, and hue, saturation and brightness bars for any
+color. Everything shows on the cartridge as you change it. Saved shells are shared by every cartridge type (Y on one
+edits or deletes it). `Studio.kt`. Also: Home's cartridges are bigger, with half of one showing on the left and two and
+a half on the right, and the top right shows a battery with a bolt while it's charging.
+
+## What was in version 0.4
 
 The game page, filled in. Under the title: the year, developer and genre, when you last played it, and what it plays
 with. The tiles are Play, Emulator (this game's own, or the same as its console's), Shell color, Favorite, Settings and

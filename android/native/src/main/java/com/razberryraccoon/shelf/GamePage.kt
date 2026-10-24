@@ -32,7 +32,7 @@ import kotlin.math.sin
  *
  * On the right, a panel that scrolls between three parts: the details and a row of icon tiles (Play, Emulator, Shell
  * color, Favorite, Settings, Back); Pictures (box, title screen, screenshot; A opens them big); and About (the
- * description). Details and pictures come from libretro's database (Meta). Shell color and Game settings take over the
+ * description). Details and pictures come from libretro's database (Meta). Customize shell (with the Studio) and Game settings take over the
  * panel as lists. Up from the tiles, or B, puts the cartridge back.
  */
 class GamePage(private val ctx: Context, private val board: Board, private val backdrop: Backdrop, private val stage: Stage,
@@ -41,6 +41,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     interface Host {
         fun play(g: Game)
         fun pick(p: Picker)
+        fun askText(title: String, value: String, then: (String) -> Unit)
         fun show(msg: String)
         fun cartChanged(g: Game, c: Cart?)
         fun closed(page: GamePage, homeChanged: Boolean)
@@ -85,7 +86,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
 
     private enum class Zone { TILES, PICS, ABOUT }
     private var zone = Zone.TILES
-    private enum class Mode { PAGE, COLORS, SETTINGS }
+    private enum class Mode { PAGE, COLORS, SETTINGS, STUDIO }
     private var mode = Mode.PAGE
     private var colorsFrom = Mode.PAGE   // where B goes back to from the shell colors
     private var before: Variant? = null  // the shell color to go back to if you press B
@@ -136,7 +137,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
             if (played == 0L) "Not played yet" else "Played " + DateUtils.getRelativeTimeSpanString(played, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS) + (if (n > 1) " · $n times" else ""),
             "Plays with " + (games.emulatorFor(game)?.let { emuName(it) } ?: "nothing yet")).joinToString("\n")
         tiles.fav = games.favorite(game)
-        tiles.swatch = carts.styles[game.sys]?.variant(games.variant(game))?.color ?: Theme.fg2
+        tiles.swatch = carts.variantFor(game.sys, games.variant(game))?.color ?: Theme.fg2
         tiles.invalidate()
         // pictures: the box, title screen and a screenshot, as they arrive
         if (shotsFor !== i || i == null) shots.set(if (i == null) null else Meta.KINDS.mapNotNull { (k, name) -> i.pics[k]?.let { f2 -> meta.bitmap(f2, 360)?.let { name to it } } })
@@ -157,7 +158,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         note.text = when (tiles.at) {
             0 -> if (emu == null) "Choose an emulator, then it starts." else "Starts it in $emu."
             1 -> if (games.ownEmulator(game) != null) "Plays with $emu, chosen for this game." else "Plays with $emu. Choose one just for this game."
-            2 -> "Its real colors. Each shows on the cartridge as you choose."
+            2 -> "Its shell: the real colors, or your own from the Studio."
             3 -> if (games.favorite(game)) "Remove it from your favorites." else "Add it to your favorites. (Y does this too.)"
             4 -> "Its emulator, shell color, whether it shows on Home, and which game it is."
             else -> "Put it back on Home."
@@ -174,7 +175,11 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         t = if (closing) maxOf(0f, t - dt / .5f) else min(1f, t + dt / .6f)
         val k = Backdrop.ease(t)
         val pk = Backdrop.ease(((t - .3f) / .7f).coerceIn(0f, 1f))
-        panel.alpha = pk; panel.translationX = (1 - pk) * 70f
+        studioK = if (studio != null) min(1f, studioK + dt / .3f) else maxOf(0f, studioK - dt / .25f)
+        val sk = Backdrop.ease(studioK)
+        panel.alpha = pk * (1 - sk); panel.translationX = (1 - pk) * 70f - sk * 40f
+        studioPanel.alpha = pk * sk; studioPanel.translationX = (1 - sk) * 50f
+        if (studio == null && studioK == 0f && studioPanel.parent != null) board.removeView(studioPanel)
         // the stick: turn while held, coast when let go, then settle back to the front (or the back, after X)
         val sx = dead(stickX); val sy = dead(stickY)
         if (!closing && viewer == null && (sx != 0f || sy != 0f)) {
@@ -212,6 +217,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         viewer?.let { if (it.input(a)) return }
         when (mode) {
             Mode.COLORS -> return colorsInput(a)
+            Mode.STUDIO -> return if (a == "x") flip() else studio?.input(a) ?: Unit
             Mode.SETTINGS -> return settingsInput(a)
             Mode.PAGE -> {}
         }
@@ -257,7 +263,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         scroll.smoothScrollTo(0, when (z) { Zone.TILES -> 0; Zone.PICS -> picsHead.top - 80; Zone.ABOUT -> aboutHead.top - 40 }.coerceAtLeast(0))
     }
 
-    fun close() { if (!closing) { closing = true; viewer?.let { board.removeView(it); viewer = null }; if (mode == Mode.COLORS) endColors(keep = false); Sounds.play(Sounds.CLOSE) } }
+    fun close() { if (!closing) { closing = true; studio = null; viewer?.let { board.removeView(it); viewer = null }; if (mode == Mode.COLORS) endColors(keep = false); Sounds.play(Sounds.CLOSE) } }
 
     private fun play() {
         if (games.emulatorFor(game) == null) return chooseEmulator(then = true)
@@ -309,7 +315,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
 
     private fun showList(heading: String, rows: List<Options.Row>, at: Int) {
         listHead.text = heading.uppercase()
-        list.rows = rows; list.reset(); repeat(at) { list.move(1) }
+        list.rows = rows; list.reset(); if (at > 0) list.focus(at)
         scroll.visibility = View.GONE; listHead.visibility = View.VISIBLE; list.visibility = View.VISIBLE
         list.invalidate(); panel.requestLayout()
     }
@@ -319,44 +325,121 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         panel.requestLayout(); mode = Mode.PAGE
     }
 
-    private fun startColors(from: Mode) {
-        val style = carts.styles[game.sys] ?: return
-        colorsFrom = from; mode = Mode.COLORS; before = style.variant(games.variant(game))
-        list.onFocus = null
-        showList("Shell color", style.variants.map { Options.Row("v", it.name, sub = it.games.ifEmpty { "A color it came in" }, check = it == before, dot = it.color) }, style.variants.indexOf(before))
-        list.onFocus = { preview(); Sounds.play(Sounds.MOVE) }
+    // ---------- Customize shell: the console's real colors, your Studio shells, and + Add new ----------
+
+    /** Opens Customize shell straight away (Y on Home). */
+    fun customize() = startColors(Mode.PAGE)
+
+    private fun startColors(from: Mode, focusKey: String? = null) {
+        if (carts.styles[game.sys] == null) return
+        if (mode != Mode.COLORS) { colorsFrom = from; before = carts.variantFor(game.sys, games.variant(game)) }
+        mode = Mode.COLORS
+        fillColors(focusKey ?: list.current()?.tag as? String ?: before?.key)
         Sounds.play(Sounds.OPEN)
+    }
+
+    private fun fillColors(focusKey: String?) {
+        val style = carts.styles[game.sys] ?: return
+        val chosen = games.variant(game) ?: style.variants[0].name
+        val rows = ArrayList<Options.Row>()
+        rows += Options.Row(Options.HEAD, "Defaults for ${Games.NAMES[game.sys] ?: style.name}")
+        style.variants.forEach { rows += Options.Row("v", it.name, sub = it.games.ifEmpty { "A color it came in" }, check = it.key == chosen, dot = it.color, tag = it.key) }
+        rows += Options.Row(Options.HEAD, "Custom")
+        carts.shells.all.forEach { rows += Options.Row("c", it.name, sub = Materials.of(it.material).name + "  ·  Y to edit", check = it.key == chosen, dot = it.color, tag = it.key) }
+        rows += Options.Row("new", "+ Add new", sub = "Make your own in the Studio", tag = "new")
+        list.onFocus = null
+        showList("Customize shell", rows, 0)
+        rows.indexOfFirst { it.tag == focusKey }.takeIf { it >= 0 }?.let { list.focus(it) }
+        list.onFocus = { preview(); Sounds.play(Sounds.MOVE) }
     }
 
     private fun colorsInput(a: String) {
         when (a) {
             "up" -> if (!list.move(-1)) Sounds.play(Sounds.BUMP)
             "down" -> if (!list.move(1)) Sounds.play(Sounds.BUMP)
-            "a" -> { Sounds.play(Sounds.PICK); endColors(keep = true) }
+            "a" -> if (list.current()?.key == "new") openStudio(null) else { Sounds.play(Sounds.PICK); endColors(keep = true) }
             "b" -> { Sounds.play(Sounds.CLOSE); endColors(keep = false) }
+            "y" -> carts.shells.get(list.current()?.tag as? String)?.let { shellOptions(it) }
             "x" -> flip()
         }
     }
 
+    /** Y on one of your shells: edit it in the Studio, or delete it. */
+    private fun shellOptions(s: Shell) {
+        host.pick(Picker(ctx, s.name, listOf(Picker.Row("Edit in the Studio", Materials.of(s.material).name), Picker.Row("Delete", "Cartridges using it go back to their console's default"))) { k ->
+            if (k == 0) openStudio(s)
+            else {
+                carts.shells.delete(s.id)
+                if (games.variant(game) == s.key) games.setVariant(game, carts.styles[game.sys]!!.variants[0].name)
+                if (before?.key == s.key) before = carts.styles[game.sys]!!.variants[0]
+                fillColors(null); preview(); host.show("Deleted ${s.name}")
+            }
+        })
+    }
+
     private fun preview() {
-        val style = carts.styles[game.sys] ?: return
-        setVariant(style.variants.firstOrNull { it.name == list.current()?.label } ?: return)
+        val key = list.current()?.tag as? String ?: return
+        if (key == "new") return   // keeps showing the last one you were on
+        carts.variantFor(game.sys, key)?.let { setVariant(it) }
     }
 
     private fun setVariant(v: Variant) {
         val c = cart
         if (c == null || (v.clear != null) != (c.variant.clear != null)) {   // clear shells are a different model: swap it in place
-            c?.destroy(); cart = carts.make(game.sys, game.title, v.name); host.cartChanged(game, cart)
+            c?.destroy(); cart = carts.make(game.sys, game.title, v.key); host.cartChanged(game, cart)
+            cart?.apply(v)   // a Studio shell that's still being made has no saved key yet
         } else c.apply(v)
     }
 
     private fun endColors(keep: Boolean) {
-        val style = carts.styles[game.sys]
-        val picked = style?.variants?.firstOrNull { it.name == list.current()?.label }
-        if (keep && picked != null) { games.setVariant(game, picked.name); if (picked.sheen || picked.clear != null) vYaw += 1.6f }   // show off the new finish
+        val key = (list.current()?.tag as? String)?.takeIf { it != "new" }
+        val picked = if (keep) key?.let { carts.variantFor(game.sys, it) } else null
+        if (picked != null) { games.setVariant(game, picked.key); if (picked.sheen || picked.clear != null) vYaw += 1.6f }   // show off the new finish
         else before?.let { setVariant(it) }
         hideList(); refresh()
         if (colorsFrom == Mode.SETTINGS) startSettings(at = 1)
+    }
+
+    // ---------- the Studio ----------
+
+    private var studio: StudioView? = null
+    private val studioPanel = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; background = round(Theme.panel, 33f, Theme.line); setPadding(34, 28, 34, 20); clipToPadding = false; alpha = 0f }
+    private var editing: Shell? = null
+    private var studioK = 0f   // 1 while the Studio is open
+
+    /** Opens the Studio, starting from what's on the cartridge now (or from the shell you're editing). */
+    private fun openStudio(edit: Shell?) {
+        val start = edit?.variant() ?: cart?.variant ?: carts.styles[game.sys]?.variants?.get(0) ?: return
+        val startMaterial = start.material ?: when { start.clear == "transparent" -> "clear"; start.clear == "frosted" -> "frosted"; start.sheen -> "metal"; else -> "plastic" }
+        editing = edit
+        val v = StudioView(ctx, start.color, startMaterial)
+        studio = v
+        studioPanel.removeAllViews()
+        studioPanel.addView(head("STUDIO  ·  ${(carts.styles[game.sys]?.name ?: "").uppercase()} CARTRIDGE"))
+        studioPanel.addView(text(34f, Fonts.display, Theme.fg).apply { this.text = edit?.name ?: "New shell"; maxLines = 1; ellipsize = TextUtils.TruncateAt.END }, lp(10))
+        studioPanel.addView(v, LinearLayout.LayoutParams(StudioView.W, StudioView.H).apply { topMargin = 16; leftMargin = -12 })
+        if (studioPanel.parent == null) board.put(studioPanel, 694, 112, 610, 620)
+        mode = Mode.STUDIO
+        v.onChange = { color, material -> setVariant(Shell("", "", color, material).variant()) }
+        v.onCancel = { closeStudio(saved = null) }
+        v.onSave = {
+            val m = Materials.of(v.material.id)
+            host.askText("Name your shell", edit?.name ?: "${if (m.id == "plastic") "" else m.name + " "}${v.colorName}".trim()) { name ->
+                val s = carts.shells.save(Shell(edit?.id ?: java.lang.Long.toString(System.currentTimeMillis(), 36), name.ifBlank { v.colorName }.trim().take(28), v.color, v.material.id))
+                Sounds.play(Sounds.PICK); closeStudio(saved = s)
+            }
+        }
+        v.onChange?.invoke(v.color, v.material.id)
+        Sounds.play(Sounds.OPEN)
+    }
+
+    private fun closeStudio(saved: Shell?) {
+        studio = null; mode = Mode.COLORS
+        if (saved == null) Sounds.play(Sounds.CLOSE)
+        fillColors(saved?.key ?: editing?.key ?: "new")
+        if (saved == null && editing == null) before?.let { setVariant(it) } else preview()   // cancelled: back to what it was
+        if (saved != null) host.show("Saved ${saved.name}. It’s in Custom for every cartridge.")
+        editing = null
     }
 
     private fun startSettings(at: Int = 0) {
@@ -371,7 +454,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val own = games.ownEmulator(game)
         val rows = listOf(
             Options.Row("emu", "Plays with", value = own?.let { emuName(it).substringBefore(",") } ?: "Same as $console", sub = games.emulatorFor(game)?.let { emuName(it) } ?: "Nothing chosen yet"),
-            Options.Row("shell", "Shell color", value = carts.styles[game.sys]?.variant(games.variant(game))?.name ?: "", dot = carts.styles[game.sys]?.variant(games.variant(game))?.color),
+            carts.variantFor(game.sys, games.variant(game)).let { v -> Options.Row("shell", "Customize shell", value = v?.name ?: "", dot = v?.color) },
             Options.Row("home", "Show on Home", value = if (games.onHome(game)) "Yes" else "No", sub = "Hidden games stay in the Library"),
             Options.Row("which", "Which game is this?", value = if (games.match(game) != null) "Chosen" else "Found by Shelf", sub = info?.name ?: "Not found in libretro’s database"),
             Options.Row("again", "Look up details and pictures again", sub = "From libretro’s database"),
@@ -421,7 +504,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     }
 
     fun destroy() {
-        board.removeView(panel); board.removeView(hint); viewer?.let { board.removeView(it) }
+        board.removeView(panel); board.removeView(hint); board.removeView(studioPanel); viewer?.let { board.removeView(it) }
         stage.turnKey(0f)
         shots.recycle()
     }
@@ -449,7 +532,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
  */
 class Tiles(ctx: Context) : View(ctx) {
     companion object { const val INSET = 10; const val HEIGHT = 138; private const val SIZE = 76f; private const val TOP = 12f }
-    private val names = listOf("Play", "Emulator", "Shell color", "Favorite", "Settings", "Back")
+    private val names = listOf("Play", "Emulator", "Customize", "Favorite", "Settings", "Back")
     var at = 0; private set
     var active = true
     var fav = false

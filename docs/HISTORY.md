@@ -370,3 +370,10 @@ angle the cartridge is at now … and move the light itself." So the whole light
 light) is turned by twice the resting angle (a reflection turns twice as far as the surface): at rest, a cartridge now
 sees the light it saw head on. Filament's own source confirms IndirectLight rotation turns the reflections in the same
 sense as the key light's direction. Not checked on a device; Wikipedia couldn't be reached from Claude's sandbox.
+
+After the 0.4 fixes the user wrote: "Gold is FIXED! … everything looks lit so much better now … the color of all the
+other cartridges now looks like I remember from holding these cartridges for real." Turning the lighting to the
+resting angle was the answer. Then: Home's cartridges bigger with fewer in view (half on the left, two and a half on
+the right), a charging indicator, and the Studio (update A of three; B is the Museum, C the console Studio and the
+console animations). **0.5** builds them. Not checked on a device: the glow-in-the-dark and pearl finishes rely on
+Filament's emissive and sheen values, whose strength on the device is a guess.
