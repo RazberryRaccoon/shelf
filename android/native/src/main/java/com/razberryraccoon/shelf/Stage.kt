@@ -74,9 +74,9 @@ class Stage(private val ctx: Context, private val surface: TextureView) : Choreo
         renderer.clearOptions = renderer.clearOptions.apply { clear = true; clearColor = doubleArrayOf(0.0, 0.0, 0.0, 0.0) }
         view.multiSampleAntiAliasingOptions = view.multiSampleAntiAliasingOptions.apply { enabled = true; sampleCount = 4 }
         view.colorGrading = ColorGrading.Builder().toneMapper(ToneMapper.ACESLegacy()).build(engine)
-        camera.setExposure(.72f)   // the Studio's defaults: exposure .72, environment .85, key light 1
+        camera.setExposure(Look.EXPOSURE)
         LightManager.Builder(LightManager.Type.DIRECTIONAL)
-            .color(1f, 1f, 1f).intensity(1f).direction(.48f, -.62f, -.62f).castShadows(false)
+            .color(1f, 1f, 1f).intensity(Look.KEY).direction(.48f, -.62f, -.62f).castShadows(false)
             .build(engine, sun)
         scene.addEntity(sun)
         loadEnvironment()
@@ -106,10 +106,17 @@ class Stage(private val ctx: Context, private val surface: TextureView) : Choreo
         val specular = IBLPrefilterContext.SpecularFilter(context)
         val cube = toCube.run(equirect)
         val reflections = specular.run(cube)
-        ibl = IndirectLight.Builder().reflections(reflections).intensity(.85f).build(engine)
+        ibl = IndirectLight.Builder().reflections(reflections).intensity(Look.ENV).build(engine)
         scene.indirectLight = ibl
         engine.destroyTexture(equirect); engine.destroyTexture(cube)
         specular.destroy(); toCube.destroy(); context.destroy()
+    }
+
+    /** The lighting, live: the studio environment's strength, the exposure, and the key light (Settings › Lighting). */
+    fun setLook(env: Float, exposure: Float, key: Float) {
+        ibl?.setIntensity(env)
+        camera.setExposure(exposure)
+        engine.lightManager.let { it.setIntensity(it.getInstance(sun), key) }
     }
 
     fun readAsset(path: String): ByteBuffer {
@@ -150,3 +157,10 @@ class Stage(private val ctx: Context, private val surface: TextureView) : Choreo
         engine.destroy()
     }
 }
+
+/**
+ * Starting values for the lighting. On the Retroid, the Studio's own values (environment .85, exposure .72, key light 1)
+ * came out much brighter than in the Studio, washing dark plastic out to light grey, so these start well below them;
+ * Settings › Lighting tunes them on the device.
+ */
+object Look { const val ENV = .5f; const val EXPOSURE = .5f; const val KEY = .6f }

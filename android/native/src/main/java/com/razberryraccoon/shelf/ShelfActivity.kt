@@ -61,6 +61,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host {
 
         stage = Stage(this, surface)
         games = Games(this)
+        stage.setLook(games.lightEnv, games.lightExposure, games.lightKey)
         carts = Carts(stage)
         home = Home(this, stage, board, backdrop, games, carts, this)
         if (!games.setupDone) openSetup(settings = false)
