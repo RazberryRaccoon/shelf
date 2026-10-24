@@ -88,7 +88,7 @@ that we've learned … and make an Android game launcher that's the best it can 
 - `tools/models/`: Blender scripts that build consoles and cartridges from the user's reference photos (see its
   README). Output goes to `prototype-source/models/`. GBA done; the rest still use the code-built models.
 - `android/`: Shelf for Android, the app (see its README). `prototype-source/android/rn.js` is the page's native mode.
-- `tools/cartridge-studio/`: three.js cartridge generator and tuning page (beveled extrusions, physical plastic, studio
+- `tools/cartridge-studio/`: three.js cartridge and console generator and tuning page (beveled extrusions, physical plastic, studio
   HDR, .glb export). Not yet used by Shelf's own renderer.
 - `code/`: the Odroid GO firmware integration and the Raspberry Pi C app.
 - `downloads/`: the zips linked from the README. Rebuild them with `bash scripts/make-downloads.sh` whenever
