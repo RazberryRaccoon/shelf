@@ -31,6 +31,8 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 .file input { display: block; margin-top: 6px; color: var(--fg); font-size: 12px; max-width: 100%; }
 .buttons { display: flex; gap: 10px; flex-wrap: wrap; }
 [hidden] { display: none !important; }
+.variant { display: grid; gap: 6px; font-size: 13px; color: var(--fg2); }
+.variant small { font-size: 12px; line-height: 1.4; }
 #note, #envLine { font-size: 12px; color: var(--fg2); min-height: 1em; }
 textarea { width: 100%; box-sizing: border-box; min-height: 70px; font: 12px ui-monospace, monospace; color: var(--fg); background: #0f1117; border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
 @media (max-width: 760px) { body { grid-template-columns: 1fr; grid-template-rows: 58vh auto; } aside { border-left: 0; border-top: 1px solid var(--line); padding-inline: 16px; } }
@@ -49,7 +51,8 @@ textarea { width: 100%; box-sizing: border-box; min-height: 70px; font: 12px ui-
   <h2>Shape</h2>
   <div id="sliders"></div>
   <h2>Plastic</h2>
-  <div class="line"><input type="color" id="color" aria-label="Plastic color"> Plastic color</div>
+  <div class="line" id="colorLine"><input type="color" id="color" aria-label="Plastic color"> Plastic color</div>
+  <label class="variant" id="variantLine"><span>Color variant</span><select id="variant"></select><small id="variantGames"></small></label>
   <label class="line" id="turntableLine"><input type="checkbox" id="turntable"> Turntable</label>
   <label class="file" id="labelLine">Label art (optional)<input type="file" id="labelFile" accept="image/*"></label>
   <label class="file">Environment HDR or EXR (optional)<input type="file" id="envFile" accept=".hdr,.exr"></label>

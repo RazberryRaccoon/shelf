@@ -6,10 +6,15 @@
 //           ['arc', cx, cy, r, fromDegrees, toDegrees] adds a curved run (counter-clockwise), e.g. an arched top.
 // depth     front to back.
 // label     the recess the label sits in: centre x, y, width, height, corner radius, recess depth.
+// recesses  more cut-outs in the front, at the label's depth: [x, y, width, height, corner radius].
 // ridges    raised grip details: { x, y, w, h, r, height, side: 'front' | 'back' }.
 // finish    starting values for the tuning page.
+// variants  the shell colors this cartridge really came in, the first being the standard one: { name, color, games,
+//           clear: 'transparent' | 'frosted' (see-through plastic, with the circuit board inside showing), sheen
+//           (a metallic-looking plastic, for gold and silver) }. Sources are in docs/RESEARCH.md.
 
-const plastic = (color, roughness = .42, clearcoat = .45) => ({ color, roughness, clearcoat, clearcoatRoughness: .3 });
+const plastic = (color, roughness = .42, clearcoat = .45) => ({ color, roughness, clearcoat, clearcoatRoughness: .75 });
+const v = (name, color, games = '', more = {}) => ({ name, color, games, ...more });
 const repeat = (n, f) => Array.from({ length: n }, (_, i) => f(i));
 
 // the arched top of the N64 cartridge: a circle through both top corners, 15 mm higher in the middle
@@ -22,14 +27,18 @@ export const STYLES = {
     label: [0, 17.5, 55, 90, 1.5, 1],
     ridges: repeat(7, i => ({ x: 0, y: -40 - i * 3.6, w: 78, h: 1.4, r: .7, height: .7, side: 'front' })),
     finish: plastic('#8f8b86', .5, .3),
+    variants: [v('Gray', '#8f8b86', 'Standard'), v('Gold', '#c9a24a', 'The Legend of Zelda, Zelda II', { sheen: true }),
+      v('Black', '#222326', 'Unlicensed (Tengen)'), v('Baby blue', '#8db6d6', 'Unlicensed (Color Dreams, Wisdom Tree)'),
+      v('Silver', '#b9bcc2', 'Unlicensed (Camerica, later releases)', { sheen: true })],
   },
-  snes: {
-    name: 'Super Nintendo', size: [122, 100], depth: 20,
-    outline: [[-61, -50, 3], [61, -50, 3], [61, 50, 30], [-61, 50, 30]],
-    label: [0, 22, 82.5, 37, 1.5, .9],
-    ridges: [...repeat(5, i => ({ x: -50, y: -10 - i * 4, w: 10, h: 1.4, r: .7, height: .6, side: 'front' })),
-             ...repeat(5, i => ({ x: 50, y: -10 - i * 4, w: 10, h: 1.4, r: .7, height: .6, side: 'front' }))],
-    finish: plastic('#a8a6b4', .45, .35),
+  snes: {   // the North American cartridge: wider and squarer than the Japanese and European one, with inset grooves
+    name: 'Super Nintendo', size: [136, 88], depth: 20,
+    outline: [[-68, -44, 2], [68, -44, 2], [68, 41, 1.5], [65, 44, 1.5], [-65, 44, 1.5], [-68, 41, 1.5]],
+    label: [0, 21.5, 82.5, 37, 1.5, .9],
+    recesses: [[-56.5, -4, 6, 62, 2.5], [56.5, -4, 6, 62, 2.5]],
+    ridges: repeat(5, i => ({ x: 0, y: -10 - i * 4.4, w: 70, h: 1.5, r: .75, height: .6, side: 'front' })),
+    finish: plastic('#9d9ba6', .45, .35),
+    variants: [v('Gray', '#9d9ba6', 'Standard'), v('Black', '#1f2024', 'Killer Instinct')],
   },
   n64: {
     name: 'Nintendo 64', size: [116, 80], depth: 18,
@@ -38,6 +47,10 @@ export const STYLES = {
     label: [0, 2, 54.5, 62.5, 1.5, .9],
     ridges: [],   // a smooth front
     finish: plastic('#5a5d66', .4, .45),
+    variants: [v('Gray', '#5a5d66', 'Standard'), v('Black', '#1d1e22', 'Turok 2, Turok 3, Turok: Rage Wars'),
+      v('Blue', '#2f5fb3', '007: The World Is Not Enough, Hydro Thunder'), v('Red', '#b3282d', 'Rocket: Robot on Wheels, Spider-Man'),
+      v('Green', '#2f8a4a', 'A few third-party games'), v('Yellow', '#e0b51f', 'Donkey Kong 64'),
+      v('Gold', '#c9a24a', 'Ocarina of Time, Majora\'s Mask, Pokémon Stadium 2', { sheen: true })],
   },
   genesis: {
     name: 'Sega Genesis', size: [100, 130], depth: 18,
@@ -45,6 +58,7 @@ export const STYLES = {
     label: [0, 25, 74, 60, 1.5, .9],
     ridges: repeat(4, i => ({ x: 0, y: -18 - i * 4, w: 60, h: 1.6, r: .8, height: .6, side: 'front' })),
     finish: plastic('#1d1e23', .38, .55),
+    variants: [v('Black', '#1d1e23', 'Standard (the only color found)')],
   },
   gb: {
     name: 'Game Boy', size: [57, 65], depth: 8,
@@ -52,6 +66,8 @@ export const STYLES = {
     label: [0, -3.5, 42, 37, 1, .6],
     ridges: repeat(4, i => ({ x: -2, y: 20 + i * 2.6, w: 34, h: 1, r: .5, height: .4, side: 'front' })),
     finish: plastic('#bdbcc4', .48, .3),
+    variants: [v('Gray', '#bdbcc4', 'Standard'), v('Red', '#c0392b', 'Pokémon Red'), v('Blue', '#2d5fa8', 'Pokémon Blue'),
+      v('Yellow', '#e8c228', 'Pokémon Yellow, Donkey Kong Land'), v('Black', '#2a2b30', 'Color games that also play on the original')],
   },
   gbc: {
     name: 'Game Boy Color', size: [57, 65], depth: 8,
@@ -59,6 +75,9 @@ export const STYLES = {
     label: [0, -3.5, 42, 37, 1, .6],
     ridges: repeat(4, i => ({ x: 0, y: 20 + i * 2.6, w: 34, h: 1, r: .5, height: .4, side: 'front' })),
     finish: plastic('#2e3036', .4, .45),
+    variants: [v('Black', '#2e3036', 'Plays on both (dual-mode)'), v('Clear', '#e4ebf0', 'Game Boy Color only', { clear: 'transparent' }),
+      v('Gold', '#c9a24a', 'Pokémon Gold', { sheen: true }), v('Silver', '#b9bcc2', 'Pokémon Silver', { sheen: true }),
+      v('Clear blue', '#4f9fde', 'Pokémon Crystal', { clear: 'transparent' })],
   },
   gba: {
     name: 'Game Boy Advance', size: [57.5, 33.5], depth: 8,
@@ -67,6 +86,9 @@ export const STYLES = {
     label: [0, -4.5, 44, 21.2, 1, .5],
     ridges: repeat(3, i => ({ x: 0, y: 10.4 + i * 1.8, w: 34, h: .8, r: .4, height: .35, side: 'front' })),
     finish: plastic('#303236', .4, .5),
+    variants: [v('Dark gray', '#303236', 'Standard'), v('Clear red', '#d23a3a', 'Pokémon Ruby', { clear: 'transparent' }),
+      v('Clear blue', '#2f6fd0', 'Pokémon Sapphire', { clear: 'transparent' }), v('Clear green', '#2fa860', 'Pokémon Emerald', { clear: 'transparent' }),
+      v('Frosted red', '#e0453a', 'Pokémon FireRed', { clear: 'frosted' }), v('Frosted green', '#5cc06a', 'Pokémon LeafGreen', { clear: 'frosted' })],
   },
   ds: {
     name: 'Nintendo DS', size: [35, 33], depth: 3.8,
@@ -74,5 +96,7 @@ export const STYLES = {
     label: [0, -3, 28, 20, .8, .35],
     ridges: repeat(3, i => ({ x: -1.5, y: 10.6 + i * 1.6, w: 18, h: .7, r: .35, height: .25, side: 'front' })),
     finish: plastic('#3b3d47', .42, .45),
+    variants: [v('Gray', '#3b3d47', 'Standard'), v('White', '#e6e6ea', 'DSi-only games'),
+      v('Smoked black', '#24252b', 'Infrared games: HeartGold, SoulSilver, Pokémon Black and White', { clear: 'frosted' })],
   },
 };

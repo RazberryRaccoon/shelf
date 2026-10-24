@@ -154,6 +154,7 @@ Summarized from the first part of the conversation; the full transcript is kept 
   This relaxes the earlier "original shell designs" rule. Still no logos or console-maker branding, and details
   stay stylized. Accepted because Shelf is a free, personal project; revisit before any public release.
 - **SNES uses the Japanese and European cartridge and console shape** (rounded), as described to the user.
+  *Changed in October 2026: North American shapes; see "Premium cartridges".*
 - **The model viewer becomes a feature, the Museum:** "in the spirit of the tagline of the project… Eventually I
   want to make that a feature rather than just for debugging. Add in some info about the consoles and fun facts."
   In the prototype it's a fourth tab, with the consoles in release order.
@@ -236,6 +237,19 @@ Summarized from the first part of the conversation; the full transcript is kept 
   `tools/cartridge-studio/`, in the brief's order of work.
 - The user on the result: "Those all look pretty great, just with the default settings. Can you add in the consoles too
   before I fully approve anything?" Shelf's eleven code-built consoles added to the studio, same treatment.
+- The user's notes on the consoles, all built:
+  1. "For the SNES, both the console and the cartridge, I decided that I want it modeled like the North American
+     version." (Boxy, two-tone console with purple switches; the wider, squarer cartridge with inset grooves.)
+  2. The N64's power LED stuck out over the rounded front edge.
+  3. "Clearcoat roughness looks best at 0.75 for all of them." Now the default everywhere.
+  4. D-pads made of two crossed bars showed a seam: "make that just one shape."
+  5. GBA: the power LED moved up onto the screen's bezel; the D-pad and buttons moved off the bezel.
+  6. The DS hinge didn't connect to both halves; fixed without changing how it opens.
+  7. PSP: shoulder buttons "really ugly with how straight they are" (now they follow the curved corners); the D-pad's
+     triangles all point inward.
+  8. "For all the cartridges, research the various color variants that they can come in … and make those the options
+     instead of a color picker. Eventually I want this feature in the per game settings of the actual launcher."
+     Built as a menu of each cartridge's real colors, with the games each was used for; see RESEARCH.md.
 
 ### Prototype v2, part 2 (built)
 

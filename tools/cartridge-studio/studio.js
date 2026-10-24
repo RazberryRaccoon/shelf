@@ -6,7 +6,7 @@ import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { STYLES } from './cartridges.js';
-import { buildCartridge, sampleLabel } from './cartridge.js';
+import { buildCartridge, sampleLabel, applyVariant } from './cartridge.js';
 import { CONSOLES } from './consoles.js';
 import { buildConsole, setLid } from './console.js';
 
@@ -58,10 +58,24 @@ const DEFAULTS = { bevel: .8, round: 1, segments: 6, envIntensity: .85, exposure
 let itemId = 'gba', tune = {}, model = null, labelTexture = null, customLabel = null, framed = null;
 const isConsole = id => id.startsWith('console:');
 const entryFor = id => isConsole(id) ? CONSOLES[id.slice(8)] : STYLES[id];
-const saved = () => { try { return JSON.parse(localStorage.getItem('cartridge-studio') || '{}'); } catch (e) { return {}; } };
-function remember() { try { const s = saved(); s[itemId] = tune; s.last = itemId; localStorage.setItem('cartridge-studio', JSON.stringify(s)); } catch (e) { } }
+// Only the values you changed are kept, so new defaults in the data files still reach you.
+const STORE = 'cartridge-studio-2';
+const saved = () => { try { return JSON.parse(localStorage.getItem(STORE) || '{}'); } catch (e) { return {}; } };
+function remember() {
+  try {
+    const s = saved(), base = defaultsFor(itemId), mine = {};
+    for (const k in tune) if (tune[k] !== base[k]) mine[k] = tune[k];
+    if (Object.keys(mine).length) s[itemId] = mine; else delete s[itemId];
+    s.last = itemId; localStorage.setItem(STORE, JSON.stringify(s));
+  } catch (e) { }
+}
 const CONSOLE_DEFAULTS = { exposure: .65, keyLight: .6 };   // consoles show broad top faces to the light
-function tuningFor(id) { const e = entryFor(id); return Object.assign({}, DEFAULTS, isConsole(id) ? CONSOLE_DEFAULTS : {}, { lid: e.lid ? e.lid.rest : 0 }, e.finish, saved()[id] || {}); }
+function defaultsFor(id) {
+  const e = entryFor(id);
+  return Object.assign({}, DEFAULTS, isConsole(id) ? CONSOLE_DEFAULTS : { variant: e.variants[0].name }, { lid: e.lid ? e.lid.rest : 0 }, e.finish);
+}
+function tuningFor(id) { return Object.assign(defaultsFor(id), saved()[id] || {}); }
+const variantOf = () => { const vs = entryFor(itemId).variants; return vs.find(v => v.name === tune.variant) || vs[0]; };
 
 function rebuild() {
   const entry = entryFor(itemId), kind = isConsole(itemId);
@@ -91,9 +105,7 @@ function applyLook() {   // things that don't need new geometry
   if (isConsole(itemId)) {
     for (const p of m.plastics) { p.roughness = tune.roughness; p.clearcoat = tune.clearcoat; p.clearcoatRoughness = tune.clearcoatRoughness; }
     m.shell.color.set(tune.color); setLid(model, tune.lid);
-  } else {
-    m.plastic.color.set(tune.color); m.plastic.roughness = tune.roughness; m.plastic.clearcoat = tune.clearcoat; m.plastic.clearcoatRoughness = tune.clearcoatRoughness;
-  }
+  } else applyVariant(model, variantOf(), tune);
   model.traverse(o => { if (o.isMesh) o.material.envMapIntensity = tune.envIntensity; });
   renderer.toneMappingExposure = tune.exposure; key.intensity = tune.keyLight; controls.autoRotate = tune.turntable;
 }
@@ -117,8 +129,9 @@ function buildPanel() {
   }
   $('#style').addEventListener('change', e => selectStyle(e.target.value));
   $('#color').addEventListener('input', e => { tune.color = e.target.value; applyLook(); remember(); });
+  $('#variant').addEventListener('change', e => { tune.variant = e.target.value; syncVariant(); applyLook(); remember(); });
   $('#turntable').addEventListener('change', e => { tune.turntable = e.target.checked; applyLook(); remember(); });
-  $('#reset').addEventListener('click', () => { try { const s = saved(); delete s[itemId]; localStorage.setItem('cartridge-studio', JSON.stringify(s)); } catch (e) { } selectStyle(itemId); });
+  $('#reset').addEventListener('click', () => { try { const s = saved(); delete s[itemId]; localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) { } selectStyle(itemId); });
   $('#labelFile').addEventListener('change', e => {
     const f = e.target.files[0]; if (!f) return;
     new THREE.TextureLoader().load(URL.createObjectURL(f), t => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; customLabel = t; rebuild(); });
@@ -135,13 +148,19 @@ const fmt = (v, step) => step >= 1 ? String(v) : v.toFixed(2);
 function syncRows() {   // show only the controls that apply to this item
   const kind = isConsole(itemId) ? 'console' : 'cart', lid = kind === 'console' && !!entryFor(itemId).lid;
   for (const [k, , , , , , , only] of SLIDERS) $('#r-' + k).hidden = !!only && !(only === kind || (only === 'lid' && lid));
-  $('#labelLine').hidden = kind !== 'cart';
+  $('#labelLine').hidden = $('#variantLine').hidden = kind !== 'cart'; $('#colorLine').hidden = kind === 'cart';
+}
+function syncVariant() {   // the cartridge's color variants, with the games each one was used for
+  if (isConsole(itemId)) return;
+  const vs = entryFor(itemId).variants;
+  $('#variant').innerHTML = vs.map(v => `<option value="${v.name}">${v.name}</option>`).join('');
+  $('#variant').value = variantOf().name; $('#variantGames').textContent = variantOf().games;
 }
 function syncPanel() {
   $('#style').value = itemId; $('#color').value = tune.color; $('#turntable').checked = tune.turntable;
   for (const [k, , , , step, unit = ''] of SLIDERS) { $('#s-' + k).value = tune[k]; $('#o-' + k).textContent = fmt(tune[k], step) + unit; }
 }
-function selectStyle(id) { itemId = id; tune = tuningFor(id); syncPanel(); rebuild(); remember(); }
+function selectStyle(id) { itemId = id; tune = tuningFor(id); syncPanel(); syncVariant(); rebuild(); remember(); }
 const fileName = () => isConsole(itemId) ? `console-${itemId.slice(8)}.glb` : `cartridge-${itemId}.glb`;
 
 // ---------- export ----------
@@ -154,8 +173,8 @@ function exportGlb() {
   }, err => { $('#note').textContent = 'Export failed: ' + err.message; }, { binary: true });
 }
 function copySettings() {   // the tuned values, ready to paste into this item's "finish" in cartridges.js or consoles.js
-  const t = tune, shape = isConsole(itemId) ? `edge rounding ${t.round}×` : `bevel ${t.bevel} mm`;
-  const text = `finish: { color: '${t.color}', roughness: ${t.roughness}, clearcoat: ${t.clearcoat}, clearcoatRoughness: ${t.clearcoatRoughness} },   // ${shape}, ${t.segments} segments`;
+  const t = tune, con = isConsole(itemId), shape = con ? `edge rounding ${t.round}×` : `bevel ${t.bevel} mm, ${t.variant}`;
+  const text = `finish: { color: '${con ? t.color : variantOf().color}', roughness: ${t.roughness}, clearcoat: ${t.clearcoat}, clearcoatRoughness: ${t.clearcoatRoughness} },   // ${shape}, ${t.segments} segments`;
   $('#settingsText').value = text; $('#settingsText').hidden = false; $('#settingsText').select();
   navigator.clipboard && navigator.clipboard.writeText(text).then(() => { $('#note').textContent = 'Copied.'; }, () => { $('#note').textContent = 'Select the text and copy it.'; });
 }

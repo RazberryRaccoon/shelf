@@ -50,7 +50,10 @@ export function buildConsole(entry, opts) {
     disc: (r, t, seg = 32) => lathe([[0, t / 2], [r, t / 2], [r, -t / 2], [0, -t / 2]], seg),
     ring: (r0, r1, t, seg = 40) => lathe([[r0, t / 2], [r1, t / 2], [r1, -t / 2], [r0, -t / 2], [r0, t / 2]], seg),
     dome: (r, t, seg = 24) => lathe([[0, t], [r * .55, t * .97], [r * .85, t * .82], [r, t * .45], [r, 0], [0, 0]], seg),
-    cross: (s, w, t) => [bar(s, w, t, w * .2), bar(w, s, t, w * .2)],
+    cross: (s, w, t) => {   // one piece, so the arms don't meet in a seam
+      const a = s / 2, b = w / 2, o = w * .2, i = w * .12;
+      return solid(rounded([[b, a, o], [-b, a, o], [-b, b, i], [-a, b, o], [-a, -b, o], [-b, -b, i], [-b, -a, o], [b, -a, o], [b, -b, i], [a, -b, o], [a, b, o], [b, b, i]]), t, .004, 3);
+    },
     tri: (s, t) => solid(rounded([[0, -s, .004], [s * .8, s * .25, .004], [-s * .8, s * .25, .004]]), t, .002, 2),   // an arrow pointing down
   };
 

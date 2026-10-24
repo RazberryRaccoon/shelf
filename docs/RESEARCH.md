@@ -78,3 +78,33 @@ Source: https://consolemods.org/wiki/Cart_Labels
 - **PlayStation 5:** a hub for the selected game, with activities and media below it, and quick access to friends and power options.
 - **Xbox:** a quick-access row on Home, recently played games, and pinned games and groups.
 - **Switch:** a user page at the top left, plus Album, Controllers, System Settings and Sleep.
+
+## Cartridge shell colors (for the Cartridge Studio's variants)
+Collector sources, which don't always agree; colors in the studio are approximations.
+- **NES:** gray standard; gold for Nintendo's two Zelda games. Unlicensed: black (Tengen, which also used its own
+  rounder shell), baby blue (Color Dreams and Wisdom Tree; sources disagree on which), gold then silver (Camerica).
+  Sources: https://en.wikipedia.org/wiki/Tengen_(company), https://en.wikipedia.org/wiki/Color_Dreams,
+  https://famiwiki.net/wiki/Nintendo_Entertainment_System_cartridge_variations
+- **SNES (North America):** gray; black for Killer Instinct. Source: https://strategywiki.org/wiki/Killer_Instinct/Versions
+- **N64:** gray standard; black, blue, red, green, yellow and gold, about 42 colored carts in North America (Turok 2 and 3
+  and Rage Wars black; 007: The World Is Not Enough and Hydro Thunder blue; Rocket and Spider-Man red; Donkey Kong 64
+  yellow; Ocarina of Time, Majora's Mask and Pokémon Stadium 2 gold). Sources:
+  https://retrorecall.net/guides/n64-colored-cartridges/, https://www.svg.com/253703/what-you-didnt-know-about-n64s-colored-cartridges/,
+  https://www.oldschoolgamermagazine.com/an-overview-of-special-colored-game-cartridges/
+- **Genesis:** black; no other colors found.
+- **Game Boy:** gray; red and blue for Pokémon Red and Blue, yellow for Pokémon Yellow and Donkey Kong Land; black for
+  color games that also play on the original. **Game Boy Color only:** clear; gold, silver and clear blue for Pokémon
+  Gold, Silver and Crystal. Source: https://en.wikipedia.org/wiki/Game_Pak
+- **Game Boy Advance:** dark gray; transparent red, blue and green for Pokémon Ruby, Sapphire and Emerald; frosted red and
+  green for FireRed and LeafGreen (a fan-compiled list). Source: https://www.reddit.com/r/Gameboy/comments/6i19k4/gba_game_cartridge_colors
+- **DS:** gray; white for DSi-only games; darker, glossy, see-through cards for infrared games (HeartGold, SoulSilver,
+  Pokémon Black and White, the last unverified). Source: https://en.wikipedia.org/wiki/Nintendo_Game_Card
+
+## North American SNES
+- **Cartridge:** 136 × 88 × 20 mm (the Japanese and European one is about 130 × 86 × 20), more angular, with inset
+  grooves. Source: https://en.wikipedia.org/wiki/Super_Nintendo_Entertainment_System_Game_Pak,
+  https://skdesu.com/en/super-famicom-vs-snes-differences/
+- **Console:** about 203 × 254 × 68 mm (the Computer History Museum lists 7.75 × 9.375 × 3 in): a boxier shell than the
+  Super Famicom's, with larger purple power and reset switches. Sources: https://omeka.ischool.utoronto.ca/items/show/302,
+  https://www.computerhistory.org/collections/catalog/102618771,
+  https://computinghistory.org.uk/det/39976/Super-Nintendo-Entertainment-System-(SNES)-(US)

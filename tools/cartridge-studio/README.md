@@ -4,7 +4,8 @@ A procedural cartridge and console generator (three.js) and a page for tuning it
 in [`cartridges.js`](cartridges.js), Shelf's own outlines at the real sizes in millimetres, extruded with rounded bevels
 and finished in physically based plastic. The consoles in [`consoles.js`](consoles.js) are Shelf's own code-built
 consoles (from `prototype-source/android/r4c.js`), rebuilt the same way: NES, Super Nintendo, Nintendo 64, Genesis,
-Game Boy, Game Boy Color, Game Boy Advance, PlayStation, Nintendo DS, PSP and a generic Android handheld.
+Game Boy, Game Boy Color, Game Boy Advance, PlayStation, Nintendo DS, PSP and a generic Android handheld. The SNES
+cartridge and console are the North American versions.
 
 **Open it:** https://razberryraccoon.github.io/shelf/tools/cartridge-studio/ (GitHub Pages). It uses JavaScript
 modules, which browsers won't load from a file on disk, so opening `index.html` directly doesn't work; on a computer, run
@@ -19,6 +20,9 @@ modules, which browsers won't load from a file on disk, so opening `index.html` 
   beveled extrusions.
 - **Material:** `MeshPhysicalMaterial`, metalness 0, with roughness, clearcoat and clearcoat roughness per style. The
   label has its own matte material.
+- **Color variants:** each cartridge lists the shell colors it really came in (with the games each was used for; see
+  `docs/RESEARCH.md`), picked from a menu. Gold and silver get a metallic sheen; clear and frosted shells use
+  transmission, and show a circuit board inside.
 - **Lighting:** a Poly Haven studio HDR through `RGBELoader` and `PMREMGenerator` as `scene.environment`, loaded from
   Poly Haven when online; otherwise a bundled 512 px Poly Haven studio (`vendor/studio.exr`, CC0, from pmndrs/assets).
   You can also load your own `.hdr` or `.exr`. One soft key light, ACES filmic tone mapping, sRGB output, antialiasing,
@@ -30,7 +34,7 @@ modules, which browsers won't load from a file on disk, so opening `index.html` 
 - **Tuning page:** style, bevel size and segments, plastic color, roughness, clearcoat, clearcoat roughness,
   environment intensity, exposure and key light, a turntable, your own label art, and **Export .glb** (GLTFExporter,
   millimetres, label included). **Copy settings** gives the tuned values in the form `cartridges.js` uses. Your tuning
-  is remembered per style in that browser.
+  is remembered per style in that browser (only the values you change, so new defaults still arrive).
 
 ## Adding a style
 

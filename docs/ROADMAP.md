@@ -20,6 +20,10 @@ published by GitHub Actions. Next, in order:
 4. **RetroAchievements:** sign-in and the achievements page from the web API.
 5. **Manuals and media** from ScreenScraper.
 6. **More models in Blender**, when the user wants to pick that back up.
+7. **The Cartridge Studio look in Shelf** (`tools/cartridge-studio/`), once the user approves it: the beveled models,
+   physical plastic and studio lighting in Shelf's own renderer, the North American SNES shapes (the prototype still
+   has the Japanese and European ones), and the cartridge **color variant as a per-game setting** ("Eventually I want
+   this feature in the per game settings of the actual launcher").
 
 ## Open questions
 
