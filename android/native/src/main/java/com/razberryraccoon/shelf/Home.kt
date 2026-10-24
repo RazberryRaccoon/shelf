@@ -28,10 +28,16 @@ import kotlin.math.sin
  */
 class Home(private val ctx: Context, private val stage: Stage, private val board: Board, private val backdrop: Backdrop,
            private val games: Games, private val carts: Carts, private val lookup: Meta, private val actions: Actions) : GamePage.Host {
-    interface Actions { fun play(g: Game); fun allowStorage(); fun openSettings() }
+    interface Actions { fun play(g: Game); fun allowStorage(); fun openSettings(); fun askText(title: String, value: String, then: (String) -> Unit) }
 
-    private class Slot(val game: Game, var cart: Cart?, var x: Float = 270f, var y: Float = 326f, var z: Float = 0f, var px: Float = 156f, var bright: Float = .72f)
+    private class Slot(val game: Game, var cart: Cart?, var x: Float = ROW_X, var y: Float = 326f, var z: Float = 0f, var px: Float = SMALL, var bright: Float = .72f)
     private val slots = ArrayList<Slot>()
+    /**
+     * The row's sizes, in layout pixels: the selected cartridge (BIG at its largest side) sits at ROW_X with its
+     * neighbors NEXT away and the rest STEP apart, so half of the one on the left shows (at x 0) and two and a half on
+     * the right (the third centered on the screen's edge: ROW_X + NEXT + 2 STEP = 1334).
+     */
+    private companion object { const val ROW_X = 370f; const val NEXT = 370f; const val STEP = 297f; const val BIG = 350f; const val SMALL = 245f }
     private var i = 0
     private var f = 0f
     private var time = 0f
@@ -55,6 +61,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     private val message = text(28f, Fonts.body, Theme.fg2).apply { gravity = Gravity.CENTER; setLineSpacing(0f, 1.35f) }
     private val toast = text(23f, Fonts.bold, Theme.fg).apply { background = round(Theme.panel, 27f, Theme.line); setPadding(30, 14, 30, 14); alpha = 0f }
     private val clock = text(24.5f, Fonts.bold, Theme.fg2)
+    private val battery = Battery(ctx)
     private val profile = Chip(ctx)
     private val dock = listOf("library", "apps", "museum", "settings").map { DockButton(ctx, it) }
     private val dockNames = listOf("Library", "Apps", "Museum", "Settings")
@@ -65,7 +72,11 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         board.put(profile, 32, 20, h = 72)
         dock.forEachIndexed { k, b -> board.put(b, 667 - 2 * 76 - 45 + k * 106, 16, 76, 76) }
         board.put(dockLabel, 0, 96, 1334)
-        board.put(clock, 1334 - 36 - 240, 38, 240); clock.gravity = Gravity.END
+        board.put(clock, 1334 - 36 - 260, 38, 260); clock.gravity = Gravity.END
+        board.put(battery, 1334 - 36 - 260, 40, 44, 24)
+        ctx.registerReceiver(object : android.content.BroadcastReceiver() {   // plugged in or out: show it straight away
+            override fun onReceive(c: Context, i: android.content.Intent) = clockTick()
+        }, android.content.IntentFilter().apply { addAction(android.content.Intent.ACTION_POWER_CONNECTED); addAction(android.content.Intent.ACTION_POWER_DISCONNECTED) })
         // the selected game's details, under the row
         board.put(title, 64, 520, 1100)
         title.maxLines = 1; title.ellipsize = TextUtils.TruncateAt.END
@@ -75,7 +86,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         meta.addView(chip)
         meta.addView(hint("A", "Play"), LinearLayout.LayoutParams(-2, -2).apply { leftMargin = 24 })
         meta.addView(hint("↓", "Details"), LinearLayout.LayoutParams(-2, -2).apply { leftMargin = 24 })
-        meta.addView(hint("Y", "Shell color and emulator"), LinearLayout.LayoutParams(-2, -2).apply { leftMargin = 24 })
+        meta.addView(hint("Y", "Customize"), LinearLayout.LayoutParams(-2, -2).apply { leftMargin = 24 })
         board.put(meta, 64, 600)
         board.put(message, 167, 300, 1000)
         board.put(toast, 0, 640); toast.layoutParams = (toast.layoutParams as android.widget.FrameLayout.LayoutParams).apply { width = -2; gravity = Gravity.CENTER_HORIZONTAL }
@@ -132,7 +143,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         if (visible) riseT += dt
         val shownK = Backdrop.ease(min(1f, rise * 2f))
         val pageK = page?.shownK ?: 0f
-        for (v in listOf(clock, profile) + dock) v.alpha = shownK
+        for (v in listOf(clock, battery, profile) + dock) v.alpha = shownK
         for (v in listOf(title, meta, message)) v.alpha = shownK * (1 - pageK)
         dockLabel.alpha = minOf(dockLabel.alpha, shownK)
         backdrop.picVisible = shownK * (1 - pageK)
@@ -142,12 +153,12 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
             if (k == i && page != null) return@forEachIndexed   // the page holds this one
             val off = k - f; val foc = k == i && picker == null
             val bob = sin(time * .8f + k * 1.7f) * (if (foc) 4f else 3f)
-            val tx = 270f + off * 196f + sign(off) * min(abs(off), 1f) * 70f
+            val tx = ROW_X + off * STEP + sign(off) * min(abs(off), 1f) * (NEXT - STEP)
             val ty = (if (k == i) 302f else 326f)
             val ease = min(1f, dt * 10f)
             s.x += (tx - s.x) * ease; s.y += (ty - s.y) * min(1f, dt * 7f)
             s.z += ((if (k == i) 40f else 0f) - s.z) * ease
-            s.px += ((if (k == i) 240f else 156f) - s.px) * ease
+            s.px += ((if (k == i) BIG else SMALL) - s.px) * ease
             s.bright += ((if (k == i) 1.02f else .72f) - s.bright) * ease
             val cart = s.cart ?: return@forEachIndexed
             // rising into place, each a moment after the one before
@@ -182,7 +193,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
                 "up" -> { zone = "top"; refreshTop(); Sounds.play(Sounds.MOVE) }
                 "down" -> openPage()
                 "a" -> current()?.let { g -> Sounds.play(Sounds.PICK); if (games.emulatorFor(g) == null) chooseEmulator(g, then = true) else actions.play(g) }
-                "y" -> current()?.let { options(it) }
+                "y" -> if (current() != null) { openPage(); page?.customize() }   // straight to Customize shell
             }
             "top" -> when (a) {
                 "left" -> if (topI > 0) { topI--; refreshTop(); Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
@@ -204,6 +215,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
 
     override fun play(g: Game) = actions.play(g)
     override fun pick(p: Picker) = open(p)
+    override fun askText(title: String, value: String, then: (String) -> Unit) = actions.askText(title, value, then)
     override fun cartChanged(g: Game, c: Cart?) { slots.firstOrNull { it.game == g }?.cart = c }
     override fun closed(page: GamePage, homeChanged: Boolean) {
         if (this.page === page) this.page = null
@@ -219,28 +231,6 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         dock.forEachIndexed { k, b -> b.focused = on && topI == k + 1 }
         dockLabel.alpha = if (on && topI > 0) 1f else 0f
         if (on && topI > 0) { dockLabel.text = dockNames[topI - 1]; dockLabel.translationX = (667 - 2 * 76 - 45 + (topI - 1) * 106 + 38 - 667).toFloat() }
-    }
-
-    /** Y on a game: its shell color and its console's emulator. */
-    private fun options(g: Game) {
-        val style = carts.styles[g.sys] ?: return
-        val v = style.variant(games.variant(g))
-        open(Picker(ctx, g.title, listOf(Picker.Row("Shell color", v.name), Picker.Row("Emulator for ${Games.NAMES[g.sys]}", games.emulator(g.sys) ?: "Not chosen yet"))) { k ->
-            if (k == 0) chooseVariant(g) else chooseEmulator(g, then = false)
-        })
-    }
-
-    private fun chooseVariant(g: Game) {
-        val style = carts.styles[g.sys] ?: return
-        val cur = style.variant(games.variant(g))
-        open(Picker(ctx, "Shell color: ${style.name}", style.variants.map { Picker.Row(it.name, it.games) }, start = style.variants.indexOf(cur)) { k ->
-            val v = style.variants[k]; games.setVariant(g, v.name)
-            val s = slots.firstOrNull { it.game == g } ?: return@Picker
-            if ((v.clear != null) != (s.cart?.variant?.clear != null)) {   // clear shells are a different model: swap it in place
-                s.cart?.destroy(); s.cart = carts.make(g.sys, g.title, v.name)
-            } else s.cart?.apply(v)
-            show("${g.title}: ${v.name}")
-        })
     }
 
     private fun chooseEmulator(g: Game, then: Boolean) {
@@ -273,7 +263,11 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     private fun clockTick() {
         clockLeft = 20f
         val pct = (ctx.getSystemService(Context.BATTERY_SERVICE) as BatteryManager).getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        val bm = ctx.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        battery.set(pct, bm.isCharging)
         clock.text = "$pct%   ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date())}"
+        // the battery icon sits just left of the percentage
+        val w = clock.paint.measureText(clock.text.toString()); battery.translationX = 260f - w - 52f
     }
 
     // ---------- small view helpers ----------
@@ -365,5 +359,25 @@ class Picker(ctx: Context, private val heading: String, private val rows: List<R
         }
         if (note != null) { p.typeface = Fonts.body; p.textSize = 19f; p.color = Theme.fg2
             Fonts.wrap(p, note, w - 80).take(2).forEachIndexed { j, l -> c.drawText(l, x + 40, y + 110 + n * rowH + 20 + j * 26, p) } }
+    }
+}
+
+/** A small battery at the top right: its fill is the charge, and a bolt shows while it's plugged in. */
+class Battery(ctx: Context) : View(ctx) {
+    private var pct = 100; private var charging = false
+    private val p = Paint(Paint.ANTI_ALIAS_FLAG)
+    fun set(pct: Int, charging: Boolean) { this.pct = pct; this.charging = charging; invalidate() }
+    override fun onDraw(c: Canvas) {
+        val body = RectF(2f, 3f, 38f, 21f)
+        p.style = Paint.Style.STROKE; p.strokeWidth = 2f; p.color = Theme.fg2; c.drawRoundRect(body, 5f, 5f, p)
+        p.style = Paint.Style.FILL; c.drawRoundRect(RectF(39.5f, 9f, 42.5f, 15f), 1.5f, 1.5f, p)
+        val k = (pct / 100f).coerceIn(0f, 1f)
+        p.color = when { charging -> Theme.accentOf("android"); pct <= 15 -> Color.parseColor("#ff8a7a"); else -> Theme.fg2 }
+        c.drawRoundRect(RectF(5f, 6f, 5f + 30f * k, 18f), 2.5f, 2.5f, p)
+        if (charging) {   // a bolt, cut out of the fill with the background's color around it
+            val bolt = Path().apply { moveTo(22.5f, 4f); lineTo(14f, 13.5f); lineTo(19.5f, 13.5f); lineTo(17f, 20f); lineTo(26f, 10.5f); lineTo(20.5f, 10.5f); close() }
+            p.style = Paint.Style.STROKE; p.strokeWidth = 2.6f; p.strokeJoin = Paint.Join.ROUND; p.color = Theme.bg; c.drawPath(bolt, p)
+            p.style = Paint.Style.FILL; p.color = Theme.fg; c.drawPath(bolt, p)
+        }
     }
 }

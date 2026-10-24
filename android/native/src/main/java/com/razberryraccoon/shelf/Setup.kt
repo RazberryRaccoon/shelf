@@ -283,26 +283,40 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
 class Options(ctx: Context) : View(ctx) {
     data class Row(val key: String, val label: String, val value: String? = null, val sub: String? = null, val primary: Boolean = false,
                    val avatar: Int? = null, val check: Boolean = false, val tag: Any? = null, val dot: Int? = null)
-    var rows: List<Row> = emptyList(); set(v) { field = v; i = i.coerceIn(0, maxOf(0, v.size - 1)) }
+    var rows: List<Row> = emptyList(); set(v) { field = v; i = i.coerceIn(0, maxOf(0, v.size - 1)); if (rows.getOrNull(i)?.key == HEAD) move(1) || move(-1) }
     var onFocus: (() -> Unit)? = null
     private var i = 0
     private var top = 0f
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
-    private fun h(r: Row) = if (r.sub.isNullOrEmpty()) 64f else 80f
+    private fun h(r: Row) = if (r.key == HEAD) 46f else if (r.sub.isNullOrEmpty()) 64f else 80f
+    companion object { /** A row that's a section heading: drawn small and skipped over. */ const val HEAD = "head" }
 
-    fun reset() { i = 0; top = 0f }
+    fun reset() { i = rows.indexOfFirst { it.key != HEAD }.coerceAtLeast(0); top = 0f }
     fun current() = rows.getOrNull(i)
-    fun move(d: Int): Boolean { val k = (i + d).coerceIn(0, rows.size - 1); if (k == i) return false; i = k; onFocus?.invoke(); invalidate(); return true }
+    /** Puts the focus on row k (not a heading), without the focus callback. */
+    fun focus(k: Int) { if (k in rows.indices && rows[k].key != HEAD) { i = k; invalidate() } }
+    fun move(d: Int): Boolean {
+        var k = i + d
+        while (k in rows.indices && rows[k].key == HEAD) k += d   // headings aren't stops
+        if (k !in rows.indices) { if (d < 0 && i > 0) top = 0f; invalidate(); return false }   // at the top, show its heading too
+        i = k; onFocus?.invoke(); invalidate(); return true
+    }
 
     override fun onDraw(c: Canvas) {
         // keep the focused row in view
         var y0 = 0f; for (k in 0 until i) y0 += h(rows[k]) + 8
         val hi = rows.getOrNull(i)?.let { h(it) } ?: 0f
-        if (y0 < top) top = y0; if (y0 + hi > top + height - 12) top = y0 + hi - height + 12
+        val yTop = if (i > 0 && rows[i - 1].key == HEAD) y0 - h(rows[i - 1]) - 8 else y0   // a row's heading comes into view with it
+        if (yTop < top) top = yTop; if (y0 + hi > top + height - 12) top = y0 + hi - height + 12
         c.save(); c.clipRect(0f, 0f, width.toFloat(), height.toFloat()); c.translate(0f, 4f - top)   // 4: room for the focus ring
         var y = 0f
         rows.forEachIndexed { k, r ->
             val rh = h(r); val on = k == i; val box = RectF(30f, y, width - 30f, y + rh)
+            if (r.key == HEAD) {
+                p.typeface = Fonts.bold; p.textSize = 17f; p.letterSpacing = .1f; p.color = Theme.accentOf(null)
+                c.drawText(r.label.uppercase(), 42f, y + rh - 14f, p); p.letterSpacing = 0f
+                y += rh + 8; return@forEachIndexed
+            }
             p.style = Paint.Style.FILL
             p.color = when { r.primary -> Theme.accentOf(null); on -> Theme.chip; else -> Color.TRANSPARENT }; c.drawRoundRect(box, 22f, 22f, p)
             if (on) { p.style = Paint.Style.STROKE; p.strokeWidth = 2.5f; p.color = Theme.sel; c.drawRoundRect(RectF(box.left - 3, box.top - 3, box.right + 3, box.bottom + 3), 25f, 25f, p); p.style = Paint.Style.FILL }

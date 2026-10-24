@@ -33,7 +33,8 @@ that we've learned … and make an Android game launcher that's the best it can 
   `android/native/`, Kotlin + Google's Filament, installed next to the WebView app until it does everything. Version
   0.1 is Home with the Cartridge Studio's models, lighting and color variants; 0.2 setup and Settings (with live
   Lighting); 0.3 the game page (turn the cartridge with the right stick, live shell colors, soft sounds); 0.4 its details,
-  pictures and game settings from libretro's database. Next: Library and box models. The user paused inspecting the rarer shell colors until they can be seen big (0.3 makes that possible).
+  pictures and game settings from libretro's database; 0.5 the Studio (custom shells). Next, agreed: B the Museum, then C
+  the console Studio and console animations (see DECISIONS.md); the Library and box models after. The user paused inspecting the rarer shell colors until they can be seen big (0.3 makes that possible).
   Kotlin is compile-checked locally with the Kotlin 2.4 compiler against `android-all` and Filament's AARs.
 - The Android SDK can't be downloaded in Claude's sandbox (dl.google.com is blocked): compile-check the Java against
   Robolectric's `android-all` jar from Maven Central, and let GitHub Actions do the real build.
