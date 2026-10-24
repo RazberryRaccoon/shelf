@@ -261,6 +261,10 @@ Summarized from the first part of the conversation; the full transcript is kept 
   leaving special editions alone), C the console Studio (researched console colors, per-part colors and materials)
   with the console in the start and return animations. Boxes stay plain. Custom shells are shared by every cartridge
   type; the defaults stay per console. The user added "anodized aluminum" to the finishes.
+- The Museum (update B, after 0.5): "remember I want to be able to view all 3D models and positions: console,
+  cartridge, cartridge in box, box closed. Make all the new lighting and model texturing apply to the console designs."
+  A console's default shell applies to its standard cartridges; special editions are recognized automatically from the
+  title ("Yes, auto-detect") and keep their real colors, as do games the user customized.
 - **For the box round (the user, after 0.5):** "when the completed game page is finished and the default is the
   cartridge in the open box, I want selecting the cartridge in the box to 'pick up the cartridge' and hide the box,
   producing a view similar to how the game page is now. But the cartridge in the open box stays the default." Close

@@ -20,6 +20,7 @@ import { STYLES } from './cartridges.js';
 import { CONSOLES } from './consoles.js';
 import { buildCartridge, applyVariant } from './cartridge.js';
 import { buildConsole } from './console.js';
+import { buildCase, CASES } from './case.js';
 
 const DEFAULTS = { bevel: .8, segments: 6, round: 1, envIntensity: 1 };
 const placeholder = () => { const c = document.createElement('canvas'); c.width = c.height = 8; const x = c.getContext('2d'); x.fillStyle = '#808080'; x.fillRect(0, 0, 8, 8);
@@ -27,9 +28,12 @@ const placeholder = () => { const c = document.createElement('canvas'); c.width 
 const glb = obj => new Promise((res, rej) => new GLTFExporter().parse(obj, buf => {
   let s = ''; const b = new Uint8Array(buf); for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); res(btoa(s)); }, rej, { binary: true }));
 
-window.exportAll = async ({ consoles = false } = {}) => {
+// each console's case color: the real cases' where they were plastic, otherwise one quiet grey for all (boxes stay plain)
+const CASE_COLORS = { genesis: ['#17181d', '#101114'], ps1: ['#24262e', '#16171c'], ds: ['#d9dce4', '#c4c8d2'], psp: ['#1f2128', '#15161b'], android: ['#262b3a', '#1b1f2b'] };
+
+window.exportAll = async ({ consoles = false, cases = false, carts = true } = {}) => {
   const files = {}, variants = {};
-  for (const [id, style] of Object.entries(STYLES)) {
+  for (const [id, style] of Object.entries(carts ? STYLES : {})) {
     const tune = { ...DEFAULTS, ...style.finish };
     const cart = buildCartridge(style, { bevel: tune.bevel, segments: tune.segments, finish: tune, labelTexture: placeholder() });
     applyVariant(cart, style.variants[0], tune);
@@ -45,7 +49,13 @@ window.exportAll = async ({ consoles = false } = {}) => {
     for (const m of con.userData.materials.plastics) { m.roughness = tune.roughness; m.clearcoat = tune.clearcoat; m.clearcoatRoughness = tune.clearcoatRoughness; }   // as the Studio's applyLook does
     files[`console-${id}.glb`] = await glb(con);
   }
-  files['cartridges.json'] = btoa(unescape(encodeURIComponent(JSON.stringify(variants, null, 1))));
+  for (const [id, style] of Object.entries(cases ? STYLES : {})) {
+    if (!CASES[id]) continue;
+    const media = style.kind === 'disc' ? [style.radius * 2, style.radius * 2, style.depth] : [style.size[0], style.size[1], style.depth];
+    const [color, inner] = CASE_COLORS[id] || ['#2b2f3c', '#1d2029'];
+    files[`case-${id}.glb`] = await glb(buildCase(id, media, { color, inner, artTexture: placeholder() }));
+  }
+  if (carts) files['cartridges.json'] = btoa(unescape(encodeURIComponent(JSON.stringify(variants, null, 1))));
   return files;
 };
 window.ready = true;

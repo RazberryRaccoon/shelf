@@ -242,3 +242,28 @@ fun Carts.variantFor(sys: String, key: String?): Variant? {
     return shells.get(key)?.variant() ?: style.variant(key)
 }
 
+/**
+ * The shell a game wears: the one you chose for it; else, for a real special edition (Pokémon Gold, Zelda on the NES,
+ * Donkey Kong 64…), the color it really came in, recognized from its title; else its console's default from the
+ * Museum; else the console's standard color.
+ */
+fun Carts.shellFor(games: Games, g: Game): String? = games.variant(g) ?: special(g) ?: games.defaultShell(g.sys)
+
+/** The real special edition a game is, from the cartridge research's list of which games came in which color. */
+fun Carts.special(g: Game): String? = styles[g.sys]?.let { specialIn(it, g.title) }
+fun specialIn(style: CartStyle, gameTitle: String): String? {
+    val title = " " + plain(gameTitle) + " "
+    return style.variants.drop(1).firstOrNull { v -> names(v.games).any { title.contains(" $it ") } }?.name
+}
+
+/** The game names in one of the research's lists ("Pokémon Black and White" is two), each as plain words. */
+private fun names(list: String): List<String> = list.split(",").flatMap { part ->
+    val n = plain(part.substringAfter(":").replace(Regex("\\([^)]*\\)"), " ")).removePrefix("the ").trim()
+    Regex("^(.+) (\\w+) and (\\w+)$").find(n)?.destructured?.let { (pre, a, b) -> listOf("$pre $a", "$pre $b") } ?: listOf(n)
+}.filter { n -> n !in NOT_TITLES && (n.split(" ").size >= 2 && n.length >= 6 || n.length >= 8) }   // one short word could be any game
+
+/** Lower case, accents off (Pokémon as Pokemon), punctuation as spaces. */
+private fun plain(s: String) = ArtIndex.norm(java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}+"), ""))
+/** Lines in the research's lists that describe groups of games rather than name one. */
+private val NOT_TITLES = setOf("a few third party games", "color games that also play on the original", "plays on both dual mode",
+    "game boy color only", "dsi only games")
