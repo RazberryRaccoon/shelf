@@ -51,7 +51,7 @@ Back. Down goes to Pictures (box, title screen, screenshot; A shows them full sc
 and then About (the description, which up and down scroll). Game settings: its emulator, shell color, whether it shows
 on Home, which game it is (when Shelf guessed wrong), and looking it up again. Details and pictures come from libretro's
 database (`Meta.kt`, using the shared `ArtIndex`), free and with no account, matched by the ROM's checksum or the
-closest name, and saved on the device. Home's picture is now the game's screenshot once it's been looked up.
+closest name, and saved on the device; descriptions from Wikipedia's article on the game when libretro's are thin. Home's picture is now the game's screenshot once it's been looked up.
 
 Fixes: clear and frosted shells are see-through again (Filament's glTF transmission drew them solid, so the shell is
 loaded as a blended material instead; `seeThrough` in `Carts.kt`); the key light comes from higher and more to the

@@ -17,7 +17,37 @@ import java.util.concurrent.Executors
  */
 class Meta(private val ctx: Context, private val games: Games) {
     class Info(val name: String?, val fields: Map<String, String>, val pics: Map<String, File>)
-    companion object { val KINDS = listOf("box" to "Box", "title" to "Title screen", "shot" to "Screenshot") }
+    companion object {
+        val KINDS = listOf("box" to "Box", "title" to "Title screen", "shot" to "Screenshot")
+        private const val VERSION = 2
+        private const val WIKI = "https://en.wikipedia.org/w/api.php?format=json&formatversion=2&action=query"
+    }
+
+    /**
+     * The opening section of the game's Wikipedia article, as plain text: a search for the title as a video game on its
+     * console, keeping only an article whose title matches the game's closely and that's about a video game.
+     */
+    private fun wikipedia(title: String, sys: String): String? = try {
+        val clean = title.replace(Regex("\\s+"), " ").trim()
+        val words = ArtIndex.norm(clean).split(" ").filter { it.isNotEmpty() }.toTypedArray()
+        val q = "\"$clean\" video game ${Games.NAMES[sys] ?: ""}"
+        val hits = JSONObject(String(ArtIndex.download("$WIKI&list=search&srlimit=5&srsearch=" + ArtIndex.enc(q)) ?: return null))
+            .getJSONObject("query").getJSONArray("search")
+        var best: String? = null; var bestScore = 0.0
+        for (k in 0 until hits.length()) {
+            val h = hits.getJSONObject(k); val t = h.getString("title")
+            val tw = ArtIndex.norm(t.replace(Regex("\\([^)]*\\)"), " ")).split(" ").filter { it.isNotEmpty() }.toTypedArray()
+            var s = ArtIndex.dice(words, tw)
+            val gamey = t.contains("video game", true) || h.optString("snippet").contains("video game", true)
+            if (!gamey) s -= .3
+            if (s > bestScore) { bestScore = s; best = t }
+        }
+        if (best == null || bestScore < .6) null else {
+            val page = JSONObject(String(ArtIndex.download("$WIKI&prop=extracts&exintro=1&explaintext=1&redirects=1&titles=" + ArtIndex.enc(best)) ?: return null))
+                .getJSONObject("query").getJSONArray("pages").getJSONObject(0)
+            page.optString("extract").trim().replace(Regex("\\n{2,}"), "\n\n").takeIf { it.length > 80 && !it.contains("may refer to") }
+        }
+    } catch (e: Exception) { null }
 
     private val dir = File(ctx.filesDir, "meta").apply { mkdirs() }
     private val work = Executors.newSingleThreadExecutor()
@@ -52,7 +82,9 @@ class Meta(private val ctx: Context, private val games: Games) {
         val name = games.match(g)
             ?: ix.byChecksum(File(g.path))?.name
             ?: ix.search(g.title, 1).firstOrNull()?.takeIf { it.score >= .6 }?.e?.name
-        val fields = name?.let { ix.details(it) } ?: emptyMap()
+        val fields = HashMap(name?.let { ix.details(it) } ?: emptyMap())
+        // libretro rarely has a description; Wikipedia's article on the game usually does (its opening section)
+        if ((fields["description"]?.length ?: 0) < 200) wikipedia(name?.let { ArtIndex.stripTags(it) } ?: g.title, g.sys)?.let { fields["description"] = it; fields["descsource"] = "Wikipedia" }
         val pics = HashMap<String, File>()
         if (name != null) for ((kind, _) in KINDS) {
             val f = File(dir, key(g) + "-" + kind + ".png")
@@ -63,7 +95,7 @@ class Meta(private val ctx: Context, private val games: Games) {
             }
             if (f.exists()) pics[kind] = f
         }
-        val j = JSONObject().put("name", name ?: JSONObject.NULL).put("fields", JSONObject(fields as Map<*, *>))
+        val j = JSONObject().put("v", VERSION).put("name", name ?: JSONObject.NULL).put("fields", JSONObject(fields as Map<*, *>))
             .put("pics", JSONObject().apply { pics.forEach { (k, f) -> put(k, f.path) } })
         file(g).writeText(j.toString())
         return Info(name, fields, pics)
@@ -77,6 +109,7 @@ class Meta(private val ctx: Context, private val games: Games) {
 
     private fun read(g: Game): Info? = try {
         val j = JSONObject(file(g).readText())
+        if (j.optInt("v") < VERSION) return null   // looked up before Wikipedia descriptions: look again (pictures are kept)
         val f = j.getJSONObject("fields"); val p = j.getJSONObject("pics")
         Info(j.optString("name").takeIf { !j.isNull("name") && it.isNotEmpty() },
             f.keys().asSequence().associateWith { f.getString(it) },
