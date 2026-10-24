@@ -249,6 +249,10 @@ Summarized from the first part of the conversation; the full transcript is kept 
    The sheet's top edge moved down 12 px (its headers with it) and the tab names got a little smaller and closer.
 7. "In the App drawer, selecting a game on the left or right edge, part of the selector gets cut off." The drawer now
    has room inside its edges for the focus ring, clips below its header, and fades rows out at the top and bottom.
+8. "The same issue with overlapping text appears in the Museum too - the 3D model controls, switch exhibit, etc. Also,
+   there's no way to scroll through the information in the right panel." The controls hint is shorter and wraps within
+   the stage. The info panel is now a stop of its own: right from the console list, up and down to scroll (touch works
+   too), left or B to go back; A still takes a closer look. A fade at its bottom shows there's more to read.
 
 ### Premium cartridges (October 2026)
 
