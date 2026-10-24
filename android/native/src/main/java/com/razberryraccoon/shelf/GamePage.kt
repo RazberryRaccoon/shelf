@@ -386,8 +386,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     private fun setVariant(v: Variant) {
         val c = cart
         if (c == null || (v.clear != null) != (c.variant.clear != null)) {   // clear shells are a different model: swap it in place
-            c?.destroy(); cart = carts.make(game.sys, game.title, v.key); host.cartChanged(game, cart)
-            cart?.apply(v)   // a Studio shell that's still being made has no saved key yet
+            c?.destroy(); cart = carts.make(game.sys, game.title, v); host.cartChanged(game, cart)   // by the shell itself: one still being made in the Studio has no saved name to look up
         } else c.apply(v)
     }
 

@@ -377,3 +377,10 @@ resting angle was the answer. Then: Home's cartridges bigger with fewer in view 
 the right), a charging indicator, and the Studio (update A of three; B is the Museum, C the console Studio and the
 console animations). **0.5** builds them. Not checked on a device: the glow-in-the-dark and pearl finishes rely on
 Filament's emissive and sheen values, whose strength on the device is a guess.
+
+Notes on 0.5: (1) see-through finishes weren't see-through in the Studio: a shell still being made has no saved name,
+so the model was looked up by name, fell back to the console's default and loaded the solid cartridge (the cartridge
+is now made from the shell itself); (2) metal finishes looked nearly black at rest: a paint swatch used as a metal's
+reflectance is far too dark (real gold reflects about (1, .77, .34), the "Gold" swatch gave .79, .53, .14), so a metal
+now takes its hue from the swatch, a fifth of the way to white, with its brightness setting how much it reflects;
+(4) the rest of the row now flies up when a page opens. Note 3 is a design for the box round (DECISIONS.md).
