@@ -42,6 +42,10 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host {
             try { crashFile.writeText(android.util.Log.getStackTraceString(e)) } catch (_: Exception) { }
             previous?.uncaughtException(t, e)
         }
+        // If the last start never got going (or closed on an error), show what happened instead of starting the 3D again
+        booting = java.io.File(filesDir, "booting")
+        if (booting.exists() || crashFile.exists()) { safeMode = true; showProblem(crashFile); return }
+        booting.writeText("")
         // Some emulators still take a plain file:// path; without this Android refuses to hand one over.
         StrictMode.setVmPolicy(StrictMode.VmPolicy.Builder().build())
         Fonts.load(this)
@@ -65,30 +69,63 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host {
             val s = minOf((r - l) / Stage.W, (b - t) / Stage.H); val ox = ((r - l) - Stage.W * s) / 2; val oy = ((b - t) - Stage.H * s) / 2
             board.fit(s, ox, oy); backdrop.scale = s; backdrop.ox = ox; backdrop.oy = oy
         }
-        stage.onFrame = { dt -> home.tick(dt); setup?.tick(dt); backdrop.tick(dt) }
-        if (crashFile.exists()) {
-            val lines = crashFile.readLines().map { it.trim() }.filter { it.isNotEmpty() }.take(6)
-            crashFile.delete()
-            home.report("Shelf Native closed on an error last time", lines, "A photo of this helps Claude fix it. Press A or B to carry on.")
-        }
+        stage.onFrame = { dt -> home.tick(dt); setup?.tick(dt); backdrop.tick(dt); if (++frames == 90) booting.delete() }   // started fine
+    }
+
+    // ---------- when the last start went wrong ----------
+
+    private var safeMode = false
+    private lateinit var booting: java.io.File
+    private var frames = 0
+
+    /** A plain screen (no 3D, no custom fonts) with what went wrong: Shelf's own saved error, or Android's log of it. */
+    private fun showProblem(crashFile: java.io.File) {
+        val lines = if (crashFile.exists()) crashFile.readLines().map { it.trim() }.filter { it.isNotEmpty() }.take(14) else lastErrors()
+        val col = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.VERTICAL; setPadding(64, 48, 64, 48); setBackgroundColor(Theme.bg) }
+        fun line(t: String, size: Float, color: Int, mono: Boolean = false) = android.widget.TextView(this).apply {
+            text = t; textSize = size; setTextColor(color); if (mono) typeface = android.graphics.Typeface.MONOSPACE; setPadding(0, 6, 0, 6) }
+        col.addView(line("Shelf Native closed while starting last time", 22f, Theme.fg))
+        col.addView(line("A photo of this screen helps Claude fix it.", 15f, Theme.fg2))
+        for (l in lines.ifEmpty { listOf("No details were saved.") }) col.addView(line(l.take(160), 11f, Theme.fg2, mono = true))
+        col.addView(line("A  Try again        B  Close", 17f, Theme.fg))
+        setContentView(android.widget.ScrollView(this).apply { setBackgroundColor(Theme.bg); addView(col) })
+    }
+
+    /** The app's own error lines in Android's log from before this start (Filament's fatal errors land there). */
+    private fun lastErrors(): List<String> = try {
+        val me = android.os.Process.myPid(); val pid = Regex("\\(\\s*(\\d+)\\)")
+        Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-v", "brief", "-t", "800")).inputStream.bufferedReader().readLines()
+            .filter { l -> (l.startsWith("E/") || l.startsWith("F/")) && pid.find(l)?.groupValues?.get(1)?.toIntOrNull() != me }.takeLast(14)
+    } catch (e: Exception) { listOf("Couldn't read Android's log: ${e.message}") }
+
+    private fun safeInput(a: String) {
+        if (a == "a") { booting.delete(); java.io.File(filesDir, "last-crash.txt").delete(); recreate() }
+        else if (a == "b") finish()
     }
 
     override fun onResume() {
         super.onResume()
         immersive()
+        if (safeMode) return
         stage.start()
         home.needsStorage = !Environment.isExternalStorageManager()
         rescan { setup?.fill() }   // back from Android's settings, a game, or the folder picker
     }
 
     override fun onPause() {
+        if (safeMode) return super.onPause()
         stage.stop()
         held = null; ui.removeCallbacks(repeat)
         super.onPause()
     }
 
+    override fun onStop() {
+        if (!safeMode && frames > 0) booting.delete()   // closed normally
+        super.onStop()
+    }
+
     override fun onDestroy() {
-        stage.destroy()
+        if (!safeMode) stage.destroy()
         super.onDestroy()
     }
 
@@ -189,7 +226,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host {
     private var lastRepeat = 0L
     private val repeat = object : Runnable { override fun run() { held?.let { input(it); ui.postDelayed(this, 110) } } }
     /** Buttons go to whichever screen is showing. */
-    private fun input(a: String) { if (home.picker != null) home.input(a) else setup?.input(a) ?: home.input(a) }   // a message over everything goes first
+    private fun input(a: String) { if (safeMode) return safeInput(a); if (home.picker != null) home.input(a) else setup?.input(a) ?: home.input(a) }   // a message over everything goes first
 
     private fun actionFor(code: Int) = when (code) {
         KeyEvent.KEYCODE_DPAD_UP -> "up"; KeyEvent.KEYCODE_DPAD_DOWN -> "down"
