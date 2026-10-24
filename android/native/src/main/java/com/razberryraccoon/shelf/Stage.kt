@@ -108,6 +108,7 @@ class Stage(private val ctx: Context, private val surface: TextureView) : Choreo
         val reflections = specular.run(cube)
         ibl = IndirectLight.Builder().reflections(reflections).intensity(Look.ENV).build(engine)
         scene.indirectLight = ibl
+        turnKey(0f)
         engine.destroyTexture(equirect); engine.destroyTexture(cube)
         specular.destroy(); toCube.destroy(); context.destroy()
     }
@@ -119,11 +120,19 @@ class Stage(private val ctx: Context, private val surface: TextureView) : Choreo
         engine.lightManager.let { it.setIntensity(it.getInstance(sun), key) }
     }
 
-    /** Swings the key light around the vertical axis by `a` radians, so a cartridge you turn catches a sweep of highlight. */
+    /**
+     * Turns all the lighting (the studio's reflections and the key light together) by `a` radians more around the
+     * vertical axis, on top of the resting turn (RIG_YAW, RIG_PITCH), so a cartridge you turn catches a sweep of highlight.
+     */
     fun turnKey(a: Float) {
-        val c = kotlin.math.cos(a); val s = kotlin.math.sin(a)
+        val yaw = RIG_YAW + a; val cy = kotlin.math.cos(yaw); val sy = kotlin.math.sin(yaw)
+        val cp = kotlin.math.cos(RIG_PITCH); val sp = kotlin.math.sin(RIG_PITCH)
+        // the turn, as a 3 × 3 matrix: around the vertical axis by yaw, after tipping around the horizontal axis by pitch
+        val m = floatArrayOf(cy, 0f, -sy,   sy * sp, cp, cy * sp,   sy * cp, -sp, cy * cp)   // columns, as Filament takes them
+        ibl?.setRotation(m)
         val (x, y, z) = KEY_DIR
-        engine.lightManager.let { it.setDirection(it.getInstance(sun), x * c + z * s, y, -x * s + z * c) }
+        val dx = m[0] * x + m[3] * y + m[6] * z; val dy = m[1] * x + m[4] * y + m[7] * z; val dz = m[2] * x + m[5] * y + m[8] * z
+        engine.lightManager.let { it.setDirection(it.getInstance(sun), dx, dy, dz) }
     }
 
     fun readAsset(path: String): ByteBuffer {
@@ -177,5 +186,14 @@ class Stage(private val ctx: Context, private val surface: TextureView) : Choreo
  * angle is about 45° away from the fronts: they show their real color, and the highlight sweeps across only as you turn.
  */
 private val KEY_DIR = floatArrayOf(.55f, -.72f, -.42f)
+
+/**
+ * The whole lighting is turned to match the cartridges' resting angle. The user (after 0.4): gold looks tan at the
+ * resting angle and "properly gold" only when turned to face you head on, so keep the angle and move the light. A
+ * mirror's reflection turns twice as far as the mirror, so the lights turn by twice the resting turn (Home's -.2 and
+ * the game page's -.28 sideways, -.1 up): a cartridge at rest now sees the lighting it saw facing you head on.
+ */
+private const val RIG_YAW = -.48f
+private const val RIG_PITCH = -.2f
 
 object Look { const val ENV = .1f; const val EXPOSURE = .3f; const val KEY = .2f }

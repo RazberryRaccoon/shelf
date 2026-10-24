@@ -361,3 +361,12 @@ line under them; (5) the page needed its settings, pictures and details. **0.4**
 the key light moved high and to the side, about 45° from the fronts' mirror angle, inset tiles, a fixed-height line)
 and fills in the page from libretro's database. Checked: the see-through change was run on the real GBA model and the
 result read back as a valid glTF file. Not checked on a device before handing over.
+
+Notes on 0.4: the focus rings were still cut off at the left and right (the scrolling part clipped them; it now reaches
+into the panel's padding); the line under the tiles was cut off by Pictures (now three fixed lines, shorter text); the
+hint under the cartridge should stay; libretro's descriptions are thin (Wikipedia's article intro is now looked up
+too, no account); and gold still read tan at the resting angle but right when facing head on. The user: "Preserve the
+angle the cartridge is at now … and move the light itself." So the whole lighting (the studio's reflections and the key
+light) is turned by twice the resting angle (a reflection turns twice as far as the surface): at rest, a cartridge now
+sees the light it saw head on. Filament's own source confirms IndirectLight rotation turns the reflections in the same
+sense as the key light's direction. Not checked on a device; Wikipedia couldn't be reached from Claude's sandbox.

@@ -62,17 +62,18 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     private var idle = 9f                // seconds since the stick was last used
     private var everTurned = false
 
+    private val EDGE = 28   // how far the scrolling part reaches into the panel's side padding
     // the panel: a scrolling column, or a list (shell colors, game settings) in its place
     private val panel = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; background = round(Theme.panel, 33f, Theme.line); setPadding(44, 34, 44, 26); clipToPadding = false; alpha = 0f }
     private val scroll = ScrollView(ctx).apply { isVerticalScrollBarEnabled = false; isVerticalFadingEdgeEnabled = true; setFadingEdgeLength(36); overScrollMode = View.OVER_SCROLL_NEVER; clipToPadding = false }
-    private val col = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; clipToPadding = false; clipChildren = false; setPadding(0, 0, 0, 30) }
+    private val col = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; clipToPadding = false; clipChildren = false; setPadding(EDGE, 0, EDGE, 30) }
     private val chipText = text(21f, Fonts.bold, Theme.fg)
     private val chipDot = View(ctx)
     private val favChip = text(21f, Fonts.bold, Theme.fg).apply { this.text = "Favorite"; background = round(Theme.chip, 19f); setPadding(16, 6, 16, 6) }
     private val title = text(38f, Fonts.display, Theme.fg).apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END; setLineSpacing(0f, 1.08f) }
     private val facts = text(21f, Fonts.body, Theme.fg2).apply { setLineSpacing(0f, 1.42f) }
     private val tiles = Tiles(ctx)
-    private val note = text(20f, Fonts.body, Theme.fg2).apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END; setLineSpacing(0f, 1.3f) }
+    private val note = text(20f, Fonts.body, Theme.fg2).apply { maxLines = 3; ellipsize = TextUtils.TruncateAt.END; setLineSpacing(0f, 1.3f) }
     private val picsHead = head("PICTURES")
     private val shots = Shots(ctx)
     private val aboutHead = head("ABOUT")
@@ -81,7 +82,6 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     private val listHead = head("")
     private val list = Options(ctx)
     private val hint = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; alpha = 0f }
-    private var hintLeft = 6f
 
     private enum class Zone { TILES, PICS, ABOUT }
     private var zone = Zone.TILES
@@ -102,14 +102,14 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         col.addView(title, lp(16))
         col.addView(facts, lp(12))
         col.addView(tiles, LinearLayout.LayoutParams(-1, Tiles.HEIGHT).apply { topMargin = 16; leftMargin = -Tiles.INSET; rightMargin = -Tiles.INSET })
-        col.addView(note, LinearLayout.LayoutParams(-1, 54).apply { topMargin = 2 })   // a fixed two lines, so the tiles never move
+        col.addView(note, LinearLayout.LayoutParams(-1, 82).apply { topMargin = 2 })   // a fixed three lines, so nothing moves and nothing is cut
         col.addView(picsHead, lp(18))
         col.addView(shots, LinearLayout.LayoutParams(-1, Shots.HEIGHT).apply { topMargin = 6; leftMargin = -Shots.INSET; rightMargin = -Shots.INSET })
         col.addView(aboutHead, lp(16))
         col.addView(about, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 4; leftMargin = -18; rightMargin = -18 })
         col.addView(credit, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 4; leftMargin = -18; rightMargin = -18 })
         scroll.addView(col, android.widget.FrameLayout.LayoutParams(-1, -2))
-        panel.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        panel.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f).apply { leftMargin = -EDGE; rightMargin = -EDGE })   // reaches into the padding: room for focus rings
         panel.addView(listHead, lp(0).apply { bottomMargin = 10 })
         panel.addView(list, LinearLayout.LayoutParams(-1, 0, 1f).apply { leftMargin = -30; rightMargin = -30 })
         listHead.visibility = View.GONE; list.visibility = View.GONE
@@ -146,7 +146,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
             i.name == null -> "Shelf couldn’t find this game in libretro’s database. Game settings › Which game is this? can help."
             else -> listOfNotNull(f["publisher"]?.let { "Published by $it." }, f["releaseyear"]?.let { "Released in $it." }).joinToString(" ").ifEmpty { "No description for this one yet." }
         }
-        credit.text = if (i?.name != null) "Details and pictures: libretro database (${i.name})" else ""
+        credit.text = listOfNotNull(i?.name?.let { "Details and pictures: libretro database ($it)" }, if (f["descsource"] == "Wikipedia") "Description: Wikipedia (CC BY-SA)" else null).joinToString("\n")
         refreshNote()
     }
 
@@ -156,8 +156,8 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val emu = games.emulatorFor(game)?.let { emuName(it) }
         note.text = when (tiles.at) {
             0 -> if (emu == null) "Choose an emulator, then it starts." else "Starts it in $emu."
-            1 -> if (games.ownEmulator(game) != null) "This game plays with $emu. Choose another." else "Plays with $emu, like other ${Games.NAMES[game.sys]} games. Choose one just for this game."
-            2 -> "The colors these cartridges really came in. Each one shows on the cartridge as you choose."
+            1 -> if (games.ownEmulator(game) != null) "Plays with $emu, chosen for this game." else "Plays with $emu. Choose one just for this game."
+            2 -> "Its real colors. Each shows on the cartridge as you choose."
             3 -> if (games.favorite(game)) "Remove it from your favorites." else "Add it to your favorites. (Y does this too.)"
             4 -> "Its emulator, shell color, whether it shows on Home, and which game it is."
             else -> "Put it back on Home."
@@ -180,7 +180,6 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         if (!closing && viewer == null && (sx != 0f || sy != 0f)) {
             vYaw += (sx * 3.4f - vYaw) * min(1f, dt * 8f); vPitch += (sy * 2.6f - vPitch) * min(1f, dt * 8f)
             idle = 0f
-            if (!everTurned) { everTurned = true; hintLeft = min(hintLeft, .6f) }
         } else {
             vYaw *= exp(-dt * 1.7f); vPitch *= exp(-dt * 2.4f); idle += dt
         }
@@ -202,8 +201,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
             backdrop.shadows.add(floatArrayOf(x, lerp(from[1] + c.style.h / big * from[2] / 2 + 24f, 600f, k), lerp(c.style.w / big * from[2] * .9f, 330f, k), 1f - .25f * k))
         }
         // the hint under the cartridge shows for a few seconds, then gets out of the way
-        hintLeft -= dt
-        hint.alpha = if (closing) min(hint.alpha, pk) else pk * (hintLeft / .6f).coerceIn(0f, 1f)
+        hint.alpha = pk
         if (closing && t == 0f) { destroy(); host.closed(this, homeChanged) }
     }
 
@@ -269,7 +267,6 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     private fun flip() {
         restYaw = if (restYaw > 1f) -.28f else -.28f + PI.toFloat()
         vYaw = 0f; vPitch = 0f; idle = 9f
-        hintLeft = min(hintLeft, .6f)
         Sounds.play(Sounds.TURN)
     }
 
