@@ -163,4 +163,4 @@ class Stage(private val ctx: Context, private val surface: TextureView) : Choreo
  * came out much brighter than in the Studio, washing dark plastic out to light grey, so these start well below them;
  * Settings › Lighting tunes them on the device.
  */
-object Look { const val ENV = .5f; const val EXPOSURE = .5f; const val KEY = .6f }
+object Look { const val ENV = .1f; const val EXPOSURE = .3f; const val KEY = .2f }

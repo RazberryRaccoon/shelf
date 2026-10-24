@@ -37,7 +37,8 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
     private val flow = listOf(Step.WELCOME, Step.WHO, Step.GAMES, Step.EMUS, Step.DONE)
 
     // the panel stacks its parts top to bottom, so a long line of text pushes the list down instead of covering it
-    private val panel = android.widget.LinearLayout(ctx).apply { orientation = android.widget.LinearLayout.VERTICAL; background = round(Theme.panel, 33f, Theme.line); setPadding(48, 40, 48, 26) }
+    private val panel = android.widget.LinearLayout(ctx).apply { orientation = android.widget.LinearLayout.VERTICAL; background = round(Theme.panel, 33f, Theme.line); setPadding(48, 40, 48, 26)
+        clipToPadding = false }   // the list reaches into the side padding, so its focus ring isn't cut off
     private val label = text(20f, Fonts.bold, Theme.accentOf(null)).apply { letterSpacing = .08f }
     private val title = text(44f, Fonts.display, Theme.fg)
     private val lead = text(23f, Fonts.body, Theme.fg2).apply { setLineSpacing(0f, 1.3f); maxLines = 4; ellipsize = TextUtils.TruncateAt.END }
@@ -52,11 +53,14 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
     private var swapK = 0f      // 1 = fully shown, dips to 0 while one cartridge gives way to the next
     private var cycle = 0f
     private var time = 0f
+    // the panel fills the left, a little in from the edges; the cartridge floats in the middle of what's left
+    private val PX = 34; private val PY = 34; private val PW = 812; private val PH = 682
+    private val cx = (PX + PW + Stage.W) / 2f; private val cy = Stage.H / 2f - 20f
     private val order = listOf("gba", "snes", "n64", "gb", "nes", "ds", "genesis", "gbc", "psp", "ps1", "android")
     private var shownCount = 0f   // the found-games count, counting up
 
     init {
-        board.put(panel, 48, 100, 790, 626)
+        board.put(panel, PX, PY, PW, PH)
         val lp = { top: Int -> android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = top } }
         panel.addView(label, lp(0))
         panel.addView(title, lp(8))
@@ -149,7 +153,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                 rows += Options.Row("close", "Done", primary = true)
             }
             Step.LIGHT -> {
-            page("Settings", "Lighting", "Press left or right to change a value, and watch the cartridge. Tell Claude the values you like.")
+            page("Settings", "Lighting", "Press left or right to change a value, and watch the cartridge. Your choice is saved.")
             rows += Options.Row("close-light", "Done", primary = true)
             rows += Options.Row("light", "Environment", value = "%.2f".format(games.lightEnv), sub = "The studio around the cartridges: reflections and fill light", tag = "env")
             rows += Options.Row("light", "Exposure", value = "%.2f".format(games.lightExposure), sub = "Everything brighter or darker", tag = "exposure")
@@ -246,20 +250,20 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         val n = games.all.size.toFloat()
         if (shownCount != n) { shownCount = if (shownCount < n) min(n, shownCount + maxOf(1f, (n - shownCount) * dt * 6f)) else n; if (step == Step.GAMES && host.hasStorage()) title.text = "Found ${shownCount.toInt()} ${if (n.toInt() == 1) "game" else "games"}" }
         // on the welcome and done pages the cartridge changes every few seconds
-        if (step == Step.WELCOME || step == Step.WHO || step == Step.DONE || step == Step.MENU || step == Step.LIGHT) { cycle += dt; if (cycle > 4.5f) { cycle = 0f; want = order[(order.indexOf(want) + 1) % order.size] } }
+        if (options.current()?.tag !in Games.NAMES.keys) { cycle += dt; if (cycle > 4.5f) { cycle = 0f; want = order[(order.indexOf(want) + 1) % order.size] } }
         if (want != shown) swapK = maxOf(0f, swapK - dt / .28f) else swapK = min(1f, swapK + dt / .4f)
         if (swapK == 0f) { showcase[shown]?.place(-2000f, 0f, 0f, 0f, 0f, 1f); shown = want; backdrop.mood(Theme.accentOf(want)) }
         val cart = shown?.let { s -> showcase.getOrPut(s) { carts.make(s, Games.NAMES[s] ?: "Android games", null) } }
         val k = Backdrop.ease(swapK)
-        cart?.place(1010f, 392f + sin(time * .8f) * 4f, 30f, time * .5f, -.12f, 300f * (.6f + .4f * k))
+        cart?.place(cx, cy + sin(time * .8f) * 4f, 30f, time * .5f, -.12f, 300f * (.6f + .4f * k))
         cart?.brightness(.4f + .6f * k)
         backdrop.shadows.clear()
-        cart?.let { backdrop.shadows.add(floatArrayOf(1010f, 392f + 170f, 260f * k, .8f * k)) }
+        cart?.let { backdrop.shadows.add(floatArrayOf(cx, cy + 170f, 260f * k, .8f * k)) }
     }
 
     private fun refreshShowcase() {
         val r = options.current()
-        if ((step == Step.GAMES || step == Step.EMUS) && r?.tag is String) { want = r.tag; cycle = 0f }
+        val t = r?.tag; if (t is String && t in Games.NAMES.keys) { want = t; cycle = 0f }
     }
 
     fun destroy() {
@@ -292,8 +296,8 @@ class Options(ctx: Context) : View(ctx) {
         // keep the focused row in view
         var y0 = 0f; for (k in 0 until i) y0 += h(rows[k]) + 8
         val hi = rows.getOrNull(i)?.let { h(it) } ?: 0f
-        if (y0 < top) top = y0; if (y0 + hi > top + height - 8) top = y0 + hi - height + 8
-        c.save(); c.clipRect(0f, 0f, width.toFloat(), height.toFloat()); c.translate(0f, -top)
+        if (y0 < top) top = y0; if (y0 + hi > top + height - 12) top = y0 + hi - height + 12
+        c.save(); c.clipRect(0f, 0f, width.toFloat(), height.toFloat()); c.translate(0f, 4f - top)   // 4: room for the focus ring
         var y = 0f
         rows.forEachIndexed { k, r ->
             val rh = h(r); val on = k == i; val box = RectF(30f, y, width - 30f, y + rh)

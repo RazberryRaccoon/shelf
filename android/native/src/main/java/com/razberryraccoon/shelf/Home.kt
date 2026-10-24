@@ -143,7 +143,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
             }
         }
         if (picTimer > 0) { picTimer -= dt; if (picTimer <= 0) current().let { g -> if (g != picFor) { picFor = g; backdrop.picture(g?.let { Paintings.picture(800, 196, it.title) }) } } }
-        if (toastLeft > 0) { toastLeft -= dt; toast.alpha = min(1f, toastLeft / .3f).coerceAtLeast(0f) }
+        if (toastLeft > 0) { toastLeft = (toastUntil - android.os.SystemClock.uptimeMillis()) / 1000f; toast.alpha = min(1f, toastLeft / .3f).coerceAtLeast(0f) }
         clockLeft -= dt; if (clockLeft <= 0) clockTick()
     }
 
@@ -221,7 +221,8 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     }
 
     private var toastLeft = 0f
-    fun show(msg: String) { toast.text = msg; toast.alpha = 1f; toastLeft = 3f; toast.bringToFront() }
+    private var toastUntil = 0L
+    fun show(msg: String) { toast.text = msg; toast.alpha = 1f; toastLeft = 2.5f; toastUntil = android.os.SystemClock.uptimeMillis() + 2500; toast.bringToFront() }
 
     private var clockLeft = 0f
     private fun clockTick() {
