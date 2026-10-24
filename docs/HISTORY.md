@@ -384,3 +384,10 @@ is now made from the shell itself); (2) metal finishes looked nearly black at re
 reflectance is far too dark (real gold reflects about (1, .77, .34), the "Gold" swatch gave .79, .53, .14), so a metal
 now takes its hue from the swatch, a fifth of the way to white, with its brightness setting how much it reflects;
 (4) the rest of the row now flies up when a page opens. Note 3 is a design for the box round (DECISIONS.md).
+
+**The first crash in use (0.5):** cycling the Studio's finishes on an N64 cartridge closed the app on Frosted, the first
+see-through finish. The safe-start screen showed why: `FileNotFoundException: models/cart-n64-clear.glb`. Only the
+cartridges with real clear colors (Game Boy Color, GBA, DS) had a see-through model; the Studio offers see-through
+finishes for every cartridge. The export now makes a see-through model for every style (the eight new ones were added;
+the existing models were left as they were), and a missing see-through model falls back to the solid one instead of
+stopping the app. Each new model was run through the app's load-time conversion (`seeThrough`) and checked.

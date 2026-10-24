@@ -179,7 +179,7 @@ export function applyVariant(group, variant, tune) {
   m.transmission = clear ? 1 : 0; m.thickness = clear ? 2.5 : 0; m.ior = 1.49;
   m.attenuationColor.set(clear ? variant.color : '#ffffff'); m.attenuationDistance = clear === 'transparent' ? 30 : clear ? 10 : Infinity;
   if (clear) m.color.lerp(new THREE.Color(1, 1, 1), .35);   // see-through plastic is tinted mostly by its depth, not its surface
-  group.getObjectByName('inside').visible = !!clear;
+  const inside = group.getObjectByName('inside'); if (inside) inside.visible = !!clear;   // discs and cards have nothing inside
 }
 
 // ---------- a label to show until you load your own art ----------
