@@ -410,8 +410,10 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     private fun openStudio(edit: Shell?) {
         val start = edit?.variant() ?: cart?.variant ?: carts.styles[game.sys]?.variants?.get(0) ?: return
         val startMaterial = start.material ?: when { start.clear == "transparent" -> "clear"; start.clear == "frosted" -> "frosted"; start.sheen -> "metal"; else -> "plastic" }
+        // a real gold or silver shell starts from the color that, as Studio metal, is the same measured gold or silver
+        val startColor = if (start.material == null && start.sheen) Color.parseColor(if (Color.red(start.color) - Color.blue(start.color) > 60) "#ffdb74" else "#f3f1ea") else start.color
         editing = edit
-        val v = StudioView(ctx, start.color, startMaterial)
+        val v = StudioView(ctx, startColor, startMaterial, start.name)
         studio = v
         studioPanel.removeAllViews()
         studioPanel.addView(head("STUDIO  ·  ${(carts.styles[game.sys]?.name ?: "").uppercase()} CARTRIDGE"))
@@ -428,7 +430,6 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
                 Sounds.play(Sounds.PICK); closeStudio(saved = s)
             }
         }
-        v.onChange?.invoke(v.color, v.material.id)
         Sounds.play(Sounds.OPEN)
     }
 

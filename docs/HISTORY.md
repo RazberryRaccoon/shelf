@@ -391,3 +391,10 @@ cartridges with real clear colors (Game Boy Color, GBA, DS) had a see-through mo
 finishes for every cartridge. The export now makes a see-through model for every style (the eight new ones were added;
 the existing models were left as they were), and a missing see-through model falls back to the solid one instead of
 stopping the app. Each new model was run through the app's load-time conversion (`seeThrough`) and checked.
+
+After the crash fix: opening the Studio on a real gold cartridge visibly changed it before anything was edited ("I can
+clearly see the lighting shift"), only with Metallic. Not the lighting: the Studio rebuilt the shell from its swatch
+with its own Metallic numbers (a sharp mirror clear coat, roughness .05, and a darker gold) instead of the real gold
+shell's (a soft coat, measured gold). The Studio's Metallic, Clear, Smoke and Frosted now use the real shells' exact
+numbers; a real gold or silver shell starts the Studio from the color that, as Studio metal, is that measured gold or
+silver (checked: within 1%); and opening the Studio no longer touches the cartridge until something changes.

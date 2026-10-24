@@ -28,10 +28,12 @@ object Materials {
         Finish("plastic", "Plastic", null, 0f, null, null),
         Finish("matte", "Matte", .85f, 0f, 0f, .5f),
         Finish("glossy", "Glossy", .2f, 0f, 1f, .04f),
-        Finish("frosted", "Frosted", .45f, 0f, .4f, .3f, clear = "frosted", alpha = .7f),
-        Finish("clear", "Clear", .06f, 0f, .5f, .05f, clear = "transparent", alpha = .38f),
-        Finish("smoke", "Smoke", .06f, 0f, .5f, .05f, clear = "transparent", alpha = .6f, dim = .35f),
-        Finish("metal", "Metallic", .26f, 1f, .4f, .05f),
+        // these four use exactly the numbers of the real frosted, clear and gold or silver shells (Cart.apply), so a real
+        // shell opened in the Studio looks the same until you change something
+        Finish("frosted", "Frosted", null, 0f, null, null, clear = "frosted", alpha = .7f),   // roughness: at least .4 (applyMaterial)
+        Finish("clear", "Clear", .06f, 0f, null, .05f, clear = "transparent", alpha = .38f),
+        Finish("smoke", "Smoke", .06f, 0f, null, .05f, clear = "transparent", alpha = .6f, dim = .35f),
+        Finish("metal", "Metallic", .28f, 1f, .5f, null),
         Finish("brushed", "Brushed metal", .5f, 1f, 0f, .5f),
         Finish("anodized", "Anodized aluminum", .34f, 1f, .25f, .35f, lift = .06f),   // colored, satin metal, a little brighter than its dye
         Finish("pearl", "Pearl", .3f, .15f, 1f, .05f, sheen = .7f),
@@ -78,7 +80,7 @@ class Shells(ctx: Context) {
  * The Studio's controls, drawn in one view: a row of materials, a grid of named colors, and hue, saturation and
  * brightness bars for any color at all, then Save and Cancel. Every change shows on the cartridge at once (onChange).
  */
-class StudioView(ctx: Context, startColor: Int, startMaterial: String) : View(ctx) {
+class StudioView(ctx: Context, startColor: Int, startMaterial: String, private val startName: String = "Custom") : View(ctx) {
     var onChange: ((Int, String) -> Unit)? = null
     var onSave: (() -> Unit)? = null
     var onCancel: (() -> Unit)? = null
@@ -96,7 +98,8 @@ class StudioView(ctx: Context, startColor: Int, startMaterial: String) : View(ct
     val color get() = Color.HSVToColor(hsv)
     val material get() = Materials.ALL[mat]
     /** The color's name: the swatch's, or "Custom" for one from the bars. */
-    val colorName get() = if (cell >= 0) Swatches.ALL[cell].first else "Custom"
+    val colorName get() = if (cell >= 0) Swatches.ALL[cell].first else if (nudged) "Custom" else startName
+    private var nudged = false   // the bars were used: it's a color of your own now
 
     companion object { const val W = 528; const val H = 478; private const val COLS = 11; private const val CELL = 46f; private const val ROW = 42f
         private const val CHIPS_Y = 26f; private const val GRID_Y = 118f; private const val BARS_Y = 318f; private const val BTN_Y = 426f; private const val X0 = 12f }
@@ -148,7 +151,7 @@ class StudioView(ctx: Context, startColor: Int, startMaterial: String) : View(ct
             Zone.SAT -> hsv[1] = (hsv[1] + d * .03f).coerceIn(0f, 1f)
             else -> hsv[2] = (hsv[2] + d * .03f).coerceIn(0f, 1f)
         }
-        cell = -1; Sounds.play(Sounds.MOVE); changed()
+        cell = -1; nudged = true; Sounds.play(Sounds.MOVE); changed()
     }
     private fun changed() = onChange?.invoke(color, material.id)
 
