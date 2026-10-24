@@ -31,9 +31,9 @@ object Materials {
         Finish("frosted", "Frosted", .45f, 0f, .4f, .3f, clear = "frosted", alpha = .7f),
         Finish("clear", "Clear", .06f, 0f, .5f, .05f, clear = "transparent", alpha = .38f),
         Finish("smoke", "Smoke", .06f, 0f, .5f, .05f, clear = "transparent", alpha = .6f, dim = .35f),
-        Finish("metal", "Metallic", .2f, 1f, .4f, .05f),
+        Finish("metal", "Metallic", .26f, 1f, .4f, .05f),
         Finish("brushed", "Brushed metal", .5f, 1f, 0f, .5f),
-        Finish("anodized", "Anodized aluminum", .34f, 1f, .25f, .35f, lift = .15f),   // colored, satin metal, a little brighter than its dye
+        Finish("anodized", "Anodized aluminum", .34f, 1f, .25f, .35f, lift = .06f),   // colored, satin metal, a little brighter than its dye
         Finish("pearl", "Pearl", .3f, .15f, 1f, .05f, sheen = .7f),
         Finish("flake", "Metal flake", .42f, .6f, 1f, .03f),
         Finish("glow", "Glow in the dark", .55f, 0f, .2f, .5f, glow = .9f))

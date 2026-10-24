@@ -52,9 +52,11 @@ class Carts(private val stage: Stage, val shells: Shells) {
 
 
     /** A cartridge for this game, in its chosen shell color, with a label drawn for it. */
-    fun make(sys: String, title: String, variantName: String?): Cart? {
+    fun make(sys: String, title: String, variantName: String?): Cart? = variantFor(sys, variantName)?.let { make(sys, title, it) }
+
+    /** A cartridge in exactly this shell, saved or not (the Studio's shell while you're still making it). */
+    fun make(sys: String, title: String, v: Variant): Cart? {
         val style = styles[sys] ?: return null
-        val v = variantFor(sys, variantName) ?: return null
         val name = if (v.clear != null) "cart-$sys-clear.glb" else "cart-$sys.glb"
         val asset = stage.assets.createAsset(file(name).duplicate()) ?: return null
         stage.resources.loadResources(asset)
@@ -136,7 +138,7 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
     /** A Studio shell: your color in one of the Studio's materials. */
     private fun applyMaterial(v: Variant, m: Finish) {
         val lin = intArrayOf(Color.red(v.color), Color.green(v.color), Color.blue(v.color)).map { srgbToLinear(it / 255f) }.toFloatArray()
-        base = FloatArray(3) { (lin[it] + (1 - lin[it]) * m.lift) * m.dim }
+        base = if (m.metallic > 0) metal(lin, v.color, m) else FloatArray(3) { (lin[it] + (1 - lin[it]) * m.lift) * m.dim }
         alpha = m.alpha
         val mi = plastic ?: return tint()
         mi.set("roughnessFactor", m.rough ?: style.roughness)
@@ -146,6 +148,21 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
         if (m.glow > 0) mi.set("emissiveFactor", base[0] * m.glow, base[1] * m.glow, base[2] * m.glow)
         if (m.sheen > 0) { mi.set("sheenColorFactor", m.sheen, m.sheen, m.sheen); mi.set("sheenRoughnessFactor", .35f) }
         tint()
+    }
+
+    /**
+     * A metal's color is how much light it reflects, and real metals reflect most of it: gold about (1, .77, .34),
+     * silver .97. A paint swatch used as is ("Gold" .79, .53, .14; "Silver" about .55) made dim, nearly black metal. So
+     * the swatch gives the metal its hue, and its brightness sets how much it reflects, from about a third (dark
+     * metals, like a navy anodized) to nearly all of it.
+     */
+    private fun metal(lin: FloatArray, color: Int, m: Finish): FloatArray {
+        val top = maxOf(lin[0], lin[1], lin[2], .001f)
+        val hsv = FloatArray(3); Color.colorToHSV(color, hsv)
+        val k = (.4f + .6f * hsv[2]) * m.dim
+        val metalPart = FloatArray(3) { (lin[it] / top * .8f + .2f) * k }   // real metals are paler than paint: a fifth of the way to white
+        // part-metal finishes (metal flake, pearl) keep some of the plain color underneath
+        return FloatArray(3) { (lin[it] + (metalPart[it] - lin[it]) * minOf(1f, m.metallic * 1.4f)).let { c -> c + (1 - c) * m.lift } }
     }
 
     /** Dims the cartridges you're not on, a little. */

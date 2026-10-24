@@ -261,6 +261,13 @@ Summarized from the first part of the conversation; the full transcript is kept 
   leaving special editions alone), C the console Studio (researched console colors, per-part colors and materials)
   with the console in the start and return animations. Boxes stay plain. Custom shells are shared by every cartridge
   type; the defaults stay per console. The user added "anodized aluminum" to the finishes.
+- **For the box round (the user, after 0.5):** "when the completed game page is finished and the default is the
+  cartridge in the open box, I want selecting the cartridge in the box to 'pick up the cartridge' and hide the box,
+  producing a view similar to how the game page is now. But the cartridge in the open box stays the default." Close
+  the box moves out of the right panel's tiles to under the open box: the left half holds everything about the
+  object (turn the box, close it and turn it, pick up the cartridge and turn it, open the manual); the right panel is
+  for playing, customizing, settings, pictures and details.
+- Opening a game's page sends the rest of Home's row up and away, not down (after 0.5).
 - Home's row (after 0.4): bigger cartridges; half of one on the left and two and a half on the right.
 - The rarer shell colors: "let's pause that for now and look into it again later" (they couldn't be seen big yet).
 - Version 0.1: Home with the Studio's models and lighting, per-game shell colors, launching. Discs, UMDs and Android

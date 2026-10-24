@@ -165,7 +165,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
             val rest = if (visible) Backdrop.ease(((riseT - k * .07f) / .9f).coerceIn(0f, 1f)) else 1f
             // while a page is open, the others sink out of the way, each a beat after the one before
             val away = page?.let { Backdrop.ease((pageK * 1.4f - abs(k - i) * .06f).coerceIn(0f, 1f)) } ?: 0f
-            val up = rest * (1 - away); val lift = (1 - rest) * 560f + away * 520f
+            val up = rest * (1 - away); val lift = (1 - rest) * 560f - away * 640f   // a page opening sends the others up and away
             cart.place(s.x, s.y + bob + lift, s.z, -.2f, -.1f, s.px)
             cart.brightness(s.bright)
             if (s.x > -200 && s.x < 1534) {
