@@ -324,3 +324,8 @@ with a folder per console inside, matches folder names written out, and looks in
 GEN_MIPMAPPABLE flag, which Filament treats as a fatal error. 0.1 never drew a cartridge on the device (it found no
 games), so 0.2's setup cartridge was the first. Fixed, material values are now type-checked before they're set, and
 errors in Shelf Native's own code are saved and shown the next time it opens.
+It still closed on opening: the setup cartridge grows in from nothing, and so did its shadow, and Android refuses to draw
+a gradient with a radius of 0 (an error on the first frame, before the saved error could be shown). Zero-sized
+shadows are now skipped, and a start that never got going, or ended on an error, is followed by a plain screen
+showing what went wrong (Shelf's saved error, or the app's error lines from Android's log, Filament's included) instead
+of starting the 3D again.

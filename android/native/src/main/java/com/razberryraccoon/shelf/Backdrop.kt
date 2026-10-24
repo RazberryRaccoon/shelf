@@ -66,6 +66,7 @@ class Backdrop(ctx: Context) : View(ctx) {
         picFrom?.let { if (picT < 1) drawPicture(c, it, (1 - ease(picT)) * picVisible, sweep) }
         pic?.let { drawPicture(c, it, ease(picT) * picVisible, sweep) }
         for (s in shadows) {
+            if (s[2] < 2f || s[3] < .01f) continue   // a shadow with no size can't be drawn (Android refuses a gradient of radius 0)
             p.shader = RadialGradient(s[0], s[1], s[2] / 2, Color.argb((150 * s[3]).toInt(), 0, 0, 0), Color.TRANSPARENT, Shader.TileMode.CLAMP)
             c.save(); c.scale(1f, .22f, s[0], s[1]); c.drawCircle(s[0], s[1], s[2] / 2, p); c.restore()
         }

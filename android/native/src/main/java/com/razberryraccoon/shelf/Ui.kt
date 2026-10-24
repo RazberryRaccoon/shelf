@@ -33,6 +33,7 @@ object Theme {
     val profileNames = listOf("Amber", "Sky", "Orchid", "Fern", "Rose")
     /** A round avatar lit from the top left, as in the prototype. */
     fun drawAvatar(c: android.graphics.Canvas, x: Float, y: Float, r: Float, k: Int) {
+        if (r <= 0f) return
         val cols = profile[k.coerceIn(0, profile.size - 1)]
         val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
         p.shader = android.graphics.RadialGradient(x - r * .3f, y - r * .4f, r * 1.6f, cols, floatArrayOf(0f, .55f, 1f), android.graphics.Shader.TileMode.CLAMP)
