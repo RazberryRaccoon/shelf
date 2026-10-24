@@ -143,7 +143,7 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
         base = if (m.metallic > 0) metal(lin, v.color, m) else FloatArray(3) { (lin[it] + (1 - lin[it]) * m.lift) * m.dim }
         alpha = m.alpha
         val mi = plastic ?: return tint()
-        mi.set("roughnessFactor", m.rough ?: style.roughness)
+        mi.set("roughnessFactor", m.rough ?: if (m.id == "frosted") maxOf(.4f, style.roughness) else style.roughness)
         mi.set("metallicFactor", m.metallic)
         mi.set("clearCoatFactor", m.coat ?: style.clearcoat)
         mi.set("clearCoatRoughnessFactor", m.coatRough ?: style.clearcoatRoughness)
