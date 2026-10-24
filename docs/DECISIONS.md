@@ -229,6 +229,20 @@ Summarized from the first part of the conversation; the full transcript is kept 
   of them." Built: a picker per art type in each game's settings, results from every connected service, and accounts
   entered with Android's own text box in Settings › Art and info.
 
+### Game page and Home picture notes (October 2026)
+
+1. "All the saves are showing as 'handled by the app,' even for RetroArch ones. That's fine with me for now, so you
+   can just get rid of that part of the game page entirely." Removed, with New game.
+2. "I'm not happy with all the 'pills' on each game page … Those should be iconographic at the very least. I'd rather
+   have something like buttons in a row next to each other, kind of like how Saves look currently." Now a row of
+   square icon tiles with names under them, and a line saying what the focused one does.
+3. After Close the box, its controls overlapped the details pane. Now the pane steps aside and the box moves to the
+   middle while you turn it.
+4. Home's picture: "darker … more in the background … more zoomed in, and do a slow pan across the art … instead of
+   just a regular fade, can it be a dot fade? Like the edges of glass panes on a car windshield." Built: much darker,
+   zoomed 1.3×, panning back and forth over about 46 seconds (still with reduced motion), and a windshield-style dot
+   fade that stays in place while the picture moves.
+
 ### Premium cartridges (October 2026)
 
 - A brief from the user, "Make the 3D cartridges look premium", with the rule "Use our own original cartridge

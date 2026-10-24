@@ -122,9 +122,12 @@ the spine hinge**, ending to the left of the base. The open box takes about half
 
 **The panel (right side of the screen):**
 - Console name, title, and facts: released, developer, genre, players, and which emulator it plays with.
-- Buttons: **Resume or Play** (primary), **New game**, **Close the box**, **Game settings**, **Add to collection**, **Favorite** (Y).
-- **Saves:** four slots with screenshots and the last-played tag, for RetroArch games. For standalone
-  emulators, a note saying which emulator keeps the saves.
+- Buttons, as a row of square icon tiles with a short name under each (no pills): **Play or Resume** (primary),
+  **Emulator**, **Close box**, **Settings**, **Collection**, **Favorite** (Y). A line under the row says what the
+  focused one does ("Plays with DuckStation. Choose another for this game.").
+- No Saves section for now (the user, October 2026: saves all showed as handled by the emulator app anyway).
+  Shelf's save slots (§15) come back when they work with RetroArch on the device.
+- **Close box:** the details step aside and the closed box takes the middle of the screen to be turned around.
 - **Media:** a row of thumbnails (video, title screen, screenshots, box front and back). A opens the media viewer.
 - **Achievements:** count, bar, points and recent badges. A opens the achievements page.
 - Description, and a credit line naming the art source.
@@ -169,7 +172,7 @@ These carry over from Shelf for TV.
   "Saved to slot N" message. The cartridge settles back into its tray, or into the first spot on Home if
   you launched from there.
 - **Standalone emulators** keep their own saves. Shelf only notes when you last played and for how long. The
-  Saves section of the game page says so and has a button that opens that emulator, where the saves are.
+  game page has no Saves section for now (see §6).
 
 ## 10. Apps
 

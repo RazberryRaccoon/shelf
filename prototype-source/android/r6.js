@@ -108,7 +108,7 @@ function actRowMove(dir) {   // the buttons wrap onto rows: up and down move to 
 function gameInput(a) {
   if (S.game.closing) return;
   $('#gpin').classList.remove('enter');
-  const G0 = S.game, g = byId[G0.id], acts = gameActions(), ra = isRA(emuFor(g)), nMedia = mediaFor(g).length;
+  const G0 = S.game, g = byId[G0.id], acts = gameActions(), nMedia = mediaFor(g).length;
   if (G0.turn) {   // turning the closed box
     if (a === 'left' || a === 'right') { G0.ry += (a === 'left' ? -1 : 1) * .45; sfx.move(); }
     else if (a === 'up' || a === 'down') { G0.rx = clamp(G0.rx + (a === 'up' ? -1 : 1) * .3, -.9, .9); sfx.move(); }
@@ -126,13 +126,10 @@ function gameInput(a) {
   else if (z === 'actions') {
     if (a === 'left') { if (G0.i === 0) go('cart'); else { G0.i--; sfx.move(); } } else if (a === 'right') { if (G0.i < acts.length - 1) { G0.i++; sfx.move(); } }
     else if (a === 'up') { if (actRowMove(-1)) sfx.move(); else return closeGame(); }   // up from the top row closes the page, as down opened it
-    else if (a === 'down') { if (actRowMove(1)) sfx.move(); else go('saves', ra ? (rec(G0.id) || { lastSlot: 0 }).lastSlot : 0); } else if (a === 'a') return gameAction();
-  } else if (z === 'saves') {
-    if (a === 'left') { if (!ra || G0.i === 0) go('cart'); else { G0.i--; sfx.move(); } } else if (a === 'right' && ra && G0.i < 3) { G0.i++; sfx.move(); }
-    else if (a === 'up') go('actions'); else if (a === 'down') go('media'); else if (a === 'a') return gameAction();
+    else if (a === 'down') { if (actRowMove(1)) sfx.move(); else go('media'); } else if (a === 'a') return gameAction();
   } else if (z === 'media') {
     if (a === 'left') { if (G0.i === 0) go('cart'); else { G0.i--; sfx.move(); } } else if (a === 'right' && G0.i < nMedia - 1) { G0.i++; sfx.move(); }
-    else if (a === 'up') go('saves', ra ? (rec(G0.id) || { lastSlot: 0 }).lastSlot : 0); else if (a === 'down' && g.sys !== 'android') go('ach'); else if (a === 'a') return gameAction();
+    else if (a === 'up') go('actions'); else if (a === 'down' && g.sys !== 'android') go('ach'); else if (a === 'a') return gameAction();
   } else { if (a === 'up') go('media'); else if (a === 'left') go('cart'); else if (a === 'a') return gameAction(); }
   fillGame();
 }
@@ -203,11 +200,15 @@ function planetTarget() {
     default: return { x: 667, y: 1200, r: 500, a: 0 };
   }
 }
-// Home's picture: the selected game's chosen media across the lower part of the screen, darkened, fading out toward
-// the top so its edge meets the bottom of the row. Crossfades when the selection changes; hidden while a page is open.
-const HB = { key: null, prev: null, a: 1, vis: 1 };
-function homeArtCanvas(g, kind) {
-  const w = 1024, h = 300, c = canvas(w, h), x = c.getContext('2d');
+const HOME_Y = 302;   // the selected cartridge's center on Home, under the top bar
+// Home's picture: the selected game's chosen media across the lower part of the screen, kept dark so it stays behind the
+// cartridges, zoomed in and panning slowly. Its top edge fades out in a dot pattern, like the dotted band at the edge
+// of a car's windshield: solid at the bottom, breaking into dots that shrink away toward the row. The dots stay put
+// while the picture moves under them. Crossfades when the selection changes; hidden while a page is open.
+const HB = { key: null, prev: null, a: 1, vis: 1 }, HB_ZOOM = 1.3, HB_PAN = 46;   // how far in, and seconds for one sweep across
+const HB_TOP = HOME_Y + 122, HB_H = 750 - HB_TOP;   // the fade's edge sits at the bottom of the row
+function homeArtCanvas(g, kind) {   // the picture alone, cropped to the backdrop's shape
+  const w = 1600, h = Math.round(w * HB_H / 1334), c = canvas(w, h), x = c.getContext('2d');
   let src = null;
   if (kind === 'cart') { src = canvas(w, h); drawScene(src.getContext('2d'), w, h, g); }
   else if (kind === 'box') src = mediaCanvas(g, { kind: 'box' });
@@ -216,22 +217,31 @@ function homeArtCanvas(g, kind) {
   else src = mediaCanvas(g, { kind: 'shot', seed: hash(g.id + 'shot0'), scroll: 30 });
   const k = Math.max(w / src.width, h / src.height), sw = w / k, sh = h / k;
   x.drawImage(src, (src.width - sw) / 2, (src.height - sh) * (kind === 'box' ? .35 : .5), sw, sh, 0, 0, w, h);
-  const f = x.createLinearGradient(0, 0, 0, h); f.addColorStop(0, 'rgba(0,0,0,0)'); f.addColorStop(.55, 'rgba(0,0,0,.85)'); f.addColorStop(1, 'rgba(0,0,0,1)');
-  x.globalCompositeOperation = 'destination-in'; x.fillStyle = f; x.fillRect(0, 0, w, h);
+  return c;
+}
+function homeDotMask() {   // alpha only: solid below, then rows of dots that shrink toward the top
+  const w = 1334, h = HB_H, c = canvas(w, h), x = c.getContext('2d'), pitch = 13, solid = h * .5;
+  x.fillStyle = '#fff'; x.fillRect(0, solid, w, h - solid);
+  for (let row = 0, y = solid; y > -pitch; row++, y -= pitch * .866) {   // a staggered grid, row by row upward
+    const t = clamp(y / solid, 0, 1), r = pitch * (.06 + .66 * Math.pow(t, 1.25));   // dots touch at the solid edge and shrink to specks
+    x.globalAlpha = .45 + .55 * t;
+    for (let cx = row % 2 ? pitch / 2 : 0; cx < w + pitch; cx += pitch) { x.beginPath(); x.arc(cx, y, r, 0, 7); x.fill(); }
+  }
   return c;
 }
 function drawHomeArt(dt, id, show) {
   const kind = P.prefs.homeArt, key = kind !== 'off' && id ? 'homeart:' + kind + ':' + id + ':' + artStamp(byId[id]) : null;
   if (key !== HB.key) { HB.prev = HB.a > .5 ? HB.key : HB.prev; HB.key = key; HB.a = 0; }
   HB.a = Math.min(1, HB.a + dt / .45); approach(HB, { vis: show ? 1 : 0 }, dt, 6);
-  const dim = lightTheme() ? [.62, .62, .66] : [.36, .37, .44], top = HOME_Y + 122, hgt = 750 - top;   // the fade's edge sits at the bottom of the row
+  const dim = lightTheme() ? [.44, .44, .48] : [.2, .21, .26], sc = 1 / HB_ZOOM;
+  const sweep = motion() ? .5 - .5 * Math.cos(S.time * 2 * Math.PI / (2 * HB_PAN)) : .5;   // there and back, easing at each end
+  const uv = [sc, sc, (1 - sc) * sweep, (1 - sc) * .5];
   const plate = (k, a) => { if (!k || a < .005 || NODRAW) return; const [, kd, gid] = k.split(':');
-    const [x, y] = pw(667, top + hgt / 2); gl.depthMask(false);
-    drawPart(PLANE, M4.trs(x, y, -1, 0, 0, 0, [1334 / PX, hgt / PX, 1]), { tex: tex(k, () => homeArtCanvas(byId[gid], kd), true), flat: true, col: dim, alpha: a * HB.vis });
+    const [x, y] = pw(667, HB_TOP + HB_H / 2); gl.depthMask(false);
+    drawPart(PLANE, M4.trs(x, y, -1, 0, 0, 0, [1334 / PX, HB_H / PX, 1]), { tex: tex(k, () => homeArtCanvas(byId[gid], kd)), ao: tex('homedots', homeDotMask, true), masked: true, uv, col: dim, alpha: a * HB.vis });
     gl.depthMask(true); };
   plate(HB.prev, 1 - ease(HB.a)); plate(HB.key, ease(HB.a));
 }
-const HOME_Y = 302;   // the selected cartridge's center on Home, under the top bar
 function drawHome(dt, t, strip) {   // strip: a game's page is open here, so the rest of the row waits in a small strip up top
   const items = homeItems(), H0 = S.home, rowFocus = H0.zone === 'row' && !S.top.on && S.screen === 'home', q = S.seq;
   approach(H0, { f: H0.i }, dt, 8);
@@ -342,8 +352,8 @@ function drawShade(alpha) {   // darkens everything drawn so far
 const CASE_AT = [326, 462], CASE_FIT = [580, 500];   // the open case's center and the room it fits in, left of the details
 function drawGamePage(dt, t) {
   const G0 = S.game, g = byId[G0.id], o = pose('case', {}), m = caseModel(g.sys), [W0, H0] = [m.W, m.H];
-  const sOpen = Math.min(CASE_FIT[0] / (2 * W0 * PX), CASE_FIT[1] / (H0 * PX)), s = G0.turn ? Math.min(sOpen * 1.35, 430 / (Math.max(W0, H0) * PX)) : sOpen;
-  const [cxw, cyw] = pw(CASE_AT[0], CASE_AT[1]), openT = G0.turn ? 0 : 1;
+  const sOpen = Math.min(CASE_FIT[0] / (2 * W0 * PX), CASE_FIT[1] / (H0 * PX)), s = G0.turn ? Math.min(sOpen * 1.4, 460 / (Math.max(W0, H0) * PX)) : sOpen;
+  const [cxw, cyw] = G0.turn ? pw(667, 420) : pw(CASE_AT[0], CASE_AT[1]), openT = G0.turn ? 0 : 1;   // turning, the closed box has the middle of the screen
   // Opening from Home: the open box slides in from the left while the cartridge lifts off Home and hovers over the
   // tray, then it lowers straight in. Closing to Home is the reverse: up out of the tray, box out to the left, back to Home.
   const home = G0.from === 'home' && (G0.fly || G0.closing), tx = cxw + m.W / 2 * s, offLeft = tx - 9;

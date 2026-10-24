@@ -303,3 +303,8 @@ top faces about six times more than the sides (light shells darkened a notch, co
 Found in testing: the corner smoothing from the last round also bent the light across big flat faces (diagonal bands,
 clearest on a black cartridge), fixed by keeping front and back faces flat; the page saved every value of every item
 you looked at, so new defaults never reached you, fixed by saving only what you change (under a new storage name).
+
+**Game page tiles and Home's dot fade (October 2026):** the Saves section removed, the action pills replaced by icon
+tiles, Close the box moved to the middle with the details out of the way, and Home's picture darker, zoomed, panning,
+with a windshield-style dot fade. The pan needed a new shader mode: the picture's texture coordinates move while a
+second texture, the dot mask, stays fixed to the screen.
