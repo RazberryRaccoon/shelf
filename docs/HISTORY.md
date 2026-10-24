@@ -293,3 +293,8 @@ outlines. Problems found in testing: pulling an outline in by the bevel folded c
 spikes (fixed by dropping points whose edges turn around); a studio HDR at exposure 1 washed light plastics out to white
 (defaults now exposure .72, environment .85). Poly Haven is blocked in Claude's sandbox, so the bundled studio EXR was
 what got tested. Shelf's own renderer (WebGL 1, its own model format) doesn't use these models yet.
+
+**Cartridge Studio consoles (October 2026):** Shelf's eleven code-built consoles ported to the studio. Found in testing:
+three.js extrusions are flat-shaded, so the N64's big rounded front showed bands (fixed with creased normals, which also
+smooth the cartridges' corners); light gray shells clipped to white under the studio, whose main softbox lights front and
+top faces about six times more than the sides (light shells darkened a notch, consoles get exposure .65 and key light .6).

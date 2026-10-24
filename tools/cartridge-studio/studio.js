@@ -1,4 +1,4 @@
-// The cartridge studio: a turntable view of one cartridge style, with sliders for the bevels, the plastic and the
+// The cartridge studio: a turntable view of one cartridge or console, with sliders for the bevels, the plastic and the
 // lighting, and export to .glb.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -7,6 +7,8 @@ import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { STYLES } from './cartridges.js';
 import { buildCartridge, sampleLabel } from './cartridge.js';
+import { CONSOLES } from './consoles.js';
+import { buildConsole, setLid } from './console.js';
 
 const $ = s => document.querySelector(s);
 const view = $('#view');
@@ -50,48 +52,65 @@ const shadowTex = (() => {
 const shadow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false }));
 shadow.rotation.x = -Math.PI / 2; scene.add(shadow);
 
-// ---------- state, saved per style in this browser ----------
-const DEFAULTS = { bevel: .8, segments: 6, envIntensity: .85, exposure: .72, keyLight: 1, turntable: true };   // a studio HDR is bright: these keep plastic colors true
-let styleId = 'gba', tune = {}, cart = null, labelTexture = null, customLabel = null, framed = null;
+// ---------- state, saved per item in this browser ----------
+// Items are cartridge styles ('gba') and consoles ('console:gba').
+const DEFAULTS = { bevel: .8, round: 1, segments: 6, envIntensity: .85, exposure: .72, keyLight: 1, turntable: true };   // a studio HDR is bright: these keep plastic colors true
+let itemId = 'gba', tune = {}, model = null, labelTexture = null, customLabel = null, framed = null;
+const isConsole = id => id.startsWith('console:');
+const entryFor = id => isConsole(id) ? CONSOLES[id.slice(8)] : STYLES[id];
 const saved = () => { try { return JSON.parse(localStorage.getItem('cartridge-studio') || '{}'); } catch (e) { return {}; } };
-function remember() { try { const s = saved(); s[styleId] = tune; s.last = styleId; localStorage.setItem('cartridge-studio', JSON.stringify(s)); } catch (e) { } }
-function tuningFor(id) { return Object.assign({}, DEFAULTS, STYLES[id].finish, saved()[id] || {}); }
+function remember() { try { const s = saved(); s[itemId] = tune; s.last = itemId; localStorage.setItem('cartridge-studio', JSON.stringify(s)); } catch (e) { } }
+const CONSOLE_DEFAULTS = { exposure: .65, keyLight: .6 };   // consoles show broad top faces to the light
+function tuningFor(id) { const e = entryFor(id); return Object.assign({}, DEFAULTS, isConsole(id) ? CONSOLE_DEFAULTS : {}, { lid: e.lid ? e.lid.rest : 0 }, e.finish, saved()[id] || {}); }
 
 function rebuild() {
-  const style = STYLES[styleId];
-  if (cart) { scene.remove(cart); cart.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
-  if (!customLabel) { if (labelTexture) labelTexture.dispose(); labelTexture = sampleLabel(style); }
-  cart = buildCartridge(style, { bevel: tune.bevel, segments: tune.segments, finish: tune, labelTexture: customLabel || labelTexture });
-  // stand it upright on its bottom edge, facing the camera
-  const box = new THREE.Box3().setFromObject(cart), size = box.getSize(new THREE.Vector3());
-  cart.position.y = -box.min.y;
-  scene.add(cart);
-  shadow.scale.set(size.x * 1.25, size.z * 3.2 + 6, 1); shadow.position.y = .02;
-  const r = Math.max(size.x, size.y) * 1.1;
-  if (framed !== styleId) {   // frame a newly chosen style; keep the view while tuning
-    controls.target.set(0, size.y / 2, 0); camera.position.set(r * .9, size.y * .75 + r * .25, r * 2.6); framed = styleId;
+  const entry = entryFor(itemId), kind = isConsole(itemId);
+  if (model) { scene.remove(model); model.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+  if (kind) model = buildConsole(entry, { round: tune.round, segments: tune.segments, finish: tune, lid: tune.lid });
+  else {
+    if (!customLabel) { if (labelTexture) labelTexture.dispose(); labelTexture = sampleLabel(entry); }
+    model = buildCartridge(entry, { bevel: tune.bevel, segments: tune.segments, finish: tune, labelTexture: customLabel || labelTexture });
+  }
+  // stand it on the floor: a cartridge upright on its bottom edge, a console on its base, facing the camera
+  const box = new THREE.Box3().setFromObject(model), size = box.getSize(new THREE.Vector3()), mid = box.getCenter(new THREE.Vector3());
+  model.position.set(-mid.x, -box.min.y, -mid.z);
+  scene.add(model);
+  shadow.scale.set(size.x * 1.25, kind ? size.z * 1.25 : size.z * 3.2 + 6, 1); shadow.position.y = .02;
+  const r = Math.max(size.x, size.y, kind ? size.z : 0) * 1.1;
+  if (framed !== itemId) {   // frame a newly chosen item; keep the view while tuning
+    controls.target.set(0, size.y / 2, 0);
+    if (kind) camera.position.set(r * .75, size.y + r * .9, r * 1.9); else camera.position.set(r * .9, size.y * .75 + r * .25, r * 2.6);
+    framed = itemId;
   }
   camera.near = r / 20; camera.far = r * 40; camera.updateProjectionMatrix();
   key.position.set(-r * 2, r * 3, r * 2.5);
-  applyLook();
+  syncRows(); applyLook();
 }
 function applyLook() {   // things that don't need new geometry
-  const m = cart.userData.materials;
-  m.plastic.color.set(tune.color); m.plastic.roughness = tune.roughness; m.plastic.clearcoat = tune.clearcoat; m.plastic.clearcoatRoughness = tune.clearcoatRoughness;
-  m.plastic.envMapIntensity = m.label.envMapIntensity = tune.envIntensity;
+  const m = model.userData.materials;
+  if (isConsole(itemId)) {
+    for (const p of m.plastics) { p.roughness = tune.roughness; p.clearcoat = tune.clearcoat; p.clearcoatRoughness = tune.clearcoatRoughness; }
+    m.shell.color.set(tune.color); setLid(model, tune.lid);
+  } else {
+    m.plastic.color.set(tune.color); m.plastic.roughness = tune.roughness; m.plastic.clearcoat = tune.clearcoat; m.plastic.clearcoatRoughness = tune.clearcoatRoughness;
+  }
+  model.traverse(o => { if (o.isMesh) o.material.envMapIntensity = tune.envIntensity; });
   renderer.toneMappingExposure = tune.exposure; key.intensity = tune.keyLight; controls.autoRotate = tune.turntable;
 }
 
 // ---------- controls ----------
+// [key, label, min, max, step, unit, needs new geometry, shown for: 'cart' | 'console' | 'lid' (consoles with a hinged part)]
 const SLIDERS = [
-  ['bevel', 'Bevel size', 0, 2.5, .05, 'mm', true], ['segments', 'Bevel segments', 1, 10, 1, '', true],
+  ['bevel', 'Bevel size', 0, 2.5, .05, 'mm', true, 'cart'], ['round', 'Edge rounding', 0, 2.5, .05, '×', true, 'console'],
+  ['lid', 'Lid', 0, 1, .01, '', false, 'lid'], ['segments', 'Bevel segments', 1, 10, 1, '', true],
   ['roughness', 'Roughness', 0, 1, .01], ['clearcoat', 'Clearcoat', 0, 1, .01], ['clearcoatRoughness', 'Clearcoat roughness', 0, 1, .01],
   ['envIntensity', 'Environment intensity', 0, 3, .05], ['exposure', 'Exposure', .3, 2.5, .05], ['keyLight', 'Key light', 0, 4, .05],
 ];
 function buildPanel() {
-  $('#style').innerHTML = Object.entries(STYLES).map(([id, s]) => `<option value="${id}">${s.name}</option>`).join('');
+  $('#style').innerHTML = `<optgroup label="Cartridges">${Object.entries(STYLES).map(([id, s]) => `<option value="${id}">${s.name}</option>`).join('')}</optgroup>`
+    + `<optgroup label="Consoles">${Object.entries(CONSOLES).map(([id, s]) => `<option value="console:${id}">${s.name}</option>`).join('')}</optgroup>`;
   $('#sliders').innerHTML = SLIDERS.map(([k, label, min, max, step, unit]) =>
-    `<label class="row"><span>${label}</span><input type="range" id="s-${k}" min="${min}" max="${max}" step="${step}"><output id="o-${k}"></output></label>`).join('');
+    `<label class="row" id="r-${k}"><span>${label}</span><input type="range" id="s-${k}" min="${min}" max="${max}" step="${step}"><output id="o-${k}"></output></label>`).join('');
   for (const [k, , , , step, unit = '', geometry] of SLIDERS) {
     const el = $('#s-' + k);
     el.addEventListener('input', () => { tune[k] = +el.value; $('#o-' + k).textContent = fmt(+el.value, step) + unit; geometry ? rebuild() : applyLook(); remember(); });
@@ -99,7 +118,7 @@ function buildPanel() {
   $('#style').addEventListener('change', e => selectStyle(e.target.value));
   $('#color').addEventListener('input', e => { tune.color = e.target.value; applyLook(); remember(); });
   $('#turntable').addEventListener('change', e => { tune.turntable = e.target.checked; applyLook(); remember(); });
-  $('#reset').addEventListener('click', () => { try { const s = saved(); delete s[styleId]; localStorage.setItem('cartridge-studio', JSON.stringify(s)); } catch (e) { } selectStyle(styleId); });
+  $('#reset').addEventListener('click', () => { try { const s = saved(); delete s[itemId]; localStorage.setItem('cartridge-studio', JSON.stringify(s)); } catch (e) { } selectStyle(itemId); });
   $('#labelFile').addEventListener('change', e => {
     const f = e.target.files[0]; if (!f) return;
     new THREE.TextureLoader().load(URL.createObjectURL(f), t => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; customLabel = t; rebuild(); });
@@ -113,23 +132,30 @@ function buildPanel() {
   $('#copy').addEventListener('click', copySettings);
 }
 const fmt = (v, step) => step >= 1 ? String(v) : v.toFixed(2);
+function syncRows() {   // show only the controls that apply to this item
+  const kind = isConsole(itemId) ? 'console' : 'cart', lid = kind === 'console' && !!entryFor(itemId).lid;
+  for (const [k, , , , , , , only] of SLIDERS) $('#r-' + k).hidden = !!only && !(only === kind || (only === 'lid' && lid));
+  $('#labelLine').hidden = kind !== 'cart';
+}
 function syncPanel() {
-  $('#style').value = styleId; $('#color').value = tune.color; $('#turntable').checked = tune.turntable;
+  $('#style').value = itemId; $('#color').value = tune.color; $('#turntable').checked = tune.turntable;
   for (const [k, , , , step, unit = ''] of SLIDERS) { $('#s-' + k).value = tune[k]; $('#o-' + k).textContent = fmt(tune[k], step) + unit; }
 }
-function selectStyle(id) { styleId = id; tune = tuningFor(id); syncPanel(); rebuild(); remember(); }
+function selectStyle(id) { itemId = id; tune = tuningFor(id); syncPanel(); rebuild(); remember(); }
+const fileName = () => isConsole(itemId) ? `console-${itemId.slice(8)}.glb` : `cartridge-${itemId}.glb`;
 
 // ---------- export ----------
 function exportGlb() {
-  const copy = cart.clone(); copy.position.set(0, 0, 0);
+  const copy = model.clone(); copy.position.set(0, 0, 0);
   new GLTFExporter().parse(copy, buf => {
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([buf], { type: 'model/gltf-binary' }));
-    a.download = `cartridge-${styleId}.glb`; document.body.append(a); a.click(); a.remove();
-    $('#note').textContent = `Saved cartridge-${styleId}.glb (millimetres, label included).`;
+    a.download = fileName(); document.body.append(a); a.click(); a.remove();
+    $('#note').textContent = `Saved ${fileName()} (millimetres${isConsole(itemId) ? ', the lid as its own part' : ', label included'}).`;
   }, err => { $('#note').textContent = 'Export failed: ' + err.message; }, { binary: true });
 }
-function copySettings() {   // the tuned values, ready to paste into this style's "finish" in cartridges.js
-  const t = tune, text = `finish: { color: '${t.color}', roughness: ${t.roughness}, clearcoat: ${t.clearcoat}, clearcoatRoughness: ${t.clearcoatRoughness} },   // bevel ${t.bevel} mm, ${t.segments} segments`;
+function copySettings() {   // the tuned values, ready to paste into this item's "finish" in cartridges.js or consoles.js
+  const t = tune, shape = isConsole(itemId) ? `edge rounding ${t.round}×` : `bevel ${t.bevel} mm`;
+  const text = `finish: { color: '${t.color}', roughness: ${t.roughness}, clearcoat: ${t.clearcoat}, clearcoatRoughness: ${t.clearcoatRoughness} },   // ${shape}, ${t.segments} segments`;
   $('#settingsText').value = text; $('#settingsText').hidden = false; $('#settingsText').select();
   navigator.clipboard && navigator.clipboard.writeText(text).then(() => { $('#note').textContent = 'Copied.'; }, () => { $('#note').textContent = 'Select the text and copy it.'; });
 }
@@ -138,6 +164,6 @@ function copySettings() {   // the tuned values, ready to paste into this style'
 function resize() { const r = view.getBoundingClientRect(); renderer.setSize(r.width, r.height, false); camera.aspect = r.width / r.height; camera.updateProjectionMatrix(); }
 new ResizeObserver(resize).observe(view);
 buildPanel(); loadEnvironment();
-selectStyle(STYLES[saved().last] ? saved().last : 'gba');
+{ const last = saved().last; selectStyle(last && entryFor(last) ? last : 'gba'); }
 renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
-window.studio = { renderer, scene, camera, controls, selectStyle, get cart() { return cart; }, get tune() { return tune; } };   // for testing
+window.studio = { renderer, scene, camera, controls, selectStyle, get model() { return model; }, get tune() { return tune; } };   // for testing

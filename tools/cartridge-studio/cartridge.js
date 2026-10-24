@@ -1,6 +1,7 @@
 // Builds a cartridge from a style in cartridges.js: a beveled, extruded body in physically based plastic, a label
 // recess with rounded edges, a matte label set into it, and beveled grip ridges. Units are millimetres.
 import * as THREE from 'three';
+import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // ---------- outlines ----------
 
@@ -66,7 +67,7 @@ const toShape = pts => new THREE.Shape(pts.map(p => new THREE.Vector2(p[0], p[1]
 const toPath = pts => new THREE.Path(pts.slice().reverse().map(p => new THREE.Vector2(p[0], p[1])));   // holes wind the other way
 
 // An extrusion from z0 to z1 whose rounded bevels stay inside the outline, so the finished part keeps its true size.
-function slab(pts, holes, z0, z1, bevel, segments) {
+export function slab(pts, holes, z0, z1, bevel, segments) {
   const t = Math.max(0, Math.min(bevel, (z1 - z0) / 2 - .01));
   const shape = toShape(t > 0 ? offset(pts, -t) : pts);
   for (const h of holes) shape.holes.push(toPath(t > 0 ? offset(h, t) : h));
@@ -74,7 +75,7 @@ function slab(pts, holes, z0, z1, bevel, segments) {
     depth: Math.max(.01, z1 - z0 - 2 * t), bevelEnabled: t > 0, bevelThickness: t, bevelSize: t, bevelOffset: 0, bevelSegments: segments, curveSegments: 12, steps: 1,
   });
   g.translate(0, 0, z0 + t);
-  return g;
+  return toCreasedNormals(g, Math.PI / 5);   // smooth across the rounded corners and the bevel steps, keep real creases sharp
 }
 
 // ---------- materials ----------

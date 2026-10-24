@@ -234,6 +234,8 @@ Summarized from the first part of the conversation; the full transcript is kept 
   outlines; don't copy any other app's assets or exact geometry." A three.js generator (outlines in a data file, ExtrudeGeometry with bevels, MeshPhysicalMaterial, a
   studio HDR through PMREM, ACES filmic, contact shadow) and a tuning page with .glb export. Built as
   `tools/cartridge-studio/`, in the brief's order of work.
+- The user on the result: "Those all look pretty great, just with the default settings. Can you add in the consoles too
+  before I fully approve anything?" Shelf's eleven code-built consoles added to the studio, same treatment.
 
 ### Prototype v2, part 2 (built)
 
