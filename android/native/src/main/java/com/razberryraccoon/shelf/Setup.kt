@@ -149,6 +149,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                 rows += Options.Row("go", "Emulators", tag = Step.EMUS)
                 rows += Options.Row("go", "Your name and color", value = games.name, tag = Step.WHO)
                 rows += Options.Row("go", "Lighting", value = "Brightness of the 3D", tag = Step.LIGHT)
+                rows += Options.Row("sounds", "Sounds", value = if (games.sounds) "On" else "Off", sub = "Soft clicks and chimes as you move around")
                 rows += Options.Row("again", "Run first-time setup again")
                 rows += Options.Row("close", "Done", primary = true)
             }
@@ -173,10 +174,10 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         val r = options.current()
         if (r?.key == "light" && (a == "left" || a == "right")) return adjustLight(r.tag as String, if (a == "left") -1 else 1)
         when (a) {
-            "up" -> options.move(-1)
-            "down" -> options.move(1)
+            "up" -> Sounds.play(if (options.move(-1)) Sounds.MOVE else Sounds.BUMP)
+            "down" -> Sounds.play(if (options.move(1)) Sounds.MOVE else Sounds.BUMP)
             "b" -> back()
-            "a" -> act(options.current() ?: return)
+            "a" -> { val r = options.current() ?: return; Sounds.play(Sounds.PICK); act(r) }
         }
     }
 
@@ -209,6 +210,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             "again" -> { games.setupDone = false; host.finished(this) }
             "close" -> host.finished(this)
             "close-light" -> show(Step.MENU)
+            "sounds" -> { games.sounds = !games.sounds; Sounds.enabled = games.sounds; Sounds.play(Sounds.PICK); fill() }
             "light-reset" -> { games.lightEnv = Look.ENV; games.lightExposure = Look.EXPOSURE; games.lightKey = Look.KEY; applyLight(); fill() }
         }
     }
@@ -290,7 +292,7 @@ class Options(ctx: Context) : View(ctx) {
 
     fun reset() { i = 0; top = 0f }
     fun current() = rows.getOrNull(i)
-    fun move(d: Int) { val k = (i + d).coerceIn(0, rows.size - 1); if (k != i) { i = k; onFocus?.invoke(); invalidate() } }
+    fun move(d: Int): Boolean { val k = (i + d).coerceIn(0, rows.size - 1); if (k == i) return false; i = k; onFocus?.invoke(); invalidate(); return true }
 
     override fun onDraw(c: Canvas) {
         // keep the focused row in view

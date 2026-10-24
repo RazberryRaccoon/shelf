@@ -27,7 +27,7 @@ import kotlin.math.sin
  * Positions follow the prototype's drawHome. Library, Apps, Museum and Settings come to the native app in later versions.
  */
 class Home(private val ctx: Context, private val stage: Stage, private val board: Board, private val backdrop: Backdrop,
-           private val games: Games, private val carts: Carts, private val actions: Actions) {
+           private val games: Games, private val carts: Carts, private val actions: Actions) : GamePage.Host {
     interface Actions { fun play(g: Game); fun allowStorage(); fun openSettings() }
 
     private class Slot(val game: Game, var cart: Cart?, var x: Float = 270f, var y: Float = 326f, var z: Float = 0f, var px: Float = 156f, var bright: Float = .72f)
@@ -40,6 +40,8 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     private var picTimer = 0f
     private var picFor: Game? = null
     var picker: Picker? = null; private set
+    /** The open game's page, if one is open (Down on a game). */
+    var page: GamePage? = null; private set
     var needsStorage = false
     /** Home hides while setup or settings are open; coming back, the cartridges rise into place one after another. */
     var visible = true; set(v) { if (v && !field) { rise = 0f; riseT = 0f }; field = v }
@@ -72,6 +74,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         chip.addView(chipText)
         meta.addView(chip)
         meta.addView(hint("A", "Play"), LinearLayout.LayoutParams(-2, -2).apply { leftMargin = 24 })
+        meta.addView(hint("↓", "Details"), LinearLayout.LayoutParams(-2, -2).apply { leftMargin = 24 })
         meta.addView(hint("Y", "Shell color and emulator"), LinearLayout.LayoutParams(-2, -2).apply { leftMargin = 24 })
         board.put(meta, 64, 600)
         board.put(message, 167, 300, 1000)
@@ -85,11 +88,14 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
 
     fun setGames(list: List<Game>) {
         val keep = list.take(15)
+        page?.let { p -> if (keep.none { it.path == p.game.path }) { p.destroy(); page = null } }   // its game is gone
         val old = slots.associateBy { it.game.path }
         slots.filter { s -> keep.none { it.path == s.game.path } }.forEach { it.cart?.destroy() }
         slots.clear()
         for (g in keep) slots.add(old[g.path] ?: Slot(g, carts.make(g.sys, g.title, games.variant(g))))
         i = i.coerceIn(0, maxOf(0, slots.size - 1))
+        // back from playing with a page open: the game moved to the front of the row, so follow it there
+        page?.let { p -> i = slots.indexOfFirst { it.game.path == p.game.path }; f = i.toFloat(); p.refresh() }
         refreshInfo()
     }
 
@@ -117,12 +123,15 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         rise = if (visible) min(1f, rise + dt / 1.4f) else maxOf(0f, rise - dt / .35f)
         if (visible) riseT += dt
         val shownK = Backdrop.ease(min(1f, rise * 2f))
-        for (v in listOf(title, meta, message, clock, profile) + dock) v.alpha = shownK
+        val pageK = page?.shownK ?: 0f
+        for (v in listOf(clock, profile) + dock) v.alpha = shownK
+        for (v in listOf(title, meta, message)) v.alpha = shownK * (1 - pageK)
         dockLabel.alpha = minOf(dockLabel.alpha, shownK)
-        backdrop.picVisible = shownK
+        backdrop.picVisible = shownK * (1 - pageK)
         if (!visible && rise == 0f) { slots.forEach { it.cart?.place(-2000f, 0f, 0f, 0f, 0f, 1f) }; return }
         if (visible) backdrop.shadows.clear()
         slots.forEachIndexed { k, s ->
+            if (k == i && page != null) return@forEachIndexed   // the page holds this one
             val off = k - f; val foc = k == i && picker == null
             val bob = sin(time * .8f + k * 1.7f) * (if (foc) 4f else 3f)
             val tx = 270f + off * 196f + sign(off) * min(abs(off), 1f) * 70f
@@ -134,7 +143,10 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
             s.bright += ((if (k == i) 1.02f else .72f) - s.bright) * ease
             val cart = s.cart ?: return@forEachIndexed
             // rising into place, each a moment after the one before
-            val up = if (visible) Backdrop.ease(((riseT - k * .07f) / .9f).coerceIn(0f, 1f)) else 1f; val lift = (1 - up) * 560f
+            val rest = if (visible) Backdrop.ease(((riseT - k * .07f) / .9f).coerceIn(0f, 1f)) else 1f
+            // while a page is open, the others sink out of the way, each a beat after the one before
+            val away = page?.let { Backdrop.ease((pageK * 1.4f - abs(k - i) * .06f).coerceIn(0f, 1f)) } ?: 0f
+            val up = rest * (1 - away); val lift = (1 - rest) * 560f + away * 520f
             cart.place(s.x, s.y + bob + lift, s.z, -.2f, -.1f, s.px)
             cart.brightness(s.bright)
             if (s.x > -200 && s.x < 1534) {
@@ -142,6 +154,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
                 backdrop.shadows.add(floatArrayOf(s.x, s.y + cart.style.h / big * s.px / 2 + (if (k == i) 24f else 12f), cart.style.w / big * s.px * .9f, (if (k == i) 1f else .7f) * up))
             }
         }
+        page?.tick(dt)
         if (picTimer > 0) { picTimer -= dt; if (picTimer <= 0) current().let { g -> if (g != picFor) { picFor = g; backdrop.picture(g?.let { Paintings.picture(800, 196, it.title) }) } } }
         if (toastLeft > 0) { toastLeft = (toastUntil - android.os.SystemClock.uptimeMillis()) / 1000f; toast.alpha = min(1f, toastLeft / .3f).coerceAtLeast(0f) }
         clockLeft -= dt; if (clockLeft <= 0) clockTick()
@@ -151,23 +164,43 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
 
     fun input(a: String) {
         picker?.let { if (it.input(a)) return }
+        page?.let { it.input(a); return }
         if (needsStorage) { if (a == "a") actions.allowStorage(); return }
         if (slots.isEmpty() && zone == "row") { if (a == "a") actions.openSettings() else if (a == "up") { zone = "top"; refreshTop() }; return }
         when (zone) {
             "row" -> when (a) {
-                "left" -> if (i > 0) { i--; refreshInfo() }
-                "right" -> if (i < slots.size - 1) { i++; refreshInfo() }
-                "up" -> { zone = "top"; refreshTop() }
-                "a" -> current()?.let { g -> if (games.emulator(g.sys) == null) chooseEmulator(g, then = true) else actions.play(g) }
+                "left" -> if (i > 0) { i--; refreshInfo(); Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
+                "right" -> if (i < slots.size - 1) { i++; refreshInfo(); Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
+                "up" -> { zone = "top"; refreshTop(); Sounds.play(Sounds.MOVE) }
+                "down" -> openPage()
+                "a" -> current()?.let { g -> Sounds.play(Sounds.PICK); if (games.emulator(g.sys) == null) chooseEmulator(g, then = true) else actions.play(g) }
                 "y" -> current()?.let { options(it) }
             }
             "top" -> when (a) {
-                "left" -> if (topI > 0) { topI--; refreshTop() }
-                "right" -> if (topI < dock.size) { topI++; refreshTop() }
-                "down", "b" -> { zone = "row"; refreshTop() }
+                "left" -> if (topI > 0) { topI--; refreshTop(); Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
+                "right" -> if (topI < dock.size) { topI++; refreshTop(); Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
+                "down", "b" -> { zone = "row"; refreshTop(); Sounds.play(Sounds.MOVE) }
                 "a" -> if (topI == 0 || topI == dock.size) actions.openSettings() else show("${dockNames[topI - 1]} comes to Shelf Native in a later version. The web Shelf has it today.")
             }
         }
+    }
+
+    // ---------- a game's page ----------
+
+    private fun openPage() {
+        val s = slots.getOrNull(i) ?: return
+        page = GamePage(ctx, board, backdrop, stage, games, carts, s.game, s.cart, floatArrayOf(s.x, s.y, s.px), this)
+    }
+    /** The right stick, for turning the cartridge on a game's page. */
+    fun stick(x: Float, y: Float) { page?.stick(x, y) }
+
+    override fun play(g: Game) = actions.play(g)
+    override fun chooseEmulator(g: Game) = chooseEmulator(g, then = false)
+    override fun cartChanged(g: Game, c: Cart?) { slots.firstOrNull { it.game == g }?.cart = c }
+    override fun closed(page: GamePage) {
+        if (this.page === page) this.page = null
+        slots.firstOrNull { it.game == page.game }?.let { it.cart?.brightness(it.bright) }
+        refreshInfo()
     }
 
     private fun refreshTop() {
@@ -207,6 +240,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
             start = maxOf(0, choices.indexOfFirst { it.first == cur }),
             note = if (choices.any { it.first.startsWith(Games.RA) }) "A RetroArch core has to be downloaded in RetroArch first (Main Menu › Load Core › Download a Core)." else null) { k ->
             games.setEmulator(g.sys, choices[k].first)
+            page?.refresh()
             if (then) actions.play(g) else show("${Games.NAMES[g.sys]} games play with ${choices[k].first}")
         })
     }
@@ -216,6 +250,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
 
     private fun open(p: Picker) {
         picker?.let { board.removeView(it) }
+        if (picker == null) Sounds.play(Sounds.OPEN)
         picker = p; p.onClose = { board.removeView(p); if (picker === p) picker = null }
         board.put(p, 0, 0, 1334, 750)
     }
@@ -292,10 +327,10 @@ class Picker(ctx: Context, private val heading: String, private val rows: List<R
 
     fun input(a: String): Boolean {
         when (a) {
-            "up" -> if (k > 0) k--
-            "down" -> if (k < rows.size - 1) k++
-            "a" -> { onClose?.invoke(); onPick(k) }
-            "b" -> onClose?.invoke()
+            "up" -> if (k > 0) { k--; Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
+            "down" -> if (k < rows.size - 1) { k++; Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
+            "a" -> { Sounds.play(Sounds.PICK); onClose?.invoke(); onPick(k) }
+            "b" -> { Sounds.play(Sounds.CLOSE); onClose?.invoke() }
             else -> return true
         }
         top = top.coerceIn(maxOf(0, k - SHOW + 1), k); invalidate(); return true

@@ -119,6 +119,12 @@ class Stage(private val ctx: Context, private val surface: TextureView) : Choreo
         engine.lightManager.let { it.setIntensity(it.getInstance(sun), key) }
     }
 
+    /** Swings the key light around the vertical axis by `a` radians, so a cartridge you turn catches a sweep of highlight. */
+    fun turnKey(a: Float) {
+        val c = kotlin.math.cos(a); val s = kotlin.math.sin(a)
+        engine.lightManager.let { it.setDirection(it.getInstance(sun), .48f * c - .62f * s, -.62f, -.48f * s - .62f * c) }
+    }
+
     fun readAsset(path: String): ByteBuffer {
         val bytes = ctx.assets.open(path).use { it.readBytes() }
         return ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.nativeOrder()).put(bytes).also { it.flip() }
