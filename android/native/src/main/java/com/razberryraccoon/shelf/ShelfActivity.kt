@@ -35,6 +35,13 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host {
 
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
+        // If Shelf Native ever closes on an error in its own code, keep what happened, and show it the next time it opens
+        val crashFile = java.io.File(filesDir, "last-crash.txt")
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { t, e ->
+            try { crashFile.writeText(android.util.Log.getStackTraceString(e)) } catch (_: Exception) { }
+            previous?.uncaughtException(t, e)
+        }
         // Some emulators still take a plain file:// path; without this Android refuses to hand one over.
         StrictMode.setVmPolicy(StrictMode.VmPolicy.Builder().build())
         Fonts.load(this)
@@ -59,6 +66,11 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host {
             board.fit(s, ox, oy); backdrop.scale = s; backdrop.ox = ox; backdrop.oy = oy
         }
         stage.onFrame = { dt -> home.tick(dt); setup?.tick(dt); backdrop.tick(dt) }
+        if (crashFile.exists()) {
+            val lines = crashFile.readLines().map { it.trim() }.filter { it.isNotEmpty() }.take(6)
+            crashFile.delete()
+            home.report("Shelf Native closed on an error last time", lines, "A photo of this helps Claude fix it. Press A or B to carry on.")
+        }
     }
 
     override fun onResume() {
@@ -177,7 +189,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host {
     private var lastRepeat = 0L
     private val repeat = object : Runnable { override fun run() { held?.let { input(it); ui.postDelayed(this, 110) } } }
     /** Buttons go to whichever screen is showing. */
-    private fun input(a: String) { setup?.input(a) ?: home.input(a) }
+    private fun input(a: String) { if (home.picker != null) home.input(a) else setup?.input(a) ?: home.input(a) }   // a message over everything goes first
 
     private fun actionFor(code: Int) = when (code) {
         KeyEvent.KEYCODE_DPAD_UP -> "up"; KeyEvent.KEYCODE_DPAD_DOWN -> "down"

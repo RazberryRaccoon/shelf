@@ -3,6 +3,7 @@ package com.razberryraccoon.shelf
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.opengl.Matrix
+import com.google.android.filament.Material
 import com.google.android.filament.MaterialInstance
 import com.google.android.filament.Texture
 import com.google.android.filament.TextureSampler
@@ -70,7 +71,9 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
     private val tm = stage.engine.transformManager
     private val plastic: MaterialInstance? = materialOf("body")
     private val labelMat: MaterialInstance? = materialOf("label")
+    // GEN_MIPMAPPABLE: Filament refuses to make the smaller, sharper copies (mipmaps) of a texture without it, and stops the app
     private val labelTex: Texture = Texture.Builder().width(label.width).height(label.height).levels(32 - Integer.numberOfLeadingZeros(maxOf(label.width, label.height)))
+        .usage(Texture.Usage.DEFAULT or Texture.Usage.GEN_MIPMAPPABLE)
         .sampler(Texture.Sampler.SAMPLER_2D).format(Texture.InternalFormat.SRGB8_A8).build(stage.engine)
     var variant: Variant = style.variants[0]; private set
     private var base = floatArrayOf(1f, 1f, 1f)
@@ -81,16 +84,21 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
         TextureHelper.setBitmap(stage.engine, labelTex, 0, label)
         labelTex.generateMipmaps(stage.engine)
         label.recycle()
-        labelMat?.setParameter("baseColorMap", labelTex, sampler)
+        labelMat?.takeIf { m -> m.material.parameters.any { it.name == "baseColorMap" && it.type == Material.Parameter.Type.SAMPLER_2D } }?.setParameter("baseColorMap", labelTex, sampler)
     }
 
     private fun materialOf(name: String): MaterialInstance? {
         val e = asset.getFirstEntityByName(name); if (e == 0) return null
         val r = rm.getInstance(e); return if (r == 0) null else rm.getMaterialInstanceAt(r, 0)
     }
+    /** Sets a value only if the material has it, with exactly that many numbers; Filament stops the app on a mismatch. */
     private fun MaterialInstance.set(name: String, vararg v: Float) {
-        if (!material.hasParameter(name)) return
-        when (v.size) { 1 -> setParameter(name, v[0]); 3 -> setParameter(name, v[0], v[1], v[2]); else -> setParameter(name, v[0], v[1], v[2], v[3]) }
+        val type = material.parameters.firstOrNull { it.name == name }?.type ?: return
+        when {
+            v.size == 1 && type == Material.Parameter.Type.FLOAT -> setParameter(name, v[0])
+            v.size == 3 && type == Material.Parameter.Type.FLOAT3 -> setParameter(name, v[0], v[1], v[2])
+            v.size == 4 && type == Material.Parameter.Type.FLOAT4 -> setParameter(name, v[0], v[1], v[2], v[3])
+        }
     }
 
     /** The Studio's rules (cartridge.js, applyVariant): metallic gold and silver, see-through clear and frosted shells. */

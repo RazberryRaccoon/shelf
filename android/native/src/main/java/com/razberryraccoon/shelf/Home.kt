@@ -209,6 +209,9 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         })
     }
 
+    /** A message over everything, such as what went wrong last time. */
+    fun report(heading: String, lines: List<String>, note: String) = open(Picker(ctx, heading, lines.map { Picker.Row(it.take(80), "") }, note = note) { })
+
     private fun open(p: Picker) {
         picker?.let { board.removeView(it) }
         picker = p; p.onClose = { board.removeView(p); if (picker === p) picker = null }
