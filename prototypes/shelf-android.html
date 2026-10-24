@@ -152,6 +152,17 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .actions { display: flex; flex-wrap: wrap; gap: 10.5px; margin-top: 24px; }
 .act { display: flex; align-items: center; gap: 9px; padding: 12px 21px; border-radius: 27px; font-size: 23px; font-weight: 800; background: var(--chip); color: var(--fg); white-space: nowrap; transition: background .2s, color .2s, transform .2s; }
 .act.primary { background: var(--accent); color: #0b0d18; }
+.actions.tiles { display: flex; flex-wrap: nowrap; gap: 10px; }
+.tile { flex: 1 1 0; min-width: 0; transition: transform .2s; }
+.tile .ti { height: 78px; border-radius: 18px; background: var(--chip); color: var(--fg); display: grid; place-items: center; transition: background .2s, color .2s, box-shadow .2s; }
+.tile svg { width: 34px; height: 34px; }
+.tile p { margin: 7.5px 0 0; font-size: 16.5px; font-weight: 700; letter-spacing: -.01em; color: var(--fg2); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile.primary .ti { background: var(--accent); color: #0b0d18; }
+.tile.on .ti { color: var(--acc-t); }
+.tile.focus { transform: translateY(-3px); }
+.tile.focus .ti { box-shadow: 0 0 0 2px var(--sel); }
+.tile.focus p { color: var(--fg); }
+.actsay { margin: 12px 0 0; min-height: 1.3em; font-size: 19.5px; color: var(--fg2); }
 .act.focus { background: var(--sel); color: var(--selfg); transform: scale(1.05); }
 .act .btn { min-width: 29px; height: 29px; font-size: 16.5px; border-color: currentColor; color: inherit; }
 .gp h3 { margin: 27px 0 12px; font-size: 22px; font-weight: 800; color: var(--fg2); display: flex; justify-content: space-between; }
@@ -179,6 +190,7 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .managed .act { flex: none; }
 /* the game panel rises from the bottom once the box is in place, its sections following one after another */
 #s-game .gp { transform: translateY(80px); opacity: 0; transition: transform .6s cubic-bezier(.2,.8,.2,1), opacity .45s ease; }
+#s-game.on.turning .gp { transform: translateX(90px); opacity: 0; transition-delay: 0s; transition-duration: .45s, .3s; }
 #s-game.on .gp { transform: none; opacity: 1; transition-delay: .5s; }
 #s-game.on.closing .gp { transform: translateY(80px); opacity: 0; transition-delay: 0s; transition-duration: .4s, .25s; }
 @keyframes gpRise { from { opacity: 0; transform: translateY(24px); } }
@@ -206,7 +218,7 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .credit { margin: 12px 0 0; font-size: 19px; color: var(--fg2); }
 .objlabel { position: absolute; transform: translateX(-50%); padding: 6px 16.5px; border-radius: 18px; background: var(--sel); color: var(--selfg); font-size: 21px; font-weight: 800; white-space: nowrap; opacity: 0; transition: opacity .2s; pointer-events: none; }
 .objlabel.on { opacity: 1; }
-.turnhint { position: absolute; left: 64px; bottom: 41.5px; padding: 12px 21px; border-radius: 21px; background: var(--panel); border: 1px solid var(--line); font-size: 22px; font-weight: 600; color: var(--fg); opacity: 0; transition: opacity .3s; }
+.turnhint { position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap; bottom: 41.5px; padding: 12px 21px; border-radius: 21px; background: var(--panel); border: 1px solid var(--line); font-size: 22px; font-weight: 600; color: var(--fg); opacity: 0; transition: opacity .3s; }
 .turnhint.on { opacity: 1; }
 .turnhint .btn { margin-right: 4.5px; }
 
@@ -1219,7 +1231,7 @@ precision highp float;
 precision mediump float;
 #endif
 varying vec3 vN, vW, vL; varying vec2 vUV, vUV2;
-uniform sampler2D uTex, uAO; uniform float uTexOn, uAlpha, uSpec, uBright, uMode, uTime, uGrain, uGloss, uAOOn; uniform vec3 uColor, uRim, uEye, uEmit;
+uniform sampler2D uTex, uAO; uniform float uTexOn, uAlpha, uSpec, uBright, uMode, uTime, uGrain, uGloss, uAOOn; uniform vec3 uColor, uRim, uEye, uEmit; uniform vec4 uUV;
 float hsh(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 45.164))) * 43758.5453); }
 float vnoise(vec3 p) {   // smooth value noise, for a fine molded-plastic texture
   vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -1227,6 +1239,8 @@ float vnoise(vec3 p) {   // smooth value noise, for a fine molded-plastic textur
              mix(mix(hsh(i + vec3(0, 0, 1)), hsh(i + vec3(1, 0, 1)), f.x), mix(hsh(i + vec3(0, 1, 1)), hsh(i + vec3(1, 1, 1)), f.x), f.y), f.z);
 }
 void main() {
+  if (uMode > 3.5) {   // a picture seen through a mask that stays put while the picture zooms and pans (Home's backdrop)
+    vec3 pc = texture2D(uTex, vUV * uUV.xy + uUV.zw).rgb; gl_FragColor = vec4(pc * uColor, texture2D(uAO, vUV).a * uAlpha); return; }
   if (uMode > 2.5) { vec4 ft = texture2D(uTex, vUV); gl_FragColor = vec4(ft.rgb * uColor, ft.a * uAlpha); return; }   // a flat picture, tinted
   if (uMode > 1.5) {   // selection glow: two colors chasing each other around the outline
     float k = 0.5 + 0.5 * sin(atan(vL.y, vL.x) + 0.8);          // brighter toward the top left, where the light comes from
@@ -1439,7 +1453,7 @@ function drawPart(m, model, o) {
   if (o.tex) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, o.tex); gl.uniform1i(u.uTex, 0); }
   gl.uniform3fv(u.uColor, o.col || [1, 1, 1]); gl.uniform1f(u.uAlpha, (o.alpha == null ? 1 : o.alpha) * UNDER); gl.uniform1f(u.uSpec, o.spec || 0);
   gl.uniform1f(u.uBright, o.bright == null ? 1 : o.bright); gl.uniform1f(u.uGrain, o.grain || 0); gl.uniform1f(u.uGloss, o.gloss || 0);
-  gl.uniform1f(u.uAOOn, o.ao ? 1 : 0); if (o.ao) { gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, o.ao); gl.uniform1i(u.uAO, 1); gl.activeTexture(gl.TEXTURE0); } gl.uniform3fv(u.uEmit, o.emit || [0, 0, 0]); gl.uniform1f(u.uMode, o.flat ? 3 : o.hull ? 2 : o.mask ? 1 : 0); gl.uniform1f(u.uGrow, o.grow || 0);
+  gl.uniform1f(u.uAOOn, o.ao ? 1 : 0); if (o.ao) { gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, o.ao); gl.uniform1i(u.uAO, 1); gl.activeTexture(gl.TEXTURE0); } gl.uniform3fv(u.uEmit, o.emit || [0, 0, 0]); gl.uniform1f(u.uMode, o.masked ? 4 : o.flat ? 3 : o.hull ? 2 : o.mask ? 1 : 0); gl.uniform4fv(u.uUV, o.uv || [1, 1, 0, 0]); gl.uniform1f(u.uGrow, o.grow || 0);
   bindMesh(m); gl.drawElements(gl.TRIANGLES, m.count, gl.UNSIGNED_SHORT, 0);
 }
 function beginMeshes() {
@@ -2372,7 +2386,7 @@ function openGame(id, fromKey, from) {
 function closeGame(then) {   // the box closes, goes back where it came from, and that screen comes back around it
   const G0 = S.game; if (G0.closing) return;
   G0.closing = { t: 0 }; G0.then = then || G0.from; G0.turn = false; G0.fly = null; sfx.back(); $('#gpin').classList.remove('enter');
-  $('#s-game').classList.add('closing'); $('#objLabel').classList.remove('on'); $('#turnHint').classList.remove('on');
+  $('#s-game').classList.add('closing'); $('#s-game').classList.remove('turning'); $('#objLabel').classList.remove('on'); $('#turnHint').classList.remove('on');
   if (TABS.includes(G0.then)) { if (G0.then === 'home') refreshHome(); else if (G0.then === 'library') refreshLibrary(false); setTimeout(() => { if (S.screen === 'game' && S.game.closing) riseUnder(G0.then); }, 320); }   // once the box is out of the way
 }
 function closeGameTarget(g) {   // the pose the closed box shrinks back to
@@ -2383,17 +2397,34 @@ function closeGameTarget(g) {   // the pose the closed box shrinks back to
 }
 function gameActions() {
   const g = byId[S.game.id], r = rec(g.id), ra = isRA(emuFor(g)), saved = ra && r && r.slots.some(Boolean) && !P.prefs.hardcore;
-  return [saved ? 'Resume' : 'Play', ...(saved ? ['New game'] : []), ...(g.sys === 'android' ? [] : ['emu']), 'Close the box', 'Game settings', 'col', 'fav'];
+  return [saved ? 'Resume' : 'Play', ...(g.sys === 'android' ? [] : ['emu']), 'Close the box', 'Game settings', 'col', 'fav'];
+}
+// The game page's buttons: a row of tiles with an icon and a short name; the line under them says what the focused one does.
+const ICON = {
+  play: '<path d="M8 5.5v13l10.5-6.5z" fill="currentColor" stroke="none"/>',
+  emu: '<path d="M6.5 8.5h11a4 4 0 0 1 4 4v1.2a3 3 0 0 1-5.3 1.9L14.8 14H9.2l-1.4 1.6a3 3 0 0 1-5.3-1.9v-1.2a4 4 0 0 1 4-4z"/><path d="M7.5 10.6v3.4M5.8 12.3h3.4"/><circle cx="15.6" cy="11.6" r=".9" fill="currentColor"/><circle cx="17.8" cy="13.4" r=".9" fill="currentColor"/>',
+  box: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8.5 3v18"/>',
+  settings: '<path d="M4 7h9M17 7h3M4 17h4M12 17h8"/><circle cx="15" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
+  col: '<path d="M3 7.5a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 10.5v6M9 13.5h6"/>',
+  star: '<path d="M12 3.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z"/>',
+};
+const icon = (k, fill) => `<svg viewBox="0 0 24 24" fill="${fill ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`;
+function actionTile(a, g, r, emu) {
+  const fav = !!(r && r.fav);
+  return a === 'Resume' || a === 'Play' ? { icon: icon('play'), name: a, say: a === 'Resume' ? 'Pick up where you left off' : 'Start the game' }
+    : a === 'emu' ? { icon: icon('emu'), name: 'Emulator', say: `Plays with ${esc(emuName(emu))}. Choose another for this game.` }
+    : a === 'Close the box' ? { icon: icon('box'), name: 'Close box', say: 'Close the box and turn it around' }
+    : a === 'Game settings' ? { icon: icon('settings'), name: 'Settings', say: 'Settings for this game' }
+    : a === 'col' ? { icon: icon('col'), name: 'Collection', say: 'Add to a collection' }
+    : { icon: icon('star', fav), name: 'Favorite', say: fav ? 'In your Favorites. Press to remove it (or Y).' : 'Add to Favorites (or press Y)' };
 }
 function fillGame() {
-  const g = byId[S.game.id], s = PLAT[g.sys], r = rec(g.id), G0 = S.game, emu = emuFor(g), ra = isRA(emu);
-  const acts = gameActions(), slots = r ? r.slots : [null, null, null, null], last = r ? r.lastSlot : -1, media = mediaFor(g);
+  const g = byId[S.game.id], s = PLAT[g.sys], r = rec(g.id), G0 = S.game, emu = emuFor(g);
+  const acts = gameActions(), media = mediaFor(g);
   let h = `<div class="gp-sys">${s.long}</div><h2>${esc(g.title)}</h2>
     <div class="facts">${[['Released', g.year], ['Developer', g.dev], ['Genre', g.genre], ['Players', g.players]].filter(([, b]) => b).map(([a, b]) => `<div>${a}<b>${b}</b></div>`).join('')}</div>
-    <div class="actions" data-z="actions">${acts.map((a, i) => `<div class="act ${i === 0 ? 'primary' : ''} ${G0.zone === 'actions' && G0.i === i ? 'focus' : ''}">${a === 'fav' ? `${r && r.fav ? '★' : '☆'} <i class="btn">Y</i>` : a === 'col' ? 'Add to collection' : a === 'emu' ? `Plays with ${esc(emuName(emu))}` : a}</div>`).join('')}</div>`;
-  h += `<h3 data-z="saves">Saves${ra ? '<small>Slots are kept per game</small>' : ''}</h3>`;
-  h += ra ? `<div class="slots">${slots.map((sl, i) => `<div class="slot ${G0.zone === 'saves' && G0.i === i ? 'focus' : ''}">${sl ? '<canvas></canvas>' : '<div class="none">New game</div>'}${sl && i === last ? '<span class="tag">Last played</span>' : ''}<p>${sl ? agoText(sl.ts) : `Slot ${i + 1}`}</p></div>`).join('')}</div>`
-    : `<div class="managed ${G0.zone === 'saves' ? 'focus' : ''}"><span>${g.sys === 'android' ? 'This app keeps its own saves.' : `<b>${esc(emuName(emu))}</b> keeps this game’s saves.${NATIVE ? '' : ' Shelf’s save slots work with RetroArch.'}`}</span><span class="act ${G0.zone === 'saves' ? 'focus' : ''}">Open ${esc(g.sys === 'android' ? g.title : emuApp(emu))}</span></div>`;
+    <div class="actions tiles" data-z="actions">${acts.map((a, i) => { const T = actionTile(a, g, r, emu); return `<div class="tile ${i === 0 ? 'primary' : ''} ${a === 'fav' && r && r.fav ? 'on' : ''} ${G0.zone === 'actions' && G0.i === i ? 'focus' : ''}"><div class="ti">${T.icon}</div><p>${T.name}</p></div>`; }).join('')}</div>
+    <p class="actsay">${G0.zone === 'actions' && acts[G0.i] ? actionTile(acts[G0.i], g, r, emu).say : '&nbsp;'}</p>`;
   h += `<h3 data-z="media">Media<small>${media.length} items</small></h3><div class="mrow"><div class="mstrip" id="gMedia">${mediaStrip(g, media, G0.zone === 'media' ? G0.i : -1, 'mthumb')}</div></div>`;
   if (g.sys !== 'android') {
     const A = achievements(g), e = P.ra ? achFor(P, g) : {}, got = A.list.filter(a => e[a.id]), pts = got.reduce((t, a) => t + a.pts, 0), pct = Math.round(got.length / A.list.length * 100);
@@ -2401,25 +2432,22 @@ function fillGame() {
   }
   h += `<p class="desc">${esc(g.desc)}</p><p class="credit">${artCredit()}</p>`;
   $('#gpin').innerHTML = h;
-  $('#gpin').querySelectorAll('.slot').forEach((el, i) => { const sl = slots[i], c = el.querySelector('canvas'); if (sl && c) gameFrame(g, sl.seed, sl.scroll || 100, c); });
   $('#gMedia').style.transform = `translateX(${-Math.max(0, Math.min((G0.zone === 'media' ? G0.i : 0) - 2, media.length - 3.6)) * 155.5}px)`;
   // keep the focused section in view
   const zoneEl = $('#gpin').querySelector(`[data-z="${G0.zone}"]`), off = zoneEl && G0.zone !== 'actions' ? clamp(zoneEl.offsetTop - 120, 0, 1600) : 0;
   $('#gpin').style.transform = `translateY(${-off}px)`;
-  $('#turnHint').classList.toggle('on', G0.turn);
+  $('#turnHint').classList.toggle('on', G0.turn); $('#s-game').classList.toggle('turning', G0.turn);   // the details step aside while you turn the box
 }
 function artCredit() { if (NATIVE) return 'Box art made by Shelf, until art downloads arrive in a later version.'; return usingSS() ? 'Art, manuals and details from ScreenScraper.' : 'Art from RetroArch’s thumbnail database. Details from Wikipedia.'; }
 function gameAction() {
   const g = byId[S.game.id], r = rec(g.id), G0 = S.game;
   if (G0.zone === 'ach') return P.ra ? openAch(g.id) : openSettings(CATS.indexOf('Achievements'));
   if (G0.zone === 'media') return openMedia(G0.i);
-  if (G0.zone === 'saves') { const e = emuFor(g); if (!isRA(e)) { sfx.select(); if (NATIVE) return nativeOpenEmu(g, e); return toast(`Opens ${g.sys === 'android' ? g.title : emuApp(e)}, where this game’s saves are`); } return launchGame(g, G0.i, !!(r && r.slots[G0.i])); }
   if (G0.zone === 'manual') { if (hasManual(g)) return openManual(); return toast(usingSS() ? 'ScreenScraper doesn’t have a manual for this game' : 'Manuals come from ScreenScraper. Sign in under Settings, Art and info.'); }
   if (G0.zone === 'cart') return launchGame(g, r ? r.lastSlot : 0, !!(r && r.slots.some(Boolean)));
   const a = gameActions()[G0.i];
   if (a === 'Resume') return launchGame(g, r.lastSlot, true);
   if (a === 'Play') return launchGame(g, r ? Math.max(0, r.slots.findIndex(x => !x)) : 0, false);
-  if (a === 'New game') { const free = r.slots.findIndex(x => !x); G0.zone = 'saves'; G0.i = free < 0 ? 0 : free; fillGame(); return toast(free < 0 ? 'All four slots are used. Choose one to replace.' : 'Choose a slot for the new game'); }
   if (a === 'Close the box') { G0.turn = true; G0.rx = .12; G0.ry = .5; sfx.select(); return fillGame(); }
   if (a === 'Game settings') return openGameSettings(g.id);
   if (a === 'emu') return pickEmulator(g.sys, P.gameEmu[g.id] || null, v => { if (v) P.gameEmu[g.id] = v; else delete P.gameEmu[g.id]; fillGame(); toast(`${g.title} plays with ${emuName(emuFor(g))}`); }, { withDefault: true, title: `${g.title}: play with` });
@@ -2537,7 +2565,7 @@ function settingsModel() {
         { label: 'themes', themes: true },
         tog('Accent follows the console', 'accentFollows', 'The accent color and one background field take on each console’s color.'),
         cyc('Case color', Q, 'caseTint', [false, true], 'The plastic of the modern cases.', { false: 'Neutral', true: 'Console color' }),
-        cyc('Home background', Q, 'homeArt', ['box', 'title', 'shot', 'cart', 'off'], 'A picture of the selected game under the row on Home, darkened and fading out toward the top.', { box: 'Box art', title: 'Title screen', shot: 'Screenshot', cart: 'Cartridge art', off: 'Off' }),
+        cyc('Home background', Q, 'homeArt', ['box', 'title', 'shot', 'cart', 'off'], 'A picture of the selected game under the row on Home: dark, panning slowly, and fading out toward the top in dots.', { box: 'Box art', title: 'Title screen', shot: 'Screenshot', cart: 'Cartridge art', off: 'Off' }),
         tog('Background motion', 'motion', 'Drifting backgrounds, twinkling stars and the slow float of boxes and cartridges.')] };
       case 'Sound': { const M = P.prefs.music, names = Object.fromEntries([...TRACK_KEYS.map(k => [k, TRACKS[k].name]), ['shuffle', 'Shuffle']]); return { cat: 'Sound', intro: 'Music plays quietly in the menus and stops while you play.', items: [
         tog('Menu music', 'on', 'Original tracks written for Shelf.', M),
@@ -3423,7 +3451,7 @@ function actRowMove(dir) {   // the buttons wrap onto rows: up and down move to 
 function gameInput(a) {
   if (S.game.closing) return;
   $('#gpin').classList.remove('enter');
-  const G0 = S.game, g = byId[G0.id], acts = gameActions(), ra = isRA(emuFor(g)), nMedia = mediaFor(g).length;
+  const G0 = S.game, g = byId[G0.id], acts = gameActions(), nMedia = mediaFor(g).length;
   if (G0.turn) {   // turning the closed box
     if (a === 'left' || a === 'right') { G0.ry += (a === 'left' ? -1 : 1) * .45; sfx.move(); }
     else if (a === 'up' || a === 'down') { G0.rx = clamp(G0.rx + (a === 'up' ? -1 : 1) * .3, -.9, .9); sfx.move(); }
@@ -3441,13 +3469,10 @@ function gameInput(a) {
   else if (z === 'actions') {
     if (a === 'left') { if (G0.i === 0) go('cart'); else { G0.i--; sfx.move(); } } else if (a === 'right') { if (G0.i < acts.length - 1) { G0.i++; sfx.move(); } }
     else if (a === 'up') { if (actRowMove(-1)) sfx.move(); else return closeGame(); }   // up from the top row closes the page, as down opened it
-    else if (a === 'down') { if (actRowMove(1)) sfx.move(); else go('saves', ra ? (rec(G0.id) || { lastSlot: 0 }).lastSlot : 0); } else if (a === 'a') return gameAction();
-  } else if (z === 'saves') {
-    if (a === 'left') { if (!ra || G0.i === 0) go('cart'); else { G0.i--; sfx.move(); } } else if (a === 'right' && ra && G0.i < 3) { G0.i++; sfx.move(); }
-    else if (a === 'up') go('actions'); else if (a === 'down') go('media'); else if (a === 'a') return gameAction();
+    else if (a === 'down') { if (actRowMove(1)) sfx.move(); else go('media'); } else if (a === 'a') return gameAction();
   } else if (z === 'media') {
     if (a === 'left') { if (G0.i === 0) go('cart'); else { G0.i--; sfx.move(); } } else if (a === 'right' && G0.i < nMedia - 1) { G0.i++; sfx.move(); }
-    else if (a === 'up') go('saves', ra ? (rec(G0.id) || { lastSlot: 0 }).lastSlot : 0); else if (a === 'down' && g.sys !== 'android') go('ach'); else if (a === 'a') return gameAction();
+    else if (a === 'up') go('actions'); else if (a === 'down' && g.sys !== 'android') go('ach'); else if (a === 'a') return gameAction();
   } else { if (a === 'up') go('media'); else if (a === 'left') go('cart'); else if (a === 'a') return gameAction(); }
   fillGame();
 }
@@ -3518,11 +3543,15 @@ function planetTarget() {
     default: return { x: 667, y: 1200, r: 500, a: 0 };
   }
 }
-// Home's picture: the selected game's chosen media across the lower part of the screen, darkened, fading out toward
-// the top so its edge meets the bottom of the row. Crossfades when the selection changes; hidden while a page is open.
-const HB = { key: null, prev: null, a: 1, vis: 1 };
-function homeArtCanvas(g, kind) {
-  const w = 1024, h = 300, c = canvas(w, h), x = c.getContext('2d');
+const HOME_Y = 302;   // the selected cartridge's center on Home, under the top bar
+// Home's picture: the selected game's chosen media across the lower part of the screen, kept dark so it stays behind the
+// cartridges, zoomed in and panning slowly. Its top edge fades out in a dot pattern, like the dotted band at the edge
+// of a car's windshield: solid at the bottom, breaking into dots that shrink away toward the row. The dots stay put
+// while the picture moves under them. Crossfades when the selection changes; hidden while a page is open.
+const HB = { key: null, prev: null, a: 1, vis: 1 }, HB_ZOOM = 1.3, HB_PAN = 46;   // how far in, and seconds for one sweep across
+const HB_TOP = HOME_Y + 122, HB_H = 750 - HB_TOP;   // the fade's edge sits at the bottom of the row
+function homeArtCanvas(g, kind) {   // the picture alone, cropped to the backdrop's shape
+  const w = 1600, h = Math.round(w * HB_H / 1334), c = canvas(w, h), x = c.getContext('2d');
   let src = null;
   if (kind === 'cart') { src = canvas(w, h); drawScene(src.getContext('2d'), w, h, g); }
   else if (kind === 'box') src = mediaCanvas(g, { kind: 'box' });
@@ -3531,22 +3560,31 @@ function homeArtCanvas(g, kind) {
   else src = mediaCanvas(g, { kind: 'shot', seed: hash(g.id + 'shot0'), scroll: 30 });
   const k = Math.max(w / src.width, h / src.height), sw = w / k, sh = h / k;
   x.drawImage(src, (src.width - sw) / 2, (src.height - sh) * (kind === 'box' ? .35 : .5), sw, sh, 0, 0, w, h);
-  const f = x.createLinearGradient(0, 0, 0, h); f.addColorStop(0, 'rgba(0,0,0,0)'); f.addColorStop(.55, 'rgba(0,0,0,.85)'); f.addColorStop(1, 'rgba(0,0,0,1)');
-  x.globalCompositeOperation = 'destination-in'; x.fillStyle = f; x.fillRect(0, 0, w, h);
+  return c;
+}
+function homeDotMask() {   // alpha only: solid below, then rows of dots that shrink toward the top
+  const w = 1334, h = HB_H, c = canvas(w, h), x = c.getContext('2d'), pitch = 13, solid = h * .5;
+  x.fillStyle = '#fff'; x.fillRect(0, solid, w, h - solid);
+  for (let row = 0, y = solid; y > -pitch; row++, y -= pitch * .866) {   // a staggered grid, row by row upward
+    const t = clamp(y / solid, 0, 1), r = pitch * (.06 + .66 * Math.pow(t, 1.25));   // dots touch at the solid edge and shrink to specks
+    x.globalAlpha = .45 + .55 * t;
+    for (let cx = row % 2 ? pitch / 2 : 0; cx < w + pitch; cx += pitch) { x.beginPath(); x.arc(cx, y, r, 0, 7); x.fill(); }
+  }
   return c;
 }
 function drawHomeArt(dt, id, show) {
   const kind = P.prefs.homeArt, key = kind !== 'off' && id ? 'homeart:' + kind + ':' + id + ':' + artStamp(byId[id]) : null;
   if (key !== HB.key) { HB.prev = HB.a > .5 ? HB.key : HB.prev; HB.key = key; HB.a = 0; }
   HB.a = Math.min(1, HB.a + dt / .45); approach(HB, { vis: show ? 1 : 0 }, dt, 6);
-  const dim = lightTheme() ? [.62, .62, .66] : [.36, .37, .44], top = HOME_Y + 122, hgt = 750 - top;   // the fade's edge sits at the bottom of the row
+  const dim = lightTheme() ? [.44, .44, .48] : [.2, .21, .26], sc = 1 / HB_ZOOM;
+  const sweep = motion() ? .5 - .5 * Math.cos(S.time * 2 * Math.PI / (2 * HB_PAN)) : .5;   // there and back, easing at each end
+  const uv = [sc, sc, (1 - sc) * sweep, (1 - sc) * .5];
   const plate = (k, a) => { if (!k || a < .005 || NODRAW) return; const [, kd, gid] = k.split(':');
-    const [x, y] = pw(667, top + hgt / 2); gl.depthMask(false);
-    drawPart(PLANE, M4.trs(x, y, -1, 0, 0, 0, [1334 / PX, hgt / PX, 1]), { tex: tex(k, () => homeArtCanvas(byId[gid], kd), true), flat: true, col: dim, alpha: a * HB.vis });
+    const [x, y] = pw(667, HB_TOP + HB_H / 2); gl.depthMask(false);
+    drawPart(PLANE, M4.trs(x, y, -1, 0, 0, 0, [1334 / PX, HB_H / PX, 1]), { tex: tex(k, () => homeArtCanvas(byId[gid], kd)), ao: tex('homedots', homeDotMask, true), masked: true, uv, col: dim, alpha: a * HB.vis });
     gl.depthMask(true); };
   plate(HB.prev, 1 - ease(HB.a)); plate(HB.key, ease(HB.a));
 }
-const HOME_Y = 302;   // the selected cartridge's center on Home, under the top bar
 function drawHome(dt, t, strip) {   // strip: a game's page is open here, so the rest of the row waits in a small strip up top
   const items = homeItems(), H0 = S.home, rowFocus = H0.zone === 'row' && !S.top.on && S.screen === 'home', q = S.seq;
   approach(H0, { f: H0.i }, dt, 8);
@@ -3657,8 +3695,8 @@ function drawShade(alpha) {   // darkens everything drawn so far
 const CASE_AT = [326, 462], CASE_FIT = [580, 500];   // the open case's center and the room it fits in, left of the details
 function drawGamePage(dt, t) {
   const G0 = S.game, g = byId[G0.id], o = pose('case', {}), m = caseModel(g.sys), [W0, H0] = [m.W, m.H];
-  const sOpen = Math.min(CASE_FIT[0] / (2 * W0 * PX), CASE_FIT[1] / (H0 * PX)), s = G0.turn ? Math.min(sOpen * 1.35, 430 / (Math.max(W0, H0) * PX)) : sOpen;
-  const [cxw, cyw] = pw(CASE_AT[0], CASE_AT[1]), openT = G0.turn ? 0 : 1;
+  const sOpen = Math.min(CASE_FIT[0] / (2 * W0 * PX), CASE_FIT[1] / (H0 * PX)), s = G0.turn ? Math.min(sOpen * 1.4, 460 / (Math.max(W0, H0) * PX)) : sOpen;
+  const [cxw, cyw] = G0.turn ? pw(667, 420) : pw(CASE_AT[0], CASE_AT[1]), openT = G0.turn ? 0 : 1;   // turning, the closed box has the middle of the screen
   // Opening from Home: the open box slides in from the left while the cartridge lifts off Home and hovers over the
   // tray, then it lowers straight in. Closing to Home is the reverse: up out of the tray, box out to the left, back to Home.
   const home = G0.from === 'home' && (G0.fly || G0.closing), tx = cxw + m.W / 2 * s, offLeft = tx - 9;

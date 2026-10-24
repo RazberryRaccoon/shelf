@@ -188,7 +188,7 @@ function openGame(id, fromKey, from) {
 function closeGame(then) {   // the box closes, goes back where it came from, and that screen comes back around it
   const G0 = S.game; if (G0.closing) return;
   G0.closing = { t: 0 }; G0.then = then || G0.from; G0.turn = false; G0.fly = null; sfx.back(); $('#gpin').classList.remove('enter');
-  $('#s-game').classList.add('closing'); $('#objLabel').classList.remove('on'); $('#turnHint').classList.remove('on');
+  $('#s-game').classList.add('closing'); $('#s-game').classList.remove('turning'); $('#objLabel').classList.remove('on'); $('#turnHint').classList.remove('on');
   if (TABS.includes(G0.then)) { if (G0.then === 'home') refreshHome(); else if (G0.then === 'library') refreshLibrary(false); setTimeout(() => { if (S.screen === 'game' && S.game.closing) riseUnder(G0.then); }, 320); }   // once the box is out of the way
 }
 function closeGameTarget(g) {   // the pose the closed box shrinks back to
@@ -199,17 +199,34 @@ function closeGameTarget(g) {   // the pose the closed box shrinks back to
 }
 function gameActions() {
   const g = byId[S.game.id], r = rec(g.id), ra = isRA(emuFor(g)), saved = ra && r && r.slots.some(Boolean) && !P.prefs.hardcore;
-  return [saved ? 'Resume' : 'Play', ...(saved ? ['New game'] : []), ...(g.sys === 'android' ? [] : ['emu']), 'Close the box', 'Game settings', 'col', 'fav'];
+  return [saved ? 'Resume' : 'Play', ...(g.sys === 'android' ? [] : ['emu']), 'Close the box', 'Game settings', 'col', 'fav'];
+}
+// The game page's buttons: a row of tiles with an icon and a short name; the line under them says what the focused one does.
+const ICON = {
+  play: '<path d="M8 5.5v13l10.5-6.5z" fill="currentColor" stroke="none"/>',
+  emu: '<path d="M6.5 8.5h11a4 4 0 0 1 4 4v1.2a3 3 0 0 1-5.3 1.9L14.8 14H9.2l-1.4 1.6a3 3 0 0 1-5.3-1.9v-1.2a4 4 0 0 1 4-4z"/><path d="M7.5 10.6v3.4M5.8 12.3h3.4"/><circle cx="15.6" cy="11.6" r=".9" fill="currentColor"/><circle cx="17.8" cy="13.4" r=".9" fill="currentColor"/>',
+  box: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8.5 3v18"/>',
+  settings: '<path d="M4 7h9M17 7h3M4 17h4M12 17h8"/><circle cx="15" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
+  col: '<path d="M3 7.5a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 10.5v6M9 13.5h6"/>',
+  star: '<path d="M12 3.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z"/>',
+};
+const icon = (k, fill) => `<svg viewBox="0 0 24 24" fill="${fill ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`;
+function actionTile(a, g, r, emu) {
+  const fav = !!(r && r.fav);
+  return a === 'Resume' || a === 'Play' ? { icon: icon('play'), name: a, say: a === 'Resume' ? 'Pick up where you left off' : 'Start the game' }
+    : a === 'emu' ? { icon: icon('emu'), name: 'Emulator', say: `Plays with ${esc(emuName(emu))}. Choose another for this game.` }
+    : a === 'Close the box' ? { icon: icon('box'), name: 'Close box', say: 'Close the box and turn it around' }
+    : a === 'Game settings' ? { icon: icon('settings'), name: 'Settings', say: 'Settings for this game' }
+    : a === 'col' ? { icon: icon('col'), name: 'Collection', say: 'Add to a collection' }
+    : { icon: icon('star', fav), name: 'Favorite', say: fav ? 'In your Favorites. Press to remove it (or Y).' : 'Add to Favorites (or press Y)' };
 }
 function fillGame() {
-  const g = byId[S.game.id], s = PLAT[g.sys], r = rec(g.id), G0 = S.game, emu = emuFor(g), ra = isRA(emu);
-  const acts = gameActions(), slots = r ? r.slots : [null, null, null, null], last = r ? r.lastSlot : -1, media = mediaFor(g);
+  const g = byId[S.game.id], s = PLAT[g.sys], r = rec(g.id), G0 = S.game, emu = emuFor(g);
+  const acts = gameActions(), media = mediaFor(g);
   let h = `<div class="gp-sys">${s.long}</div><h2>${esc(g.title)}</h2>
     <div class="facts">${[['Released', g.year], ['Developer', g.dev], ['Genre', g.genre], ['Players', g.players]].filter(([, b]) => b).map(([a, b]) => `<div>${a}<b>${b}</b></div>`).join('')}</div>
-    <div class="actions" data-z="actions">${acts.map((a, i) => `<div class="act ${i === 0 ? 'primary' : ''} ${G0.zone === 'actions' && G0.i === i ? 'focus' : ''}">${a === 'fav' ? `${r && r.fav ? '★' : '☆'} <i class="btn">Y</i>` : a === 'col' ? 'Add to collection' : a === 'emu' ? `Plays with ${esc(emuName(emu))}` : a}</div>`).join('')}</div>`;
-  h += `<h3 data-z="saves">Saves${ra ? '<small>Slots are kept per game</small>' : ''}</h3>`;
-  h += ra ? `<div class="slots">${slots.map((sl, i) => `<div class="slot ${G0.zone === 'saves' && G0.i === i ? 'focus' : ''}">${sl ? '<canvas></canvas>' : '<div class="none">New game</div>'}${sl && i === last ? '<span class="tag">Last played</span>' : ''}<p>${sl ? agoText(sl.ts) : `Slot ${i + 1}`}</p></div>`).join('')}</div>`
-    : `<div class="managed ${G0.zone === 'saves' ? 'focus' : ''}"><span>${g.sys === 'android' ? 'This app keeps its own saves.' : `<b>${esc(emuName(emu))}</b> keeps this game’s saves.${NATIVE ? '' : ' Shelf’s save slots work with RetroArch.'}`}</span><span class="act ${G0.zone === 'saves' ? 'focus' : ''}">Open ${esc(g.sys === 'android' ? g.title : emuApp(emu))}</span></div>`;
+    <div class="actions tiles" data-z="actions">${acts.map((a, i) => { const T = actionTile(a, g, r, emu); return `<div class="tile ${i === 0 ? 'primary' : ''} ${a === 'fav' && r && r.fav ? 'on' : ''} ${G0.zone === 'actions' && G0.i === i ? 'focus' : ''}"><div class="ti">${T.icon}</div><p>${T.name}</p></div>`; }).join('')}</div>
+    <p class="actsay">${G0.zone === 'actions' && acts[G0.i] ? actionTile(acts[G0.i], g, r, emu).say : '&nbsp;'}</p>`;
   h += `<h3 data-z="media">Media<small>${media.length} items</small></h3><div class="mrow"><div class="mstrip" id="gMedia">${mediaStrip(g, media, G0.zone === 'media' ? G0.i : -1, 'mthumb')}</div></div>`;
   if (g.sys !== 'android') {
     const A = achievements(g), e = P.ra ? achFor(P, g) : {}, got = A.list.filter(a => e[a.id]), pts = got.reduce((t, a) => t + a.pts, 0), pct = Math.round(got.length / A.list.length * 100);
@@ -217,25 +234,22 @@ function fillGame() {
   }
   h += `<p class="desc">${esc(g.desc)}</p><p class="credit">${artCredit()}</p>`;
   $('#gpin').innerHTML = h;
-  $('#gpin').querySelectorAll('.slot').forEach((el, i) => { const sl = slots[i], c = el.querySelector('canvas'); if (sl && c) gameFrame(g, sl.seed, sl.scroll || 100, c); });
   $('#gMedia').style.transform = `translateX(${-Math.max(0, Math.min((G0.zone === 'media' ? G0.i : 0) - 2, media.length - 3.6)) * 155.5}px)`;
   // keep the focused section in view
   const zoneEl = $('#gpin').querySelector(`[data-z="${G0.zone}"]`), off = zoneEl && G0.zone !== 'actions' ? clamp(zoneEl.offsetTop - 120, 0, 1600) : 0;
   $('#gpin').style.transform = `translateY(${-off}px)`;
-  $('#turnHint').classList.toggle('on', G0.turn);
+  $('#turnHint').classList.toggle('on', G0.turn); $('#s-game').classList.toggle('turning', G0.turn);   // the details step aside while you turn the box
 }
 function artCredit() { if (NATIVE) return 'Box art made by Shelf, until art downloads arrive in a later version.'; return usingSS() ? 'Art, manuals and details from ScreenScraper.' : 'Art from RetroArch’s thumbnail database. Details from Wikipedia.'; }
 function gameAction() {
   const g = byId[S.game.id], r = rec(g.id), G0 = S.game;
   if (G0.zone === 'ach') return P.ra ? openAch(g.id) : openSettings(CATS.indexOf('Achievements'));
   if (G0.zone === 'media') return openMedia(G0.i);
-  if (G0.zone === 'saves') { const e = emuFor(g); if (!isRA(e)) { sfx.select(); if (NATIVE) return nativeOpenEmu(g, e); return toast(`Opens ${g.sys === 'android' ? g.title : emuApp(e)}, where this game’s saves are`); } return launchGame(g, G0.i, !!(r && r.slots[G0.i])); }
   if (G0.zone === 'manual') { if (hasManual(g)) return openManual(); return toast(usingSS() ? 'ScreenScraper doesn’t have a manual for this game' : 'Manuals come from ScreenScraper. Sign in under Settings, Art and info.'); }
   if (G0.zone === 'cart') return launchGame(g, r ? r.lastSlot : 0, !!(r && r.slots.some(Boolean)));
   const a = gameActions()[G0.i];
   if (a === 'Resume') return launchGame(g, r.lastSlot, true);
   if (a === 'Play') return launchGame(g, r ? Math.max(0, r.slots.findIndex(x => !x)) : 0, false);
-  if (a === 'New game') { const free = r.slots.findIndex(x => !x); G0.zone = 'saves'; G0.i = free < 0 ? 0 : free; fillGame(); return toast(free < 0 ? 'All four slots are used. Choose one to replace.' : 'Choose a slot for the new game'); }
   if (a === 'Close the box') { G0.turn = true; G0.rx = .12; G0.ry = .5; sfx.select(); return fillGame(); }
   if (a === 'Game settings') return openGameSettings(g.id);
   if (a === 'emu') return pickEmulator(g.sys, P.gameEmu[g.id] || null, v => { if (v) P.gameEmu[g.id] = v; else delete P.gameEmu[g.id]; fillGame(); toast(`${g.title} plays with ${emuName(emuFor(g))}`); }, { withDefault: true, title: `${g.title}: play with` });

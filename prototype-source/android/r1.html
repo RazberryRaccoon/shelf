@@ -152,6 +152,17 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .actions { display: flex; flex-wrap: wrap; gap: 10.5px; margin-top: 24px; }
 .act { display: flex; align-items: center; gap: 9px; padding: 12px 21px; border-radius: 27px; font-size: 23px; font-weight: 800; background: var(--chip); color: var(--fg); white-space: nowrap; transition: background .2s, color .2s, transform .2s; }
 .act.primary { background: var(--accent); color: #0b0d18; }
+.actions.tiles { display: flex; flex-wrap: nowrap; gap: 10px; }
+.tile { flex: 1 1 0; min-width: 0; transition: transform .2s; }
+.tile .ti { height: 78px; border-radius: 18px; background: var(--chip); color: var(--fg); display: grid; place-items: center; transition: background .2s, color .2s, box-shadow .2s; }
+.tile svg { width: 34px; height: 34px; }
+.tile p { margin: 7.5px 0 0; font-size: 16.5px; font-weight: 700; letter-spacing: -.01em; color: var(--fg2); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile.primary .ti { background: var(--accent); color: #0b0d18; }
+.tile.on .ti { color: var(--acc-t); }
+.tile.focus { transform: translateY(-3px); }
+.tile.focus .ti { box-shadow: 0 0 0 2px var(--sel); }
+.tile.focus p { color: var(--fg); }
+.actsay { margin: 12px 0 0; min-height: 1.3em; font-size: 19.5px; color: var(--fg2); }
 .act.focus { background: var(--sel); color: var(--selfg); transform: scale(1.05); }
 .act .btn { min-width: 29px; height: 29px; font-size: 16.5px; border-color: currentColor; color: inherit; }
 .gp h3 { margin: 27px 0 12px; font-size: 22px; font-weight: 800; color: var(--fg2); display: flex; justify-content: space-between; }
@@ -179,6 +190,7 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .managed .act { flex: none; }
 /* the game panel rises from the bottom once the box is in place, its sections following one after another */
 #s-game .gp { transform: translateY(80px); opacity: 0; transition: transform .6s cubic-bezier(.2,.8,.2,1), opacity .45s ease; }
+#s-game.on.turning .gp { transform: translateX(90px); opacity: 0; transition-delay: 0s; transition-duration: .45s, .3s; }
 #s-game.on .gp { transform: none; opacity: 1; transition-delay: .5s; }
 #s-game.on.closing .gp { transform: translateY(80px); opacity: 0; transition-delay: 0s; transition-duration: .4s, .25s; }
 @keyframes gpRise { from { opacity: 0; transform: translateY(24px); } }
@@ -206,7 +218,7 @@ body { background: var(--page); color: var(--page-text); font-family: var(--body
 .credit { margin: 12px 0 0; font-size: 19px; color: var(--fg2); }
 .objlabel { position: absolute; transform: translateX(-50%); padding: 6px 16.5px; border-radius: 18px; background: var(--sel); color: var(--selfg); font-size: 21px; font-weight: 800; white-space: nowrap; opacity: 0; transition: opacity .2s; pointer-events: none; }
 .objlabel.on { opacity: 1; }
-.turnhint { position: absolute; left: 64px; bottom: 41.5px; padding: 12px 21px; border-radius: 21px; background: var(--panel); border: 1px solid var(--line); font-size: 22px; font-weight: 600; color: var(--fg); opacity: 0; transition: opacity .3s; }
+.turnhint { position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap; bottom: 41.5px; padding: 12px 21px; border-radius: 21px; background: var(--panel); border: 1px solid var(--line); font-size: 22px; font-weight: 600; color: var(--fg); opacity: 0; transition: opacity .3s; }
 .turnhint.on { opacity: 1; }
 .turnhint .btn { margin-right: 4.5px; }
 
