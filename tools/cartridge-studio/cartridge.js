@@ -75,7 +75,14 @@ export function slab(pts, holes, z0, z1, bevel, segments) {
     depth: Math.max(.01, z1 - z0 - 2 * t), bevelEnabled: t > 0, bevelThickness: t, bevelSize: t, bevelOffset: 0, bevelSegments: segments, curveSegments: 12, steps: 1,
   });
   g.translate(0, 0, z0 + t);
-  return toCreasedNormals(g, Math.PI / 5);   // smooth across the rounded corners and the bevel steps, keep real creases sharp
+  return flatCaps(toCreasedNormals(g, Math.PI / 5));   // smooth across the rounded corners and the bevel steps, keep real creases sharp
+}
+// The front and back faces stay perfectly flat: smoothing them into the bevel bends the light across the whole face.
+function flatCaps(g) {
+  const n = g.attributes.normal;
+  for (const grp of g.groups.filter(x => x.materialIndex === 0))
+    for (let i = grp.start; i < grp.start + grp.count; i++) { const z = Math.sign(n.getZ(i)) || 1; n.setXYZ(i, 0, 0, z); }
+  n.needsUpdate = true; return g;
 }
 
 // ---------- materials ----------
@@ -97,7 +104,7 @@ export function buildCartridge(style, opts) {
   const { bevel, segments } = opts, D = style.depth, front = D / 2, back = -D / 2;
   const body = outlinePoints(style.outline);
   const [lx, ly, lw, lh, lr, recess] = style.label;
-  const hole = rrect(lx, ly, lw, lh, lr);
+  const holes = [rrect(lx, ly, lw, lh, lr), ...(style.recesses || []).map(([x, y, w, h, r]) => rrect(x, y, w, h, r))];
   const b = Math.min(bevel, D * .2);
   const plastic = plasticMaterial(opts.finish);
   const group = new THREE.Group(); group.name = style.name;
@@ -107,7 +114,7 @@ export function buildCartridge(style, opts) {
   // …and a front plate with the recess cut through it. Its back edge is buried inside the body, so no seam shows;
   // the hole's own bevel rounds the edge of the recess.
   const overlap = 2 * Math.min(b, recess) + .3;
-  const plate = new THREE.Mesh(slab(body, [hole], front - recess - overlap, front, Math.min(b, (recess + overlap) / 2 - .02), segments), plastic); plate.name = 'front';
+  const plate = new THREE.Mesh(slab(body, holes, front - recess - overlap, front, Math.min(b, (recess + overlap) / 2 - .02), segments), plastic); plate.name = 'front';
   group.add(core, plate);
 
   // the label, set just above the floor of the recess, on its own matte material
@@ -125,8 +132,34 @@ export function buildCartridge(style, opts) {
     const m = new THREE.Mesh(slab(rrect(r.x, r.y, r.w, r.h, Math.min(r.r, r.h / 2)), [], z0, z1, Math.min(b, r.height * .45, r.h * .3), Math.max(2, segments - 2)), plastic);
     m.name = 'ridge'; group.add(m);
   }
+  // the circuit board inside, seen only through clear plastic
+  const [W, H] = style.size, inside = new THREE.Group(); inside.name = 'inside'; inside.visible = false;
+  const bw = W * .78, bh = H * .72, bz = back + D * .38, by = -H / 2 + bh / 2 + H * .03;
+  const pcb = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, Math.min(1, D * .12)), new THREE.MeshPhysicalMaterial({ color: '#2c6a43', roughness: .55, clearcoat: .3 }));
+  pcb.position.set(0, by, bz); inside.add(pcb);
+  const chip = new THREE.Mesh(new THREE.BoxGeometry(bw * .38, bh * .3, Math.min(1.4, D * .15)), new THREE.MeshPhysicalMaterial({ color: '#141418', roughness: .5 }));
+  chip.position.set(-bw * .12, by + bh * .12, bz + Math.min(1.2, D * .14)); inside.add(chip);
+  const gold = new THREE.MeshPhysicalMaterial({ color: '#d6b25a', metalness: 1, roughness: .3 }), n = Math.max(8, Math.round(bw / 2.6));
+  for (let i = 0; i < n; i++) {   // the edge connector's contacts, along the bottom
+    const c = new THREE.Mesh(new THREE.BoxGeometry(bw / n * .6, bh * .12, .1), gold);
+    c.position.set(-bw / 2 + (i + .5) * bw / n, by - bh / 2 + bh * .07, bz + Math.min(.55, D * .07)); inside.add(c);
+  }
+  group.add(inside);
   group.userData.materials = { plastic, label: label.material };
   return group;
+}
+
+// Puts a color variant from cartridges.js on a built cartridge: plain, metallic-looking (gold and silver), or see-through.
+export function applyVariant(group, variant, tune) {
+  const m = group.userData.materials.plastic, clear = variant.clear;
+  m.color.set(variant.color);
+  m.roughness = clear === 'transparent' ? .06 : clear === 'frosted' ? Math.max(.4, tune.roughness) : variant.sheen ? tune.roughness * .8 : tune.roughness;
+  m.metalness = variant.sheen ? .45 : 0;
+  m.clearcoat = tune.clearcoat; m.clearcoatRoughness = clear === 'transparent' ? .05 : tune.clearcoatRoughness;
+  m.transmission = clear ? 1 : 0; m.thickness = clear ? 2.5 : 0; m.ior = 1.49;
+  m.attenuationColor.set(clear ? variant.color : '#ffffff'); m.attenuationDistance = clear === 'transparent' ? 30 : clear ? 10 : Infinity;
+  if (clear) m.color.lerp(new THREE.Color(1, 1, 1), .35);   // see-through plastic is tinted mostly by its depth, not its surface
+  group.getObjectByName('inside').visible = !!clear;
 }
 
 // ---------- a label to show until you load your own art ----------

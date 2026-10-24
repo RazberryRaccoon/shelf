@@ -298,3 +298,8 @@ what got tested. Shelf's own renderer (WebGL 1, its own model format) doesn't us
 three.js extrusions are flat-shaded, so the N64's big rounded front showed bands (fixed with creased normals, which also
 smooth the cartridges' corners); light gray shells clipped to white under the studio, whose main softbox lights front and
 top faces about six times more than the sides (light shells darkened a notch, consoles get exposure .65 and key light .6).
+
+**Cartridge Studio, the user's notes (October 2026):** North American SNES, color variants and seven console fixes.
+Found in testing: the corner smoothing from the last round also bent the light across big flat faces (diagonal bands,
+clearest on a black cartridge), fixed by keeping front and back faces flat; the page saved every value of every item
+you looked at, so new defaults never reached you, fixed by saving only what you change (under a new storage name).
