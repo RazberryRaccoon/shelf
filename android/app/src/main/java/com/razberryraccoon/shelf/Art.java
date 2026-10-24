@@ -128,7 +128,7 @@ final class Art {
                 List<Future<List<ArtSources.Option>>> parts = new ArrayList<>();
                 List<String> names = new ArrayList<>();
                 for (String id : new String[] { "libretro", "ss", "tgdb", "ra", "sgdb", "igdb" }) {
-                    if (!ArtSources.connected(id, keys)) continue;
+                    if (!ArtSources.connected(id, keys) || !ArtSources.covers(id, sys)) continue;
                     names.add(id);
                     parts.add(fetch.submit(() -> {
                         List<ArtSources.Option> o = ArtSources.ALL.get(id).find(sys, query, kind, keys, cache());

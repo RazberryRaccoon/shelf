@@ -29,6 +29,8 @@ import java.util.Map;
  *   SteamGridDB        box                            API key
  *   IGDB               box, shot                      Twitch app (client ID and secret)
  *
+ * Android games are covered by ScreenScraper, TheGamesDB, SteamGridDB and IGDB (see covers()).
+ *
  * Endpoints follow each service's published documentation. Plain Java (with org.json), so it runs on a computer too.
  */
 final class ArtSources {
@@ -61,6 +63,18 @@ final class ArtSources {
             case "tgdb": case "ra": case "sgdb": return k != null && !k.optString("key").isEmpty();
             case "igdb": return k != null && !k.optString("id").isEmpty() && !k.optString("secret").isEmpty();
             default: return false;
+        }
+    }
+
+    /** Does this source have games for this platform? (Android games: ScreenScraper, TheGamesDB, SteamGridDB, IGDB.) */
+    static boolean covers(String id, String sys) {
+        switch (id) {
+            case "libretro": return ArtIndex.SYSTEM.containsKey(sys);
+            case "ss": return SS_SYSTEM.containsKey(sys);
+            case "tgdb": return TGDB_PLATFORM.containsKey(sys);
+            case "ra": return RA_CONSOLE.containsKey(sys);
+            case "igdb": return IGDB_PLATFORM.containsKey(sys);
+            default: return true;   // SteamGridDB searches every platform at once
         }
     }
 
@@ -113,7 +127,7 @@ final class ArtSources {
 
     private static final Map<String, Integer> SS_SYSTEM = new HashMap<>();
     static { SS_SYSTEM.put("nes", 3); SS_SYSTEM.put("snes", 4); SS_SYSTEM.put("n64", 14); SS_SYSTEM.put("genesis", 1); SS_SYSTEM.put("gb", 9);
-             SS_SYSTEM.put("gbc", 10); SS_SYSTEM.put("gba", 12); SS_SYSTEM.put("ps1", 57); SS_SYSTEM.put("ds", 15); SS_SYSTEM.put("psp", 61); }
+             SS_SYSTEM.put("gbc", 10); SS_SYSTEM.put("gba", 12); SS_SYSTEM.put("ps1", 57); SS_SYSTEM.put("ds", 15); SS_SYSTEM.put("psp", 61); SS_SYSTEM.put("android", 63); }
     private static final Map<String, String[]> SS_TYPES = new HashMap<>();
     static { SS_TYPES.put("box", new String[] { "box-2D" }); SS_TYPES.put("back", new String[] { "box-2D-back" }); SS_TYPES.put("spine", new String[] { "box-2D-side" });
              SS_TYPES.put("label", new String[] { "support-2D", "support-texture" }); SS_TYPES.put("title", new String[] { "sstitle" }); SS_TYPES.put("shot", new String[] { "ss" }); }
@@ -171,7 +185,7 @@ final class ArtSources {
 
     private static final Map<String, Integer> TGDB_PLATFORM = new HashMap<>();
     static { TGDB_PLATFORM.put("nes", 7); TGDB_PLATFORM.put("snes", 6); TGDB_PLATFORM.put("n64", 3); TGDB_PLATFORM.put("genesis", 18); TGDB_PLATFORM.put("gb", 4);
-             TGDB_PLATFORM.put("gbc", 41); TGDB_PLATFORM.put("gba", 5); TGDB_PLATFORM.put("ps1", 10); TGDB_PLATFORM.put("ds", 8); TGDB_PLATFORM.put("psp", 13); }
+             TGDB_PLATFORM.put("gbc", 41); TGDB_PLATFORM.put("gba", 5); TGDB_PLATFORM.put("ps1", 10); TGDB_PLATFORM.put("ds", 8); TGDB_PLATFORM.put("psp", 13); TGDB_PLATFORM.put("android", 4916); }
 
     static List<Option> theGamesDb(String sys, String query, String kind, JSONObject keys, File cache) throws Exception {
         List<Option> out = new ArrayList<>();
@@ -249,7 +263,7 @@ final class ArtSources {
 
     private static final Map<String, Integer> IGDB_PLATFORM = new HashMap<>();
     static { IGDB_PLATFORM.put("nes", 18); IGDB_PLATFORM.put("snes", 19); IGDB_PLATFORM.put("n64", 4); IGDB_PLATFORM.put("genesis", 29); IGDB_PLATFORM.put("gb", 33);
-             IGDB_PLATFORM.put("gbc", 22); IGDB_PLATFORM.put("gba", 24); IGDB_PLATFORM.put("ps1", 7); IGDB_PLATFORM.put("ds", 20); IGDB_PLATFORM.put("psp", 38); }
+             IGDB_PLATFORM.put("gbc", 22); IGDB_PLATFORM.put("gba", 24); IGDB_PLATFORM.put("ps1", 7); IGDB_PLATFORM.put("ds", 20); IGDB_PLATFORM.put("psp", 38); IGDB_PLATFORM.put("android", 34); }
     private static String igdbToken; private static long igdbExpires;
 
     static List<Option> igdb(String sys, String query, String kind, JSONObject keys, File cache) throws Exception {

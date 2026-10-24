@@ -177,20 +177,23 @@ function artAll(again) {
 /* ---------- art from several services, one kind at a time ---------- */
 const ART_KINDS = [{ k: 'box', name: 'Box front' }, { k: 'back', name: 'Box back' }, { k: 'spine', name: 'Spine' },
   { k: 'label', name: 'Label' }, { k: 'title', name: 'Title screen' }, { k: 'shot', name: 'Screenshot' }];
+const ANDROID_KINDS = ['box', 'back', 'spine', 'title', 'shot'];   // an Android game's keep case has no cartridge or disc label
+const kindsFor = g => ART_KINDS.filter(a => g.sys !== 'android' || ANDROID_KINDS.includes(a.k));
 const kindName = (g, k) => k === 'label' ? (CART[g.sys] && (CART[g.sys].disc || CART[g.sys].umd) ? 'Disc art' : 'Cartridge label') : ART_KINDS.find(a => a.k === k).name;
 // each service: what it gives, and what you need to connect it (fields are asked for with Android's own text box)
-const ART_SOURCES = [
-  { id: 'libretro', name: 'libretro', kinds: ['box', 'title', 'shot'], needs: 'No account needed', fields: [] },
+const ART_SOURCES = [   // noAndroid: has no Android games
+  { id: 'libretro', name: 'libretro', kinds: ['box', 'title', 'shot'], needs: 'No account needed', fields: [], noAndroid: true },
   { id: 'ss', name: 'ScreenScraper', kinds: ['box', 'back', 'spine', 'label', 'title', 'shot'], needs: 'A free screenscraper.fr account, plus developer credentials you request once on their forum',
     fields: [['devid', 'Developer ID'], ['devpassword', 'Developer password', 1], ['user', 'Your ScreenScraper username', 0, 1], ['password', 'Your ScreenScraper password', 1, 1]] },
   { id: 'tgdb', name: 'TheGamesDB', kinds: ['box', 'back', 'title', 'shot'], needs: 'An API key from thegamesdb.net (request it under API Access)', fields: [['key', 'TheGamesDB API key', 1]] },
-  { id: 'ra', name: 'RetroAchievements', kinds: ['box', 'title', 'shot'], needs: 'Your RetroAchievements username and web API key (Settings › Keys on the site)', fields: [['user', 'RetroAchievements username'], ['key', 'Web API key', 1]] },
+  { id: 'ra', name: 'RetroAchievements', kinds: ['box', 'title', 'shot'], noAndroid: true, needs: 'Your RetroAchievements username and web API key (Settings › Keys on the site)', fields: [['user', 'RetroAchievements username'], ['key', 'Web API key', 1]] },
   { id: 'sgdb', name: 'SteamGridDB', kinds: ['box'], needs: 'An API key from steamgriddb.com (Preferences › API)', fields: [['key', 'SteamGridDB API key', 1]] },
   { id: 'igdb', name: 'IGDB', kinds: ['box', 'shot'], needs: 'A Twitch developer app’s client ID and secret (dev.twitch.tv › Your Console)', fields: [['id', 'Twitch client ID'], ['secret', 'Twitch client secret', 1]] },
 ];
 const srcConnected = s => s.fields.filter(f => !f[3]).every(f => (P.keys[s.id] || {})[f[0]]);   // [field, label, secret, optional]
-function kindTip(k) {   // which services give this kind of art, and which of those you've connected
-  const all = ART_SOURCES.filter(s => s.kinds.includes(k)), on = all.filter(srcConnected);
+function kindTip(k, g) {   // which services give this kind of art (for this game's platform), and which of those you've connected
+  const all = ART_SOURCES.filter(s => s.kinds.includes(k) && !(g && g.sys === 'android' && s.noAndroid)), on = all.filter(srcConnected);
+  if (!all.length) return 'No service has this for Android games.';
   return `From ${all.map(s => s.name + (s.fields.length ? '' : ' (no account)')).join(', ')}. ` + (on.length ? `Connected: ${on.map(s => s.name).join(', ')}.` : 'Connect one in Settings › Art and info.');
 }
 const askText = (title, value, secret) => new Promise(res => { const id = 't' + (++artSeq); ART_REQ[id] = res; ShelfNative.askText(id, title, value || '', !!secret); });
