@@ -110,23 +110,37 @@ export function buildCartridge(style, opts) {
   const plastic = plasticMaterial(opts.finish);
   const group = new THREE.Group(); group.name = style.name;
 
-  // The body is hollow, open at the bottom like the real thing, so the circuit board inside shows from below: a back
-  // wall and a front wall (each rounded on its outer edge), and between them a middle layer with a slot cut up from
-  // the bottom edge as tall and wide as the board. The middle layer has no bevel and reaches into the walls' rounded
-  // inner ends, so the sides stay one smooth surface with no seams. Discs and cards stay solid (see `slot`).
+  // The body is built like the real thing, from two halves: a back wall and a front wall (each rounded on its outer
+  // edge) and a middle layer between them with no bevel, reaching into the walls' rounded inner ends so the sides stay
+  // one smooth surface. Where the halves meet, a fine seam runs around the sides: the middle is split there, and a
+  // slightly smaller strip fills the gap. Cartridges with an edge connector are hollow and open at the bottom, a slot
+  // cut up into the middle layer as tall and wide as the circuit board, so it shows from below. Cards keep their
+  // contacts on the outside: a shallow pocket in the back wall with gold contacts between plastic ribs.
   const floorZ = front - recess, [W0, H0] = style.size;
   const bw0 = W0 * .78, bh0 = H0 * .72, pcbTop = -H0 / 2 + bh0 + H0 * .03;
   const slotted = style.slot !== false && D >= 6;
-  const skin = Math.min(2 * b + .4, D * .3);
+  const skin = Math.min(2 * b + .4, D * .3), mid0 = back + skin - b, mid1 = floorZ - skin + b;
   const core = new THREE.Group(); core.name = 'shell';
-  if (slotted) {
-    const backWall = new THREE.Mesh(slab(body, [], back, back + skin, b, segments), plastic); backWall.name = 'body';
-    const frontWall = new THREE.Mesh(slab(body, [], floorZ - skin, floorZ, b, segments), plastic); frontWall.name = 'body';
-    const middle = new THREE.Mesh(slab(withSlot(body, bw0 + 2, pcbTop + 1.2), [], back + skin - b, floorZ - skin + b, 0, 1), plastic); middle.name = 'body';
-    core.add(backWall, middle, frontWall);
-  } else core.add(Object.assign(new THREE.Mesh(slab(body, [], back, floorZ, b, segments), plastic), { name: 'body' }));
-  // …and a front plate with the recess cut through it. Its back edge is buried inside the body, so no seam shows;
-  // the hole's own bevel rounds the edge of the recess.
+  const ct = style.contacts, pocket = ct && rrect(0, -H0 / 2 + ct.bottom + ct.h / 2 + .1, ct.n * ct.pitch + .5, ct.h + .5, .4);
+  const backWall = new THREE.Mesh(slab(body, pocket ? [pocket] : [], back, back + skin, b, segments), plastic); backWall.name = 'body';
+  const frontWall = new THREE.Mesh(slab(body, [], floorZ - skin, floorZ, b, segments), plastic); frontWall.name = 'body';
+  core.add(backWall, frontWall);
+  const middleLine = slotted ? withSlot(body, bw0 + 2, pcbTop + 1.2) : body;
+  const seam = Math.max(.3, D * .025), seamZ = Math.min(Math.max((back + front) / 2, mid0 + seam + .2), mid1 - seam - .2);
+  const halves = [[mid0, seamZ - seam / 2], [seamZ + seam / 2, mid1]];
+  for (const [z0, z1] of halves) { const m = new THREE.Mesh(slab(middleLine, [], z0, z1, 0, 1), plastic); m.name = 'body'; core.add(m); }
+  const filler = new THREE.Mesh(slab(offset(middleLine, -Math.min(.2, seam * .5)), [], seamZ - seam / 2 - .05, seamZ + seam / 2 + .05, 0, 1), plastic); filler.name = 'body';
+  core.add(filler);
+  if (ct) {   // the card's contacts: gold, on the pocket's floor, with ribs between them up to the back's surface
+    const gold = new THREE.MeshPhysicalMaterial({ color: '#d6b25a', metalness: 1, roughness: .28, clearcoat: .2 }); gold.name = 'contact-gold';
+    const cy = -H0 / 2 + ct.bottom + ct.h / 2 + .1, depth = mid0 - back, x0 = -(ct.n - 1) * ct.pitch / 2;
+    for (let i = 0; i < ct.n; i++) {
+      const pad = new THREE.Mesh(new THREE.BoxGeometry(ct.w, ct.h, .08), gold); pad.position.set(x0 + i * ct.pitch, cy, mid0 - .04); pad.name = 'contact'; core.add(pad);
+      if (i < ct.n - 1) { const rib = new THREE.Mesh(new THREE.BoxGeometry(ct.pitch - ct.w - .1, ct.h + .5, depth), plastic); rib.position.set(x0 + (i + .5) * ct.pitch, cy, back + depth / 2); rib.name = 'body'; core.add(rib); }
+    }
+  }
+  // …and a front plate with the recess cut through it. Its back edge is buried in the front wall and the middle, so no
+  // groove shows; the hole's own bevel rounds the edge of the recess.
   const overlap = 2 * Math.min(b, recess) + .3;
   const plate = new THREE.Mesh(slab(body, holes, front - recess - overlap, front, Math.min(b, (recess + overlap) / 2 - .02), segments), plastic); plate.name = 'front';
   group.add(core, plate);
