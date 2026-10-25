@@ -47,7 +47,17 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
-## What's in version 0.9
+## What's in version 0.10
+
+Inside is an exploded drawing now: as the console turns to a three-quarter view, its halves slide straight apart along
+the seam (a home console's top up and its base down, a handheld's front toward you and its back away), leaving the
+board floating between them. The right stick turns only the board (X turns it over to its print); the halves hold
+still. Moving to another view turns the board back into place and the halves close round it (`Console.explode`,
+`ConsoleBoard.turnIn`; how far each half travels is in `consoles.json`). And every half is hollow, like the real shells:
+a 2.4 mm face and sides, rounded outside, open at the seam (`cup` in the Studio's `console.js`); the Game Boy pockets
+have floors.
+
+## What was in version 0.9
 
 Fixes after trying 0.8. The consoles' real translucent editions (the N64's Funtastic colors, the clear Game Boy, the
 Atomic purple Game Boy Color, the Glacier Game Boy Advance) really are see-through now (they were stored as glossy).

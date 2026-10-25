@@ -94,12 +94,14 @@ window.exportAll = async ({ consoles = false, cases = false, carts = true } = {}
       for (const n of ['lower', 'upper']) { const m = mergeByMaterial(con.getObjectByName(n)); m.name = n; out.add(m); } return out; };
     const con = make();
     files[`console-${id}.glb`] = await glb(halves(con));
-    // the hinge the upper half opens on (the Inside view), in millimetres: a home console's top swings up and back from
-    // its base's back edge, a handheld's front swings open like a book from its back's left edge
-    let open = null;
+    // How the Inside view takes it apart, like an exploded drawing: both halves slide straight away from the board along
+    // the seam's axis (a home console's top up and its base down, a handheld's front toward you and its back away),
+    // in millimetres, scaled to the console's size
+    let explode = null;
     if (entry.seam) {
-      const box = new THREE.Box3().setFromObject(con.getObjectByName('lower')), at = entry.seam.at * 100;
-      open = entry.seam.axis === 'y' ? { axis: 'x', at: [0, at, box.min.z], angle: -1.83 } : { axis: 'y', at: [box.min.x, 0, at], angle: -1.75 };
+      const sz = new THREE.Box3().setFromObject(con).getSize(new THREE.Vector3()), flat = entry.seam.axis === 'y';
+      const W = flat ? Math.max(sz.x, sz.z) : Math.max(sz.x, sz.y);
+      explode = { axis: entry.seam.axis, upper: Math.round(W * (flat ? .42 : .55)), lower: Math.round(W * (flat ? .28 : .45)) };
     }
     // a see-through version, for the clear, frosted and smoke finishes: its shell is blended (the app sets how much
     // shows), and the board, exported on its own in the console's own millimetres, sits inside it
@@ -113,7 +115,7 @@ window.exportAll = async ({ consoles = false, cases = false, carts = true } = {}
     consoleInfo[id] = { name: entry.name, parts: Object.keys(PART_NAMES).filter(r => roles.has(r)).map(r => [r, PART_NAMES[r]]),
       colors: (CONSOLE_COLORS[id] || []).map(([name, note, parts]) => ({ name, note, parts })),
       // its board's print: the part number, the solder mask's color, the board's size (the print's shape)
-      board: BOARDS[id] ? { code: BOARDS[id].code, mask: BOARDS[id].mask || MASK, size: BOARDS[id].size } : null, open };
+      board: BOARDS[id] ? { code: BOARDS[id].code, mask: BOARDS[id].mask || MASK, size: BOARDS[id].size } : null, explode };
   }
   for (const [id, style] of Object.entries(cases ? STYLES : {})) {
     if (!CASES[id]) continue;

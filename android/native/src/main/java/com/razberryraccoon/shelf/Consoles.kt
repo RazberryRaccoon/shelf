@@ -22,10 +22,10 @@ data class ConsoleLook(val name: String, val note: String, val parts: Map<String
 }
 
 /** A console's paintable parts, in order ("shell" to "Shell"), and the colors it really came in, its first one standard. */
-class ConsoleInfo(val sys: String, val name: String, val parts: List<Pair<String, String>>, val looks: List<ConsoleLook>, val board: BoardInfo?, val hinge: Hinge?)
+class ConsoleInfo(val sys: String, val name: String, val parts: List<Pair<String, String>>, val looks: List<ConsoleLook>, val board: BoardInfo?, val explode: Explode?)
 
-/** Where a console's upper half (a handheld's front) opens: about the x or y axis through `at` (millimetres), by `angle`. */
-class Hinge(val axis: Char, val at: FloatArray, val angle: Float)
+/** How the Inside view takes a console apart: its halves slide along the seam's axis, the upper (a handheld's front) by `upper` millimetres, the lower by `lower`. */
+class Explode(val axis: Char, val upper: Float, val lower: Float)
 
 /** Its circuit board's print: RaccoonTek's part number, the solder mask's color, the board's size in millimetres. */
 class BoardInfo(val code: String, val mask: Int, val w: Float, val h: Float)
@@ -45,7 +45,7 @@ class Consoles(ctx: Context, stage: Stage) {
                 c.getJSONArray("parts").let { a -> (0 until a.length()).map { a.getJSONArray(it).let { p -> p.getString(0) to p.getString(1) } } },
                 c.getJSONArray("colors").let { a -> (0 until a.length()).map { a.getJSONObject(it).let { l -> ConsoleLook(l.getString("name"), l.optString("note"), parts(l.getJSONObject("parts"))) } } },
                 c.optJSONObject("board")?.let { b -> b.getJSONArray("size").let { z -> BoardInfo(b.getString("code"), Color.parseColor(b.getString("mask")), z.getDouble(0).toFloat(), z.getDouble(1).toFloat()) } },
-                c.optJSONObject("open")?.let { o -> o.getJSONArray("at").let { a -> Hinge(o.getString("axis")[0], FloatArray(3) { a.getDouble(it).toFloat() }, o.getDouble("angle").toFloat()) } })
+                c.optJSONObject("explode")?.let { o -> Explode(o.getString("axis")[0], o.getDouble("upper").toFloat(), o.getDouble("lower").toFloat()) })
         } }
     }
 
@@ -110,22 +110,23 @@ class Console(stage: Stage, asset: FilamentAsset, file: JSONObject?, val clear: 
 
     private fun role(n: String) = n.removePrefix("role:").substringBefore('#')
 
-    // the upper half (a handheld's front), its own node in the file, and where it rests when closed
-    private val upper = asset.getFirstEntityByName("upper")
-    private val upperRest = FloatArray(16).also { if (upper != 0) tm.getTransform(tm.getInstance(upper), it) else android.opengl.Matrix.setIdentityM(it, 0) }
+    // the two halves, each its own node in the file, and where they rest when the console is whole
+    private val halves = listOf("lower", "upper").map { n -> asset.getFirstEntityByName(n).let { e -> e to FloatArray(16).also { if (e != 0) tm.getTransform(tm.getInstance(e), it) } } }
 
     /**
-     * Opens the console along its seam, 0 closed to 1 open: the upper half turns on its hinge (a home console's top
-     * swinging up and back, a handheld's front opening like a book), leaving the lower half with the board on it.
+     * Takes the console apart, 0 whole to 1 apart, like an exploded drawing: the upper half (a handheld's front) and the
+     * lower (its back) slide straight away from each other along the seam's axis, leaving room for the board between.
      */
-    fun open(k: Float, h: Hinge?) {
-        if (upper == 0 || h == null) return
-        val m = FloatArray(16).also { android.opengl.Matrix.setIdentityM(it, 0) }
-        android.opengl.Matrix.translateM(m, 0, h.at[0], h.at[1], h.at[2])
-        android.opengl.Matrix.rotateM(m, 0, Math.toDegrees((h.angle * k).toDouble()).toFloat(), if (h.axis == 'x') 1f else 0f, if (h.axis == 'y') 1f else 0f, if (h.axis == 'z') 1f else 0f)
-        android.opengl.Matrix.translateM(m, 0, -h.at[0], -h.at[1], -h.at[2])
-        val out = FloatArray(16); android.opengl.Matrix.multiplyMM(out, 0, m, 0, upperRest, 0)
-        tm.setTransform(tm.getInstance(upper), out)
+    fun explode(k: Float, e: Explode?) {
+        if (e == null) return
+        halves.forEachIndexed { i, (ent, rest) ->
+            if (ent == 0) return@forEachIndexed
+            val d = k * (if (i == 1) e.upper else -e.lower)
+            val m = FloatArray(16).also { android.opengl.Matrix.setIdentityM(it, 0) }
+            android.opengl.Matrix.translateM(m, 0, if (e.axis == 'x') d else 0f, if (e.axis == 'y') d else 0f, if (e.axis == 'z') d else 0f)
+            val out = FloatArray(16); android.opengl.Matrix.multiplyMM(out, 0, m, 0, rest, 0)
+            tm.setTransform(tm.getInstance(ent), out)
+        }
     }
 
     /** Puts on these colors; parts they don't name go back to the model's own. */
@@ -192,6 +193,21 @@ class ConsoleBoard(stage: Stage, asset: FilamentAsset, info: BoardInfo?, sampler
 
     /** Puts it where its console is: the console's last placement. */
     fun follow(m: FloatArray) = tm.setTransform(tm.getInstance(asset.root), m)
+
+    /**
+     * Where it sits in its console, but turned on its own (the Inside view, where the stick turns only the board): its
+     * centre stays where the console's placement puts it, at the console's scale, turned by ry and rx around itself.
+     */
+    fun turnIn(console: Model, ry: Float, rx: Float) {
+        val p = FloatArray(4); android.opengl.Matrix.multiplyMV(p, 0, console.matrix, 0, floatArrayOf(center[0], center[1], center[2], 1f), 0)
+        val m = FloatArray(16).also { android.opengl.Matrix.setIdentityM(it, 0) }
+        android.opengl.Matrix.translateM(m, 0, p[0], p[1], p[2])
+        android.opengl.Matrix.rotateM(m, 0, Math.toDegrees(rx.toDouble()).toFloat(), 1f, 0f, 0f)
+        android.opengl.Matrix.rotateM(m, 0, Math.toDegrees(ry.toDouble()).toFloat(), 0f, 1f, 0f)
+        android.opengl.Matrix.scaleM(m, 0, console.scale, console.scale, console.scale)
+        android.opengl.Matrix.translateM(m, 0, -center[0], -center[1], -center[2])
+        tm.setTransform(tm.getInstance(asset.root), m)
+    }
 
     override fun destroy() { super.destroy(); textures.forEach { stage.engine.destroyTexture(it) } }
 }

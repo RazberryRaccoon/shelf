@@ -191,12 +191,15 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
      * Each view's resting angle. Home consoles (and the DS, which lies open on a table) are seen from a little above, so
      * their tops and fronts show; the upright handhelds face you.
      */
+    /** The angle the console's halves hold still at, taken apart Inside: a three-quarter view, like an exploded drawing. */
+    private fun insideRest(): FloatArray = if (ex().sys in HANDHELDS) floatArrayOf(-.95f, .18f) else floatArrayOf(-.45f, .35f)
+
     private fun rest(): FloatArray {
         val hand = ex().sys in HANDHELDS
-        // inside a home console you look down on the board; turned over (X), up at its printed underside
-        if (view == INSIDE && !hand) return if (flipped) floatArrayOf(-.4f, -.95f) else floatArrayOf(-.4f, .78f)
+        // Inside, the board's own resting angle: in line with the halves; turned over (X), its printed underside toward you
+        if (view == INSIDE) return insideRest().also { if (flipped) { if (hand) it[0] += PI.toFloat() else it[1] = -.85f } }
         return when (view) {
-            0, INSIDE -> if (hand) floatArrayOf(-.3f, -.08f) else floatArrayOf(-.45f, .42f)
+            0 -> if (hand) floatArrayOf(-.3f, -.08f) else floatArrayOf(-.45f, .42f)
             1 -> floatArrayOf(-.28f, -.1f)
             2 -> floatArrayOf(-.12f, -.42f)
             else -> floatArrayOf(-.35f, -.12f)
@@ -242,21 +245,20 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         backdrop.shadows.clear()
         val cx = 360f + slideX; val cy = 330f + sin(time * .8f) * 4f
         // the console, sized by its whole depth too, so deep ones (seen from above) fit as well as flat ones
-        // Its board shows through a see-through shell, and Inside: the console opens along its seam (a home console's top
-        // swinging up and back, a handheld's front opening like a book) while it turns to its Inside angle, and the board
-        // stays on the lower half. The opening half needs room, so the whole console drifts a little the other way.
+        // Its board shows through a see-through shell, and Inside the console comes apart like an exploded drawing: as it
+        // turns to the Inside angle, its halves slide away from the board, which stays in the middle. There the stick turns
+        // only the board; the halves hold still. Leaving, the board turns back into place and the halves close round it.
         console?.let { m ->
-            val ik = Backdrop.ease(inside.coerceIn(0f, 1f)); val hand = ex().sys in HANDHELDS
-            val y = cy + consoleY + (if (hand) 0f else ik * 46f)
-            val x = cx + (if (hand) ik * 80f else 0f)
+            val ik = Backdrop.ease(inside.coerceIn(0f, 1f)); val ir = insideRest()
+            val y = cy + consoleY
             val b = if (m.clear || inside > .01f) circuit() else { circuit?.hide(); null }
             if (y > Stage.H + 400) { m.hide(); b?.hide() }
             else {
                 val diag = kotlin.math.sqrt(m.half[0] * m.half[0] + m.half[1] * m.half[1] + m.half[2] * m.half[2])
-                m.place(x, y, 30f, yaw, pitch, 2 * 215f * maxOf(m.half[0], m.half[1]) / diag * (1 - .08f * ik))
-                m.open(ik, consoles.info[ex().sys]?.hinge)
-                b?.follow(m.matrix)
-                shadow(x, y, 360f)
+                m.place(cx, y, 30f, yaw + wrap(ir[0] - yaw) * ik, pitch + (ir[1] - pitch) * ik, 2 * 215f * maxOf(m.half[0], m.half[1]) / diag * (1 - .3f * ik))
+                m.explode(ik, consoles.info[ex().sys]?.explode)
+                if (b != null) { if (ik < .002f) b.follow(m.matrix) else b.turnIn(m, yaw, pitch) }
+                shadow(cx, y, 360f)
             }
         }
         // the case: closed it's at most 400 across; open, the cover lies to the left, so it shrinks to fit and shifts right

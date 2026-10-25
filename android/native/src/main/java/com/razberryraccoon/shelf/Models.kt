@@ -34,9 +34,11 @@ open class Model(protected val stage: Stage, val asset: FilamentAsset) {
     val half = box.halfExtent.copyOf()
     /** The last transform it was placed with (for things that sit on it, like a cartridge in a case's tray). */
     val matrix = FloatArray(16)
+    /** The scale it was last placed at (layout pixels per millimetre). */
+    var scale = 1f; private set
 
     fun place(x: Float, y: Float, z: Float, ry: Float, rx: Float, px: Float, held: Boolean = true) {
-        val s = px / (2 * maxOf(half[0], half[1]).coerceAtLeast(.001f))
+        val s = px / (2 * maxOf(half[0], half[1]).coerceAtLeast(.001f)); scale = s
         Matrix.setIdentityM(matrix, 0)
         Matrix.translateM(matrix, 0, x, Stage.H - y, z)
         if (held) Matrix.rotateM(matrix, 0, Math.toDegrees(rx.toDouble()).toFloat(), 1f, 0f, 0f)

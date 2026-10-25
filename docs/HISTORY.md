@@ -492,3 +492,11 @@ opened home console showed a solid base hiding the board: home consoles' seams n
 pocket first failed to cut because a straight top edge had no points inside it to cut (edges are now divided every
 2 mm); the DS's hinge came from its open screen's bounds (now from the base's). Checked with the ray probe and renders;
 compile-checked; not checked on a device.
+
+**Shelf Native 0.10 (October 2026): Inside as an exploded drawing, hollow shells.** The user didn't like the halves
+opening like a book; they wanted them to "float away from the circuit board, parallel to it," with the stick turning
+only the board, and the halves hollow like real shells. Each half is now a cup swept along the console's outline (a
+rounded outside edge, 2.4 mm walls, the seam's chamfer on the rim); outlines at each depth are moved inward point for
+point, with tight corners that would fold over themselves meeting in the middle instead. With hollow halves the Game
+Boy pockets looked straight into the console, so they got floors. Checked with renders of each half from its open side
+and of all eleven exploded, and the board-fit probe; compile-checked; not checked on a device.
