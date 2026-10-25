@@ -162,11 +162,12 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
             s.bright += ((if (k == i) 1.02f else .72f) - s.bright) * ease
             val cart = s.cart ?: return@forEachIndexed
             // rising into place, each a moment after the one before
-            val rest = if (visible) Backdrop.ease(((riseT - k * .07f) / .9f).coerceIn(0f, 1f)) else 1f
+            // arriving: each flies in from far away, quickly, one just after another, overshoots a little and settles
+            val rest = if (visible) flyIn(((riseT - k * .035f) / .42f).coerceIn(0f, 1f)) else 1f
             // while a page is open, the others sink out of the way, each a beat after the one before
             val away = page?.let { Backdrop.ease((pageK * 1.4f - abs(k - i) * .06f).coerceIn(0f, 1f)) } ?: 0f
-            val up = rest * (1 - away); val lift = (1 - rest) * 560f - away * 640f   // a page opening sends the others up and away
-            cart.place(s.x, s.y + bob + lift, s.z, -.2f, -.1f, s.px)
+            val up = rest.coerceAtMost(1f) * (1 - away); val lift = -away * 640f   // a page opening sends the others up and away
+            cart.place(s.x, s.y + bob + lift, s.z, -.2f, -.1f, s.px * rest.coerceAtLeast(.01f))   // never quite 0: a zero-size model has no direction for its light
             cart.brightness(s.bright)
             if (s.x > -200 && s.x < 1534) {
                 val big = maxOf(cart.style.w, cart.style.h)
@@ -213,6 +214,9 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
             else if (c.variant != v) c.apply(v)
         }
     }
+
+    /** 0 → 1 with a small bounce past 1 at the end (an "ease out back"): about 12% over, then settling. */
+    private fun flyIn(t: Float): Float { val c = 2.1f; val u = t - 1; return 1 + (c + 1) * u * u * u + c * u * u }
 
     // ---------- a game's page ----------
 

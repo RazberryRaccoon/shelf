@@ -47,8 +47,9 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
     private val sampler = TextureSampler(TextureSampler.MinFilter.LINEAR_MIPMAP_LINEAR, TextureSampler.MagFilter.LINEAR, TextureSampler.WrapMode.CLAMP_TO_EDGE)
 
     // how present each piece is (eased toward its target every frame), and turning
-    private var presence = 0f; private var leaving = -1   // switching consoles: fade out, swap, fade in
-    private var consoleK = 0f; private var caseK = 0f; private var openK = 1f; private var inBox = 0f; private var cartK = 0f
+    private var leaving = -1; private var slideX = 0f; private var slideTo = 0f   // switching consoles: a slide to the side
+    private var consoleY = 0f; private var groupY = -OFF   // the console's and the cartridge-and-box's offsets from centre
+    private var caseK = 0f; private var openK = 1f; private var inBox = 0f
     private var time = 0f; private var closing = false; private var shown = 0f
     private var stickX = 0f; private var stickY = 0f
     private var yaw = -.4f; private var pitch = -.2f; private var vYaw = 0f; private var vPitch = 0f; private var idle = 9f
@@ -89,7 +90,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         panel.addView(list, LinearLayout.LayoutParams(-1, 0, 1f).apply { leftMargin = -30; rightMargin = -30 })
         board.put(panel, 704, 104, 596, 618)
         board.put(timeline, 40, 590, 640, 70)
-        hint.addView(key("R", "Turn it")); hint.addView(key("X", "Flip it over").apply { setPadding(26, 0, 0, 0) }); hint.addView(key("L R", "Other consoles").apply { setPadding(26, 0, 0, 0) })
+        hint.addView(key("L", "Previous console")); hint.addView(key("R", "Next console").apply { setPadding(24, 0, 0, 0) }); hint.addView(key("X", "Flip it over").apply { setPadding(24, 0, 0, 0) })
         board.put(hint, 40, 676, 640)
         timeline.names = exhibits.map { it.year.toString() }
         show(exhibits.indexOfFirst { it.sys == startSys }.coerceAtLeast(0))   // opens on the console of the game you were on
@@ -135,8 +136,12 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
 
     fun stick(x: Float, y: Float) { stickX = x; stickY = y }
 
+    /**
+     * Each view's resting angle. Home consoles (and the DS, which lies open on a table) are seen from a little above, so
+     * their tops and fronts show; the upright handhelds face you.
+     */
     private fun rest(): FloatArray = when (view) {
-        0 -> if (ex().sys in HANDHELDS) floatArrayOf(-.3f, -.12f) else floatArrayOf(-.5f, -.38f)
+        0 -> if (ex().sys in HANDHELDS) floatArrayOf(-.3f, -.08f) else floatArrayOf(-.45f, .42f)
         1 -> floatArrayOf(-.28f, -.1f)
         2 -> floatArrayOf(-.12f, -.42f)
         else -> floatArrayOf(-.35f, -.12f)
@@ -147,16 +152,17 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         shown = if (closing) maxOf(0f, shown - dt / .35f) else min(1f, shown + dt / .45f)
         val sk = Backdrop.ease(shown)
         panel.alpha = sk; panel.translationX = (1 - sk) * 70f; timeline.alpha = sk; hint.alpha = sk
-        // switching consoles: the old one fades down, the new one comes up
-        if (leaving >= 0) { presence = maxOf(0f, presence - dt / .22f); if (presence == 0f) { show(leaving); leaving = -1 } }
-        else presence = min(1f, presence + dt / .35f)
-        // each piece eases toward what this view shows
         fun ease(cur: Float, want: Float, rate: Float) = cur + (want - cur) * min(1f, dt * rate)
-        consoleK = ease(consoleK, if (view == 0) 1f else 0f, 9f)
-        cartK = ease(cartK, if (view == 0) 0f else 1f, 9f)
-        caseK = ease(caseK, if (view >= 2) 1f else 0f, 7f)
-        inBox = ease(inBox, if (view >= 2) 1f else 0f, 6f)
-        openK = ease(openK, if (view == 3) 0f else 1f, 5f)
+        // switching consoles: the exhibit slides off to the side, the next one slides in from the other
+        slideX = ease(slideX, slideTo, 8f)
+        if (leaving >= 0 && abs(slideX - slideTo) < 40f) { val dir = if (leaving > at) 1 else -1; show(leaving); leaving = -1; slideX = dir * 1000f; slideTo = 0f }
+        // the views flow into each other: the console waits below the screen and the cartridge (with its box) above it
+        consoleY = ease(consoleY, if (view == 0) 0f else OFF, 7f)
+        groupY = ease(groupY, if (view == 0) -OFF else 0f, 7f)
+        val gone = groupY < -OFF * .85f   // the cartridge and box are out of sight above
+        caseK = when { view >= 2 -> ease(caseK, 1f, 7f); view == 1 -> ease(caseK, 0f, 7f); gone -> 0f; else -> caseK }
+        inBox = when { view >= 2 -> ease(inBox, 1f, 6f); view == 1 -> ease(inBox, 0f, 6f); gone -> 0f; else -> inBox }
+        openK = when { view == 3 -> ease(openK, 0f, 5f); view != 0 -> ease(openK, 1f, 5f); gone -> 1f; else -> openK }
         case?.open = Backdrop.ease(openK.coerceIn(0f, 1f))
         // turning: the stick while held, a coast when let go, then back to the view's resting angle
         val sx = dead(stickX); val sy = dead(stickY); val r = rest()
@@ -168,37 +174,44 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
             val k = min(1f, dt * 3f); yaw += (target - yaw) * k; pitch += (r[1] - pitch) * k
         }
         stage.turnKey(wrap(yaw - r[0]) * .3f)
-        place(Backdrop.ease(presence) * sk)
+        place(sk)
     }
 
-    private fun place(p: Float) {
+    private fun place(sk: Float) {
         backdrop.shadows.clear()
-        val cx = 360f; val cy = 330f + sin(time * .8f) * 4f
-        // the console
-        val ck = Backdrop.ease(consoleK.coerceIn(0f, 1f)) * p
-        console?.let { m -> if (ck < .02f) m.hide() else { m.place(cx, cy, 30f, yaw, pitch, 470f * ck) } }
+        val cx = 360f + slideX; val cy = 330f + sin(time * .8f) * 4f
+        // the console, sized by its whole depth too, so deep ones (seen from above) fit as well as flat ones
+        console?.let { m ->
+            val y = cy + consoleY
+            if (y > Stage.H + 400) m.hide()
+            else {
+                val diag = kotlin.math.sqrt(m.half[0] * m.half[0] + m.half[1] * m.half[1] + m.half[2] * m.half[2])
+                m.place(cx, y, 30f, yaw, pitch, 2 * 215f * maxOf(m.half[0], m.half[1]) / diag)
+                shadow(cx, y, 360f)
+            }
+        }
         // the case: closed it's at most 400 across; open, the cover lies to the left, so it shrinks to fit and shifts right
+        val gy = cy + groupY
         val c = case
         val caseS = if (c == null) 1f else min(400f / (2 * maxOf(c.half[0], c.half[1])), 300f / (2 * c.half[0]))
-        val kk = Backdrop.ease(caseK.coerceIn(0f, 1f)) * p
+        val kk = Backdrop.ease(caseK.coerceIn(0f, 1f))
         if (c != null) {
-            if (kk < .02f) c.hide()
+            if (kk < .02f || gy < -400) c.hide()
             else {
                 val px = caseS * 2 * maxOf(c.half[0], c.half[1]) * kk
                 // the open cover lies to the left of the base: move the whole box right by half the overhang, so it stays centred
                 val shift = maxOf(0f, -kotlin.math.cos(PI.toFloat() * .97f * c.open)) * c.half[0] * caseS * kk * kotlin.math.cos(yaw)
-                c.place(cx + shift, cy, 20f, yaw, pitch, px)
+                c.place(cx + shift, gy, 20f, yaw, pitch, px)
             }
         }
         // the cartridge: free in the middle, or sitting in the tray, or on its way between the two
-        val ct = cart ?: return shadow(cx, ck, kk, 0f)
-        val ak = Backdrop.ease(cartK.coerceIn(0f, 1f)) * p
-        if (ak < .02f) { ct.place(-4000f, 0f, 0f, 0f, 0f, 1f); return shadow(cx, ck, kk, 0f) }
-        val free = FloatArray(16).also { freeMatrix(it, ct, cx, cy, ak) }
+        val ct = cart ?: return
+        if (gy < -400) { ct.place(-4000f, 0f, 0f, 0f, 0f, 1f); return }
+        val free = FloatArray(16).also { freeMatrix(it, ct, cx, gy, 1f) }
         val ib = Backdrop.ease(inBox.coerceIn(0f, 1f))
         if (c == null || ib < .01f || kk < .02f) ct.placeMatrix(free)
         else { val tray = c.mediaMatrix(); ct.placeMatrix(FloatArray(16) { free[it] + (tray[it] - free[it]) * ib }) }
-        shadow(cx, ck, kk, ak * (1 - ib))
+        shadow(cx, gy, 380f * maxOf(1 - ib, kk))
     }
 
     private fun freeMatrix(m: FloatArray, c: Cart, x: Float, y: Float, k: Float) {
@@ -210,9 +223,9 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         android.opengl.Matrix.scaleM(m, 0, s, s, s)
     }
 
-    private fun shadow(x: Float, a: Float, b: Float, c: Float) {
-        val k = maxOf(a, b, c); if (k < .05f) return
-        backdrop.shadows.add(floatArrayOf(x, 548f, 380f * k, .9f * k))
+    private fun shadow(x: Float, y: Float, w: Float) {
+        val k = (1 - abs(y - 330f) / 500f).coerceIn(0f, 1f); if (k < .05f || w < 2f) return
+        backdrop.shadows.add(floatArrayOf(x, y + 218f, w * k, .9f * k))
     }
 
     // ---------- buttons ----------
@@ -244,12 +257,15 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
 
     private fun toRows() { zone = Zone.ROWS; facts.background = null; rows.active = true; rows.invalidate(); scroll.smoothScrollTo(0, 0); Sounds.play(Sounds.MOVE) }
 
-    private fun setView(v: Int) { view = v; idle = 9f; vYaw = 0f; fillRows(); Sounds.play(if (v == 3) Sounds.CLOSE else Sounds.MOVE) }
+    private fun setView(v: Int) {
+        // coming straight from the console to the closed box (left from Console), it arrives already closed with its cartridge in
+        if (view == 0 && v == 3 && groupY < -OFF * .85f) { caseK = 1f; inBox = 1f; openK = 0f }
+        view = v; idle = 9f; vYaw = 0f; fillRows(); Sounds.play(if (v == 3) Sounds.CLOSE else Sounds.MOVE) }
 
     private fun switchTo(k: Int) {
         if (k !in exhibits.indices) return Sounds.play(Sounds.BUMP)
         if (leaving >= 0) return
-        leaving = k; Sounds.play(Sounds.MOVE)
+        leaving = k; slideTo = if (k > at) -1000f else 1000f; Sounds.play(Sounds.MOVE)
         timeline.at = k; timeline.invalidate()
     }
 
@@ -329,7 +345,8 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
     }
 
     companion object {
-        private val HANDHELDS = setOf("gb", "gbc", "gba", "ds", "psp", "android")
+        private val HANDHELDS = setOf("gb", "gbc", "gba", "psp", "android")   // upright; the DS lies open, like a home console
+        private const val OFF = 720f   // how far off screen a piece waits
         private val ORDER = listOf("nes", "genesis", "gb", "snes", "ps1", "n64", "gbc", "gba", "ds", "psp", "android")
         private val LONG = mapOf("nes" to "Nintendo Entertainment System", "snes" to "Super Nintendo", "n64" to "Nintendo 64", "genesis" to "Sega Genesis",
             "gb" to "Game Boy", "gbc" to "Game Boy Color", "gba" to "Game Boy Advance", "ps1" to "PlayStation", "ds" to "Nintendo DS",

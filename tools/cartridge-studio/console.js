@@ -23,6 +23,8 @@ export function buildConsole(entry, opts) {
     lcd: col => new THREE.MeshPhysicalMaterial({ color: col, roughness: .55 }),   // a matte, unlit LCD
     led: col => new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 1.6, roughness: .3 }),
     metal: new THREE.MeshPhysicalMaterial({ color: '#d9dbe0', metalness: .9, roughness: .28 }),
+    // the clear, glossy cover over a handheld's screen: mostly reflection, a faint cool tint
+    glass: Object.assign(new THREE.MeshPhysicalMaterial({ color: '#dfe7f2', roughness: .04, clearcoat: 1, clearcoatRoughness: .02, transparent: true, opacity: .18, depthWrite: false }), { name: 'screen-glass' }),
   };
 
   // ---------- shapes, in Shelf's units ----------
@@ -70,6 +72,15 @@ export function buildConsole(entry, opts) {
       up: (g, x, y, z, m) => add(g, [x, y, z, -Math.PI / 2, 0, 0], m),                  // on a top face (local +y points to the back)
       dpad: (x, y, z, s, m) => { k.face(G.disc(s * .62, .004), x, y, z + .001, M.plastic(shade(m.color, .15))); k.face(G.cross(s, s * .33, .035), x, y, z + .016, m); },
       grille: (x, y, z, cols, rows, gap) => { for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) k.face(G.disc(.011, .002), x + (i - (cols - 1) / 2) * gap, y + (j - (rows - 1) / 2) * gap, z + .0005, M.dark); },
+      // A screen set into its bezel, as on the real handhelds: the bezel (an outline around its own origin) with a window
+      // cut through it, the screen down in the window, and a clear cover over the window, level with the bezel's top.
+      // `at` places the bezel's origin (its back face); the screen is at (sx, sy) from that origin.
+      window: (bezel, at, depth, sw, sh, sx, sy, bezelMat, screenMat) => {
+        const hole = rrect(sw + .01, sh + .01, .008, 6).map(([x, y]) => [x + sx * MM, y + sy * MM]);
+        add(slab(ccw(bezel), [ccw(hole)], 0, depth * MM, .0015 * MM * round, 2), at, bezelMat);
+        add(G.plane(sw + .012, sh + .012).translate(sx * MM, sy * MM, .0015 * MM), at, screenMat);   // down in the window
+        add(G.plane(sw + .01, sh + .01).translate(sx * MM, sy * MM, (depth - .0002) * MM), at, M.glass);
+      },
       // a part on a hinge: built in its own space, turned about x at the hinge
       lid: ({ hinge, closed, open }, build) => {
         const pivot = new THREE.Group(); pivot.name = 'lid'; pivot.position.set(hinge[0] * MM, hinge[1] * MM, hinge[2] * MM);
