@@ -82,7 +82,11 @@ export function buildConsole(entry, opts) {
     dark: new THREE.MeshPhysicalMaterial({ color: '#111116', roughness: .8 }),
     screen: new THREE.MeshPhysicalMaterial({ color: '#0c0f14', roughness: .12, clearcoat: 1, clearcoatRoughness: .05 }),   // dark glass
     lcd: col => new THREE.MeshPhysicalMaterial({ color: col, roughness: .55 }),   // a matte, unlit LCD
-    led: col => new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 1.6, roughness: .3 }),
+    led: col => Object.assign(new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 1.6, roughness: .3 }), { name: 'power-led' }),   // the app turns it on and off
+    // a handheld's screen, with a picture slot the app fills with the game's title screen as it starts (emissive, so it
+    // glows); until then the picture is plain white and the screen shows its own color
+    picture: (col, rough = .12) => { const t = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1); t.needsUpdate = true;
+      return Object.assign(new THREE.MeshStandardMaterial({ color: col, roughness: rough, map: t, emissiveMap: t, emissive: '#000000' }), { name: 'screen-picture' }); },
     metal: new THREE.MeshPhysicalMaterial({ color: '#d9dbe0', metalness: .9, roughness: .28 }),
     // the clear, glossy cover over a handheld's screen: mostly reflection, a faint cool tint
     glass: Object.assign(new THREE.MeshPhysicalMaterial({ color: '#dfe7f2', roughness: .04, clearcoat: 1, clearcoatRoughness: .02, transparent: true, opacity: .18, depthWrite: false }), { name: 'screen-glass' }),

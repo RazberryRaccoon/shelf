@@ -114,6 +114,10 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
     private var bright = 1f
     private var alpha = 1f   // how much of the shell you see, for clear and frosted colors
     private val m = FloatArray(16)
+    /** Its last placement (from place). */
+    val placed: FloatArray get() = m
+    /** Where it is now, however it was put there (place or placeMatrix). */
+    fun current(): FloatArray = FloatArray(16).also { tm.getTransform(tm.getInstance(asset.root), it) }
 
     init {
         // Filament reads a texture from the bottom row up, so the label goes in flipped, or it shows upside down

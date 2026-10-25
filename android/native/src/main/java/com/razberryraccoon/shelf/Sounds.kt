@@ -19,8 +19,9 @@ import kotlin.math.sin
  */
 object Sounds {
     const val MOVE = 0; const val BUMP = 1; const val OPEN = 2; const val CLOSE = 3; const val PICK = 4; const val TURN = 5
+    const val CLICK = 6; const val CHIME = 7; const val POWER_OFF = 8
     private var pool: SoundPool? = null
-    private val ids = IntArray(6)
+    private val ids = IntArray(9)
     private var lastMove = 0L
     var enabled = true
 
@@ -37,7 +38,10 @@ object Sounds {
             listOf(floatArrayOf(784f, 0f, .09f), floatArrayOf(1175f, .07f, .16f)) to .12f,    // open: G5 then D6
             listOf(floatArrayOf(1175f, 0f, .09f), floatArrayOf(784f, .07f, .16f)) to .11f,    // close: D6 then G5
             listOf(floatArrayOf(1047f, 0f, .22f), floatArrayOf(1568f, 0f, .22f)) to .10f,     // pick: C6 and G6 together, a small bell
-            listOf(floatArrayOf(660f, 0f, .12f)) to .07f)                                     // turn: a breath of a tone
+            listOf(floatArrayOf(660f, 0f, .12f)) to .07f,                                     // turn: a breath of a tone
+            listOf(floatArrayOf(262f, 0f, .05f), floatArrayOf(2093f, .012f, .025f)) to .13f,  // click: a game seating, a low knock with a tiny tick
+            listOf(floatArrayOf(1319f, 0f, .32f), floatArrayOf(1568f, .09f, .32f), floatArrayOf(2093f, .18f, .5f)) to .07f,   // chime: power on, E6 G6 C7, soft
+            listOf(floatArrayOf(1568f, 0f, .14f), floatArrayOf(1047f, .08f, .24f)) to .06f)   // power off: G6 falling to C6
         recipes.forEachIndexed { k, (notes, gain) ->
             val f = File(dir, "s$k-v2.wav")
             if (!f.exists()) writeWav(f, synth(notes, gain))

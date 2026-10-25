@@ -55,8 +55,12 @@ export const CONSOLE_COLORS = {
     ['Indigo', 'Today’s handhelds', { shell: '#3d3fa8' }], ['Retro', 'Gray with purple buttons, a nod to the 16-bit era', { shell: '#c3c3c8', buttons: '#6c5ea6', dpad: '#4a4a52' }]],
 };
 
+// insert: where its game sits once it's in (the start animation), in the console's millimetres: the cartridge's centre
+// (at), how it's turned (rot: x, y, z in radians, turned about x first, then y), the straight path it slides in along
+// (from: where that path starts, from the seated spot), and turn: how far the console turns round to take it.
 export const CONSOLES = {
   nes: {
+    insert: { at: [0, 8, 32], rot: [-Math.PI / 2, Math.PI, 0], from: [0, 0, 150] },   // flat through the front door, label up
     name: 'NES', finish: plastic('#a7a39d', .5, .25), seam: { axis: 'y', at: -.356 },
     build(k) {   // a wide, flat deck with a darker band along the front and a door on top of it
       const { M } = k, D0 = M.plastic('#4b4946', 'band'), z = 1.015;
@@ -71,6 +75,7 @@ export const CONSOLES = {
     },
   },
   snes: {
+    insert: { at: [0, 28.1, -56], rot: [0, 0, 0], from: [0, 110, 0] },   // down into the slot on the raised block
     name: 'Super Nintendo', finish: plastic('#c3c1ca', .45, .3), seam: { axis: 'y', at: -.05 },   // the two-tone line is its seam; the board sits on the lower half
     build(k) {   // the North American console: boxy and two-tone, a raised block around the slot, purple switches
       const { M } = k, LO = M.plastic('#76747f', 'lower'), P = M.plastic('#6c5ea6', 'switches');
@@ -88,6 +93,7 @@ export const CONSOLES = {
     },
   },
   n64: {
+    insert: { at: [0, 29.2, -8], rot: [0, 0, 0], from: [0, 110, 0] },
     name: 'Nintendo 64', finish: plastic('#3a3d45', .42, .4), seam: { axis: 'y', at: -.266 },
     build(k) {   // a broad body with a rounded front, a raised center with the slot, and four controller ports
       const { M } = k, D0 = M.plastic('#2a2c32');
@@ -102,6 +108,7 @@ export const CONSOLES = {
     },
   },
   genesis: {
+    insert: { at: [-20, 35.4, -5], rot: [0, 0, 0], from: [0, 140, 0] },
     name: 'Sega Genesis', finish: plastic('#1b1c21', .32, .6), seam: { axis: 'y', at: -.241 },
     build(k) {   // a black wedge with a big raised circle around the slot
       const { M } = k, D0 = M.plastic('#111216');
@@ -118,6 +125,7 @@ export const CONSOLES = {
     },
   },
   gb: {
+    insert: { at: [0, 41.5, -11], rot: [0, Math.PI, 0], from: [0, 90, 0], turn: Math.PI },   // down into the pocket in the back, label out
     name: 'Game Boy', finish: plastic('#b9b8bf', .48, .3), seam: { axis: 'z', at: -.07 },
     build(k) {   // tall and gray, with the rounded lower corner, a framed screen and slanted speaker slots
       const { M } = k, z = .16, B0 = M.plastic('#2a2a31', 'dpad'), K = M.plastic('#9a99a2');
@@ -126,7 +134,7 @@ export const CONSOLES = {
       k.body(out, .32, .04, -.07, k.at(0, 0, 0), M.shell, k.notch(out, .295, .16));
       k.up(k.bar(.56, .075, .003, .005), 0, .1615, -.115, M.dark);
       k.half('lower', () => k.face(k.bar(.59, .575, .015, .004, .002), 0, .4475, -.0775, M.shell));   // the pocket's floor
-      k.window(k.rounded([[-.39, .04, .02], [.39, .04, .13], [.39, .66, .02], [-.39, .66, .02]]), k.at(0, 0, z), .009, .47, .43, 0, .345, M.plastic('#585b6c', 'bezel'), M.lcd('#7f8e5c'));
+      k.window(k.rounded([[-.39, .04, .02], [.39, .04, .13], [.39, .66, .02], [-.39, .66, .02]]), k.at(0, 0, z), .009, .47, .43, 0, .345, M.plastic('#585b6c', 'bezel'), M.picture('#7f8e5c', .55));
       k.face(k.plane(.66, .008), 0, .628, z + .0095, M.lcd('#8b2c51')); k.face(k.plane(.66, .008), 0, .614, z + .0095, M.lcd('#3b3e90'));
       k.face(k.disc(.016, .004), -.33, .43, z + .01, M.led('#ff2a2a'));
       k.dpad(-.21, -.2, z, .27, B0);
@@ -137,6 +145,7 @@ export const CONSOLES = {
     },
   },
   gbc: {
+    insert: { at: [0, 34, -8.5], rot: [0, Math.PI, 0], from: [0, 90, 0], turn: Math.PI },
     name: 'Game Boy Color', finish: plastic('#2fb5a9', .35, .55), seam: { axis: 'z', at: -.045 },
     build(k) {   // smaller, the screen centered high
       const { M } = k, z = .135, B0 = M.plastic('#26323a', 'dpad');
@@ -144,7 +153,7 @@ export const CONSOLES = {
       k.body(out, .27, .04, -.045, k.at(0, 0, 0), M.shell, k.notch(out, .295, .185));   // the cartridge pocket at the top of the back
       k.up(k.bar(.56, .075, .003, .005), 0, .1865, -.09, M.dark);
       k.half('lower', () => k.face(k.bar(.59, .475, .015, .004, .002), 0, .4225, -.0525, M.shell));
-      k.window(k.rrect(.66, .56, .05, 6), k.at(0, .31, z), .009, .45, .41, 0, 0, M.plastic('#2a2c33', 'bezel'), M.screen);
+      k.window(k.rrect(.66, .56, .05, 6), k.at(0, .31, z), .009, .45, .41, 0, 0, M.plastic('#2a2c33', 'bezel'), M.picture('#0c0f14'));
       k.face(k.disc(.014, .004), -.29, .38, z + .01, M.led('#ff3a3a'));
       k.dpad(-.2, -.22, z, .24, B0);
       [[.25, -.17], [.1, -.25]].forEach(([x, y]) => k.face(k.dome(.058, .028), x, y, z, M.plastic('#4a3f93', 'buttons')));
@@ -153,6 +162,7 @@ export const CONSOLES = {
     },
   },
   gba: {
+    insert: { at: [0, 38, -7.75], rot: [0, Math.PI, 0], from: [0, 70, 0], turn: Math.PI },   // half in, sticking up out of the back
     name: 'Game Boy Advance', finish: plastic('#4e46a8', .4, .45), seam: { axis: 'z', at: -.0375 },
     build(k) {   // wide, with firm corners, the screen between the controls, shoulder buttons along the top edge
       const { M } = k, z = .1225, B0 = M.plastic('#c5c4d2', 'buttons'), SS = M.plastic('#c5c4d2', 'small'), D = M.plastic('#3b3488', 'dpad'), SH = M.plastic('#3b3488', 'shoulders');
@@ -160,7 +170,7 @@ export const CONSOLES = {
       k.body(out, .245, .03, -.0375, k.at(0, 0, 0), M.shell, k.notch(out, .295, .21));   // the cartridge half sticks up out of its pocket
       k.up(k.bar(.56, .07, .003, .005), 0, .2115, -.08, M.dark);
       k.half('lower', () => k.face(k.bar(.59, .195, .015, .004, .002), 0, .3075, -.045, M.shell));
-      k.window(k.rrect(.84, .6, .06, 6), k.at(0, .03, z), .009, .62, .415, 0, .015, M.plastic('#18181f', 'bezel'), M.screen);
+      k.window(k.rrect(.84, .6, .06, 6), k.at(0, .03, z), .009, .62, .415, 0, .015, M.plastic('#18181f', 'bezel'), M.picture('#0c0f14'));
       k.dpad(-.565, .07, z, .2, D);                                                                     // kept clear of the screen's bezel
       [[.625, .13], [.495, .03]].forEach(([x, y]) => k.face(k.dome(.055, .028), x, y, z, B0));
       [[-.565, -.21], [-.565, -.29]].forEach(([x, y]) => k.face(k.dome(.024, .014), x, y, z, SS));
@@ -170,6 +180,7 @@ export const CONSOLES = {
     },
   },
   ps1: {
+    insert: { at: [-25, 30.5, -5], rot: [-Math.PI / 2, 0, 0], from: [0, 90, 0] },   // down into the well under the lid
     name: 'PlayStation', finish: plastic('#afada8', .5, .25), lid: { rest: 0 }, seam: { axis: 'y', at: -.241 },
     build(k) {   // a low gray box with a round lid on top and three round buttons
       const { M } = k, D0 = M.plastic('#a9a7a1', 'buttons');
@@ -185,6 +196,7 @@ export const CONSOLES = {
     },
   },
   ds: {
+    insert: { at: [0, -1, -25], rot: [-Math.PI / 2, 0, 0], from: [0, 0, -90], turn: Math.PI },   // into the back edge, label up
     name: 'Nintendo DS', finish: plastic('#b0b3bc', .38, .5), lid: { rest: 1 }, seam: { axis: 'y', at: -.032 },
     build(k) {   // the original two-screen clamshell
       const { M } = k, P0 = M.plastic('#2c2e35', 'bezel'), K = M.plastic('#d3d5dc', 'buttons');
@@ -199,17 +211,18 @@ export const CONSOLES = {
       // the top half, built standing up from the hinge; closed, it lies on the bottom half
       k.lid({ hinge: [0, .135, -.43], closed: Math.PI / 2, open: -.35 }, L => {
         L.on(L.solid(L.rrect(1.49, .85, .12, 8), .13, .03), L.at(0, .44, 0), M.shell);
-        L.window(L.rrect(1.42, .78, .1, 8), L.at(0, .44, .065), .007, .62, .46, 0, 0, P0, M.screen);
+        L.window(L.rrect(1.42, .78, .1, 8), L.at(0, .44, .065), .007, .62, .46, 0, 0, P0, M.picture('#0c0f14'));
         [-1, 1].forEach(s => { for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) L.on(L.disc(.01, .002), L.at(s * .55 + (i - 1) * .03, .49 + (j - 1) * .03, .0722), M.dark); });
       });
     },
   },
   psp: {
+    insert: { at: [0, 0, -8.4], rot: [0, Math.PI, 0], from: [0, 0, -90], turn: Math.PI },   // behind the back door, label out
     name: 'PSP', finish: plastic('#16171b', .22, .85), lid: { rest: 0 }, seam: { axis: 'z', at: 0 },
     build(k) {   // a glossy black oval with a wide screen in the middle
       const { M } = k, z = .115, K = M.plastic('#2c2d33', 'buttons'), SH = M.plastic('#2c2d33', 'shoulders');
       k.body(k.rrect(1.7, .74, .33, 10), .23, .05, 0, k.at(0, 0, 0), M.shell);
-      k.window(k.rrect(1.02, .6, .03, 6), k.at(0, .02, z), .007, .96, .545, 0, 0, M.plastic('#0b0c0f', 'bezel'), M.screen);
+      k.window(k.rrect(1.02, .6, .03, 6), k.at(0, .02, z), .007, .96, .545, 0, 0, M.plastic('#0b0c0f', 'bezel'), M.picture('#0c0f14'));
       [[-.075, 0, Math.PI / 2], [.075, 0, -Math.PI / 2], [0, .075, 0], [0, -.075, Math.PI]]   // all pointing inward
         .forEach(([dx, dy, r]) => k.face(k.tri(.04, .02), -.64 + dx, .12 + dy, z + .008, K, r));
       k.face(k.lathe([[0, .035], [.045, .033], [.06, .02], [.062, 0], [0, 0]], 24), -.64, -.17, z, M.plastic('#5e6068', 'stick'));
@@ -230,12 +243,13 @@ export const CONSOLES = {
     },
   },
   android: {
+    insert: { at: [0, 26.1, -4], rot: [0, 0, 0], from: [0, 70, 0] },   // down into the slot on top
     name: 'Android handheld', finish: plastic('#2b2e3a', .4, .45), seam: { axis: 'z', at: -.02 },
     build(k) {   // Android games: a generic modern handheld
       const { M } = k, z = .1, K = M.plastic('#d9dbe3', 'buttons'), S = M.plastic('#4a4e5c', 'stick'), D = M.plastic('#3b3f4d', 'dpad'), SH = M.plastic('#3b3f4d', 'shoulders');
       const stick = x => k.face(k.lathe([[0, .04], [.05, .038], [.07, .025], [.075, 0], [0, 0]], 24), x, -.2, z, S);
       k.body(k.rrect(1.9, .82, .14, 8), .2, .04, -.02, k.at(0, 0, 0), M.shell);
-      k.window(k.rrect(1.14, .68, .05, 6), k.at(0, .02, z), .008, 1.06, .6, 0, 0, M.plastic('#0e1015', 'bezel'), M.screen);
+      k.window(k.rrect(1.14, .68, .05, 6), k.at(0, .02, z), .008, 1.06, .6, 0, 0, M.plastic('#0e1015', 'bezel'), M.picture('#0c0f14'));
       k.dpad(-.72, .13, z, .2, D);
       stick(-.72); k.face(k.ring(.08, .1, .004, 32), -.72, -.2, z + .001, M.dark);
       [[.085, 0], [-.085, 0], [0, .085], [0, -.085]].forEach(([dx, dy]) => k.face(k.dome(.04, .02), .72 + dx, .13 + dy, z, K));

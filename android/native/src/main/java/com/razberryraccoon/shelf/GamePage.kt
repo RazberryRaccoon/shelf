@@ -56,8 +56,21 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
 
     // turning it in your hands
     private var stickX = 0f; private var stickY = 0f
-    private val restPitch = -.1f
-    private var restYaw = -.28f          // the front, a little turned so its side shows; X adds a half turn to show the back
+    // What the page shows (Settings chooses which first; L2 and R2 go through them): 0 the cartridge, 1 the cartridge in
+    // its open box, 2 the box closed. They flow into each other as in the Museum: the box grows round the cartridge, the
+    // cartridge settles into its tray, the cover swings shut.
+    private var view = games.pageView
+    private val sampler = com.google.android.filament.TextureSampler(com.google.android.filament.TextureSampler.MinFilter.LINEAR_MIPMAP_LINEAR, com.google.android.filament.TextureSampler.MagFilter.LINEAR, com.google.android.filament.TextureSampler.WrapMode.CLAMP_TO_EDGE)
+    private val case: Case? = carts.model("case-${game.sys}.glb")?.let { Case(stage, it, game.title, sampler) }?.also { it.hide() }
+    private var caseK = 0f; private var inBox = 0f; private var openK = 1f
+    /** Starting the game: the start animation has the cartridge, and the page fades out of its way (and back after). */
+    var launching = false
+    private var launchK = 0f
+    private var flipped = false
+    // each view's resting angle: the cartridge's front a little turned so its side shows, the open box from a little
+    // above so the tray shows, the closed box's front; X adds a half turn to show the back
+    private val restPitch: Float get() = when (view) { 1 -> -.42f; 2 -> -.12f; else -> -.1f }
+    private val restYaw: Float get() = (when (view) { 1 -> -.12f; 2 -> -.35f; else -> -.28f }) + if (flipped) PI.toFloat() else 0f
     private var yaw = -.2f; private var pitch = -.1f
     private var vYaw = 0f; private var vPitch = 0f
     private var idle = 9f                // seconds since the stick was last used
@@ -115,8 +128,8 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         panel.addView(list, LinearLayout.LayoutParams(-1, 0, 1f).apply { leftMargin = -30; rightMargin = -30 })
         listHead.visibility = View.GONE; list.visibility = View.GONE
         board.put(panel, 704, 124, 596, 598)
-        hint.addView(key("R", "Turn it with the right stick")); hint.addView(key("X", "Flip it over").apply { setPadding(28, 0, 0, 0) })
-        board.put(hint, 60, 664, 600)
+        fillHint()
+        board.put(hint, 30, 664, 660)
         tiles.onMove = { refreshNote() }
         info = meta.cached(game)
         refresh()
@@ -177,8 +190,10 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val pk = Backdrop.ease(((t - .3f) / .7f).coerceIn(0f, 1f))
         studioK = if (studio != null) min(1f, studioK + dt / .3f) else maxOf(0f, studioK - dt / .25f)
         val sk = Backdrop.ease(studioK)
-        panel.alpha = pk * (1 - sk); panel.translationX = (1 - pk) * 70f - sk * 40f
-        studioPanel.alpha = pk * sk; studioPanel.translationX = (1 - sk) * 50f
+        launchK = if (launching) min(1f, launchK + dt / .3f) else maxOf(0f, launchK - dt / .4f)
+        val lk = 1 - Backdrop.ease(launchK)
+        panel.alpha = pk * (1 - sk) * lk; panel.translationX = (1 - pk) * 70f - sk * 40f
+        studioPanel.alpha = pk * sk * lk; studioPanel.translationX = (1 - sk) * 50f
         if (studio == null && studioK == 0f && studioPanel.parent != null) board.removeView(studioPanel)
         // the stick: turn while held, coast when let go, then settle back to the front (or the back, after X)
         val sx = dead(stickX); val sy = dead(stickY)
@@ -199,14 +214,15 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val x = lerp(from[0], 350f, k); val y = lerp(from[1], 384f, k) - sin(PI.toFloat() * k) * 46f + sin(time * .8f) * 4f * k
         val px = lerp(from[2], 400f, k)
         val ry = lerp(-.2f, yaw, k); val rx = lerp(-.1f, pitch, k)
-        cart?.place(x, y, lerp(40f, 70f, k), ry, rx, px, held = true)
+        if (!launching) cart?.place(x, y, lerp(40f, 70f, k), ry, rx, px, held = true)
+        placeBox(dt, x, y, ry, rx, k)
         cart?.brightness(lerp(1.02f, 1f, k))
-        cart?.let { c ->
+        if (!launching) cart?.let { c ->
             val big = maxOf(c.style.w, c.style.h)
             backdrop.shadows.add(floatArrayOf(x, lerp(from[1] + c.style.h / big * from[2] / 2 + 24f, 600f, k), lerp(c.style.w / big * from[2] * .9f, 330f, k), 1f - .25f * k))
         }
         // the hint under the cartridge shows for a few seconds, then gets out of the way
-        hint.alpha = pk
+        hint.alpha = pk * lk
         if (closing && t == 0f) { destroy(); host.closed(this, homeChanged) }
     }
 
@@ -222,6 +238,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
             Mode.PAGE -> {}
         }
         if (a == "x") return flip()
+        if (a == "lt" || a == "rt") return setView(view + if (a == "lt") -1 else 1)
         if (a == "y") return toggleFavorite()
         if (a == "b") return close()
         when (zone) {
@@ -271,7 +288,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     }
 
     private fun flip() {
-        restYaw = if (restYaw > 1f) -.28f else -.28f + PI.toFloat()
+        flipped = !flipped
         vYaw = 0f; vPitch = 0f; idle = 9f
         Sounds.play(Sounds.TURN)
     }
@@ -503,7 +520,48 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
             host.show(if (i?.name != null) "Found ${ArtIndex.stripTags(i.name).trim()}" else "Couldn’t find it. Try Which game is this?") }
     }
 
+    // ---------- the box ----------
+
+    private fun setView(v: Int) {
+        val to = (v + 3) % 3
+        if (case == null && to != 0) return Sounds.play(Sounds.BUMP)   // a console with no box made for it yet
+        // from the cartridge straight to the closed box (left from Cartridge), it arrives already closed with the cartridge in
+        if (view == 0 && to == 2 && caseK < .05f) { inBox = 1f; openK = 0f }
+        view = to; idle = 9f; vYaw = 0f; fillHint()
+        Sounds.play(if (to == 2) Sounds.CLOSE else Sounds.MOVE)
+    }
+
+    /**
+     * The box around the cartridge, and the cartridge in its tray: the case at most 400 across (open, its cover lies to
+     * the left, so it shrinks to fit and moves right to stay centred), the cartridge between where it floats and the tray.
+     */
+    private fun placeBox(dt: Float, x: Float, y: Float, ry: Float, rx: Float, k: Float) {
+        val c = case ?: return
+        fun ease(cur: Float, want: Float, rate: Float) = cur + (want - cur) * min(1f, dt * rate)
+        val boxed = !closing && !launching && view >= 1   // starting the game, the box steps aside with the page
+        caseK = ease(caseK, if (boxed) 1f else 0f, 7f)
+        inBox = ease(inBox, if (boxed) 1f else 0f, 6f)
+        openK = ease(openK, if (view == 2 && !closing) 0f else 1f, 5f)
+        c.open = Backdrop.ease(openK.coerceIn(0f, 1f))
+        val kk = Backdrop.ease(caseK.coerceIn(0f, 1f)) * k
+        if (kk < .02f) { c.hide(); return }
+        val s = min(400f / (2 * maxOf(c.half[0], c.half[1])), 300f / (2 * c.half[0]))
+        val shift = maxOf(0f, -kotlin.math.cos(PI.toFloat() * .97f * c.open)) * c.half[0] * s * kk * kotlin.math.cos(ry)
+        c.place(x + shift, y, 50f, ry, rx, s * 2 * maxOf(c.half[0], c.half[1]) * kk)
+        val ib = Backdrop.ease(inBox.coerceIn(0f, 1f))
+        if (!launching) cart?.let { ct -> if (ib > .01f) { val free = ct.placed.copyOf(); val tray = c.mediaMatrix(); ct.placeMatrix(FloatArray(16) { free[it] + (tray[it] - free[it]) * ib }) } }
+    }
+
+    /** Under the cartridge: what the triggers show, and the turning keys. */
+    private fun fillHint() {
+        hint.removeAllViews()
+        if (case != null) hint.addView(key("L2 R2", PAGE_VIEWS[view]))
+        hint.addView(key("R", "Turn it").apply { setPadding(if (case != null) 26 else 0, 0, 0, 0) })
+        hint.addView(key("X", "Flip it over").apply { setPadding(26, 0, 0, 0) })
+    }
+
     fun destroy() {
+        case?.destroy()
         board.removeView(panel); board.removeView(hint); board.removeView(studioPanel); viewer?.let { board.removeView(it) }
         stage.turnKey(0f)
         shots.recycle()

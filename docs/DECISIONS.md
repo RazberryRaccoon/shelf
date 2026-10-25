@@ -284,6 +284,11 @@ Summarized from the first part of the conversation; the full transcript is kept 
   stick just moves the circuitboard around, leaving the console halves alone. Then cycling to the next type puts the
   circuitboard back to its default position, the two halves connect again." And the halves "should be hollowed out
   more, like the cartridges are," not flat and chunky.
+- The start and return animations (0.12, the user's choices): "About 2.5 seconds", "Any button skips", and a home
+  console's ends "easing in on the power light" (a handheld's on its screen, showing the title screen).
+- The game page's model (0.12, the user): "an option in the main settings page for what the default 3D model is when
+  opening a game's page: cartridge, open box, or closed box. From the game page, you should be able to cycle between all
+  three." L2 and R2 cycle (L1 and R1 already move between games); the default stays the open box, as decided earlier.
 - The start animation (after 0.7, the user): "When launching a handheld game, the intro animation should display the
   game's title screen on the handheld's screen after the cartridge has been inserted and before the game fully launches
   and takes over." Home consoles show just the console (no TV, no title screen behind it).

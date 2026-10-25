@@ -97,6 +97,15 @@ window.exportAll = async ({ consoles = false, cases = false, carts = true } = {}
     // How the Inside view takes it apart, like an exploded drawing: both halves slide straight away from the board along
     // the seam's axis (a home console's top up and its base down, a handheld's front toward you and its back away),
     // in millimetres, scaled to the console's size
+    // The start animation's marks, in millimetres: where the game sits once it's in (a whole transform, turned about x
+    // first, then y), the straight path it slides in along, how far the console turns round to take it, and the centres
+    // of its power light and its picture screen (what the view eases in on)
+    let launch = null;
+    if (entry.insert) {
+      const ins = entry.insert, centre = name => { const b = new THREE.Box3(); con.traverse(o => { if (o.isMesh && [].concat(o.material).some(x => x.name === name)) b.expandByObject(o); }); return b.isEmpty() ? null : b.getCenter(new THREE.Vector3()).toArray().map(v => +v.toFixed(2)); };
+      const seat = new THREE.Matrix4().compose(new THREE.Vector3(...ins.at), new THREE.Quaternion().setFromEuler(new THREE.Euler(ins.rot[0], ins.rot[1], ins.rot[2], 'YXZ')), new THREE.Vector3(1, 1, 1));
+      launch = { seat: seat.elements.map(v => +v.toFixed(5)), from: ins.from, turn: ins.turn || 0, led: centre('power-led'), screen: centre('screen-picture') };
+    }
     let explode = null;
     if (entry.seam) {
       const sz = new THREE.Box3().setFromObject(con).getSize(new THREE.Vector3()), flat = entry.seam.axis === 'y';
@@ -115,7 +124,7 @@ window.exportAll = async ({ consoles = false, cases = false, carts = true } = {}
     consoleInfo[id] = { name: entry.name, parts: Object.keys(PART_NAMES).filter(r => roles.has(r)).map(r => [r, PART_NAMES[r]]),
       colors: (CONSOLE_COLORS[id] || []).map(([name, note, parts]) => ({ name, note, parts })),
       // its board's print: the part number, the solder mask's color, the board's size (the print's shape)
-      board: BOARDS[id] ? { code: BOARDS[id].code, mask: BOARDS[id].mask || MASK, size: BOARDS[id].size } : null, explode };
+      board: BOARDS[id] ? { code: BOARDS[id].code, mask: BOARDS[id].mask || MASK, size: BOARDS[id].size } : null, explode, launch };
   }
   for (const [id, style] of Object.entries(cases ? STYLES : {})) {
     if (!CASES[id]) continue;

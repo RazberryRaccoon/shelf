@@ -23,7 +23,7 @@ import kotlin.math.abs
  * TextureView) and the interface (Android views, laid out at 1334 × 750 and scaled to fit). Controller buttons come in
  * here and go to the screen that's showing.
  */
-class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host {
+class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.Host {
     private lateinit var stage: Stage
     private lateinit var backdrop: Backdrop
     private lateinit var board: Board
@@ -32,6 +32,9 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host {
     private lateinit var carts: Carts
     private var setup: Setup? = null
     private var museum: Museum? = null
+    private var launch: Launch? = null   // a game starting, being played, or coming back
+    private lateinit var meta: Meta
+    private lateinit var consoles: Consoles
     private val ui = Handler(Looper.getMainLooper())
 
     override fun onCreate(state: Bundle?) {
@@ -65,14 +68,16 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host {
         stage.setLook(games.lightEnv, games.lightExposure, games.lightKey)
         Sounds.init(this, games.sounds)
         carts = Carts(stage, Shells(this))
-        home = Home(this, stage, board, backdrop, games, carts, Meta(this, games), this)
+        meta = Meta(this, games)
+        consoles = Consoles(this, stage)
+        home = Home(this, stage, board, backdrop, games, carts, meta, this)
         if (!games.setupDone) openSetup(settings = false)
         // the interface and backdrop follow the 3D layer's fit, so all three line up
         root.addOnLayoutChangeListener { _, l, t, r, b, _, _, _, _ ->
             val s = minOf((r - l) / Stage.W, (b - t) / Stage.H); val ox = ((r - l) - Stage.W * s) / 2; val oy = ((b - t) - Stage.H * s) / 2
             board.fit(s, ox, oy); backdrop.scale = s; backdrop.ox = ox; backdrop.oy = oy
         }
-        stage.onFrame = { dt -> home.tick(dt); setup?.tick(dt); museum?.tick(dt); backdrop.tick(dt); if (++frames == 90) booting.delete() }   // started fine
+        stage.onFrame = { dt -> home.tick(dt); setup?.tick(dt); museum?.tick(dt); launch?.tick(dt); backdrop.tick(dt); if (++frames == 90) booting.delete() }   // started fine
     }
 
     // ---------- when the last start went wrong ----------
@@ -112,6 +117,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host {
         if (safeMode) return
         stage.start()
         home.needsStorage = !Environment.isExternalStorageManager()
+        launch?.back()   // back from a game: the return animation
         rescan { setup?.fill() }   // back from Android's settings, a game, or the folder picker
     }
 
@@ -212,9 +218,17 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host {
 
     // ---------- Home's requests ----------
 
+    /** Play: the start animation, which starts the game at its end (start), and plays the way back when Shelf returns. */
     override fun play(g: Game) {
-        val err = games.launch(g)
-        if (err.isNotEmpty()) home.show(err)
+        if (launch != null) return
+        val (cart, from) = home.takeForLaunch(g)
+        launch = Launch(this, stage, board, backdrop, carts, consoles, games, meta, g, cart, from, this)
+    }
+    override fun start(l: Launch): String = games.launch(l.game)
+    override fun done(l: Launch) {
+        launch = null
+        home.landed(l.game)
+        if (l.problem.isNotEmpty()) home.show(l.problem)
     }
 
     override fun allowStorage() {
@@ -243,7 +257,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host {
     private var lastRepeat = 0L
     private val repeat = object : Runnable { override fun run() { held?.let { input(it); ui.postDelayed(this, 110) } } }
     /** Buttons go to whichever screen is showing. */
-    private fun input(a: String) { if (safeMode) return safeInput(a); if (home.picker != null) home.input(a) else museum?.input(a) ?: setup?.input(a) ?: home.input(a) }   // a message over everything goes first
+    private fun input(a: String) { if (safeMode) return safeInput(a); launch?.let { return it.input(a) }; if (home.picker != null) home.input(a) else museum?.input(a) ?: setup?.input(a) ?: home.input(a) }   // a game starting takes every button (any one skips); then a message over everything
 
     private fun actionFor(code: Int) = when (code) {
         KeyEvent.KEYCODE_DPAD_UP -> "up"; KeyEvent.KEYCODE_DPAD_DOWN -> "down"
@@ -252,6 +266,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host {
         KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> "b"
         KeyEvent.KEYCODE_BUTTON_X -> "x"; KeyEvent.KEYCODE_BUTTON_Y -> "y"
         KeyEvent.KEYCODE_BUTTON_L1 -> "lb"; KeyEvent.KEYCODE_BUTTON_R1 -> "rb"
+        KeyEvent.KEYCODE_BUTTON_L2 -> "lt"; KeyEvent.KEYCODE_BUTTON_R2 -> "rt"
         else -> null
     }
 
@@ -268,7 +283,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host {
         val pad = e.source and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK || e.source and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD
         if (!pad || e.action != MotionEvent.ACTION_MOVE) return super.onGenericMotionEvent(e)
         // the right stick turns the cartridge on a game's page
-        if (!safeMode) { val x = e.getAxisValue(MotionEvent.AXIS_Z); val y = e.getAxisValue(MotionEvent.AXIS_RZ); museum?.stick(x, y) ?: home.stick(x, y) }
+        if (!safeMode && launch == null) { val x = e.getAxisValue(MotionEvent.AXIS_Z); val y = e.getAxisValue(MotionEvent.AXIS_RZ); museum?.stick(x, y) ?: home.stick(x, y) }
         // the left stick, or a D-pad that reports itself as a hat
         var x = e.getAxisValue(MotionEvent.AXIS_HAT_X); var y = e.getAxisValue(MotionEvent.AXIS_HAT_Y)
         if (abs(x) < .5f && abs(y) < .5f) { x = e.getAxisValue(MotionEvent.AXIS_X); y = e.getAxisValue(MotionEvent.AXIS_Y) }
