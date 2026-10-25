@@ -461,3 +461,11 @@ The speed-up round closed the app on opening the Museum: `NullPointerException â
 loaded consoles was declared below the Museum's `init`, which already uses it (Kotlin sets up a class's properties in
 order, so it was still null). Moved up; every class was scanned for a property declared after an `init` that uses
 it, and nothing else was. A lesson for the compile checks: they can't catch this, so new fields go above `init`.
+
+**Shelf Native 0.7 (October 2026): console colors and the console Studio** (update C, first half). After "This is all
+fantastic now. No new notes. Go ahead and build out the next set of features." Every plastic in the Studio's consoles
+is now named for its part (`role:shell`, `role:dpad`â€¦; a part in two shades, like the NES's front band, gets
+`role:band#2` so each keeps its own color), and the export writes `consoles.json`: each console's parts and the 52
+real color editions researched for it (see RESEARCH.md). In the Museum, Console colors lists them, your own, and the
+console Studio, which paints part by part with the cartridge Studio's controls. Compile-checked; the export checked by
+reading back every model's part names. Not checked on a device.

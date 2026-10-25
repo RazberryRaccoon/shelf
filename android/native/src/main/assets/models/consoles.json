@@ -1,0 +1,664 @@
+{
+ "nes": {
+  "name": "NES",
+  "parts": [
+   [
+    "shell",
+    "Shell"
+   ],
+   [
+    "band",
+    "Front band"
+   ],
+   [
+    "door",
+    "Door"
+   ],
+   [
+    "buttons",
+    "Buttons"
+   ]
+  ],
+  "colors": [
+   {
+    "name": "Standard gray",
+    "note": "The NES (1985)",
+    "parts": {}
+   },
+   {
+    "name": "Red and white",
+    "note": "The Famicom’s colors (Japan, 1983)",
+    "parts": {
+     "shell": "#e8e2d6",
+     "band": "#9c2a33",
+     "door": "#e8e2d6",
+     "buttons": "#9c2a33"
+    }
+   }
+  ]
+ },
+ "snes": {
+  "name": "Super Nintendo",
+  "parts": [
+   [
+    "shell",
+    "Shell"
+   ],
+   [
+    "lower",
+    "Lower half"
+   ],
+   [
+    "switches",
+    "Switches"
+   ]
+  ],
+  "colors": [
+   {
+    "name": "Standard gray",
+    "note": "North America (1991): two grays, purple switches",
+    "parts": {}
+   },
+   {
+    "name": "Light gray",
+    "note": "Super Famicom and Europe (1990–92): pale gray, gray switches",
+    "parts": {
+     "shell": "#d6d4d8",
+     "lower": "#cfcdd2",
+     "switches": "#9c9aa3"
+    }
+   }
+  ]
+ },
+ "n64": {
+  "name": "Nintendo 64",
+  "parts": [
+   [
+    "shell",
+    "Shell"
+   ],
+   [
+    "switches",
+    "Switches"
+   ]
+  ],
+  "colors": [
+   {
+    "name": "Charcoal",
+    "note": "The original (1996)",
+    "parts": {}
+   },
+   {
+    "name": "Jungle green",
+    "note": "Funtastic series (1999), translucent",
+    "parts": {
+     "shell": [
+      "#2f8f55",
+      "glossy"
+     ]
+    }
+   },
+   {
+    "name": "Ice blue",
+    "note": "Funtastic series (1999), translucent",
+    "parts": {
+     "shell": [
+      "#86bfe6",
+      "glossy"
+     ]
+    }
+   },
+   {
+    "name": "Grape purple",
+    "note": "Funtastic series (1999), translucent",
+    "parts": {
+     "shell": [
+      "#6e4fa3",
+      "glossy"
+     ]
+    }
+   },
+   {
+    "name": "Fire orange",
+    "note": "Funtastic series (1999), translucent",
+    "parts": {
+     "shell": [
+      "#f07a24",
+      "glossy"
+     ]
+    }
+   },
+   {
+    "name": "Watermelon red",
+    "note": "Funtastic series (1999), translucent",
+    "parts": {
+     "shell": [
+      "#e1454f",
+      "glossy"
+     ]
+    }
+   },
+   {
+    "name": "Smoke black",
+    "note": "Funtastic series (1999), translucent",
+    "parts": {
+     "shell": [
+      "#2a2b31",
+      "glossy"
+     ]
+    }
+   },
+   {
+    "name": "Gold",
+    "note": "A limited gold edition (1999)",
+    "parts": {
+     "shell": [
+      "#c9a24a",
+      "metal"
+     ]
+    }
+   }
+  ]
+ },
+ "genesis": {
+  "name": "Sega Genesis",
+  "parts": [
+   [
+    "shell",
+    "Shell"
+   ],
+   [
+    "switches",
+    "Switches"
+   ]
+  ],
+  "colors": [
+   {
+    "name": "Black",
+    "note": "Every model was black (1989)",
+    "parts": {}
+   }
+  ]
+ },
+ "gb": {
+  "name": "Game Boy",
+  "parts": [
+   [
+    "shell",
+    "Shell"
+   ],
+   [
+    "bezel",
+    "Screen bezel"
+   ],
+   [
+    "dpad",
+    "D-pad"
+   ],
+   [
+    "buttons",
+    "Buttons"
+   ],
+   [
+    "small",
+    "Start and Select"
+   ]
+  ],
+  "colors": [
+   {
+    "name": "Gray",
+    "note": "The original (1989)",
+    "parts": {}
+   },
+   {
+    "name": "Red",
+    "note": "Play It Loud series (1995)",
+    "parts": {
+     "shell": "#d22a32"
+    }
+   },
+   {
+    "name": "Yellow",
+    "note": "Play It Loud series (1995)",
+    "parts": {
+     "shell": "#f1cf34"
+    }
+   },
+   {
+    "name": "Green",
+    "note": "Play It Loud series (1995)",
+    "parts": {
+     "shell": "#3a9f52"
+    }
+   },
+   {
+    "name": "Blue",
+    "note": "Play It Loud series (1995)",
+    "parts": {
+     "shell": "#2e5ec2"
+    }
+   },
+   {
+    "name": "Black",
+    "note": "Play It Loud series (1995)",
+    "parts": {
+     "shell": "#232328"
+    }
+   },
+   {
+    "name": "White",
+    "note": "Play It Loud series (1995)",
+    "parts": {
+     "shell": "#ecebe8"
+    }
+   },
+   {
+    "name": "Clear",
+    "note": "Play It Loud series (1995), see-through",
+    "parts": {
+     "shell": [
+      "#d9e3ea",
+      "glossy"
+     ]
+    }
+   }
+  ]
+ },
+ "gbc": {
+  "name": "Game Boy Color",
+  "parts": [
+   [
+    "shell",
+    "Shell"
+   ],
+   [
+    "bezel",
+    "Screen bezel"
+   ],
+   [
+    "dpad",
+    "D-pad"
+   ],
+   [
+    "buttons",
+    "Buttons"
+   ],
+   [
+    "small",
+    "Start and Select"
+   ]
+  ],
+  "colors": [
+   {
+    "name": "Teal",
+    "note": "Launch colors (1998)",
+    "parts": {}
+   },
+   {
+    "name": "Berry",
+    "note": "Launch colors (1998)",
+    "parts": {
+     "shell": "#cf2d63"
+    }
+   },
+   {
+    "name": "Grape",
+    "note": "Launch colors (1998)",
+    "parts": {
+     "shell": "#6a3fa0"
+    }
+   },
+   {
+    "name": "Kiwi",
+    "note": "Launch colors (1998)",
+    "parts": {
+     "shell": "#a6c93c"
+    }
+   },
+   {
+    "name": "Dandelion",
+    "note": "Launch colors (1998)",
+    "parts": {
+     "shell": "#f2c230"
+    }
+   },
+   {
+    "name": "Atomic purple",
+    "note": "Launch colors (1998), translucent",
+    "parts": {
+     "shell": [
+      "#6a4c9c",
+      "glossy"
+     ]
+    }
+   }
+  ]
+ },
+ "gba": {
+  "name": "Game Boy Advance",
+  "parts": [
+   [
+    "shell",
+    "Shell"
+   ],
+   [
+    "bezel",
+    "Screen bezel"
+   ],
+   [
+    "dpad",
+    "D-pad"
+   ],
+   [
+    "buttons",
+    "Buttons"
+   ],
+   [
+    "small",
+    "Start and Select"
+   ],
+   [
+    "shoulders",
+    "Shoulder buttons"
+   ]
+  ],
+  "colors": [
+   {
+    "name": "Indigo",
+    "note": "Launch color (2001)",
+    "parts": {}
+   },
+   {
+    "name": "Arctic",
+    "note": "Launch color (2001)",
+    "parts": {
+     "shell": "#e8e9ee",
+     "dpad": "#c9cbd4",
+     "shoulders": "#c9cbd4"
+    }
+   },
+   {
+    "name": "Black",
+    "note": "2002",
+    "parts": {
+     "shell": "#1d1d22",
+     "dpad": "#3a3a42",
+     "shoulders": "#3a3a42"
+    }
+   },
+   {
+    "name": "Fuchsia",
+    "note": "Launch color (2001)",
+    "parts": {
+     "shell": "#d93b8f",
+     "dpad": "#a8256a",
+     "shoulders": "#a8256a"
+    }
+   },
+   {
+    "name": "Glacier",
+    "note": "Launch color (2001), translucent",
+    "parts": {
+     "shell": [
+      "#8ec5e6",
+      "glossy"
+     ],
+     "dpad": "#5f95bf",
+     "shoulders": "#5f95bf"
+    }
+   },
+   {
+    "name": "Platinum",
+    "note": "2002",
+    "parts": {
+     "shell": [
+      "#c8cbd1",
+      "metal"
+     ],
+     "dpad": "#8f939b",
+     "shoulders": "#8f939b"
+    }
+   },
+   {
+    "name": "Orange",
+    "note": "Japan (2001)",
+    "parts": {
+     "shell": "#f08a2a"
+    }
+   }
+  ]
+ },
+ "ps1": {
+  "name": "PlayStation",
+  "parts": [
+   [
+    "shell",
+    "Shell"
+   ],
+   [
+    "lid",
+    "Lid"
+   ],
+   [
+    "buttons",
+    "Buttons"
+   ]
+  ],
+  "colors": [
+   {
+    "name": "Gray",
+    "note": "The original (1995)",
+    "parts": {}
+   },
+   {
+    "name": "White",
+    "note": "The later slim model’s white (2000)",
+    "parts": {
+     "shell": "#e9e9e6",
+     "lid": "#f0f0ee",
+     "buttons": "#dcdcd8"
+    }
+   }
+  ]
+ },
+ "ds": {
+  "name": "Nintendo DS",
+  "parts": [
+   [
+    "shell",
+    "Shell"
+   ],
+   [
+    "bezel",
+    "Screen bezel"
+   ],
+   [
+    "dpad",
+    "D-pad"
+   ],
+   [
+    "buttons",
+    "Buttons"
+   ]
+  ],
+  "colors": [
+   {
+    "name": "Platinum",
+    "note": "Launch color (2004)",
+    "parts": {}
+   },
+   {
+    "name": "Graphite black",
+    "note": "2005",
+    "parts": {
+     "shell": "#2a2b30",
+     "buttons": "#4a4c54"
+    }
+   },
+   {
+    "name": "Electric blue",
+    "note": "2005",
+    "parts": {
+     "shell": "#2f6fd0"
+    }
+   },
+   {
+    "name": "Titanium",
+    "note": "2005: dark silver",
+    "parts": {
+     "shell": [
+      "#5d6068",
+      "metal"
+     ]
+    }
+   },
+   {
+    "name": "Candy pink",
+    "note": "2005",
+    "parts": {
+     "shell": "#f2a6c4"
+    }
+   },
+   {
+    "name": "Red",
+    "note": "2005",
+    "parts": {
+     "shell": "#c4182c"
+    }
+   }
+  ]
+ },
+ "psp": {
+  "name": "PSP",
+  "parts": [
+   [
+    "shell",
+    "Shell"
+   ],
+   [
+    "bezel",
+    "Screen bezel"
+   ],
+   [
+    "buttons",
+    "Buttons"
+   ],
+   [
+    "shoulders",
+    "Shoulder buttons"
+   ],
+   [
+    "stick",
+    "Stick"
+   ]
+  ],
+  "colors": [
+   {
+    "name": "Piano black",
+    "note": "Launch color (2005)",
+    "parts": {}
+   },
+   {
+    "name": "Ceramic white",
+    "note": "2005",
+    "parts": {
+     "shell": "#eeeeeb",
+     "buttons": "#dcdcd8",
+     "shoulders": "#dcdcd8",
+     "bezel": "#eeeeeb"
+    }
+   },
+   {
+    "name": "Ice silver",
+    "note": "2006",
+    "parts": {
+     "shell": [
+      "#c7cad0",
+      "metal"
+     ]
+    }
+   },
+   {
+    "name": "Rose pink",
+    "note": "2006",
+    "parts": {
+     "shell": "#f0b3c5"
+    }
+   },
+   {
+    "name": "Felicia blue",
+    "note": "2007",
+    "parts": {
+     "shell": "#4d6db2"
+    }
+   },
+   {
+    "name": "Radiant red",
+    "note": "2008",
+    "parts": {
+     "shell": "#c01d2a"
+    }
+   }
+  ]
+ },
+ "android": {
+  "name": "Android handheld",
+  "parts": [
+   [
+    "shell",
+    "Shell"
+   ],
+   [
+    "bezel",
+    "Screen bezel"
+   ],
+   [
+    "dpad",
+    "D-pad"
+   ],
+   [
+    "buttons",
+    "Buttons"
+   ],
+   [
+    "shoulders",
+    "Shoulder buttons"
+   ],
+   [
+    "stick",
+    "Stick"
+   ]
+  ],
+  "colors": [
+   {
+    "name": "Midnight",
+    "note": "Today’s handhelds",
+    "parts": {}
+   },
+   {
+    "name": "Snow",
+    "note": "Today’s handhelds",
+    "parts": {
+     "shell": "#eceef2",
+     "buttons": "#c9ccd6"
+    }
+   },
+   {
+    "name": "Indigo",
+    "note": "Today’s handhelds",
+    "parts": {
+     "shell": "#3d3fa8"
+    }
+   },
+   {
+    "name": "Retro",
+    "note": "Gray with purple buttons, a nod to the 16-bit era",
+    "parts": {
+     "shell": "#c3c3c8",
+     "buttons": "#6c5ea6",
+     "dpad": "#4a4a52"
+    }
+   }
+  ]
+ }
+}

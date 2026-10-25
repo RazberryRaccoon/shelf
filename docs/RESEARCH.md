@@ -100,6 +100,28 @@ Collector sources, which don't always agree; colors in the studio are approximat
 - **DS:** gray; white for DSi-only games; darker, glossy, see-through cards for infrared games (HeartGold, SoulSilver,
   Pokémon Black and White, the last unverified). Source: https://en.wikipedia.org/wiki/Nintendo_Game_Card
 
+## Console colors (for the console Studio's defaults)
+North American editions unless noted; colors are approximations from photos. Series names are the makers' own; the
+app's names describe the color. Sources: the consoles' Wikipedia articles (https://en.wikipedia.org/wiki/Nintendo_64,
+https://en.wikipedia.org/wiki/Game_Boy, https://en.wikipedia.org/wiki/Game_Boy_Color,
+https://en.wikipedia.org/wiki/Game_Boy_Advance, https://en.wikipedia.org/wiki/Nintendo_DS,
+https://en.wikipedia.org/wiki/PlayStation_Portable, https://en.wikipedia.org/wiki/PlayStation_(console)) and collector
+listings of the limited editions.
+- **NES:** gray. The Famicom's red and white (Japan, 1983).
+- **SNES:** North America two grays with purple switches; the Super Famicom and Europe a paler gray with gray switches.
+- **N64:** charcoal (1996); the Funtastic translucents (1999): jungle green, ice blue, grape purple, fire orange,
+  watermelon red, smoke black; a limited gold edition.
+- **Genesis:** black, every model.
+- **Game Boy:** gray (1989); the Play It Loud series (1995): red, yellow, green, blue, black, white and clear.
+- **Game Boy Color:** launch colors (1998) teal, berry, grape, kiwi, dandelion, and translucent atomic purple.
+- **Game Boy Advance:** indigo, arctic, fuchsia and translucent glacier at launch (2001); black and platinum (2002);
+  orange in Japan.
+- **PlayStation:** gray (1995); white for the later slim model (2000).
+- **DS:** platinum at launch (2004); graphite black, electric blue, titanium, candy pink and red (2005).
+- **PSP:** piano black (2005); ceramic white, ice silver, rose pink, Felicia blue and radiant red in the years after.
+- **Android handhelds:** no single maker; four of today's common colors (midnight, snow, indigo, and gray with purple
+  buttons).
+
 ## North American SNES
 - **Cartridge:** 136 × 88 × 20 mm (the Japanese and European one is about 130 × 86 × 20), more angular, with inset
   grooves. Source: https://en.wikipedia.org/wiki/Super_Nintendo_Entertainment_System_Game_Pak,

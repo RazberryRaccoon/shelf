@@ -58,6 +58,12 @@ class Carts(private val stage: Stage, val shells: Shells) {
         return asset
     }
 
+    /** A model file's glTF description (its materials' own colors, for parts a console scheme leaves alone). */
+    fun description(name: String): JSONObject? = try {
+        val b = file(name).duplicate().order(java.nio.ByteOrder.LITTLE_ENDIAN); val len = b.getInt(12)
+        val bytes = ByteArray(len); b.position(20); b.get(bytes); JSONObject(String(bytes, Charsets.UTF_8))
+    } catch (e: Exception) { null }
+
     private fun file(name: String) = files.getOrPut(name) { stage.readAsset("models/$name").let { if (name.endsWith("-clear.glb")) seeThrough(it) else it } }
 
 
@@ -130,15 +136,6 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
         val e = asset.getFirstEntityByName(name); if (e == 0) return null
         val r = rm.getInstance(e); return if (r == 0) null else rm.getMaterialInstanceAt(r, 0)
     }
-    /** Sets a value only if the material has it, with exactly that many numbers; Filament stops the app on a mismatch. */
-    private fun MaterialInstance.set(name: String, vararg v: Float) {
-        val type = material.parameters.firstOrNull { it.name == name }?.type ?: return
-        when {
-            v.size == 1 && type == Material.Parameter.Type.FLOAT -> setParameter(name, v[0])
-            v.size == 3 && type == Material.Parameter.Type.FLOAT3 -> setParameter(name, v[0], v[1], v[2])
-            v.size == 4 && type == Material.Parameter.Type.FLOAT4 -> setParameter(name, v[0], v[1], v[2], v[3])
-        }
-    }
 
     /** The Studio's rules (cartridge.js, applyVariant): metallic gold and silver, see-through clear and frosted shells. */
     fun apply(v: Variant) {
@@ -166,7 +163,7 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
     /** A Studio shell: your color in one of the Studio's materials. */
     private fun applyMaterial(v: Variant, m: Finish) {
         val lin = intArrayOf(Color.red(v.color), Color.green(v.color), Color.blue(v.color)).map { srgbToLinear(it / 255f) }.toFloatArray()
-        base = if (m.metallic > 0) metal(lin, v.color, m) else FloatArray(3) { (lin[it] + (1 - lin[it]) * m.lift) * m.dim }
+        base = if (m.metallic > 0) metalColor(lin, v.color, m) else FloatArray(3) { (lin[it] + (1 - lin[it]) * m.lift) * m.dim }
         alpha = m.alpha
         val mi = plastic ?: return tint()
         mi.set("roughnessFactor", m.rough ?: if (m.id == "frosted") maxOf(.4f, style.roughness) else style.roughness)
@@ -176,21 +173,6 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
         if (m.glow > 0) mi.set("emissiveFactor", base[0] * m.glow, base[1] * m.glow, base[2] * m.glow)
         if (m.sheen > 0) { mi.set("sheenColorFactor", m.sheen, m.sheen, m.sheen); mi.set("sheenRoughnessFactor", .35f) }
         tint()
-    }
-
-    /**
-     * A metal's color is how much light it reflects, and real metals reflect most of it: gold about (1, .77, .34),
-     * silver .97. A paint swatch used as is ("Gold" .79, .53, .14; "Silver" about .55) made dim, nearly black metal. So
-     * the swatch gives the metal its hue, and its brightness sets how much it reflects, from about a third (dark
-     * metals, like a navy anodized) to nearly all of it.
-     */
-    private fun metal(lin: FloatArray, color: Int, m: Finish): FloatArray {
-        val top = maxOf(lin[0], lin[1], lin[2], .001f)
-        val hsv = FloatArray(3); Color.colorToHSV(color, hsv)
-        val k = (.4f + .6f * hsv[2]) * m.dim
-        val metalPart = FloatArray(3) { (lin[it] / top * .8f + .2f) * k }   // real metals are paler than paint: a fifth of the way to white
-        // part-metal finishes (metal flake, pearl) keep some of the plain color underneath
-        return FloatArray(3) { (lin[it] + (metalPart[it] - lin[it]) * minOf(1f, m.metallic * 1.4f)).let { c -> c + (1 - c) * m.lift } }
     }
 
     /** Dims the cartridges you're not on, a little. */
@@ -225,7 +207,6 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
         stage.engine.destroyTexture(labelTex)
     }
 
-    private fun srgbToLinear(c: Float) = if (c <= .04045f) c / 12.92f else ((c + .055f) / 1.055f).pow(2.4f)
 }
 
 /**
@@ -260,3 +241,31 @@ fun seeThrough(glb: ByteBuffer): ByteBuffer {
 /** RaccoonTek's own part numbers for each board (the Studio's BOARD_CODES; invented, no console maker's names). */
 private val BOARD_CODES = mapOf("nes" to "RT-8B-01", "snes" to "RT-16S-02", "n64" to "RT-64X-03", "genesis" to "RT-16G-04",
     "gb" to "RT-PK1-05", "gbc" to "RT-PK2-06", "gba" to "RT-PK3-07", "ds" to "RT-DS-08", "psp" to "RT-UM-09", "android" to "RT-AC-10")
+
+    /** Sets a value only if the material has it, with exactly that many numbers; Filament stops the app on a mismatch. */
+fun MaterialInstance.set(name: String, vararg v: Float) {
+        val type = material.parameters.firstOrNull { it.name == name }?.type ?: return
+        when {
+            v.size == 1 && type == Material.Parameter.Type.FLOAT -> setParameter(name, v[0])
+            v.size == 3 && type == Material.Parameter.Type.FLOAT3 -> setParameter(name, v[0], v[1], v[2])
+            v.size == 4 && type == Material.Parameter.Type.FLOAT4 -> setParameter(name, v[0], v[1], v[2], v[3])
+        }
+    }
+
+/**
+ * A metal's color is how much light it reflects, and real metals reflect most of it: gold about (1, .77, .34),
+ * silver .97. A paint swatch used as is ("Gold" .79, .53, .14; "Silver" about .55) made dim, nearly black metal. So
+ * the swatch gives the metal its hue, and its brightness sets how much it reflects, from about a third (dark
+ * metals, like a navy anodized) to nearly all of it.
+ */
+fun metalColor(lin: FloatArray, color: Int, m: Finish): FloatArray {
+    val top = maxOf(lin[0], lin[1], lin[2], .001f)
+    val hsv = FloatArray(3); Color.colorToHSV(color, hsv)
+    val k = (.4f + .6f * hsv[2]) * m.dim
+    val metalPart = FloatArray(3) { (lin[it] / top * .8f + .2f) * k }   // real metals are paler than paint: a fifth of the way to white
+    // part-metal finishes (metal flake, pearl) keep some of the plain color underneath
+    return FloatArray(3) { (lin[it] + (metalPart[it] - lin[it]) * minOf(1f, m.metallic * 1.4f)).let { c -> c + (1 - c) * m.lift } }
+}
+
+
+fun srgbToLinear(c: Float) = if (c <= .04045f) c / 12.92f else ((c + .055f) / 1.055f).pow(2.4f)

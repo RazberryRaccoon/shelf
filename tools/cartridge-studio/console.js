@@ -12,12 +12,14 @@ const ccw = p => area(p) < 0 ? p.slice().reverse() : p;
 export function buildConsole(entry, opts) {
   const round = opts.round ?? 1, segs = opts.segments ?? 6;
   const plastics = [];
-  const plastic = (color, main) => {
-    const m = new THREE.MeshPhysicalMaterial({ color, metalness: 0 }); m.userData.main = main; plastics.push(m); return m;
+  // Each plastic belongs to a part (its role): the shell, the D-pad, the buttons… The app's console colors recolor a
+  // part by finding every material named "role:<part>"; parts without a role ("trim") keep their own colors.
+  const plastic = (color, main, role = 'trim') => {
+    const m = new THREE.MeshPhysicalMaterial({ color, metalness: 0 }); m.userData.main = main; m.name = 'role:' + role; plastics.push(m); return m;
   };
-  const shell = plastic(opts.finish.color, true);
+  const shell = plastic(opts.finish.color, true, 'shell');
   const M = {
-    shell, plastic: col => plastic(col, false),
+    shell, plastic: (col, role) => plastic(col, false, role),
     dark: new THREE.MeshPhysicalMaterial({ color: '#111116', roughness: .8 }),
     screen: new THREE.MeshPhysicalMaterial({ color: '#0c0f14', roughness: .12, clearcoat: 1, clearcoatRoughness: .05 }),   // dark glass
     lcd: col => new THREE.MeshPhysicalMaterial({ color: col, roughness: .55 }),   // a matte, unlit LCD

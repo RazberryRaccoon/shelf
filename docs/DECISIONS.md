@@ -265,6 +265,10 @@ Summarized from the first part of the conversation; the full transcript is kept 
   cartridge, cartridge in box, box closed. Make all the new lighting and model texturing apply to the console designs."
   A console's default shell applies to its standard cartridges; special editions are recognized automatically from the
   title ("Yes, auto-detect") and keep their real colors, as do games the user customized.
+- Console colors (update C, after the user's "This is all fantastic now … build out the next set of features"): built in
+  two rounds, the colors and the console Studio first (0.7), then the start and return animations in the chosen colors.
+  A console's own colors are per console (its parts are its own), unlike cartridge shells, which every cartridge shares.
+  See-through editions show as glassy colored plastic, since the consoles have no insides yet.
 - Open-bottomed cartridges (after 0.6): "open the bottom of the cartridge up, just like the real cartridges, and have the
   circuitboard visible by looking in from the bottom." Every board's back says "RaccoonTek" "in a futuristic/technologic
   font" (Orbitron), "small but readable … only really visible when a clear material is selected." Cards and discs

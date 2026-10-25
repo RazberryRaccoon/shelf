@@ -90,6 +90,9 @@ class Games(private val ctx: Context) {
     /** The shell a console's standard cartridges wear (the Museum), if you chose one. */
     fun defaultShell(sys: String): String? = prefs.getString("default-shell:$sys", null)
     fun setDefaultShell(sys: String, key: String?) = prefs.edit().apply { if (key == null) remove("default-shell:$sys") else putString("default-shell:$sys", key) }.apply()
+    /** A console's colors (the Museum): one it really came in, by name, or "custom:<id>" for yours; null, its standard colors. */
+    fun consoleLook(sys: String): String? = prefs.getString("console-look:$sys", null)
+    fun setConsoleLook(sys: String, key: String?) = prefs.edit().apply { if (key == null) remove("console-look:$sys") else putString("console-look:$sys", key) }.apply()
 
     /** Every way this console's games can start: RetroArch's cores first, then standalone emulators, installed ones marked. */
     fun emulatorChoices(sys: String): List<Pair<String, Boolean>> {
