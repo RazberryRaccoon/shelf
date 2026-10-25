@@ -482,3 +482,13 @@ poked out at rounded corners, fixed with per-corner rounding) and headless rende
 on handhelds and then upside down on home consoles (each needed its own flip) and the boards washing out to white
 under the studio light (the solder mask's gloss toned down). The export briefly broke again on a comment that
 swallowed the rest of its line. Compile-checked; not checked on a device.
+
+**Shelf Native 0.9 (October 2026): seams, pockets, fixes.** After trying 0.8: (1) the real translucent editions still
+looked solid, because they had been written down as "glossy" before consoles could be see-through (now clear, and smoke
+for the smoky black); (2) seams on every console, and the Inside view opening the console along its seam instead of
+lifting it away; (3) the Game Boy family's backs, "just a big solid block with a color strip", now have the cartridge
+pocket; (4) anodized aluminum was too dark on Home and the game page. The shells are solid, so the first render of an
+opened home console showed a solid base hiding the board: home consoles' seams now sit just under the board. The
+pocket first failed to cut because a straight top edge had no points inside it to cut (edges are now divided every
+2 mm); the DS's hinge came from its open screen's bounds (now from the base's). Checked with the ray probe and renders;
+compile-checked; not checked on a device.

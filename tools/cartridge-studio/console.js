@@ -2,7 +2,7 @@
 // based plastic, glass screens, lit LEDs. The entries are written in Shelf's own units (1 = 10 cm, the units of its
 // code-built consoles); everything here comes out in millimetres. Front faces +z, the top faces +y.
 import * as THREE from 'three';
-import { outlinePoints, slab } from './cartridge.js';
+import { outlinePoints, slab, offset } from './cartridge.js';
 
 const MM = 100;
 const area = p => p.reduce((s, a, i) => { const b = p[(i + 1) % p.length]; return s + a[0] * b[1] - b[0] * a[1]; }, 0) / 2;
@@ -37,6 +37,31 @@ export function buildConsole(entry, opts) {
   // a plan outline ([x, z]) pushed up along y, centered
   const slabY = (plan, h, bev = .02) => { const g = solid(plan.map(([x, z]) => [x, -z]), h, bev); g.rotateX(-Math.PI / 2); return g; };
   const bar = (w, h, t, r = .004, bev = .003) => solid(rrect(w, h, Math.min(r, w / 2 - 1e-4, h / 2 - 1e-4), 3), t, bev, 2);
+  // A body molded in two halves, as the real shells are (and as the cartridges are built): each half's outer edge rounded,
+  // and where they meet a small 45° chamfer on each, so together they leave a fine V-shaped seam around the sides.
+  // `split` is where they meet, from the body's centre along its depth. Returns [back or lower half, front or upper half].
+  // `backPts`: the back half's own outline, when it differs (a handheld's cartridge pocket, notch below).
+  const seamed = (pts, depth, bev, split, backPts = pts) => {
+    const D = depth * MM, b = Math.min(bev * MM * round, D * .2), z0 = -D / 2, z1 = D / 2, ch = .5;
+    const skin = Math.min(2 * b + ch + .3, D * .3), lo = z0 + b + .05, hi = z1 - b - .05;
+    const sz = Math.min(Math.max(split * MM, lo + ch + .2), hi - ch - .2);
+    const P = ccw(pts), B = ccw(backPts);
+    return [[slab(B, [], z0, z0 + skin, b, segs), slab(B, [], lo, sz, ch, 1)], [slab(P, [], z1 - skin, z1, b, segs), slab(P, [], sz, hi, ch, 1)]];
+  };
+  // A handheld's cartridge pocket: the outline (in millimetres, counter-clockwise) with the part above y = yc and within
+  // hw of the middle cut away, so the back half is open at the top where the cartridge goes in.
+  const notch = (pts, hw, yc) => {
+    hw *= MM; yc *= MM; pts = ccw(pts);
+    { const d = []; pts.forEach((a, i) => { const b = pts[(i + 1) % pts.length], k = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 2);   // points every 2 mm, so a straight top edge has some to cut
+        for (let j = 0; j < k; j++) d.push([a[0] + (b[0] - a[0]) * j / k, a[1] + (b[1] - a[1]) * j / k]); }); pts = d; }
+    const n = pts.length, inN = p => Math.abs(p[0]) < hw && p[1] > yc;
+    const s = pts.findIndex((p, i) => inN(p) && !inN(pts[(i - 1 + n) % n])); if (s < 0) return pts;
+    let e = s; while (inN(pts[(e + 1) % n])) e = (e + 1) % n;
+    const cross = (p, q) => { const X = Math.sign(p[0]) * hw, t = (X - p[0]) / (q[0] - p[0]); return [X, p[1] + (q[1] - p[1]) * t]; };   // where the top edge crosses x = ±hw
+    const out = []; for (let i = (e + 1) % n; i !== s; i = (i + 1) % n) out.push(pts[i]);
+    const enter = cross(pts[(s - 1 + n) % n], pts[s]), leave = cross(pts[(e + 1) % n], pts[e]);
+    return [...out, enter, [enter[0], yc], [leave[0], yc], leave];
+  };
   // a [radius, z] profile turned around z. Each corner gets two close neighbours, so the smoothing stays at the corner.
   const lathe = (prof, seg = 32) => {
     const p = prof.map(([r, z]) => [r * MM, z * MM]).reverse(), pts = [];
@@ -49,7 +74,7 @@ export function buildConsole(entry, opts) {
     const g = new THREE.LatheGeometry(pts.map(([r, z]) => new THREE.Vector2(Math.max(0, r), z)), seg); g.rotateX(Math.PI / 2); return g;
   };
   const G = {
-    rounded, rrect, solid, slabY, bar, lathe,
+    rounded, rrect, solid, slabY, bar, lathe, seamed, notch,
     plane: (w, h) => new THREE.PlaneGeometry(w * MM, h * MM),
     disc: (r, t, seg = 32) => lathe([[0, t / 2], [r, t / 2], [r, -t / 2], [0, -t / 2]], seg),
     ring: (r0, r1, t, seg = 40) => lathe([[r0, t / 2], [r1, t / 2], [r1, -t / 2], [r0, -t / 2], [r0, t / 2]], seg),
@@ -63,13 +88,21 @@ export function buildConsole(entry, opts) {
 
   // ---------- placing parts ----------
   const kit = parent => {
+    let half = null;   // while building a seamed body: which half its pieces belong to
     const add = (g, [x, y, z, rx = 0, ry = 0, rz = 0], m) => {
-      for (const geo of [].concat(g)) { const mesh = new THREE.Mesh(geo, m); mesh.position.set(x * MM, y * MM, z * MM); mesh.rotation.set(rx, ry, rz); parent.add(mesh); }
+      for (const geo of [].concat(g)) { const mesh = new THREE.Mesh(geo, m); mesh.position.set(x * MM, y * MM, z * MM); mesh.rotation.set(rx, ry, rz); if (half) mesh.userData.half = half; parent.add(mesh); }
     };
     const k = {
       ...G, M,
       at: (x, y, z, rx = 0, ry = 0, rz = 0) => [x, y, z, rx, ry, rz],
       on: add,
+      // the main body in two halves with a seam (see seamed): standing (a handheld: back and front) or lying flat (lower
+      // and upper, the outline a plan in [x, z] as for slabY); `split` from the body's centre
+      body: (pts, depth, bev, split, at, m, backPts) => { const [b, f] = seamed(pts, depth, bev, split, backPts); half = 'lower'; add(b, at, m); half = 'upper'; add(f, at, m); half = null; },
+      bodyY: (plan, h, bev, split, at, m) => {
+        const [b, f] = seamed(plan.map(([x, z]) => [x, -z]), h, bev, split); [...b, ...f].forEach(g => g.rotateX(-Math.PI / 2));
+        half = 'lower'; add(b, at, m); half = 'upper'; add(f, at, m); half = null;
+      },
       face: (g, x, y, z, m, rz = 0) => add(g, [x, y, z, 0, 0, rz], m),                 // on a front face
       up: (g, x, y, z, m) => add(g, [x, y, z, -Math.PI / 2, 0, 0], m),                  // on a top face (local +y points to the back)
       dpad: (x, y, z, s, m) => { k.face(G.disc(s * .62, .004), x, y, z + .001, M.plastic(shade(m.color, .15))); k.face(G.cross(s, s * .33, .035), x, y, z + .016, m); },
@@ -99,6 +132,23 @@ export function buildConsole(entry, opts) {
   group.userData.lid = group.getObjectByName('lid') || null;
   setLid(group, opts.lid ?? entry.lid?.rest ?? 0);
   return group;
+}
+
+/**
+ * For the export: every part goes into one of two groups, "lower" and "upper" (a handheld's back and front), on its side
+ * of the seam (entry.seam: the axis and where along it, in Shelf units), unless it was built as one of the halves.
+ * The app opens the upper half on a hinge to show the board (the Museum's Inside view). The lid keeps its pose.
+ */
+export function splitHalves(group, seam) {
+  group.updateMatrixWorld(true);
+  const lower = new THREE.Group(), upper = new THREE.Group(); lower.name = 'lower'; upper.name = 'upper';
+  const meshes = []; group.traverse(o => { if (o.isMesh) meshes.push(o); });
+  for (const m of meshes) {
+    let h = m.userData.half;
+    if (!h) { const c = new THREE.Box3().setFromObject(m).getCenter(new THREE.Vector3()); h = c[seam.axis] >= seam.at * MM ? 'upper' : 'lower'; }
+    (h === 'upper' ? upper : lower).attach(m);
+  }
+  const out = new THREE.Group(); out.name = group.name; out.add(lower, upper); out.userData = group.userData; return out;
 }
 
 export function setLid(group, v) {

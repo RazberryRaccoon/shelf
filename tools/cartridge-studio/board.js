@@ -188,7 +188,8 @@ export function placeBoard(board, spec) {
 }
 
 // ---------- the boards, from the consoles' main boards (positions are approximate, the parts stylized) ----------
-// at: where the board's top face sits, in the console's millimetres; size: [across, deep] (handhelds: [across, tall]).
+// at: where the board's top face sits, in the console's millimetres (lying flat, its underside on the console's lower half,
+// just above the seam, so it stays on the base when the top opens); size: [across, deep] (handhelds: [across, tall]).
 // u is across from the centre; v is toward the front (home consoles) or down (handhelds).
 const ROW = (k, u0, v, n, du, ...a) => Array.from({ length: n }, (_, i) => [k, u0 + i * du, v, ...a]);
 export const BOARDS = {
@@ -197,39 +198,39 @@ export const BOARDS = {
     ['dip', -92, 34, 16], ...ROW('dip', -60, 2, 4, 26, 14), ['xtal', -30, -54], ['block', 88, -62, 44, 30, 16, 'shield'], ['reg', -84, -62],
     ['header', -96, 72, 7], ['header', -66, 72, 7], ['ecap', -60, -60, 8, 11], ['ecap', 30, -62, 6, 9], ['ecap', 92, 20, 10, 14], ['ecap', -100, 6, 6, 9],
     ...ROW('res', -20, 64, 5, 12), ...ROW('smd', 20, -48, 3, 9, 0, 1), ['hole', -104, -78], ['hole', 104, -78], ['hole', -104, 78], ['hole', 104, 78]] },
-  snes: { at: [0, -27, 0], size: [186, 222], code: 'RT-16S-CPU', parts: [   // SNS-CPU: the slot across the middle, sound behind it, CPU and PPUs in front
+  snes: { at: [0, -3.4, 0], size: [186, 222], code: 'RT-16S-CPU', parts: [   // SNS-CPU: the slot across the middle, sound behind it, CPU and PPUs in front
     ['slot', 0, -38, 98, 14, 16], ['qfp', -52, 30, 20, 14, 25, 15], ['qfp', 6, 30, 20, 14, 25, 15], ['qfp', 54, 30, 20, 14, 25, 15],
     ['soic', -18, 62, 14, 8, 14], ['soic', 30, 62, 14, 8, 14], ['soic', 56, 62, 14, 8, 14], ['qfp', -40, -76, 14, 14, 16], ['qfp', 2, -76, 14, 14, 16],
     ['soic', 44, -76, 12, 8, 12], ['soic', 64, -76, 12, 8, 12], ['dip', -74, -2, 18], ['xtal', -20, 6], ['reg', -66, -92],
     ['header', -50, 100, 7], ['header', -14, 100, 7], ['ecap', 80, -96, 8, 12], ['ecap', -84, 60, 6, 9], ['ecap', 80, 92, 6, 9],
     ...ROW('smd', -40, 48, 6, 7, 0), ...ROW('smd', -10, -58, 5, 7, 0, 1), ...ROW('res', 70, 4, 3, 0, 0), ['hole', -84, -102], ['hole', 84, 102]] },
-  n64: { at: [0, -28, 0], size: [232, 168], corner: [3, 3, 26, 26], code: 'RT-64X-CPU', parts: [   // NUS-CPU: the slot in the middle, three heat spreaders, four controller ports at the front
+  n64: { at: [0, -25, 0], size: [232, 168], corner: [3, 3, 26, 26], code: 'RT-64X-CPU', parts: [   // NUS-CPU: the slot in the middle, three heat spreaders, four controller ports at the front
     ['slot', 0, -8, 112, 14, 22], ['spreader', 0, 34, 34, 34, 7], ['spreader', -52, 36, 26, 26, 6], ['spreader', 52, 32, 34, 22, 6],
     ['qfp', 78, 62, 14, 14, 14], ['block', -75, 76, 18, 12, 12], ['block', -25, 76, 18, 12, 12], ['block', 25, 76, 18, 12, 12], ['block', 75, 76, 18, 12, 12],
     ['slot', 0, 62, 40, 10, 12], ['xtal', -88, 30], ['reg', -92, -56], ['reg', 92, -56], ['ecap', -50, -58, 10, 13], ['ecap', 50, -60, 8, 11], ['ecap', 100, 20, 6, 9],
     ...ROW('smd', -30, -40, 9, 7, 0), ...ROW('smd', -88, 50, 4, 0, 7, 1), ['soic', 30, 60, 10, 6, 8], ['hole', -106, -72], ['hole', 106, -72], ['hole', -106, 70], ['hole', 106, 70]] },
-  genesis: { at: [0, -24, 0], size: [252, 192], code: 'RT-16G-CPU', parts: [   // VA board: the slot under the round dome, the long 68000, the Z80, the video chip, the FM chip
+  genesis: { at: [0, -22.5, 0], size: [252, 192], code: 'RT-16G-CPU', parts: [   // VA board: the slot under the round dome, the long 68000, the Z80, the video chip, the FM chip
     ['slot', -20, -6, 100, 16, 20], ['dip', -26, 44, 64], ['dip', 62, -44, 40], ['qfp', 66, 34, 26, 26, 20], ['dip', 100, -6, 24], ['soic', 26, 70, 14, 8, 14], ['soic', 48, 70, 14, 8, 14],
     ['block', 92, -76, 44, 30, 16, 'shield'], ['reg', -96, -70], ['wheel', -104, 84, 4, 10], ['block', -45, 86, 22, 14, 12], ['block', -12, 86, 22, 14, 12], ['xtal', 20, -52],
     ['ecap', -60, -56, 8, 12], ['ecap', -108, 20, 10, 14, true], ['ecap', 30, 40, 6, 9], ...ROW('res', -74, 70, 4, 12), ...ROW('smd', 10, -32, 5, 7, 0, 1), ['hole', -112, -84], ['hole', 112, 84]] },
-  ps1: { at: [0, -26, 0], size: [252, 170], code: 'RT-32P-CPU', parts: [   // PU board: the processor, video and sound chips to the right, the disc drive's chips under it on the left
+  ps1: { at: [0, -22.5, 0], size: [252, 170], code: 'RT-32P-CPU', parts: [   // PU board: the processor, video and sound chips to the right, the disc drive's chips under it on the left
     ['qfp', 40, -24, 28, 28, 26], ['qfp', 90, -28, 28, 28, 26], ['qfp', 90, 22, 20, 20, 20], ...ROW('soic', 26, 18, 2, 22, 18, 10, 14), ['soic', 52, 46, 18, 10, 14], ['soic', 74, 52, 14, 8, 12],
     ['soic', 0, 34, 16, 9, 14], ['qfp', -64, -10, 20, 20, 20], ['qfp', -28, -30, 14, 14, 14], ['flex', -64, -50, 24, 30], ['xtal', 8, -2],
     ['block', -60, 78, 24, 12, 14], ['block', -20, 78, 24, 12, 14], ['ecap', -108, -60, 12, 16], ['ecap', -88, -62, 10, 14], ['ecap', 116, 60, 6, 9], ['reg', -110, 30],
     ...ROW('smd', 20, -52, 8, 8, 0), ...ROW('smd', -100, 50, 5, 0, 6, 1), ['hole', -116, -76], ['hole', 116, -76], ['hole', -116, 76], ['hole', 116, 76]] },
-  gb: { at: [0, 0, -6], stand: true, size: [82, 130], corner: [4, 4, 24, 4], code: 'RT-PK1-CPU', parts: [   // DMG-CPU: the cartridge connector along the top, the processor in the middle
+  gb: { at: [0, 0, -4.5], stand: true, size: [82, 130], corner: [4, 4, 24, 4], code: 'RT-PK1-CPU', parts: [   // DMG-CPU: the cartridge connector along the top, the processor in the middle
     ['slot', 0, -56, 64, 9, 8], ['qfp', 0, -14, 20, 14, 20, 12], ['soic', -26, -14, 10, 7, 10], ['soic', 26, -14, 10, 7, 10], ['xtal', -14, 12, 0],
     ['flex', 0, -36, 30, 10], ['block', -34, 20, 9, 16, 7], ['wheel', 34, -32, 6, 4], ['wheel', 28, 54, 3.5, 5], ['block', -26, -58, 12, 6, 5, 'white'],
     ['ecap', 22, 18, 6, 7], ['ecap', -26, 44, 6, 7, true], ...ROW('smd', -18, 30, 6, 6, 0), ...ROW('smd', 8, 40, 4, 6, 0, 1), ['hole', -34, -46], ['hole', 34, 58]] },
-  gbc: { at: [0, 0, -5], stand: true, size: [70, 118], corner: 6, code: 'RT-PK2-CPU', parts: [
+  gbc: { at: [0, 0, -2.5], stand: true, size: [70, 118], corner: 6, code: 'RT-PK2-CPU', parts: [
     ['slot', 0, -50, 56, 8, 7], ['qfp', 0, -10, 18, 18, 24], ['soic', 22, 14, 10, 7, 10], ['xtal', -18, 16, 0], ['flex', 0, -32, 30, 8],
     ['block', 28, -30, 8, 12, 5, 'dark'], ['wheel', -24, 46, 3.5, 4], ['ecap', 20, 36, 5, 6], ['ecap', -6, 40, 5, 6, true],
     ...ROW('smd', -20, 30, 5, 6, 0), ...ROW('smd', -26, -28, 4, 0, 6, 1), ['hole', -28, 52], ['hole', 28, 52]] },
-  gba: { at: [0, 0, -4], stand: true, size: [128, 70], corner: 8, code: 'RT-PK3-CPU', parts: [   // AGB-CPU: the slot along the top edge, the big processor centred under the screen
+  gba: { at: [0, 0, -1.8], stand: true, size: [128, 70], corner: 8, code: 'RT-PK3-CPU', parts: [   // AGB-CPU: the slot along the top edge, the big processor centred under the screen
     ['slot', 0, -28, 64, 8, 7], ['qfp', 0, 4, 24, 24, 30], ['soic', 26, 4, 12, 8, 12], ['flex', -30, -10, 26, 8], ['block', -50, -20, 8, 10, 5, 'dark'],
     ['wheel', 46, 22, 4, 4], ['xtal', -22, 22, 0], ['ecap', 44, -6, 5, 6], ['ecap', -46, 14, 5, 6], ['block', 0, 30, 14, 6, 4],
     ...ROW('smd', -50, 26, 6, 5, 0), ...ROW('smd', 22, 24, 4, 5, 0, 1), ['hole', -56, -24], ['hole', 56, -24]] },
-  ds: { at: [0, -3.5, 0], size: [140, 74], corner: 10, thick: 1, low: true, code: 'RT-DS-CPU', parts: [   // NTR-CPU: the card slot at the back, the game pak slot at the front, the processor in the middle
+  ds: { at: [0, -2.2, 0], size: [140, 74], corner: 10, thick: 1, low: true, code: 'RT-DS-CPU', parts: [   // NTR-CPU: the card slot at the back, the game pak slot at the front, the processor in the middle
     ['slot', 0, -30, 44, 7, 4], ['slot', 0, 32, 64, 6, 4], ['qfp', -6, 0, 22, 22, 28], ['soic', 24, -2, 12, 9, 12], ['qfp', -38, 8, 10, 10, 10],
     ['shield', 46, -14, 22, 18, 2.4], ['flex', -46, -16, 18, 8], ['ecap', 56, 16, 4, 4], ...ROW('smd', -30, -22, 6, 6, 0), ...ROW('smd', 14, 18, 5, 6, 0, 1), ['hole', -60, 0], ['hole', 60, 0]] },
   psp: { at: [0, 0, -1], stand: true, size: [148, 60], corner: 26, mask: '#1d5a43', code: 'RT-UM-CPU', parts: [   // TA board: the processor under its shield, memory beside it, the radio on its own

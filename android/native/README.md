@@ -47,7 +47,18 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
-## What's in version 0.8
+## What's in version 0.9
+
+Fixes after trying 0.8. The consoles' real translucent editions (the N64's Funtastic colors, the clear Game Boy, the
+Atomic purple Game Boy Color, the Glacier Game Boy Advance) really are see-through now (they were stored as glossy).
+Every console is molded in two halves with a fine seam around its sides, like the cartridges; a home console's seam
+is low, just under its board, and a handheld's is near the back. Inside, the console opens along that seam as it
+turns: a home console's top swings up and back like a lid, a handheld's front opens like a book, and the board stays on
+the lower half (the hinge is in `consoles.json`, `Console.open`). The Game Boy, Game Boy Color and Game Boy Advance
+have real cartridge pockets in their backs, open at the top, with the connector's mouth on the floor. Anodized
+aluminum cartridges are brighter (`Finish.floor`: they reflect more than a plain metal of their color).
+
+## What was in version 0.8
 
 Every console has its circuit board inside: the real board's layout, roughly (the cartridge connector, the processors,
 memory, the sound and video chips, regulators on their heatsinks, crystals, capacitors, connectors and ports), with

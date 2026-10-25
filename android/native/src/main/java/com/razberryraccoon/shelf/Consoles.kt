@@ -22,7 +22,10 @@ data class ConsoleLook(val name: String, val note: String, val parts: Map<String
 }
 
 /** A console's paintable parts, in order ("shell" to "Shell"), and the colors it really came in, its first one standard. */
-class ConsoleInfo(val sys: String, val name: String, val parts: List<Pair<String, String>>, val looks: List<ConsoleLook>, val board: BoardInfo?)
+class ConsoleInfo(val sys: String, val name: String, val parts: List<Pair<String, String>>, val looks: List<ConsoleLook>, val board: BoardInfo?, val hinge: Hinge?)
+
+/** Where a console's upper half (a handheld's front) opens: about the x or y axis through `at` (millimetres), by `angle`. */
+class Hinge(val axis: Char, val at: FloatArray, val angle: Float)
 
 /** Its circuit board's print: RaccoonTek's part number, the solder mask's color, the board's size in millimetres. */
 class BoardInfo(val code: String, val mask: Int, val w: Float, val h: Float)
@@ -41,7 +44,8 @@ class Consoles(ctx: Context, stage: Stage) {
             ConsoleInfo(sys, c.getString("name"),
                 c.getJSONArray("parts").let { a -> (0 until a.length()).map { a.getJSONArray(it).let { p -> p.getString(0) to p.getString(1) } } },
                 c.getJSONArray("colors").let { a -> (0 until a.length()).map { a.getJSONObject(it).let { l -> ConsoleLook(l.getString("name"), l.optString("note"), parts(l.getJSONObject("parts"))) } } },
-                c.optJSONObject("board")?.let { b -> b.getJSONArray("size").let { z -> BoardInfo(b.getString("code"), Color.parseColor(b.getString("mask")), z.getDouble(0).toFloat(), z.getDouble(1).toFloat()) } })
+                c.optJSONObject("board")?.let { b -> b.getJSONArray("size").let { z -> BoardInfo(b.getString("code"), Color.parseColor(b.getString("mask")), z.getDouble(0).toFloat(), z.getDouble(1).toFloat()) } },
+                c.optJSONObject("open")?.let { o -> o.getJSONArray("at").let { a -> Hinge(o.getString("axis")[0], FloatArray(3) { a.getDouble(it).toFloat() }, o.getDouble("angle").toFloat()) } })
         } }
     }
 
@@ -105,6 +109,24 @@ class Console(stage: Stage, asset: FilamentAsset, file: JSONObject?, val clear: 
     }
 
     private fun role(n: String) = n.removePrefix("role:").substringBefore('#')
+
+    // the upper half (a handheld's front), its own node in the file, and where it rests when closed
+    private val upper = asset.getFirstEntityByName("upper")
+    private val upperRest = FloatArray(16).also { if (upper != 0) tm.getTransform(tm.getInstance(upper), it) else android.opengl.Matrix.setIdentityM(it, 0) }
+
+    /**
+     * Opens the console along its seam, 0 closed to 1 open: the upper half turns on its hinge (a home console's top
+     * swinging up and back, a handheld's front opening like a book), leaving the lower half with the board on it.
+     */
+    fun open(k: Float, h: Hinge?) {
+        if (upper == 0 || h == null) return
+        val m = FloatArray(16).also { android.opengl.Matrix.setIdentityM(it, 0) }
+        android.opengl.Matrix.translateM(m, 0, h.at[0], h.at[1], h.at[2])
+        android.opengl.Matrix.rotateM(m, 0, Math.toDegrees((h.angle * k).toDouble()).toFloat(), if (h.axis == 'x') 1f else 0f, if (h.axis == 'y') 1f else 0f, if (h.axis == 'z') 1f else 0f)
+        android.opengl.Matrix.translateM(m, 0, -h.at[0], -h.at[1], -h.at[2])
+        val out = FloatArray(16); android.opengl.Matrix.multiplyMM(out, 0, m, 0, upperRest, 0)
+        tm.setTransform(tm.getInstance(upper), out)
+    }
 
     /** Puts on these colors; parts they don't name go back to the model's own. */
     fun paint(parts: Map<String, PartPaint>) {
