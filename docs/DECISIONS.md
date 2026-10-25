@@ -279,6 +279,11 @@ Summarized from the first part of the conversation; the full transcript is kept 
   inside … make the animations fit into the rotation so everything stays smooth." Home consoles' seams sit low, just
   under the board, so the top lifts off and leaves the board on the base. Also: the Game Boy family's backs get real
   cartridge pockets; the translucent console editions are really see-through; anodized aluminum is brighter.
+- Inside as an exploded drawing (after 0.9, the user, replacing the hinged opening): "The parts should float away from
+  the circuit board, parallel to it, like those 'console break down' images … Then the camera control with the right
+  stick just moves the circuitboard around, leaving the console halves alone. Then cycling to the next type puts the
+  circuitboard back to its default position, the two halves connect again." And the halves "should be hollowed out
+  more, like the cartridges are," not flat and chunky.
 - The start animation (after 0.7, the user): "When launching a handheld game, the intro animation should display the
   game's title screen on the handheld's screen after the cartridge has been inserted and before the game fully launches
   and takes over." Home consoles show just the console (no TV, no title screen behind it).

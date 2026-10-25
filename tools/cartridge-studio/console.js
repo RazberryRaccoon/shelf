@@ -2,11 +2,70 @@
 // based plastic, glass screens, lit LEDs. The entries are written in Shelf's own units (1 = 10 cm, the units of its
 // code-built consoles); everything here comes out in millimetres. Front faces +z, the top faces +y.
 import * as THREE from 'three';
-import { outlinePoints, slab, offset } from './cartridge.js';
+import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
+import { outlinePoints, slab } from './cartridge.js';
 
 const MM = 100;
 const area = p => p.reduce((s, a, i) => { const b = p[(i + 1) % p.length]; return s + a[0] * b[1] - b[0] * a[1]; }, 0) / 2;
 const ccw = p => area(p) < 0 ? p.slice().reverse() : p;
+
+// A counter-clockwise outline moved inward by d, keeping every point (so outlines at several depths line up point for
+// point): each point moves along its corner's bisector, and where a tight corner would fold over itself, the points
+// that crossed meet in the middle instead.
+function inset(p, d) {
+  const n = p.length, out = [];
+  for (let i = 0; i < n; i++) {
+    const a = p[(i + n - 1) % n], b = p[i], c = p[(i + 1) % n];
+    const e1 = unit([b[0] - a[0], b[1] - a[1]]), e2 = unit([c[0] - b[0], c[1] - b[1]]);
+    const n1 = [e1[1], -e1[0]], n2 = [e2[1], -e2[0]], m = unit([n1[0] + n2[0], n1[1] + n2[1]]), cos = Math.max(.35, m[0] * n2[0] + m[1] * n2[1]);
+    out.push([b[0] - m[0] * d / cos, b[1] - m[1] * d / cos]);
+  }
+  for (let pass = 0, again = true; again && pass < 40; pass++) {
+    again = false;
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n, o = [p[j][0] - p[i][0], p[j][1] - p[i][1]], q = [out[j][0] - out[i][0], out[j][1] - out[i][1]];
+      if (o[0] * q[0] + o[1] * q[1] < -1e-9) { const mid = [(out[i][0] + out[j][0]) / 2, (out[i][1] + out[j][1]) / 2]; out[i] = mid; out[j] = mid.slice(); again = true; }
+    }
+  }
+  return out;
+}
+const unit = v => { const l = Math.hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; };
+
+/**
+ * One half of a shell, hollow like the real ones (and the cartridges): a face `wall` thick, its outer edge rounded by
+ * `bev`, sides `wall` thick, open toward the seam, where the outer edge has a small 45° chamfer (two halves together
+ * leave a fine V-shaped seam). Built along z, from the face at zFace to the open rim at zRim; pts in millimetres.
+ */
+function cup(pts, zFace, zRim, bev, wall = 2.4, segs = 6) {
+  pts = ccw(pts);
+  const s = Math.sign(zRim - zFace), H = Math.abs(zRim - zFace), ch = Math.min(.5, H * .1);
+  const b = Math.max(.2, Math.min(bev, H - ch - .3)), wf = Math.min(wall, H * .45), w = Math.max(wall, ch + .6);
+  // the cross-section, as (how far in from the outline, how far from the face): the rounded edge, the side, the
+  // seam's chamfer, the rim, then down the inside wall to the inside of the face
+  const prof = [];
+  for (let i = 0; i <= segs; i++) { const t = i / segs * Math.PI / 2; prof.push([b * (1 - Math.sin(t)), b * (1 - Math.cos(t))]); }
+  prof.push([0, H - ch], [ch, H], [w, H], [w, wf]);
+  const rings = prof.map(([d, h]) => inset(pts, d).map(([x, y]) => [x, y, zFace + s * h]));
+  const P = [], caps = [], n = pts.length;
+  const tri = (a, b, c) => P.push(...a, ...b, ...c);
+  for (let k = 0; k + 1 < rings.length; k++) for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n, a = rings[k][i], b = rings[k][j], c = rings[k + 1][j], d = rings[k + 1][i];
+    if (s > 0) { tri(a, d, c); tri(a, c, b); } else { tri(a, b, c); tri(a, c, d); }
+  }
+  // the outside of the face, and the inside of it (facing the open side), flat
+  const flat = (ring, z, out) => {
+    const idx = THREE.ShapeUtils.triangulateShape(ring.map(([x, y]) => new THREE.Vector2(x, y)), []);
+    const start = P.length / 3;
+    for (const [a, b, c] of idx) { const A = [...ring[a], z], B = [...ring[b], z], C = [...ring[c], z]; (out ? s < 0 : s > 0) ? tri(A, B, C) : tri(A, C, B); }
+    caps.push([start, P.length / 3, out ? -s : s]);
+  };
+  flat(inset(pts, b), zFace, true); flat(inset(pts, w), zFace + s * wf, false);
+  let g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.computeVertexNormals();
+  g = toCreasedNormals(g, Math.PI / 5);   // smooth round the corners and over the rounded edge, sharp at real creases
+  const nm = g.getAttribute('normal');
+  for (const [a, e, z] of caps) for (let i = a; i < e; i++) nm.setXYZ(i, 0, 0, z);   // the faces stay perfectly flat
+  return g;
+}
 
 // opts: { round (edge rounding, ×), segments, finish: {color, roughness, clearcoat, clearcoatRoughness, envIntensity}, lid (0 closed … 1 open) }
 export function buildConsole(entry, opts) {
@@ -42,11 +101,9 @@ export function buildConsole(entry, opts) {
   // `split` is where they meet, from the body's centre along its depth. Returns [back or lower half, front or upper half].
   // `backPts`: the back half's own outline, when it differs (a handheld's cartridge pocket, notch below).
   const seamed = (pts, depth, bev, split, backPts = pts) => {
-    const D = depth * MM, b = Math.min(bev * MM * round, D * .2), z0 = -D / 2, z1 = D / 2, ch = .5;
-    const skin = Math.min(2 * b + ch + .3, D * .3), lo = z0 + b + .05, hi = z1 - b - .05;
-    const sz = Math.min(Math.max(split * MM, lo + ch + .2), hi - ch - .2);
-    const P = ccw(pts), B = ccw(backPts);
-    return [[slab(B, [], z0, z0 + skin, b, segs), slab(B, [], lo, sz, ch, 1)], [slab(P, [], z1 - skin, z1, b, segs), slab(P, [], sz, hi, ch, 1)]];
+    const D = depth * MM, b = Math.min(bev * MM * round, D * .2), z0 = -D / 2, z1 = D / 2;
+    const sz = Math.min(Math.max(split * MM, z0 + 3), z1 - 3);
+    return [[cup(backPts, z0, sz, b, 2.4, segs)], [cup(pts, z1, sz, b, 2.4, segs)]];
   };
   // A handheld's cartridge pocket: the outline (in millimetres, counter-clockwise) with the part above y = yc and within
   // hw of the middle cut away, so the back half is open at the top where the cartridge goes in.
@@ -99,6 +156,13 @@ export function buildConsole(entry, opts) {
       // the main body in two halves with a seam (see seamed): standing (a handheld: back and front) or lying flat (lower
       // and upper, the outline a plan in [x, z] as for slabY); `split` from the body's centre
       body: (pts, depth, bev, split, at, m, backPts) => { const [b, f] = seamed(pts, depth, bev, split, backPts); half = 'lower'; add(b, at, m); half = 'upper'; add(f, at, m); half = null; },
+      // one hollow half lying flat, its face at yFace and open at yRim (Shelf units), for bodies built half by half
+      cupY: (plan, yFace, yRim, bev, m, which) => {
+        const g = cup(plan.map(([x, z]) => [x, -z]), yFace * MM, yRim * MM, bev * MM * round, 2.4, segs); g.rotateX(-Math.PI / 2);
+        half = which; add(g, [0, 0, 0], m); half = null;
+      },
+      // parts that belong to one half whatever their position (a pocket's floor)
+      half: (which, build) => { half = which; build(); half = null; },
       bodyY: (plan, h, bev, split, at, m) => {
         const [b, f] = seamed(plan.map(([x, z]) => [x, -z]), h, bev, split); [...b, ...f].forEach(g => g.rotateX(-Math.PI / 2));
         half = 'lower'; add(b, at, m); half = 'upper'; add(f, at, m); half = null;
