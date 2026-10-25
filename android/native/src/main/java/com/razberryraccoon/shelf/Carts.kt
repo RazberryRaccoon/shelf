@@ -201,36 +201,40 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
     val canOpen get() = style.board != null && parts.all { it != 0 }
 
     /**
-     * Taken apart on a surface, 0 whole to 1 apart, quickly and in order: the halves separate, slide aside and lie down
-     * (the front turned over, so both show their insides), then the board lifts up and out and is set down below them.
-     * The surface is the plane of the cartridge's back; the page tilts the whole thing to look down on it.
+     * Taken apart on a surface, 0 whole to 1 apart, one step after another so nothing passes through anything: the
+     * front half lifts straight off, the halves move well apart (the front turning over on the way, so both show their
+     * insides; the board still in the back half), the front settles onto the surface, then the board rises up out of
+     * the back half, moves to its own place below the halves and is set down. The surface is the plane of the
+     * cartridge's back; the page tilts the whole thing to look down on it.
      */
     fun teardown(k: Float) {
         if (!canOpen) return
         val w = style.w; val h = style.h; val d = style.depth; val b = style.board ?: return
-        fun e(v: Float) = Backdrop.ease(v.coerceIn(0f, 1f))
-        val s1 = e(k / .3f); val s2 = e((k - .2f) / .4f); val s3 = e((k - .45f) / .25f); val s4 = e((k - .65f) / .3f)
+        fun e(a: Float, b: Float) = Backdrop.ease(((k - a) / (b - a)).coerceIn(0f, 1f))
+        val lift = e(0f, .2f); val apart = e(.2f, .48f); val settle = e(.48f, .6f); val up = e(.6f, .74f); val away = e(.74f, .94f)
         val m = FloatArray(16)
-        // the back half: aside to the left and up a little, lying as it is
-        Matrix.setIdentityM(m, 0); Matrix.translateM(m, 0, -.58f * w * s2, .18f * h * s2, 0f)
+        val bx = -SPREAD * w * apart   // the back half (and the board in it) to the left
+        Matrix.setIdentityM(m, 0); Matrix.translateM(m, 0, bx, ROW * h * apart, 0f)
         tm.setTransform(tm.getInstance(parts[0]), m)
-        // the front half: lifts off, then turns over as it goes to the right, and lies down with its inside up
-        val lift = d * 1.2f * s1 * (1 - s2) + sin(PI.toFloat() * s2) * w * .22f
-        Matrix.setIdentityM(m, 0); Matrix.translateM(m, 0, .58f * w * s2, .18f * h * s2, lift)
-        Matrix.rotateM(m, 0, 180f * s2, 0f, 1f, 0f)
+        // the front half: straight up off the back half, across to the right turning over, then down onto the surface
+        val high = d * 2.4f + w * .18f
+        Matrix.setIdentityM(m, 0); Matrix.translateM(m, 0, SPREAD * w * apart, ROW * h * apart, high * lift * (1 - settle))
+        Matrix.rotateM(m, 0, 180f * apart, 0f, 1f, 0f)
         tm.setTransform(tm.getInstance(parts[1]), m)
-        // the board: up and out of the back half, then down below the halves, lying on the surface
+        // the board: with the back half, then up out of it, across to its place below, and down onto the surface
         val cx = (b[0] + b[3]) / 2; val cy = (b[1] + b[4]) / 2
         val down = -d / 2 - b[2]   // its underside onto the surface
-        Matrix.setIdentityM(m, 0); Matrix.translateM(m, 0, -cx * s4, (-.7f * h - cy) * s4, d * 1.6f * s3 * (1 - s4) + down * s4)
+        val rise = d * 2.6f
+        Matrix.setIdentityM(m, 0)
+        Matrix.translateM(m, 0, bx * (1 - away) - cx * away, ROW * h * apart * (1 - away) + (BOARD_Y * h - cy) * away, rise * up * (1 - away) + down * away)
         tm.setTransform(tm.getInstance(parts[2]), m)
     }
     /** Where the screwdriver lies beside the parts (its transform within the cartridge's), and how big, 0 to 1. */
     fun toolSpot(k: Float): FloatArray? {
         if (!canOpen) return null
-        val s = Backdrop.ease(((k - .7f) / .3f).coerceIn(0f, 1f)).coerceAtLeast(.001f)
+        val s = Backdrop.ease(((k - .86f) / .14f).coerceIn(0f, 1f)).coerceAtLeast(.001f)
         return FloatArray(16).also { Matrix.setIdentityM(it, 0)
-            Matrix.translateM(it, 0, 0f, -1.22f * style.h, -style.depth / 2 + 5f + (1 - s) * 18f)   // settling onto the surface as it appears
+            Matrix.translateM(it, 0, 0f, TOOL_Y * style.h - 14f, -style.depth / 2 + 5f + (1 - s) * 18f)   // settling onto the surface as it appears
             Matrix.rotateM(it, 0, 8f, 0f, 0f, 1f); Matrix.scaleM(it, 0, s, s, s); Matrix.translateM(it, 0, -48f, 0f, 0f) }
     }
 
@@ -289,6 +293,10 @@ fun seeThrough(glb: ByteBuffer): ByteBuffer {
     out.put(all, 20 + jsonLen, rest)
     out.flip(); return out
 }
+
+// the teardown's layout, in the cartridge's widths and heights: the halves this far either side of the middle and this
+// far up, the board below them, the screwdriver below that
+private const val SPREAD = .9f; private const val ROW = .3f; private const val BOARD_Y = -.95f; private const val TOOL_Y = -1.7f
 
 /** RaccoonTek's own part numbers for each board (the Studio's BOARD_CODES; invented, no console maker's names). */
 private val BOARD_CODES = mapOf("nes" to "RT-8B-01", "snes" to "RT-16S-02", "n64" to "RT-64X-03", "genesis" to "RT-16G-04",

@@ -131,9 +131,9 @@ export const CONSOLES = {
       const { M } = k, z = .16, B0 = M.plastic('#2a2a31', 'dpad'), K = M.plastic('#9a99a2');
       // front and back halves; the back's top is open where the cartridge slides down into it, its connector's mouth on the floor
       const out = k.rounded([[-.45, -.74, .04], [.45, -.74, .3], [.45, .74, .03], [-.45, .74, .03]]);
-      k.body(out, .32, .04, -.07, k.at(0, 0, 0), M.shell, k.notch(out, .295, .16));
-      k.up(k.bar(.56, .075, .003, .005), 0, .1615, -.115, M.dark);
-      k.half('lower', () => k.face(k.bar(.59, .575, .015, .004, .002), 0, .4475, -.0775, M.shell));   // the pocket's floor
+      k.body(out, .32, .04, -.07, k.at(0, 0, 0), M.shell, k.notch(out, .295, .44));   // the top 30 mm of the cartridge shows; the rest is behind the back
+      k.up(k.bar(.56, .075, .003, .005), 0, .4415, -.115, M.dark);
+      k.half('lower', () => k.face(k.bar(.59, .295, .015, .004, .002), 0, .5925, -.0775, M.shell));   // the pocket's floor
       k.window(k.rounded([[-.39, .04, .02], [.39, .04, .13], [.39, .66, .02], [-.39, .66, .02]]), k.at(0, 0, z), .009, .47, .43, 0, .345, M.plastic('#585b6c', 'bezel'), M.picture('#7f8e5c', .55));
       k.face(k.plane(.66, .008), 0, .628, z + .0095, M.lcd('#8b2c51')); k.face(k.plane(.66, .008), 0, .614, z + .0095, M.lcd('#3b3e90'));
       k.face(k.disc(.016, .004), -.33, .43, z + .01, M.led('#ff2a2a'));
@@ -150,9 +150,9 @@ export const CONSOLES = {
     build(k) {   // smaller, the screen centered high
       const { M } = k, z = .135, B0 = M.plastic('#26323a', 'dpad');
       const out = k.rrect(.78, 1.33, [.13, .13, .05, .05], 8);
-      k.body(out, .27, .04, -.045, k.at(0, 0, 0), M.shell, k.notch(out, .295, .185));   // the cartridge pocket at the top of the back
-      k.up(k.bar(.56, .075, .003, .005), 0, .1865, -.09, M.dark);
-      k.half('lower', () => k.face(k.bar(.59, .475, .015, .004, .002), 0, .4225, -.0525, M.shell));
+      k.body(out, .27, .04, -.045, k.at(0, 0, 0), M.shell, k.notch(out, .295, .365));   // the cartridge pocket at the top of the back: its top 30 mm shows
+      k.up(k.bar(.56, .075, .003, .005), 0, .3665, -.09, M.dark);
+      k.half('lower', () => k.face(k.bar(.59, .295, .015, .004, .002), 0, .5125, -.0525, M.shell));
       k.window(k.rrect(.66, .56, .05, 6), k.at(0, .31, z), .009, .45, .41, 0, 0, M.plastic('#2a2c33', 'bezel'), M.picture('#0c0f14'));
       k.face(k.disc(.014, .004), -.29, .38, z + .01, M.led('#ff3a3a'));
       k.dpad(-.2, -.22, z, .24, B0);
@@ -167,9 +167,9 @@ export const CONSOLES = {
     build(k) {   // wide, with firm corners, the screen between the controls, shoulder buttons along the top edge
       const { M } = k, z = .1225, B0 = M.plastic('#c5c4d2', 'buttons'), SS = M.plastic('#c5c4d2', 'small'), D = M.plastic('#3b3488', 'dpad'), SH = M.plastic('#3b3488', 'shoulders');
       const out = k.rrect(1.445, .82, [.2, .2, .1, .1], 8);
-      k.body(out, .245, .03, -.0375, k.at(0, 0, 0), M.shell, k.notch(out, .295, .075));   // the pocket takes the whole cartridge
-      k.up(k.bar(.56, .07, .003, .005), 0, .0765, -.08, M.dark);
-      k.half('lower', () => k.face(k.bar(.59, .33, .015, .004, .002), 0, .2425, -.045, M.shell));
+      k.body(out, .245, .03, -.0375, k.at(0, 0, 0), M.shell, k.notch(out, .295, .24));   // the cartridge goes all the way in; its top half shows
+      k.up(k.bar(.56, .07, .003, .005), 0, .2415, -.08, M.dark);
+      k.half('lower', () => k.face(k.bar(.59, .165, .015, .004, .002), 0, .3275, -.045, M.shell));
       k.window(k.rrect(.84, .6, .06, 6), k.at(0, .03, z), .009, .62, .415, 0, .015, M.plastic('#18181f', 'bezel'), M.picture('#0c0f14'));
       k.dpad(-.565, .07, z, .2, D);                                                                     // kept clear of the screen's bezel
       [[.625, .13], [.495, .03]].forEach(([x, y]) => k.face(k.dome(.055, .028), x, y, z, B0));

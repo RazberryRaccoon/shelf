@@ -107,15 +107,17 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
 
     /**
      * Starting a game: Home (and the page, if it's open) steps aside, and the game's cartridge goes to the start
-     * animation, with where it is now.
+     * animation, with where it is now and where it comes back to.
      */
-    fun takeForLaunch(g: Game): Pair<Cart?, FloatArray> {
+    fun takeForLaunch(g: Game): Triple<Cart?, FloatArray, FloatArray> {
         val p = page?.takeIf { it.game.path == g.path }
         val c = p?.cart ?: slots.firstOrNull { it.game.path == g.path }?.cart
         launchingPath = g.path; focusPath = g.path; landedPath = null
         p?.launching = true
         visible = false
-        return c to (c?.current() ?: FloatArray(16).also { android.opengl.Matrix.setIdentityM(it, 0) })
+        val now = c?.current() ?: FloatArray(16).also { android.opengl.Matrix.setIdentityM(it, 0) }
+        // from the page it comes back to where it floats (out of its box: the page slots it in again)
+        return Triple(c, now, if (p != null && c != null) c.placed.copyOf() else now)
     }
 
     /** Back from a game: its cartridge is home again, selected (it's moved to the front of the row). */

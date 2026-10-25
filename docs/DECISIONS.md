@@ -292,6 +292,13 @@ Summarized from the first part of the conversation; the full transcript is kept 
   further up, pan speed); Inside closer, and "as [clipping] starts to happen, the shell pieces float away from the
   board". The user thought the DS box should be a little wider than tall; the measured case (Wikipedia's keep-case
   table, retail cases) is a little taller than wide, so the box follows the measurements and box art is cropped to fill.
+- After 0.13 (the user's notes): opening a page, "the box comes in from the left while the cartridge floats down and gets
+  smaller, then distinctly slots itself into the box … always bring in an open box from the left, then slot the
+  cartridge in - then stay open if open box is selected, or close if closed box is selected", in reverse going back
+  ("I want flow and continuity"); the box flies in from the left "rather than grow out of nothingness", the same for
+  the Museum's Showing views; the teardown: "make the halves fully pull apart, then set down, then the circuit board
+  comes up and out … give them some room to breathe", longer is fine; the Game Boy pockets show "only the top half or
+  so" of the cartridge; the closed box "should zoom into the model a little bit and make it bigger on the left half".
 - The start and return animations (0.12, the user's choices): "About 2.5 seconds", "Any button skips", and a home
   console's ends "easing in on the power light" (a handheld's on its screen, showing the title screen).
 - The game page's model (0.12, the user): "an option in the main settings page for what the default 3D model is when

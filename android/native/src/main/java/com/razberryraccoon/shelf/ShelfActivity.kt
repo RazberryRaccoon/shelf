@@ -224,8 +224,8 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
     /** Play: the start animation, which starts the game at its end (start), and plays the way back when Shelf returns. */
     override fun play(g: Game) {
         if (launch != null) return
-        val (cart, from) = home.takeForLaunch(g)
-        launch = Launch(this, stage, board, backdrop, carts, consoles, games, meta, g, cart, from, this)
+        val (cart, from, back) = home.takeForLaunch(g)
+        launch = Launch(this, stage, board, backdrop, carts, consoles, games, meta, g, cart, from, this, back)
     }
     override fun start(l: Launch): String = games.launch(l.game)
     override fun done(l: Launch) {
