@@ -18,7 +18,7 @@ import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { STYLES } from './cartridges.js';
-import { CONSOLES } from './consoles.js';
+import { CONSOLES, CONSOLE_COLORS, PART_NAMES } from './consoles.js';
 import { buildCartridge, applyVariant, fontReady } from './cartridge.js';
 import { buildConsole } from './console.js';
 import { buildCase, CASES } from './case.js';
@@ -64,7 +64,7 @@ const findMaterial = (root, name) => { const s = new Set(); root.traverse(o => {
 const CASE_COLORS = { genesis: ['#17181d', '#101114'], ps1: ['#24262e', '#16171c'], ds: ['#d9dce4', '#c4c8d2'], psp: ['#1f2128', '#15161b'], android: ['#262b3a', '#1b1f2b'] };
 
 window.exportAll = async ({ consoles = false, cases = false, carts = true } = {}) => {
-  const files = {}, variants = {};
+  const files = {}, variants = {}, consoleInfo = {};
   await fontReady;   // the circuit boards' print uses Orbitron
   for (const [id, style] of Object.entries(carts ? STYLES : {})) {
     const tune = { ...DEFAULTS, ...style.finish };
@@ -80,7 +80,16 @@ window.exportAll = async ({ consoles = false, cases = false, carts = true } = {}
     const tune = { ...DEFAULTS, ...entry.finish };
     const con = buildConsole(entry, { round: 1, segments: 6, finish: tune, lid: entry.lid ? entry.lid.rest : 0 });
     for (const m of con.userData.materials.plastics) { m.roughness = tune.roughness; m.clearcoat = tune.clearcoat; m.clearcoatRoughness = tune.clearcoatRoughness; }   // as the Studio's applyLook does
+    // a part in two shades (the NES's band, the Genesis's switches) gets a name for each, "role:band#2": the app keeps
+    // each one's own color for the schemes that leave that part alone
+    { const shades = new Map(); for (const m of con.userData.materials.plastics) {
+        const k = m.name, look = m.color.getHexString(); if (!shades.has(k)) shades.set(k, []);
+        const l = shades.get(k); let i = l.indexOf(look); if (i < 0) { l.push(look); i = l.length - 1; } if (i > 0) m.name = k + '#' + (i + 1); } }
     files[`console-${id}.glb`] = await glb(mergeByMaterial(con));
+    // the parts this console really has, in the app's order, and its real colors
+    const roles = new Set(); con.traverse(o => { if (o.isMesh) [].concat(o.material).forEach(m => { if (m.name?.startsWith('role:')) roles.add(m.name.slice(5).split('#')[0]); }); });
+    consoleInfo[id] = { name: entry.name, parts: Object.keys(PART_NAMES).filter(r => roles.has(r)).map(r => [r, PART_NAMES[r]]),
+      colors: (CONSOLE_COLORS[id] || []).map(([name, note, parts]) => ({ name, note, parts })) };
   }
   for (const [id, style] of Object.entries(cases ? STYLES : {})) {
     if (!CASES[id]) continue;
@@ -88,6 +97,7 @@ window.exportAll = async ({ consoles = false, cases = false, carts = true } = {}
     const [color, inner] = CASE_COLORS[id] || ['#2b2f3c', '#1d2029'];
     files[`case-${id}.glb`] = await glb(buildCase(id, media, { color, inner, artTexture: placeholder() }));
   }
+  if (consoles) files['consoles.json'] = btoa(unescape(encodeURIComponent(JSON.stringify(consoleInfo, null, 1))));
   if (carts) files['cartridges.json'] = btoa(unescape(encodeURIComponent(JSON.stringify(variants, null, 1))));
   return files;
 };

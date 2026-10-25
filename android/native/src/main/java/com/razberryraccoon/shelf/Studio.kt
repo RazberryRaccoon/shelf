@@ -80,7 +80,7 @@ class Shells(ctx: Context) {
  * The Studio's controls, drawn in one view: a row of materials, a grid of named colors, and hue, saturation and
  * brightness bars for any color at all, then Save and Cancel. Every change shows on the cartridge at once (onChange).
  */
-class StudioView(ctx: Context, startColor: Int, startMaterial: String, private val startName: String = "Custom") : View(ctx) {
+class StudioView(ctx: Context, startColor: Int, startMaterial: String, private val startName: String = "Custom", private val okLabel: String = "Save") : View(ctx) {
     var onChange: ((Int, String) -> Unit)? = null
     var onSave: (() -> Unit)? = null
     var onCancel: (() -> Unit)? = null
@@ -224,7 +224,7 @@ class StudioView(ctx: Context, startColor: Int, startMaterial: String, private v
 
     private fun drawButtons(c: Canvas) {
         val w = (W - 2 * X0 - 14) / 2f
-        listOf("Save", "Cancel").forEachIndexed { k, label ->
+        listOf(okLabel, "Cancel").forEachIndexed { k, label ->
             val box = RectF(X0 + k * (w + 14), BTN_Y, X0 + k * (w + 14) + w, BTN_Y + 46)
             val focus = zone == Zone.BUTTONS && button == k
             p.style = Paint.Style.FILL; p.color = when { focus -> Theme.sel; k == 0 -> Theme.accentOf(null); else -> Theme.chip }

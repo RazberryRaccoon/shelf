@@ -37,7 +37,8 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Home.kt` | Home: the row of recent games, the top bar, details, the shell color and emulator pickers. |
 | `GamePage.kt` | A game's page: the cartridge to turn with the right stick, the details and icon tiles, live shell colors. |
 | `Meta.kt` | A game's details and pictures from libretro's database, saved on the device. |
-| `Museum.kt` | The Museum: the timeline, the four views of each console, its story and its default shell. |
+| `Museum.kt` | The Museum: the timeline, the four views of each console, its story, its colors (and the console Studio) and its default shell. |
+| `Consoles.kt` | Console colors: the real ones, yours, and painting a console model part by part. |
 | `Models.kt` | Consoles and cases: placing any model, a case's art, its hinged cover and its tray. |
 | `Studio.kt` | The Studio: finishes, named colors, your saved shells, and its controls. |
 | `Sounds.kt` | The quiet interface sounds, synthesized on the device. |
@@ -46,7 +47,20 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
-## What's in version 0.6
+## What's in version 0.7
+
+Console colors, and the console Studio (in the Museum). A console's page has a **Console colors** row: under
+"Defaults for …", the colors it really came in, each with when and where (the N64's Funtastic translucents and its
+gold edition, the Game Boy's 1995 colors, the Game Boy Advance's launch colors, the DS and PSP editions…); under
+"Custom", your own; then "+ Add new", the console Studio. It lists the console's parts (shell, screen bezel, D-pad,
+buttons, Start and Select, shoulder buttons, stick, lid, switches: whichever it really has), and each part opens the
+cartridge Studio's controls (the same twelve finishes and 44 colors), showing on the console as you change it. Done
+keeps a part, Cancel puts it back; Save names the colors. Y on your own edits or deletes them. See-through finishes are
+shown as glassy, polished plastic on a console (there's nothing inside them to see yet). The colors are kept per console
+for the start and return animations, which come next. `Consoles.kt`; the parts are named in the exported models
+(`role:<part>`) and the real colors are in `consoles.json`.
+
+## What was in version 0.6
 
 The Museum (the round museum button in the top bar): every console, oldest first, along a timeline at the bottom (L
 and R, or left and right, move through it). Each is shown four ways, turned with the right stick: the console, its

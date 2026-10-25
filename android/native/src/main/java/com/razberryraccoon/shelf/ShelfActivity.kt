@@ -164,6 +164,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host {
         home.visible = false
         museum = Museum(this, stage, board, backdrop, games, carts, this, sys)
     }
+    override fun pick(p: Picker) = home.pick(p)   // over the Museum too: input goes to a message first
     override fun closed(museum: Museum, shellsChanged: Boolean) {
         this.museum = null
         if (shellsChanged) home.reshell()

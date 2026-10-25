@@ -25,12 +25,17 @@ import kotlin.math.sin
  * console, its cartridge, the cartridge in its open box, the box closed), turned with the right stick like a game's
  * cartridge. The views flow into each other: the cartridge settles into the tray as the box appears, and the cover
  * swings shut. Along the bottom, a timeline of the consoles (L and R, or left and right on it, move through them).
- * On the right, the console's story, and its default shell: what its standard cartridges wear on Home (special
- * editions keep their real colors, and games you've customized keep yours).
+ * On the right, the console's story; its colors (the real ones it came in, or your own, painted part by part in the
+ * Studio); and its default shell: what its standard cartridges wear on Home (special editions keep their real colors,
+ * and games you've customized keep yours).
  */
 class Museum(private val ctx: Context, private val stage: Stage, private val board: Board, private val backdrop: Backdrop,
              private val games: Games, private val carts: Carts, private val host: Host, startSys: String? = null) {
-    interface Host { fun closed(museum: Museum, shellsChanged: Boolean) }
+    interface Host {
+        fun closed(museum: Museum, shellsChanged: Boolean)
+        fun pick(p: Picker)
+        fun askText(title: String, value: String, then: (String) -> Unit)
+    }
 
     private class Exhibit(val sys: String, val name: String, val maker: String, val year: Int, val released: String, val sold: String,
                           val cpu: String, val plays: String, val facts: List<String>, val example: String)
@@ -41,7 +46,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
     private var shellsChanged = false
 
     // the models for the console on show
-    private var console: Model? = null
+    private var console: Console? = null
     private var cart: Cart? = null
     private var case: Case? = null
     private val sampler = TextureSampler(TextureSampler.MinFilter.LINEAR_MIPMAP_LINEAR, TextureSampler.MagFilter.LINEAR, TextureSampler.WrapMode.CLAMP_TO_EDGE)
@@ -71,10 +76,19 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
     private val timeline = Timeline(ctx)
     private val hint = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; alpha = 0f }
 
-    private enum class Zone { ROWS, FACTS, SHELLS }
+    private enum class Zone { ROWS, FACTS, SHELLS, LOOKS, PARTS, PAINT }
     private var zone = Zone.ROWS
     private var before: String? = null   // the default shell to go back to if you press B in the list
     private val loaded = HashMap<String, Loaded>()   // consoles shown so far (load): declared before init, which uses it
+
+    // the console's colors, and the console Studio (declared before init too)
+    private val consoles = Consoles(ctx, stage)
+    private var lookBefore: String? = null   // the colors to go back to if you press B in the list
+    private var previewed: String? = null   // the colors last shown from the list (+ Add new starts from them)
+    private var editingLook: ConsoleLook? = null   // yours, being changed in the Studio (null: new colors)
+    private val working = LinkedHashMap<String, PartPaint>()   // the Studio's colors so far, part by part
+    private var painting: StudioView? = null
+    private var paintRole = ""; private var paintBefore: PartPaint? = null
 
     init {
         val j = JSONObject(String(stage.readAsset("museum.json").let { b -> ByteArray(b.remaining()).also { b.get(it) } }))
@@ -83,7 +97,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
                 e.getJSONArray("facts").let { a -> (0 until a.length()).map { a.getString(it) } }, e.optString("example", "Shelf")) } }
             .sortedWith(compareBy({ it.year }, { ORDER.indexOf(it.sys) })).toList()
         col.addView(label); col.addView(title, lp(10)); col.addView(stats, lp(12))
-        col.addView(rows, LinearLayout.LayoutParams(-1, 64 + 80 + 8 * 2 + 12).apply { topMargin = 18; leftMargin = -30; rightMargin = -30 })
+        col.addView(rows, LinearLayout.LayoutParams(-1, 64 + 80 * 2 + 8 * 3 + 12).apply { topMargin = 18; leftMargin = -30; rightMargin = -30 })
         col.addView(factsHead, lp(14)); col.addView(facts, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 4; leftMargin = -18; rightMargin = -18 })
         scroll.addView(col, android.widget.FrameLayout.LayoutParams(-1, -2))
         panel.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f).apply { leftMargin = -EDGE; rightMargin = -EDGE })
@@ -121,9 +135,11 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
 
     private fun fillRows() {
         val e = ex(); val v = carts.variantFor(e.sys, games.defaultShell(e.sys))
+        val look = consoles.lookFor(e.sys, games.consoleLook(e.sys))
         val keep = rows.current()?.key
-        rows.rows = listOf(Options.Row("view", "Showing", value = "‹  ${views[view]}  ›"),
-            Options.Row("shell", "Default shell", value = v?.name ?: "", sub = "Its standard cartridges on Home; special editions keep theirs", dot = v?.color))
+        rows.rows = listOf(Options.Row("view", "Showing", value = "‹  ${views[view]}  ›")) +
+            (if (look == null) emptyList() else listOf(Options.Row("look", "Console colors", value = look.name, sub = look.note.ifEmpty { "Your own, from the Studio" }, dot = shellDot(look)))) +
+            Options.Row("shell", "Default shell", value = v?.name ?: "", sub = "Its standard cartridges on Home; special editions keep theirs", dot = v?.color)
         rows.rows.indexOfFirst { it.key == keep }.takeIf { it > 0 }?.let { rows.focus(it) }
         rows.invalidate()
     }
@@ -132,9 +148,9 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
      * A console's three models, loaded the first time it's shown and kept until the Museum closes, so moving back and
      * forth along the timeline doesn't stop to load (the neighbours load quietly ahead, one at a time: see tick).
      */
-    private class Loaded(val console: Model?, val case: Case?, var cart: Cart?)
+    private class Loaded(val console: Console?, val case: Case?, var cart: Cart?)
     private fun load(e: Exhibit) = loaded.getOrPut(e.sys) {
-        Loaded(carts.model("console-${e.sys}.glb")?.let { Model(stage, it) }, carts.model("case-${e.sys}.glb")?.let { Case(stage, it, e.example, sampler) },
+        Loaded(carts.model("console-${e.sys}.glb")?.let { Console(stage, it, carts.description("console-${e.sys}.glb")).apply { consoles.lookFor(e.sys, games.consoleLook(e.sys))?.let { l -> paint(l.parts) } } }, carts.model("case-${e.sys}.glb")?.let { Case(stage, it, e.example, sampler) },
             carts.make(e.sys, e.example, games.defaultShell(e.sys))).also { it.console?.hide(); it.case?.hide(); it.cart?.place(-4000f, 0f, 0f, 0f, 0f, 1f) }
     }
 
@@ -247,12 +263,14 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
     fun input(a: String) {
         if (closing) return
         when (a) {
-            "lb" -> return switchTo(at - 1)
-            "rb" -> return switchTo(at + 1)
+            "lb", "rb" -> return if (zone != Zone.ROWS && zone != Zone.FACTS) Sounds.play(Sounds.BUMP) else switchTo(at + if (a == "lb") -1 else 1)   // a list is about this console
             "x" -> { flipped = !flipped; vYaw = 0f; idle = 9f; Sounds.play(Sounds.TURN); return }
         }
         when (zone) {
             Zone.SHELLS -> shellsInput(a)
+            Zone.LOOKS -> looksInput(a)
+            Zone.PARTS -> partsInput(a)
+            Zone.PAINT -> painting?.input(a)
             Zone.FACTS -> when (a) {
                 "up" -> if (scroll.scrollY > factsHead.top - 40 + 10) scroll.smoothScrollBy(0, -140) else toRows()
                 "down" -> if (scroll.scrollY + scroll.height < col.height) scroll.smoothScrollBy(0, 140) else Sounds.play(Sounds.BUMP)
@@ -263,7 +281,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
                 "up" -> if (!rows.move(-1)) Sounds.play(Sounds.BUMP) else Sounds.play(Sounds.MOVE)
                 "down" -> if (!rows.move(1)) { zone = Zone.FACTS; facts.background = round(Theme.chip, 22f, Theme.sel, 2.5f); rows.active = false; scroll.smoothScrollTo(0, factsHead.top - 40); Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.MOVE)
                 "left", "right" -> if (rows.current()?.key == "view") setView((view + (if (a == "left") -1 else 1) + views.size) % views.size) else switchTo(at + if (a == "left") -1 else 1)
-                "a" -> when (rows.current()?.key) { "view" -> setView((view + 1) % views.size); "shell" -> startShells() }
+                "a" -> when (rows.current()?.key) { "view" -> setView((view + 1) % views.size); "look" -> startLooks(); "shell" -> startShells() }
                 "b" -> close()
             }
         }
@@ -300,7 +318,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         list.rows = l; list.reset(); l.indexOfFirst { it.tag == chosen }.takeIf { it >= 0 }?.let { list.focus(it) }
         list.onFocus = { previewShell(); Sounds.play(Sounds.MOVE) }
         listHead.text = "DEFAULT SHELL"
-        scroll.visibility = View.GONE; listHead.visibility = View.VISIBLE; list.visibility = View.VISIBLE; panel.requestLayout()
+        showList()
         zone = Zone.SHELLS
         if (view != 1) setView(1)   // show the cartridge while choosing
         Sounds.play(Sounds.OPEN)
@@ -331,10 +349,151 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         val e = ex(); val c = cart
         if (c == null || (v.clear != null) != (c.variant.clear != null)) { c?.destroy(); cart = carts.make(e.sys, e.example, v); loaded[e.sys]?.cart = cart } else c.apply(v)
     }
-    private fun endShells() {
+    private fun endShells() = endList()
+
+    private fun showList() { scroll.visibility = View.GONE; listHead.visibility = View.VISIBLE; list.visibility = View.VISIBLE; hints(); panel.requestLayout() }
+    private fun endList() {
         list.onFocus = null
         scroll.visibility = View.VISIBLE; listHead.visibility = View.GONE; list.visibility = View.GONE; panel.requestLayout()
-        zone = Zone.ROWS; fillRows()
+        zone = Zone.ROWS; fillRows(); hints()
+    }
+    /** L and R move along the timeline only from the console's page, not from a list about it: their hints go with them. */
+    private fun hints() { val on = if (zone == Zone.ROWS || zone == Zone.FACTS) View.VISIBLE else View.GONE; hint.getChildAt(0).visibility = on; hint.getChildAt(1).visibility = on }
+
+    // ---------- a console's colors, and the console Studio ----------
+
+    /** The shell's color in these colors, for the list's dots. */
+    private fun shellDot(l: ConsoleLook) = l.parts["shell"]?.color ?: console?.ownColor("shell")
+
+    private fun startLooks() {
+        val e = ex(); if (consoles.info[e.sys] == null) return
+        lookBefore = games.consoleLook(e.sys); previewed = lookBefore
+        fillLooks(consoles.lookFor(e.sys, lookBefore)?.key)
+        zone = Zone.LOOKS
+        if (view != 0) setView(0)   // show the console while choosing
+        Sounds.play(Sounds.OPEN)
+    }
+
+    private fun fillLooks(focusKey: String?) {
+        val e = ex(); val info = consoles.info[e.sys] ?: return
+        val chosen = consoles.lookFor(e.sys, games.consoleLook(e.sys))?.key
+        val l = ArrayList<Options.Row>()
+        l += Options.Row(Options.HEAD, "Defaults for ${Games.NAMES[e.sys] ?: info.name}")
+        info.looks.forEach { l += Options.Row("v", it.name, sub = it.note, check = it.key == chosen, dot = shellDot(it), tag = it.key) }
+        l += Options.Row(Options.HEAD, "Custom")
+        consoles.custom.all(e.sys).forEach { l += Options.Row("c", it.name, sub = "Your own  ·  Y to edit", check = it.key == chosen, dot = shellDot(it), tag = it.key) }
+        l += Options.Row("new", "+ Add new", sub = "Paint each part in the Studio", tag = "new")
+        list.onFocus = null
+        list.rows = l; list.reset(); l.indexOfFirst { it.tag == focusKey }.takeIf { it >= 0 }?.let { list.focus(it) }
+        list.onFocus = { previewLook(); Sounds.play(Sounds.MOVE) }
+        listHead.text = "CONSOLE COLORS"
+        showList()
+    }
+
+    private fun previewLook() {
+        val key = list.current()?.tag as? String ?: return
+        if (key == "new") return   // keeps showing the last one you were on
+        consoles.lookFor(ex().sys, key)?.let { previewed = it.key; console?.paint(it.parts) }
+    }
+
+    private fun looksInput(a: String) {
+        val e = ex()
+        when (a) {
+            "up" -> if (!list.move(-1)) Sounds.play(Sounds.BUMP)
+            "down" -> if (!list.move(1)) Sounds.play(Sounds.BUMP)
+            "a" -> {
+                val key = list.current()?.tag as? String ?: return
+                if (key == "new") return openPaint(null)
+                games.setConsoleLook(e.sys, if (key == consoles.info[e.sys]?.looks?.firstOrNull()?.name) null else key)
+                Sounds.play(Sounds.PICK); endList()
+                if (consoles.lookFor(e.sys, key)?.parts?.values?.any { it.material != "plastic" } == true) vYaw += 1.4f   // show off the finish
+            }
+            "b" -> { Sounds.play(Sounds.CLOSE); consoles.lookFor(e.sys, lookBefore)?.let { console?.paint(it.parts) }; endList() }
+            "y" -> consoles.custom.get(e.sys, list.current()?.tag as? String)?.let { lookOptions(it) }
+        }
+    }
+
+    /** Y on your own colors: change them in the Studio, or delete them. */
+    private fun lookOptions(l: ConsoleLook) {
+        val e = ex()
+        host.pick(Picker(ctx, l.name, listOf(Picker.Row("Edit in the Studio", "Paint its parts again"), Picker.Row("Delete", "The console goes back to its standard colors"))) { k ->
+            if (k == 0) openPaint(l)
+            else {
+                consoles.custom.delete(l.custom ?: return@Picker)
+                if (games.consoleLook(e.sys) == l.key) games.setConsoleLook(e.sys, null)
+                if (lookBefore == l.key) lookBefore = null
+                fillLooks(null); previewLook(); Sounds.play(Sounds.CLOSE)
+            }
+        })
+    }
+
+    /** The console Studio: its parts in a list, each painted with the cartridge Studio's materials and colors. */
+    private fun openPaint(edit: ConsoleLook?) {
+        val e = ex()
+        // starts from yours being changed, or from the colors you were on in the list
+        val start = edit ?: consoles.lookFor(e.sys, previewed)
+        editingLook = edit
+        working.clear(); start?.parts?.let { working.putAll(it) }
+        console?.paint(working)
+        zone = Zone.PARTS; fillParts(0)
+        Sounds.play(Sounds.OPEN)
+    }
+
+    private fun fillParts(at: Int) {
+        val e = ex(); val info = consoles.info[e.sys] ?: return
+        val l = ArrayList<Options.Row>()
+        info.parts.forEach { (role, name) ->
+            val p = working[role]
+            l += Options.Row("part", name, sub = p?.let { Materials.of(it.material).name } ?: "As it was made", dot = p?.color ?: console?.ownColor(role), tag = role)
+        }
+        l += Options.Row("save", if (editingLook != null) "Save changes" else "Save these colors", sub = "B to leave without saving", primary = true)
+        list.onFocus = null
+        list.rows = l; list.reset(); list.focus(at.coerceIn(0, l.size - 1))
+        list.onFocus = { Sounds.play(Sounds.MOVE) }
+        listHead.text = "STUDIO  ·  ${(editingLook?.name ?: info.name).uppercase()}"
+        showList()
+    }
+
+    private fun partsInput(a: String) {
+        val e = ex()
+        when (a) {
+            "up" -> if (!list.move(-1)) Sounds.play(Sounds.BUMP)
+            "down" -> if (!list.move(1)) Sounds.play(Sounds.BUMP)
+            "a" -> when (list.current()?.key) {
+                "part" -> openPart(list.current()?.tag as String)
+                "save" -> host.askText("Name these colors", editingLook?.name ?: "My ${Games.NAMES[e.sys] ?: consoles.info[e.sys]?.name ?: "console"}") { name ->
+                    val l = consoles.custom.save(e.sys, ConsoleLook(name.trim().ifEmpty { "My colors" }.take(28), "", LinkedHashMap(working),
+                        editingLook?.custom ?: java.lang.Long.toString(System.currentTimeMillis(), 36)))
+                    Sounds.play(Sounds.PICK); editingLook = null
+                    zone = Zone.LOOKS; fillLooks(l.key); previewLook()
+                }
+            }
+            "b" -> { Sounds.play(Sounds.CLOSE); val back = editingLook?.key; editingLook = null; zone = Zone.LOOKS; fillLooks(back ?: list.current()?.tag as? String); previewLook() }
+        }
+    }
+
+    /** One part in the Studio: every change shows on the console at once; Done keeps it, Cancel puts it back. */
+    private fun openPart(role: String) {
+        val c = console ?: return
+        val p = working[role]
+        paintRole = role; paintBefore = p
+        val v = StudioView(ctx, p?.color ?: c.ownColor(role), p?.material ?: c.ownMaterial(role), if (p == null) "As it was made" else "Custom", okLabel = "Done")
+        v.onChange = { color, material -> working[role] = PartPaint(color, material); console?.paint(working) }
+        v.onSave = { closePart(keep = true) }
+        v.onCancel = { closePart(keep = false) }
+        painting = v
+        list.visibility = View.GONE
+        panel.addView(v, LinearLayout.LayoutParams(StudioView.W, StudioView.H).apply { topMargin = 8; leftMargin = -14; rightMargin = -14 })
+        listHead.text = "STUDIO  ·  ${(consoles.info[ex().sys]?.parts?.firstOrNull { it.first == role }?.second ?: role).uppercase()}"
+        zone = Zone.PAINT
+        Sounds.play(Sounds.OPEN)
+    }
+
+    private fun closePart(keep: Boolean) {
+        if (!keep) { paintBefore?.let { working[paintRole] = it } ?: working.remove(paintRole); console?.paint(working); Sounds.play(Sounds.CLOSE) } else Sounds.play(Sounds.PICK)
+        painting?.let { panel.removeView(it) }; painting = null
+        zone = Zone.PARTS
+        fillParts(consoles.info[ex().sys]?.parts?.indexOfFirst { it.first == paintRole } ?: 0)
     }
 
     fun close() { if (!closing) { closing = true; Sounds.play(Sounds.CLOSE); board.postDelayed({ destroy(); host.closed(this, shellsChanged) }, 380) } }

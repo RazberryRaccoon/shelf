@@ -42,6 +42,9 @@ modules, which browsers won't load from a file on disk, so opening `index.html` 
 Add an entry to `STYLES` in `cartridges.js`: an outline, depth, label recess, any ridges, and a starting finish. A
 console is an entry in `CONSOLES` in `consoles.js`: a finish and a `build` function that places parts with the kit
 described at the top of that file.
+Give each of its plastics a part (`M.plastic(color, 'dpad')`; the shell is `'shell'`, anything without one is
+`'trim'`): the app's console colors recolor a part by its material name, `role:<part>`. Its real colors go in
+`CONSOLE_COLORS`, as colors per part (parts left out keep the model's own).
 
 ## Exporting for Shelf Native
 
