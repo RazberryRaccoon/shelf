@@ -21,6 +21,7 @@ import { STYLES } from './cartridges.js';
 import { CONSOLES, CONSOLE_COLORS, PART_NAMES } from './consoles.js';
 import { buildCartridge, applyVariant, fontReady } from './cartridge.js';
 import { buildConsole } from './console.js';
+import { buildBoard, placeBoard, BOARDS, MASK } from './board.js';
 import { buildCase, CASES } from './case.js';
 
 const DEFAULTS = { bevel: .8, segments: 6, round: 1, envIntensity: 1 };
@@ -78,18 +79,31 @@ window.exportAll = async ({ consoles = false, cases = false, carts = true } = {}
   }
   for (const [id, entry] of consoles ? Object.entries(CONSOLES) : []) {
     const tune = { ...DEFAULTS, ...entry.finish };
-    const con = buildConsole(entry, { round: 1, segments: 6, finish: tune, lid: entry.lid ? entry.lid.rest : 0 });
-    for (const m of con.userData.materials.plastics) { m.roughness = tune.roughness; m.clearcoat = tune.clearcoat; m.clearcoatRoughness = tune.clearcoatRoughness; }   // as the Studio's applyLook does
-    // a part in two shades (the NES's band, the Genesis's switches) gets a name for each, "role:band#2": the app keeps
-    // each one's own color for the schemes that leave that part alone
-    { const shades = new Map(); for (const m of con.userData.materials.plastics) {
+    const make = () => {
+      const con = buildConsole(entry, { round: 1, segments: 6, finish: tune, lid: entry.lid ? entry.lid.rest : 0 });
+      for (const m of con.userData.materials.plastics) { m.roughness = tune.roughness; m.clearcoat = tune.clearcoat; m.clearcoatRoughness = tune.clearcoatRoughness; }   // as the Studio's applyLook does
+      // a part in two shades (the NES's band, the Genesis's switches) gets a name for each, "role:band#2": the app keeps
+      // each one's own color for the schemes that leave that part alone
+      const shades = new Map(); for (const m of con.userData.materials.plastics) {
         const k = m.name, look = m.color.getHexString(); if (!shades.has(k)) shades.set(k, []);
-        const l = shades.get(k); let i = l.indexOf(look); if (i < 0) { l.push(look); i = l.length - 1; } if (i > 0) m.name = k + '#' + (i + 1); } }
+        const l = shades.get(k); let i = l.indexOf(look); if (i < 0) { l.push(look); i = l.length - 1; } if (i > 0) m.name = k + '#' + (i + 1); }
+      return con;
+    };
+    const con = make();
     files[`console-${id}.glb`] = await glb(mergeByMaterial(con));
+    // a see-through version, for the clear, frosted and smoke finishes: its shell is blended (the app sets how much
+    // shows), and the board, exported on its own in the console's own millimetres, sits inside it
+    { const c2 = make(); c2.userData.materials.shell.transparent = true; c2.userData.materials.shell.opacity = .4; c2.userData.materials.shell.depthWrite = false;
+      files[`console-${id}-clear.glb`] = await glb(mergeByMaterial(c2)); }
+    const spec = BOARDS[id];
+    // picture slots for the print and the traces, which the app draws
+    if (spec) { const holder = new THREE.Group(); holder.add(placeBoard(buildBoard(spec, placeholder(), placeholder()), spec)); files[`board-${id}.glb`] = await glb(mergeByMaterial(holder)); }
     // the parts this console really has, in the app's order, and its real colors
     const roles = new Set(); con.traverse(o => { if (o.isMesh) [].concat(o.material).forEach(m => { if (m.name?.startsWith('role:')) roles.add(m.name.slice(5).split('#')[0]); }); });
     consoleInfo[id] = { name: entry.name, parts: Object.keys(PART_NAMES).filter(r => roles.has(r)).map(r => [r, PART_NAMES[r]]),
-      colors: (CONSOLE_COLORS[id] || []).map(([name, note, parts]) => ({ name, note, parts })) };
+      colors: (CONSOLE_COLORS[id] || []).map(([name, note, parts]) => ({ name, note, parts })),
+      // its board's print: the part number, the solder mask's color, the board's size (the print's shape)
+      board: BOARDS[id] ? { code: BOARDS[id].code, mask: BOARDS[id].mask || MASK, size: BOARDS[id].size } : null };
   }
   for (const [id, style] of Object.entries(cases ? STYLES : {})) {
     if (!CASES[id]) continue;

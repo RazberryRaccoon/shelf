@@ -46,6 +46,11 @@ Give each of its plastics a part (`M.plastic(color, 'dpad')`; the shell is `'she
 `'trim'`): the app's console colors recolor a part by its material name, `role:<part>`. Its real colors go in
 `CONSOLE_COLORS`, as colors per part (parts left out keep the model's own).
 
+A console's circuit board is an entry in `BOARDS` in `board.js`: where it sits in the console (in millimetres, flat or
+standing in a handheld), its size, and its parts (chips with legs, capacitors, resistors, crystals, regulators,
+connectors, shields), placed roughly as on the real board. Small surface parts fill the free space on their own; the
+probe of the export checks that every board fits inside its shell.
+
 ## Exporting for Shelf Native
 
 `node export-models.mjs` (needs Node and Playwright) builds every cartridge with the Studio's default settings and

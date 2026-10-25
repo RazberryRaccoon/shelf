@@ -22,7 +22,8 @@ published by GitHub Actions. Next, in order:
 6. **More models in Blender**, when the user wants to pick that back up.
 7. **Shelf Native** (`android/native/`, started October 2026), round by round until it replaces the WebView app:
    0.1 Home, 0.2 setup and Settings, 0.3–0.5 the game page with the cartridge and the Studio, 0.6 the Museum, 0.7 console colors and the console
-   Studio (built); next the console animations (start and return, in the console's chosen colors); then the box on the game page (the cartridge in the open box by default; selecting it picks
+   Studio, 0.8 the consoles' circuit boards (built); next the console animations (start and return, in the console's
+   chosen colors; a handheld shows the game's title screen once the cartridge is in); then the box on the game page (the cartridge in the open box by default; selecting it picks
    it up and hides the box, as the page is now; the box's own controls under it, see DECISIONS.md); then Library and Apps; art downloads and the
    per-game art pickers; Settings and first-run setup; the Museum with the Studio's consoles; the launch animation
    (the cartridge going into the console); outline glows on the selected object (a custom Filament material); then

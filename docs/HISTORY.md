@@ -469,3 +469,16 @@ is now named for its part (`role:shell`, `role:dpad`…; a part in two shades, l
 real color editions researched for it (see RESEARCH.md). In the Museum, Console colors lists them, your own, and the
 console Studio, which paints part by part with the cartridge Studio's controls. Compile-checked; the export checked by
 reading back every model's part names. Not checked on a device.
+
+**Shelf Native 0.8 (October 2026): the consoles' circuit boards.** The user asked for a board in every console, "a
+little more detailed than the cartridge one … roughly like the real console's circuitboards", with RaccoonTek on the
+back or bottom. `board.js` in the Studio builds each from a kit of 3D parts (chips with every leg, capacitors with
+scored tops, banded resistors, crystals, regulators on finned heatsinks, connectors with gold fingers, metal shields),
+laid out from the real boards' arrangements, then scatters small surface parts over the free space with a fixed seed.
+Boards are their own model files in the console's own millimetres, so the app places one with its console's transform.
+The research could only use search results (the reference sites themselves are blocked from this sandbox), so the
+layouts are approximate. Checked with a ray probe (every board's outline and every part inside its shell: three
+poked out at rounded corners, fixed with per-corner rounding) and headless renders, which caught the print mirrored
+on handhelds and then upside down on home consoles (each needed its own flip) and the boards washing out to white
+under the studio light (the solder mask's gloss toned down). The export briefly broke again on a comment that
+swallowed the rest of its line. Compile-checked; not checked on a device.

@@ -38,7 +38,7 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `GamePage.kt` | A game's page: the cartridge to turn with the right stick, the details and icon tiles, live shell colors. |
 | `Meta.kt` | A game's details and pictures from libretro's database, saved on the device. |
 | `Museum.kt` | The Museum: the timeline, the four views of each console, its story, its colors (and the console Studio) and its default shell. |
-| `Consoles.kt` | Console colors: the real ones, yours, and painting a console model part by part. |
+| `Consoles.kt` | Console colors (the real ones, yours, painting a console part by part) and its circuit board. |
 | `Models.kt` | Consoles and cases: placing any model, a case's art, its hinged cover and its tray. |
 | `Studio.kt` | The Studio: finishes, named colors, your saved shells, and its controls. |
 | `Sounds.kt` | The quiet interface sounds, synthesized on the device. |
@@ -47,7 +47,17 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
-## What's in version 0.7
+## What's in version 0.8
+
+Every console has its circuit board inside: the real board's layout, roughly (the cartridge connector, the processors,
+memory, the sound and video chips, regulators on their heatsinks, crystals, capacitors, connectors and ports), with
+small surface parts scattered over the free space, copper traces drawn under the solder mask, and RaccoonTek's print on
+the underside (the back, on handhelds). Two ways to see it in the Museum: give the shell a clear, frosted or smoke
+finish (the console's real translucent editions now really are see-through), or choose the new **Inside** view (left
+of Console), where the console lifts away off the top of the screen and leaves its board to turn; X turns it over to
+its print. `ConsoleBoard` in `Consoles.kt`; the boards are `board-*.glb`, the see-through consoles `console-*-clear.glb`.
+
+## What was in version 0.7
 
 Console colors, and the console Studio (in the Museum). A console's page has a **Console colors** row: under
 "Defaults for …", the colors it really came in, each with when and where (the N64's Funtastic translucents and its

@@ -93,10 +93,10 @@ object Paintings {
      * traces, the row of gold contacts, and white silkscreen: RaccoonTek, the board's part number, a few markings.
      * `aspect` is the board's width over its height.
      */
-    fun board(aspect: Float, code: String, contacts: Int): Bitmap {
+    fun board(aspect: Float, code: String, contacts: Int, mask: Int = Color.rgb(29, 90, 59)): Bitmap {
         val w = 768; val h = (w / aspect).toInt().coerceIn(128, 1536)
         val b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888); val c = Canvas(b); val p = Paint(Paint.ANTI_ALIAS_FLAG)
-        c.drawColor(Color.rgb(29, 90, 59))
+        c.drawColor(mask)
         var seed = 7L; fun rnd(): Float { seed = (seed * 16807) % 2147483647; return seed / 2147483647f }
         p.style = Paint.Style.STROKE; p.strokeWidth = w * .006f; p.strokeCap = Paint.Cap.ROUND; p.strokeJoin = Paint.Join.ROUND
         repeat(26) {   // traces: straight runs with 45° turns, the way boards are routed
@@ -116,6 +116,27 @@ object Paintings {
         c.drawText("$code  ·  REV 2.0", w / 2f, h * .4f + size * 1.05f, p)
         p.textAlign = Paint.Align.LEFT; p.textSize = size * .2f
         c.drawText("U1", w * .08f, h * .16f, p); c.drawText("C3", w * .84f, h * .74f, p)
+        return b
+    }
+    /**
+     * A console board's top: copper traces under the solder mask, routed straight with 45° turns, the round pads of
+     * vias, and the silkscreen's little white marks. The parts themselves are 3D, on top of it.
+     */
+    fun traces(aspect: Float, mask: Int): Bitmap {
+        val w = 1024; val h = (w / aspect).toInt().coerceIn(256, 2048)
+        val b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888); val c = Canvas(b); val p = Paint(Paint.ANTI_ALIAS_FLAG)
+        c.drawColor(mask)
+        var seed = 11L; fun rnd(): Float { seed = (seed * 16807) % 2147483647; return seed / 2147483647f }
+        val copper = Color.argb(150, (Color.red(mask) + 60).coerceAtMost(255), (Color.green(mask) + 70).coerceAtMost(255), (Color.blue(mask) + 45).coerceAtMost(255))
+        p.strokeCap = Paint.Cap.ROUND; p.strokeJoin = Paint.Join.ROUND
+        repeat(w * h / 5200) {
+            var x = rnd() * w; var y = rnd() * h; val path = android.graphics.Path().apply { moveTo(x, y) }
+            repeat(2 + (rnd() * 3).toInt()) { val d = w * (.02f + rnd() * .1f); when ((rnd() * 6).toInt()) { 0 -> x += d; 1 -> x -= d; 2 -> y += d; 3 -> y -= d; 4 -> { x += d * .7f; y += d * .7f * (if (rnd() < .5f) 1 else -1) }; else -> { x -= d * .7f; y += d * .7f * (if (rnd() < .5f) 1 else -1) } }; path.lineTo(x, y) }
+            p.style = Paint.Style.STROKE; p.strokeWidth = w * (if (rnd() < .15f) .006f else .0028f); p.color = copper; c.drawPath(path, p)
+            p.style = Paint.Style.FILL; p.color = Color.argb(210, 214, 196, 140); c.drawCircle(x, y, w * .0045f, p)   // a via's pad
+        }
+        p.style = Paint.Style.FILL; p.color = Color.argb(200, 236, 240, 232); p.typeface = Fonts.techLight; p.textSize = w * .012f
+        repeat(w * h / 26000) { c.drawText(listOf("C", "R", "U", "L", "Q", "TP")[(rnd() * 6).toInt()] + (1 + (rnd() * 120).toInt()), rnd() * w, rnd() * h, p) }
         return b
     }
     fun picture(w: Int, h: Int, title: String): Bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also { scene(Canvas(it), w.toFloat(), h.toFloat(), title) }

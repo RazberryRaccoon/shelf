@@ -35,7 +35,15 @@
      "buttons": "#9c2a33"
     }
    }
-  ]
+  ],
+  "board": {
+   "code": "RT-8B-CPU",
+   "mask": "#14532f",
+   "size": [
+    228,
+    176
+   ]
+  }
  },
  "snes": {
   "name": "Super Nintendo",
@@ -68,7 +76,15 @@
      "switches": "#9c9aa3"
     }
    }
-  ]
+  ],
+  "board": {
+   "code": "RT-16S-CPU",
+   "mask": "#14532f",
+   "size": [
+    186,
+    222
+   ]
+  }
  },
  "n64": {
   "name": "Nintendo 64",
@@ -158,7 +174,15 @@
      ]
     }
    }
-  ]
+  ],
+  "board": {
+   "code": "RT-64X-CPU",
+   "mask": "#14532f",
+   "size": [
+    232,
+    168
+   ]
+  }
  },
  "genesis": {
   "name": "Sega Genesis",
@@ -178,7 +202,15 @@
     "note": "Every model was black (1989)",
     "parts": {}
    }
-  ]
+  ],
+  "board": {
+   "code": "RT-16G-CPU",
+   "mask": "#14532f",
+   "size": [
+    252,
+    192
+   ]
+  }
  },
  "gb": {
   "name": "Game Boy",
@@ -262,7 +294,15 @@
      ]
     }
    }
-  ]
+  ],
+  "board": {
+   "code": "RT-PK1-CPU",
+   "mask": "#14532f",
+   "size": [
+    82,
+    130
+   ]
+  }
  },
  "gbc": {
   "name": "Game Boy Color",
@@ -332,7 +372,15 @@
      ]
     }
    }
-  ]
+  ],
+  "board": {
+   "code": "RT-PK2-CPU",
+   "mask": "#14532f",
+   "size": [
+    70,
+    118
+   ]
+  }
  },
  "gba": {
   "name": "Game Boy Advance",
@@ -426,7 +474,15 @@
      "shell": "#f08a2a"
     }
    }
-  ]
+  ],
+  "board": {
+   "code": "RT-PK3-CPU",
+   "mask": "#14532f",
+   "size": [
+    128,
+    70
+   ]
+  }
  },
  "ps1": {
   "name": "PlayStation",
@@ -459,7 +515,15 @@
      "buttons": "#dcdcd8"
     }
    }
-  ]
+  ],
+  "board": {
+   "code": "RT-32P-CPU",
+   "mask": "#14532f",
+   "size": [
+    252,
+    170
+   ]
+  }
  },
  "ds": {
   "name": "Nintendo DS",
@@ -526,7 +590,15 @@
      "shell": "#c4182c"
     }
    }
-  ]
+  ],
+  "board": {
+   "code": "RT-DS-CPU",
+   "mask": "#14532f",
+   "size": [
+    140,
+    74
+   ]
+  }
  },
  "psp": {
   "name": "PSP",
@@ -599,7 +671,15 @@
      "shell": "#c01d2a"
     }
    }
-  ]
+  ],
+  "board": {
+   "code": "RT-UM-CPU",
+   "mask": "#1d5a43",
+   "size": [
+    148,
+    60
+   ]
+  }
  },
  "android": {
   "name": "Android handheld",
@@ -659,6 +739,14 @@
      "dpad": "#4a4a52"
     }
    }
-  ]
+  ],
+  "board": {
+   "code": "RT-AC-CPU",
+   "mask": "#16191f",
+   "size": [
+    160,
+    64
+   ]
+  }
  }
 }
