@@ -274,6 +274,11 @@ Summarized from the first part of the conversation; the full transcript is kept 
   look roughly like the real console's circuitboards … On the back (handhelds)/bottom (home consoles), it should have
   the signature RaccoonTek text." Seen two ways ("Both"): see-through finishes really are see-through on a console's
   shell, and a Museum view, Inside, lifts the console away from its board. Boards before the animations ("Boards first").
+- Seams (after 0.8, the user): "All consoles should have seam lines, like the cartridges do. Use the same effect, and
+  make the seam where it would be on the real [console] … the console could actually split apart to reveal the board
+  inside … make the animations fit into the rotation so everything stays smooth." Home consoles' seams sit low, just
+  under the board, so the top lifts off and leaves the board on the base. Also: the Game Boy family's backs get real
+  cartridge pockets; the translucent console editions are really see-through; anodized aluminum is brighter.
 - The start animation (after 0.7, the user): "When launching a handheld game, the intro animation should display the
   game's title screen on the handheld's screen after the cartridge has been inserted and before the game fully launches
   and takes over." Home consoles show just the console (no TV, no title screen behind it).

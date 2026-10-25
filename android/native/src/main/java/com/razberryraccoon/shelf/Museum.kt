@@ -242,19 +242,21 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         backdrop.shadows.clear()
         val cx = 360f + slideX; val cy = 330f + sin(time * .8f) * 4f
         // the console, sized by its whole depth too, so deep ones (seen from above) fit as well as flat ones
-        // Its board shows through a see-through shell, and on its own Inside: the console lifts away off the top of the
-        // screen and the board, left behind, grows a little to be looked at
+        // Its board shows through a see-through shell, and Inside: the console opens along its seam (a home console's top
+        // swinging up and back, a handheld's front opening like a book) while it turns to its Inside angle, and the board
+        // stays on the lower half. The opening half needs room, so the whole console drifts a little the other way.
         console?.let { m ->
-            val y = cy + consoleY
-            val ik = Backdrop.ease(inside.coerceIn(0f, 1f))
+            val ik = Backdrop.ease(inside.coerceIn(0f, 1f)); val hand = ex().sys in HANDHELDS
+            val y = cy + consoleY + (if (hand) 0f else ik * 46f)
+            val x = cx + (if (hand) ik * 80f else 0f)
             val b = if (m.clear || inside > .01f) circuit() else { circuit?.hide(); null }
             if (y > Stage.H + 400) { m.hide(); b?.hide() }
             else {
                 val diag = kotlin.math.sqrt(m.half[0] * m.half[0] + m.half[1] * m.half[1] + m.half[2] * m.half[2])
-                val px = 2 * 215f * maxOf(m.half[0], m.half[1]) / diag
-                if (b != null) { m.place(cx, y, 30f, yaw, pitch, px * (1 + .3f * ik)); b.follow(m.matrix) }
-                if (ik > .995f) m.hide() else m.place(cx, y - ik * 820f, 30f, yaw, pitch, px)
-                shadow(cx, y, 360f)
+                m.place(x, y, 30f, yaw, pitch, 2 * 215f * maxOf(m.half[0], m.half[1]) / diag * (1 - .08f * ik))
+                m.open(ik, consoles.info[ex().sys]?.hinge)
+                b?.follow(m.matrix)
+                shadow(x, y, 360f)
             }
         }
         // the case: closed it's at most 400 across; open, the cover lies to the left, so it shrinks to fit and shifts right

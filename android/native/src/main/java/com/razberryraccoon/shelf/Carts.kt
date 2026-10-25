@@ -261,7 +261,7 @@ fun MaterialInstance.set(name: String, vararg v: Float) {
 fun metalColor(lin: FloatArray, color: Int, m: Finish): FloatArray {
     val top = maxOf(lin[0], lin[1], lin[2], .001f)
     val hsv = FloatArray(3); Color.colorToHSV(color, hsv)
-    val k = (.4f + .6f * hsv[2]) * m.dim
+    val k = (m.floor + (1 - m.floor) * hsv[2]) * m.dim   // from m.floor (dark metals) up to nearly all of it (bright ones)
     val metalPart = FloatArray(3) { (lin[it] / top * .8f + .2f) * k }   // real metals are paler than paint: a fifth of the way to white
     // part-metal finishes (metal flake, pearl) keep some of the plain color underneath
     return FloatArray(3) { (lin[it] + (metalPart[it] - lin[it]) * minOf(1f, m.metallic * 1.4f)).let { c -> c + (1 - c) * m.lift } }

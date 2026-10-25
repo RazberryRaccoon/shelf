@@ -19,7 +19,8 @@ import kotlin.math.abs
  * `glow` makes it give off its own light; `sheen` is a soft pearly edge glow.
  */
 data class Finish(val id: String, val name: String, val rough: Float?, val metallic: Float, val coat: Float?, val coatRough: Float?,
-                    val clear: String? = null, val alpha: Float = 1f, val dim: Float = 1f, val glow: Float = 0f, val sheen: Float = 0f, val lift: Float = 0f) {
+                    val clear: String? = null, val alpha: Float = 1f, val dim: Float = 1f, val glow: Float = 0f, val sheen: Float = 0f, val lift: Float = 0f,
+                    val floor: Float = .4f) {
     val metal get() = metallic >= .5f
 }
 
@@ -35,7 +36,9 @@ object Materials {
         Finish("smoke", "Smoke", .06f, 0f, null, .05f, clear = "transparent", alpha = .6f, dim = .35f),
         Finish("metal", "Metallic", .28f, 1f, .5f, null),
         Finish("brushed", "Brushed metal", .5f, 1f, 0f, .5f),
-        Finish("anodized", "Anodized aluminum", .34f, 1f, .25f, .35f, lift = .06f),   // colored, satin metal, a little brighter than its dye
+        // colored, satin metal, a little brighter than its dye; it reflects more than a plain metal of its color would
+        // (floor), and its satin spreads the light, so it doesn't go dark away from the highlight
+        Finish("anodized", "Anodized aluminum", .44f, 1f, .3f, .35f, lift = .1f, floor = .62f),
         Finish("pearl", "Pearl", .3f, .15f, 1f, .05f, sheen = .7f),
         Finish("flake", "Metal flake", .42f, .6f, 1f, .03f),
         Finish("glow", "Glow in the dark", .55f, 0f, .2f, .5f, glow = .9f))

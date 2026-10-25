@@ -20,7 +20,7 @@ import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { STYLES } from './cartridges.js';
 import { CONSOLES, CONSOLE_COLORS, PART_NAMES } from './consoles.js';
 import { buildCartridge, applyVariant, fontReady } from './cartridge.js';
-import { buildConsole } from './console.js';
+import { buildConsole, splitHalves } from './console.js';
 import { buildBoard, placeBoard, BOARDS, MASK } from './board.js';
 import { buildCase, CASES } from './case.js';
 
@@ -87,14 +87,24 @@ window.exportAll = async ({ consoles = false, cases = false, carts = true } = {}
       const shades = new Map(); for (const m of con.userData.materials.plastics) {
         const k = m.name, look = m.color.getHexString(); if (!shades.has(k)) shades.set(k, []);
         const l = shades.get(k); let i = l.indexOf(look); if (i < 0) { l.push(look); i = l.length - 1; } if (i > 0) m.name = k + '#' + (i + 1); }
-      return con;
+      return entry.seam ? splitHalves(con, entry.seam) : con;
     };
+    // the two halves stay apart (nodes "lower" and "upper"), each merged by material, so the app can open the upper one
+    const halves = con => { if (!entry.seam) return mergeByMaterial(con); const out = new THREE.Group(); out.name = con.name;
+      for (const n of ['lower', 'upper']) { const m = mergeByMaterial(con.getObjectByName(n)); m.name = n; out.add(m); } return out; };
     const con = make();
-    files[`console-${id}.glb`] = await glb(mergeByMaterial(con));
+    files[`console-${id}.glb`] = await glb(halves(con));
+    // the hinge the upper half opens on (the Inside view), in millimetres: a home console's top swings up and back from
+    // its base's back edge, a handheld's front swings open like a book from its back's left edge
+    let open = null;
+    if (entry.seam) {
+      const box = new THREE.Box3().setFromObject(con.getObjectByName('lower')), at = entry.seam.at * 100;
+      open = entry.seam.axis === 'y' ? { axis: 'x', at: [0, at, box.min.z], angle: -1.83 } : { axis: 'y', at: [box.min.x, 0, at], angle: -1.75 };
+    }
     // a see-through version, for the clear, frosted and smoke finishes: its shell is blended (the app sets how much
     // shows), and the board, exported on its own in the console's own millimetres, sits inside it
     { const c2 = make(); c2.userData.materials.shell.transparent = true; c2.userData.materials.shell.opacity = .4; c2.userData.materials.shell.depthWrite = false;
-      files[`console-${id}-clear.glb`] = await glb(mergeByMaterial(c2)); }
+      files[`console-${id}-clear.glb`] = await glb(halves(c2)); }
     const spec = BOARDS[id];
     // picture slots for the print and the traces, which the app draws
     if (spec) { const holder = new THREE.Group(); holder.add(placeBoard(buildBoard(spec, placeholder(), placeholder()), spec)); files[`board-${id}.glb`] = await glb(mergeByMaterial(holder)); }
@@ -103,7 +113,7 @@ window.exportAll = async ({ consoles = false, cases = false, carts = true } = {}
     consoleInfo[id] = { name: entry.name, parts: Object.keys(PART_NAMES).filter(r => roles.has(r)).map(r => [r, PART_NAMES[r]]),
       colors: (CONSOLE_COLORS[id] || []).map(([name, note, parts]) => ({ name, note, parts })),
       // its board's print: the part number, the solder mask's color, the board's size (the print's shape)
-      board: BOARDS[id] ? { code: BOARDS[id].code, mask: BOARDS[id].mask || MASK, size: BOARDS[id].size } : null };
+      board: BOARDS[id] ? { code: BOARDS[id].code, mask: BOARDS[id].mask || MASK, size: BOARDS[id].size } : null, open };
   }
   for (const [id, style] of Object.entries(cases ? STYLES : {})) {
     if (!CASES[id]) continue;
