@@ -61,7 +61,8 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     // open box slides in from the left, the cartridge slots into its tray, the cover swings shut; and back the same way.
     private var view = games.pageView
     private val sampler = com.google.android.filament.TextureSampler(com.google.android.filament.TextureSampler.MinFilter.LINEAR_MIPMAP_LINEAR, com.google.android.filament.TextureSampler.MagFilter.LINEAR, com.google.android.filament.TextureSampler.WrapMode.CLAMP_TO_EDGE)
-    private val case: Case? = carts.model("case-${game.sys}.glb")?.let { Case(stage, it, game.title, sampler, meta.cached(game)?.pics?.get("box")?.let { f -> meta.bitmap(f, 512) }) }?.also { it.hide() }
+    private val case: Case? = carts.model("case-${game.sys}.glb")?.let { val pics = meta.cached(game)?.pics
+        Case(stage, it, game.title, sampler, pics?.get("box")?.let { f -> meta.bitmap(f, 512) }, pics?.get("back")?.let { f -> meta.bitmap(f, 512) }, pics?.get("spine")?.let { f -> meta.bitmap(f, 256) }) }?.also { it.hide() }
     private val flow = BoxFlow()
     // Game settings takes the cartridge apart on a surface (Cart.teardown), with a screwdriver beside it: how far, 0..1
     private var tk = 0f
@@ -100,12 +101,21 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     private val aboutHead = head("ABOUT")
     private val about = text(21f, Fonts.body, Theme.fg2).apply { setLineSpacing(0f, 1.45f); setPadding(18, 14, 18, 16); maxLines = 9; ellipsize = TextUtils.TruncateAt.END }
     private val readMore = key("A", "Read the article").apply { alpha = 0f }
+    // the manual: a wide button under the tiles (and the booklet itself, inside the open box)
+    private val hasManuals = game.sys != "android"
+    private val manualBtn = text(22f, Fonts.bold, Theme.fg).apply { gravity = Gravity.CENTER; background = round(Theme.chip, 26f); setPadding(0, 15, 0, 15) }
+    private var manualStage = 0       // 0 in its box, 1 waiting for the box to open, 2 coming out, 3 being read, 4 going back in
+    private var manualK = 0f          // how far out: 0 in the cover, 1 in front of you
+    private var manualFocus = 0f      // chosen where it lies (lifted a little)
+    private var reader: Manual? = null
+    private var findingManual = false
+    private var manualCoverFor: String? = null   // the manual whose cover the booklet wears
     private val credit = text(17f, Fonts.body, Theme.fg3).apply { setPadding(18, 0, 18, 0) }
     private val listHead = head("")
     private val list = Options(ctx)
     private val hint = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; alpha = 0f }
 
-    private enum class Zone { TILES, PICS, ABOUT }
+    private enum class Zone { TILES, MANUAL, PICS, ABOUT, BOX }   // BOX: the manual, chosen where it lies in the open box
     private var zone = Zone.TILES
     private enum class Mode { PAGE, COLORS, SETTINGS, STUDIO }
     private var mode = Mode.PAGE
@@ -114,6 +124,8 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     private var info: Meta.Info? = null
     private var viewer: Viewer? = null
     private var article: Article? = null   // About, opened up as an article
+    private var media: MediaPage? = null   // Game settings › Media
+    private var player: Player? = null     // the game's video, when chosen
     private var shotsFor: Meta.Info? = null   // the look-up the thumbnails were made from
 
     init {
@@ -126,6 +138,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         col.addView(facts, lp(12))
         col.addView(tiles, LinearLayout.LayoutParams(-1, Tiles.HEIGHT).apply { topMargin = 16; leftMargin = -Tiles.INSET; rightMargin = -Tiles.INSET })
         col.addView(note, LinearLayout.LayoutParams(-1, 82).apply { topMargin = 2 })   // a fixed three lines, so nothing moves and nothing is cut
+        if (hasManuals) col.addView(manualBtn, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 8; leftMargin = -4; rightMargin = -4 })
         col.addView(picsHead, lp(18))
         col.addView(shots, LinearLayout.LayoutParams(-1, Shots.HEIGHT).apply { topMargin = 6; leftMargin = -Shots.INSET; rightMargin = -Shots.INSET })
         col.addView(aboutHead, lp(16))
@@ -163,14 +176,19 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         tiles.swatch = carts.variantFor(game.sys, carts.shellFor(games, game))?.color ?: Theme.fg2
         tiles.invalidate()
         // pictures: the box, title screen and a screenshot, as they arrive
-        if (shotsFor !== i || i == null) shots.set(if (i == null) null else Meta.KINDS.mapNotNull { (k, name) -> i.pics[k]?.let { f2 -> meta.bitmap(f2, 360)?.let { name to it } } })
+        if (shotsFor !== i || i == null) {
+            shotKinds = i?.let { Meta.pictures(game.sys).filter { (k, _) -> i.pics[k] != null }.map { it.first } } ?: emptyList()
+            shots.set(if (i == null) null else Meta.pictures(game.sys).mapNotNull { (k, name) -> i.pics[k]?.let { f2 -> (if (k == "video") videoFrame(f2) else meta.bitmap(f2, 360))?.let { name to it } } })
+        }
         shotsFor = i
         about.text = f["description"] ?: when {
             i == null -> "Looking this game up…"
             i.name == null -> "Shelf couldn’t find this game in libretro’s database. Game settings › Which game is this? can help."
             else -> listOfNotNull(f["publisher"]?.let { "Published by $it." }, f["releaseyear"]?.let { "Released in $it." }).joinToString(" ").ifEmpty { "No description for this one yet." }
         }
-        credit.text = listOfNotNull(i?.name?.let { "Details and pictures: libretro database ($it)" }, if (f["descsource"] == "Wikipedia") "Description: Wikipedia (CC BY-SA)" else null).joinToString("\n")
+        credit.text = listOfNotNull(i?.name?.let { "Matched to $it (libretro’s database)" },
+            i?.src?.get("details")?.let { "Details: $it" }, f["descsource"]?.let { if (it == "Wikipedia") "Description: Wikipedia (CC BY-SA)" else "Description: $it" }).joinToString("\n")
+        refreshManual()
         refreshNote()
     }
 
@@ -194,7 +212,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
 
     fun tick(dt: Float) {
         time += dt
-        viewer?.tick(dt); article?.tick(dt)
+        viewer?.tick(dt); article?.tick(dt); media?.tick(dt); player?.tick(dt); reader?.tick(dt)
         // closing: the cartridge comes out of its box and the box slides away first, then it goes back to the row
         t = if (closing) (if (flow.s > .02f) t else maxOf(0f, t - dt / .5f)) else min(1f, t + dt / .6f)
         val k = Backdrop.ease(t)
@@ -203,12 +221,13 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val sk = Backdrop.ease(studioK)
         launchK = if (launching) min(1f, launchK + dt / .3f) else maxOf(0f, launchK - dt / .4f)
         val lk = 1 - Backdrop.ease(launchK)
-        panel.alpha = pk * (1 - sk) * lk; panel.translationX = (1 - pk) * 70f - sk * 40f
+        val mk = 1 - Backdrop.ease(manualK)   // the panel steps back while the manual is out
+        panel.alpha = pk * (1 - sk) * lk * mk; panel.translationX = (1 - pk) * 70f - sk * 40f
         studioPanel.alpha = pk * sk * lk; studioPanel.translationX = (1 - sk) * 50f
         if (studio == null && studioK == 0f && studioPanel.parent != null) board.removeView(studioPanel)
         // the stick: turn while held, coast when let go, then settle back to the front (or the back, after X)
         val sx = dead(stickX); val sy = dead(stickY)
-        if (!closing && viewer == null && article == null && (sx != 0f || sy != 0f)) {
+        if (!closing && viewer == null && article == null && media == null && player == null && reader == null && manualStage == 0 && (sx != 0f || sy != 0f)) {
             vYaw += (sx * 3.4f - vYaw) * min(1f, dt * 8f); vPitch += (sy * 2.6f - vPitch) * min(1f, dt * 8f)
             idle = 0f
         } else {
@@ -242,13 +261,14 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val spot = cart?.toolSpot(tk)
         if (tool != null) { if (spot != null && tk > .66f && !launching) tool.placeMatrix(FloatArray(16).also { android.opengl.Matrix.multiplyMM(it, 0, cart!!.placed, 0, spot, 0) }) else tool.hide() }
         placeBox(x, y, ry, rx)
+        if (flow.s > .001f) placeManual(dt)
         cart?.brightness(lerp(1.02f, 1f, k))
         if (!launching) cart?.let { c ->
             val big = maxOf(c.style.w, c.style.h)
             backdrop.shadows.add(floatArrayOf(x, lerp(from[1] + c.style.h / big * from[2] / 2 + 24f, 600f, k), lerp(c.style.w / big * from[2] * .9f, 330f, k), 1f - .25f * k))
         }
         // the hint under the cartridge shows for a few seconds, then gets out of the way
-        hint.alpha = pk * lk
+        hint.alpha = pk * lk * mk
         if (closing && t == 0f) { destroy(); host.closed(this, homeChanged) }
     }
 
@@ -258,6 +278,10 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         if (closing) return
         viewer?.let { if (it.input(a)) return }
         article?.let { if (it.input(a)) return }
+        media?.let { if (it.input(a)) return }
+        player?.let { if (it.input(a)) return }
+        reader?.let { if (it.input(a)) return }
+        if (manualStage != 0) return   // the manual is on its way out or back
         when (mode) {
             Mode.COLORS -> return colorsInput(a)
             Mode.STUDIO -> return if (a == "x") flip() else studio?.input(a) ?: Unit
@@ -270,10 +294,11 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         if (a == "b") return close()
         when (zone) {
             Zone.TILES -> when (a) {
-                "left" -> Sounds.play(if (tiles.move(-1)) Sounds.MOVE else Sounds.BUMP)
+                // left from the first tile, with the box open, reaches the manual lying in it
+                "left" -> if (tiles.move(-1)) Sounds.play(Sounds.MOVE) else if (manualInBox()) goTo(Zone.BOX) else Sounds.play(Sounds.BUMP)
                 "right" -> Sounds.play(if (tiles.move(1)) Sounds.MOVE else Sounds.BUMP)
                 "up" -> close()
-                "down" -> goTo(if (shots.count > 0) Zone.PICS else Zone.ABOUT)
+                "down" -> goTo(if (hasManuals) Zone.MANUAL else if (shots.count > 0) Zone.PICS else Zone.ABOUT)
                 "a" -> when (tiles.at) {
                     0 -> play()
                     1 -> chooseEmulator(then = false)
@@ -283,16 +308,27 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
                     else -> close()
                 }
             }
+            Zone.MANUAL -> when (a) {
+                "up" -> goTo(Zone.TILES)
+                "down" -> goTo(if (shots.count > 0) Zone.PICS else Zone.ABOUT)
+                "a" -> readManual()
+                "left", "right" -> Sounds.play(Sounds.BUMP)
+            }
+            Zone.BOX -> when (a) {
+                "right", "b" -> goTo(Zone.TILES)
+                "a" -> readManual()
+                else -> Sounds.play(Sounds.BUMP)
+            }
             Zone.PICS -> when (a) {
                 "left" -> Sounds.play(if (shots.move(-1)) Sounds.MOVE else Sounds.BUMP)
                 "right" -> Sounds.play(if (shots.move(1)) Sounds.MOVE else Sounds.BUMP)
-                "up" -> goTo(Zone.TILES)
+                "up" -> goTo(if (hasManuals) Zone.MANUAL else Zone.TILES)
                 "down" -> goTo(Zone.ABOUT)
                 "a" -> openViewer()
             }
             Zone.ABOUT -> when (a) {
                 // reading: up and down scroll the text, and leave it at either end
-                "up" -> if (scroll.scrollY > aboutHead.top - 40 + 10) scroll.smoothScrollBy(0, -140) else goTo(if (shots.count > 0) Zone.PICS else Zone.TILES)
+                "up" -> if (scroll.scrollY > aboutHead.top - 40 + 10) scroll.smoothScrollBy(0, -140) else goTo(if (shots.count > 0) Zone.PICS else if (hasManuals) Zone.MANUAL else Zone.TILES)
                 "down" -> if (scroll.scrollY + scroll.height < col.height) scroll.smoothScrollBy(0, 140) else Sounds.play(Sounds.BUMP)
                 "a" -> openArticle()
             }
@@ -302,14 +338,17 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     private fun goTo(z: Zone) {
         zone = z; Sounds.play(Sounds.MOVE)
         tiles.active = z == Zone.TILES; shots.active = z == Zone.PICS
+        manualBtn.background = if (z == Zone.MANUAL) round(Theme.sel, 26f) else round(Theme.chip, 26f)
+        manualBtn.setTextColor(if (z == Zone.MANUAL) Theme.selFg else Theme.fg)
+        fillHint()
         about.background = if (z == Zone.ABOUT) round(Theme.chip, 22f, Theme.sel, 2.5f) else null
         readMore.animate().alpha(if (z == Zone.ABOUT && info?.fields?.get("description") != null) 1f else 0f).setDuration(200).start()
         tiles.invalidate(); shots.invalidate()
         // keep the part you're in in view
-        scroll.smoothScrollTo(0, when (z) { Zone.TILES -> 0; Zone.PICS -> picsHead.top - 80; Zone.ABOUT -> aboutHead.top - 40 }.coerceAtLeast(0))
+        scroll.smoothScrollTo(0, when (z) { Zone.TILES, Zone.BOX -> 0; Zone.MANUAL -> manualBtn.top - 260; Zone.PICS -> picsHead.top - 80; Zone.ABOUT -> aboutHead.top - 40 }.coerceAtLeast(0))
     }
 
-    fun close() { if (!closing) { closing = true; studio = null; viewer?.let { board.removeView(it); viewer = null }; article?.let { board.removeView(it); article = null }; if (mode == Mode.COLORS) endColors(keep = false); Sounds.play(Sounds.CLOSE) } }
+    fun close() { if (!closing) { closing = true; studio = null; viewer?.let { board.removeView(it); viewer = null }; article?.let { board.removeView(it); article = null }; media?.let { board.removeView(it); media = null }; player?.let { board.removeView(it); player = null }; reader?.let { board.removeView(it); reader = null }; if (mode == Mode.COLORS) endColors(keep = false); Sounds.play(Sounds.CLOSE) } }
 
     private fun play() {
         if (games.emulatorFor(game) == null) return chooseEmulator(then = true)
@@ -347,14 +386,100 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
 
     // ---------- the pictures, big ----------
 
+    /** A frame from a game's video, for its place among the pictures. */
+    private fun videoFrame(f: java.io.File): Bitmap? = try { android.media.MediaMetadataRetriever().run { try { setDataSource(f.path); getFrameAtTime(2_000_000) } finally { release() } } } catch (e: Exception) { null }
+    private var shotKinds: List<String> = emptyList()
+
+    private fun playVideo(f: java.io.File) {
+        val v = Player(ctx, f, title.text.toString())
+        v.onClose = { board.removeView(v); if (player === v) player = null }
+        player = v; board.put(v, 0, 0, 1334, 750)
+        Sounds.play(Sounds.OPEN)
+    }
+
     private fun openViewer() {
         val i = info ?: return
-        val pics = Meta.KINDS.mapNotNull { (k, name) -> i.pics[k]?.let { name to it } }
+        if (shotKinds.getOrNull(shots.at) == "video") return i.pics["video"]?.let { playVideo(it) } ?: Unit
+        val pics = Meta.pictures(game.sys).filter { it.first != "video" }.mapNotNull { (k, name) -> i.pics[k]?.let { name to it } }
         if (pics.isEmpty()) return
-        val v = Viewer(ctx, pics.map { it.first }, pics.map { meta.bitmap(it.second, 1200) }, shots.at, title.text.toString())
+        val v = Viewer(ctx, pics.map { it.first }, pics.map { meta.bitmap(it.second, 1200) }, shots.at.coerceAtMost(pics.size - 1), title.text.toString())
         v.onClose = { board.removeView(v); if (viewer === v) viewer = null }
         viewer = v; board.put(v, 0, 0, 1334, 750)
         Sounds.play(Sounds.OPEN)
+    }
+
+    // ---------- the manual ----------
+
+    private fun manualFile() = info?.pics?.get("manual")?.takeIf { it.exists() }
+    private fun manualInBox() = hasManuals && view == 1 && case?.hasManual == true && flow.s > 1.9f && manualStage == 0
+    private fun refreshManual() {
+        manualBtn.text = when { findingManual -> "Looking for the manual…"; manualFile() != null -> "Read the manual"; else -> "Find the manual" }
+        // the booklet in the box wears the manual's own cover, once there is one
+        val f = manualFile() ?: return
+        if (manualCoverFor == f.path) return
+        manualCoverFor = f.path
+        Thread { val b = try { MediaPage.pdfCover(f, 512) } catch (e: Exception) { null }; board.post { if (closing || b == null) b?.recycle() else case?.manualArt(b) } }.start()
+    }
+    /**
+     * Reads the manual: the box comes in and opens (if it wasn't showing), the booklet lifts out of the cover and comes
+     * up in front of you, and opens into the reader. Without a manual yet, it looks for one first.
+     */
+    private fun readManual() {
+        if (manualStage != 0) return
+        val f = manualFile()
+        if (f == null) {
+            if (findingManual) return Sounds.play(Sounds.BUMP)
+            findingManual = true; refreshManual(); Sounds.play(Sounds.PICK)
+            val name = info?.name ?: game.title
+            Thread {
+                var ok = false
+                for (id in Media.ORDER["manual"] ?: emptyList()) {
+                    val cs = try { Media.choices("manual", game.sys, name, java.io.File(game.path), games.artKeys, ctx.cacheDir, meta, only = id) } catch (e: Exception) { emptyList() }
+                    if (cs.take(3).any { Media.keep(game, "manual", it, meta) }) { ok = true; break }
+                }
+                board.post {
+                    findingManual = false; info = meta.cached(game); refreshManual()
+                    if (closing) return@post
+                    if (ok) readManual() else host.show("No manual found for this game. Game settings › Media can look on other sources.")
+                }
+            }.start()
+            return
+        }
+        Sounds.play(Sounds.OPEN)
+        if (case == null || !case.hasManual) return openReader(f)
+        if (view != 1) { view = 1; idle = 9f; vYaw = 0f; fillHint() }
+        manualStage = 1
+    }
+
+    private fun openReader(f: java.io.File) {
+        val (at, marks) = games.manualPlace(game)
+        val v = Manual(ctx, f, title.text.toString(), at, marks) { s, m -> games.setManualPlace(game, s, m) }
+        v.onClose = { board.removeView(v); if (reader === v) reader = null; if (manualStage == 3) manualStage = 4 }
+        reader = v; board.put(v, 0, 0, 1334, 750)
+    }
+
+    /** The manual's place each frame: in the cover (lifted while chosen), or on its way out to you and back. */
+    private fun placeManual(dt: Float) {
+        val c = case ?: return
+        if (!c.hasManual) return
+        manualFocus += ((if (zone == Zone.BOX && manualStage == 0) 1f else 0f) - manualFocus) * min(1f, dt * 10f)
+        when (manualStage) {
+            1 -> if (flow.s >= 1.98f) manualStage = 2
+            2 -> { manualK = min(1f, manualK + dt / .9f); if (manualK >= 1f) { manualStage = 3; manualFile()?.let { openReader(it) } ?: run { manualStage = 4 } } }
+            4 -> { manualK = maxOf(0f, manualK - dt / .8f); if (manualK <= 0f) manualStage = 0 }
+        }
+        c.manualIn(manualFocus)
+        if (manualK <= 0f) return
+        // lifted off the cover toward you, then carried to the middle of the screen, facing you, as big as the reader's cover
+        val rest = c.manualWorld(); val ms = c.manualSize
+        val out = FloatArray(16).also { android.opengl.Matrix.translateM(it, 0, rest, 0, 0f, 0f, if (c.jewel) 30f else -30f) }
+        val s = Manual.PAGE_H / ms[1]
+        val target = FloatArray(16).also { android.opengl.Matrix.setIdentityM(it, 0); android.opengl.Matrix.translateM(it, 0, Stage.W / 2, Stage.H - 50f - Manual.PAGE_H / 2, 400f)
+            if (!c.jewel) android.opengl.Matrix.rotateM(it, 0, 180f, 0f, 1f, 0f); android.opengl.Matrix.scaleM(it, 0, s, s, s) }
+        val e = Backdrop.ease(manualK)
+        val m = if (e < .3f) Poses.blend(rest, out, Backdrop.ease(e / .3f)) else Poses.blend(out, target, Backdrop.ease((e - .3f) / .7f))
+        if (manualStage == 3) android.opengl.Matrix.translateM(m, 0, 0f, 0f, -5000f)   // under the reader: out of sight
+        c.manualAt(m)
     }
 
     /** About as a full article over everything: the game's name and facts, the whole Wikipedia article, its pictures. */
@@ -364,7 +489,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val text = f["article"] ?: f["description"] ?: return Sounds.play(Sounds.BUMP)
         val facts = listOfNotNull(f["releaseyear"], f["developer"], f["publisher"]?.takeIf { it != f["developer"] }, f["genre"])
         val source = if (f["descsource"] == "Wikipedia") "From Wikipedia" + (f["wikititle"]?.let { "’s article “$it”" } ?: "") + ", under CC BY-SA 4.0." else null
-        val pics = Meta.KINDS.mapNotNull { (k, name) -> i.pics[k]?.let { name to meta.bitmap(it, 900) } }
+        val pics = Meta.pictures(game.sys).filter { it.first != "video" }.mapNotNull { (k, name) -> i.pics[k]?.let { name to meta.bitmap(it, 900) } }
         val v = Article(ctx, game.sys, title.text.toString(), facts, text, source, pics)
         v.onClose = { board.removeView(v); if (article === v) article = null }
         article = v; board.put(v, 0, 0, 1334, 750)
@@ -516,8 +641,8 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
             Options.Row("emu", "Plays with", value = own?.let { emuName(it).substringBefore(",") } ?: "Same as $console", sub = games.emulatorFor(game)?.let { emuName(it) } ?: "Nothing chosen yet"),
             carts.variantFor(game.sys, carts.shellFor(games, game)).let { v -> Options.Row("shell", "Customize shell", value = v?.name ?: "", dot = v?.color) },
             Options.Row("home", "Show on Home", value = if (games.onHome(game)) "Yes" else "No", sub = "Hidden games stay in the Library"),
-            Options.Row("which", "Which game is this?", value = if (games.match(game) != null) "Chosen" else "Found by Shelf", sub = info?.name ?: "Not found in libretro’s database"),
-            Options.Row("again", "Look up details and pictures again", sub = "From libretro’s database"),
+            Options.Row("media", "Media", value = Media.kindsFor(game.sys).count { !Media.has(info, it.id) }.let { if (it == 0) "Complete" else "$it missing" },
+                sub = "Box art, pictures, video, details and manual, and where they’re from"),
             Options.Row("done", "Done", primary = true))
         val at = if (start >= 0) start else rows.indexOfFirst { it.key == list.current()?.key }.coerceAtLeast(0)
         list.onFocus = null
@@ -535,11 +660,21 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
                 "emu" -> { Sounds.play(Sounds.PICK); chooseEmulator(then = false) }
                 "shell" -> { hideList(); startColors(Mode.SETTINGS) }
                 "home" -> { games.setOnHome(game, !games.onHome(game)); homeChanged = true; Sounds.play(Sounds.PICK); fillSettings() }
-                "which" -> whichGame()
-                "again" -> lookUpAgain(keepMatch = true)
+                "media" -> openMedia()
                 "done" -> { Sounds.play(Sounds.CLOSE); hideList() }
             }
         }
+    }
+
+    private fun openMedia() {
+        Sounds.play(Sounds.OPEN)
+        val v = MediaPage(ctx, game, title.text.toString(), meta, games, ctx.cacheDir, object : MediaPage.Host {
+            override fun changeMatch() = whichGame()
+            override fun show(msg: String) = host.show(msg)
+            override fun changed() { info = meta.cached(game); refresh(); if (mode == Mode.SETTINGS) fillSettings() }
+        })
+        v.onClose = { board.removeView(v); if (media === v) media = null }
+        media = v; board.put(v, 0, 0, 1334, 750)
     }
 
     private fun whichGame() {
@@ -559,7 +694,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         if (!keepMatch) games.setMatch(game, null)
         meta.forget(game); info = null; refresh(); if (mode == Mode.SETTINGS) fillSettings()
         host.show("Looking it up…")
-        meta.get(game, again = true) { i -> if (closing) return@get; info = i; refresh(); if (mode == Mode.SETTINGS) fillSettings()
+        meta.get(game, again = true) { i -> if (closing) return@get; info = i; refresh(); if (mode == Mode.SETTINGS) fillSettings(); media?.matched(i)
             host.show(if (i?.name != null) "Found ${ArtIndex.stripTags(i.name).trim()}" else "Couldn’t find it. Try Which game is this?") }
     }
 
@@ -600,6 +735,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     /** Under the cartridge: what the triggers show, and the turning keys. */
     private fun fillHint() {
         hint.removeAllViews()
+        if (zone == Zone.BOX) { hint.addView(key("A", "Read the manual")); hint.addView(key("Right", "Back to the page").apply { setPadding(26, 0, 0, 0) }); return }
         if (case != null) hint.addView(key("L2 R2", PAGE_VIEWS[view]))
         hint.addView(key("R", "Turn it").apply { setPadding(if (case != null) 26 else 0, 0, 0, 0) })
         hint.addView(key("X", "Flip it over").apply { setPadding(26, 0, 0, 0) })
@@ -607,7 +743,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
 
     fun destroy() {
         case?.destroy(); tool?.destroy()
-        board.removeView(panel); board.removeView(hint); board.removeView(studioPanel); viewer?.let { board.removeView(it) }; article?.let { board.removeView(it) }
+        board.removeView(panel); board.removeView(hint); board.removeView(studioPanel); viewer?.let { board.removeView(it) }; article?.let { board.removeView(it) }; media?.let { board.removeView(it) }; player?.let { board.removeView(it) }; reader?.let { board.removeView(it) }
         stage.turnKey(0f)
         shots.recycle()
     }

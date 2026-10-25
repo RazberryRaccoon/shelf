@@ -30,8 +30,11 @@ Source: https://consolemods.org/wiki/Cart_Labels
   Source: Hand Held Legend's "Game Box Protector" listing.
 - **Genesis case:** 128 mm wide and 197 mm tall, including the tab, per a YouTube measurement. Depth is about 25 mm *(to verify)*.
 - **CD jewel case** (PlayStation): 142 × 125 × 9.9 mm. Source: https://en.wikipedia.org/wiki/Keep_case
-- **DS case:** 122 mm wide × 135 mm tall × 15 mm (black North American and Japanese cases; clear European ones are
-  20 mm deep): a little taller than wide. Retail replacement cases agree within a few millimetres (124–125 × 134–136).
+- **DS case:** 135 mm wide × 122 mm tall × 15 mm (black North American and Japanese cases; clear European ones are
+  20 mm deep): a little *wider* than tall. Corrected in 0.16: the user measured a real case ("it is more wide
+  horizontally"), and libretro's DS box art is wider than tall too (the old shape cut off the art's left and right
+  edges, including the DS strip on the left). The listings below give the two sizes without saying which is which;
+  the first reading had them the wrong way round. Retail replacement cases agree within a few millimetres.
   Sources: https://en.wikipedia.org/wiki/Keep_case, https://www.walvisproducts.eu/a-56765154/blue-ray-boxes-game-cases/nintendo-ds-game-case-colour-transparent/
 - **PSP (UMD) case:** 104 × 177 × 14 mm. Sources: https://en.wikipedia.org/wiki/Universal_Media_Disc,
   https://www.walvisproducts.eu/a-97378107/blue-ray-boxes-game-cases/standard-umd-psp-case-colour-transparent/
@@ -71,6 +74,22 @@ Source: https://consolemods.org/wiki/Cart_Labels
   `Named_Snaps` and `Named_Titles` alongside. Names follow No-Intro, with `&*/:`<>?\|` replaced by `_`.
 - **The libretro database** (`metadat/<field>/<System>.dat`) gives release year, developer, publisher and genre, matched by CRC.
 - **Wikipedia's REST API** for summaries. Check that the page's description mentions a video game.
+
+## Game manuals (no account)
+- **retrokit's manual library** (github.com/obrie/retrokit): about 20,000 manuals "catalogued by hand" over 40+
+  systems. Each system's data file (`data/<system>.json`, e.g. `nes`, `snes`, `megadrive`, `psx`, `nds`) lists games by
+  their *parent* No-Intro / Redump title (no region tags), each with its manuals' languages and original source URL.
+  Counts in October 2026: NES 890, SNES 959, N64 306, Genesis 787, Game Boy 417, GBC 170, GBA 463, PlayStation 1,109,
+  DS 339, PSP 432 games with manuals. Matching our libretro names with their tags stripped found every test game
+  exactly (Super Mario World, Zelda, Final Fantasy VII with "(Disc 1)", Metroid Fusion, Sonic, New Super Mario Bros.).
+- **Its archive.org copy:** every manual, already turned into a PDF, in one zip per system; archive.org serves single
+  files out of a zip, so one manual downloads on its own:
+  `https://archive.org/download/retrokit-manuals/{system}/{system}-compressed.zip/{name} ({languages}).pdf`
+  (from retrokit's `config/settings.json`). The original sites are the fallback (some are .cbr or web pages, which
+  Shelf skips). Not reachable from Claude's sandbox, so first tried on the Retroid.
+  Sources: https://archive.org/details/retrokit-manuals, https://retrokit.dev/manuals, retrokit's manual/manualkit.md.
+- **ScreenScraper** has manuals too (`manuel`), with an account (see above).
+- **Not free:** MobyGames' API is paid; LaunchBox's manuals come through EmuMovies (an account).
 
 ## Raspberry Pi (TV version)
 - Debian ships RetroArch plus Nestopia, Snes9x and Genesis Plus GX (non-free), and Gambatte and mGBA, for arm64.

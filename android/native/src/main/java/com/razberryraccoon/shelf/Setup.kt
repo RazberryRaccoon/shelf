@@ -22,7 +22,7 @@ import kotlin.math.sin
  * you choose folders and emulators.
  */
 class Setup(private val ctx: Context, private val stage: Stage, private val board: Board, private val backdrop: Backdrop,
-            private val games: Games, private val carts: Carts, private val host: Host, private val settings: Boolean) {
+            private val games: Games, private val carts: Carts, private val host: Host, private val settings: Boolean, private val meta: Meta) {
     interface Host {
         fun hasStorage(): Boolean
         fun allowStorage()
@@ -35,7 +35,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         fun artChanged()
     }
 
-    private enum class Step { WELCOME, WHO, GAMES, EMUS, DONE, MENU, LIGHT, SAVED, ART }
+    private enum class Step { WELCOME, WHO, GAMES, EMUS, DONE, MENU, LIGHT, SAVED, ART, MEDIA, SOURCE }
     private var step = if (settings) Step.MENU else Step.WELCOME
     private val flow = listOf(Step.WELCOME, Step.WHO, Step.GAMES, Step.EMUS, Step.DONE)
 
@@ -61,6 +61,9 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
     private val cx = (PX + PW + Stage.W) / 2f; private val cy = Stage.H / 2f - 20f
     private val order = listOf("gba", "snes", "n64", "gb", "nes", "ds", "genesis", "gbc", "psp", "ps1", "android")
     private var shownCount = 0f   // the found-games count, counting up
+    // Settings › Media: the source being set up, and how many games are missing each kind (counted when Media opens)
+    private var srcId = "libretro"
+    private var missing: Map<String, Int>? = null
     private val looks = ConsoleLooks(ctx)   // your console colors (Your saved colors): above init, which fills the menu with their count
 
     init {
@@ -81,6 +84,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
     private fun show(s: Step) {
         step = s
         backdrop.previewArt = s == Step.ART
+        if (s == Step.MEDIA) { count(); MediaJob.onChange = { if (step == Step.MEDIA) { if (!MediaJob.running) count(); fill() } } }
         options.reset()
         fill()
         dots.visibility = if (settings) View.INVISIBLE else View.VISIBLE
@@ -90,7 +94,12 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         refreshShowcase()
     }
 
-    private fun page(l: String, t: String, d: String) { label.text = l.uppercase(); title.text = t; lead.text = d }
+    private fun page(l: String, t: String, d: String) {
+        label.text = l.uppercase(); title.text = t; lead.text = d
+        // a source's setup steps are longer than any other page's text
+        val steps = step == Step.SOURCE
+        lead.maxLines = if (steps) 14 else 4; lead.setTextSize(TypedValue.COMPLEX_UNIT_PX, if (steps) 20f else 23f)
+    }
 
     /** Fills the current page; called again whenever something on it changes. */
     fun fill() {
@@ -155,6 +164,8 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                 rows += Options.Row("go", "Your name and color", value = games.name, tag = Step.WHO)
                 rows += Options.Row("go", "Lighting", value = "Brightness of the 3D", tag = Step.LIGHT)
                 rows += Options.Row("go", "Home picture", value = Art.KINDS.firstOrNull { it.first == games.artKind }?.second ?: "", sub = "The picture of the selected game behind Home", tag = Step.ART)
+                rows += Options.Row("go", "Media", value = Media.SOURCES.count { Media.connected(it.id, games.artKeys) }.let { "$it of ${Media.SOURCES.size} sources" },
+                    sub = "Where box art, pictures, videos, details and manuals come from; what’s missing", tag = Step.MEDIA)
                 rows += Options.Row("go", "Your saved colors", value = "${carts.shells.all.size + looks.count()}", sub = "Shells and console colors you’ve made, to delete", tag = Step.SAVED)
                 rows += Options.Row("pageview", "A game’s page opens on", value = "‹  ${PAGE_VIEWS[games.pageView]}  ›", sub = "On the page itself, L2 and R2 go through all three")
                 rows += Options.Row("sounds", "Sounds", value = if (games.sounds) "On" else "Off", sub = "Soft clicks and chimes as you move around")
@@ -182,6 +193,33 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                 rows += Options.Row("art", "Fade", value = "‹  ${Art.FADES[games.artFadeType]}  ›", sub = "A plain fade, dots that shrink, or lines that thin out", tag = "type")
                 rows += Options.Row("art", "Pan speed", value = if (games.artPan == 0f) "Still" else "${"%.2g".format(games.artPan)}×", sub = "How fast it drifts across", tag = "pan")
                 rows += Options.Row("art-reset", "Back to the starting look")
+            }
+            Step.MEDIA -> {
+                page("Settings", "Media", "Where Shelf finds each game’s box art, pictures, video, details and manual. The free sources are always on; the others need a free account or key, and each one shows how to get it.")
+                rows += Options.Row("close-media", "Done", primary = true)
+                rows += Options.Row(Options.HEAD, "Your games")
+                val job = MediaJob
+                rows += if (job.running) Options.Row("media-stop", "Finding missing media…", value = "Stop", sub = job.status)
+                    else Options.Row("media-all", "Find everything missing", value = missing?.let { m -> m.values.sum().let { if (it == 0) "Nothing missing" else "$it pieces" } } ?: "Counting…",
+                        sub = if (job.status == "Done") "Finished: found ${job.found}. Anything still missing isn’t on your sources." else "For every game, from every connected source; carries on in the background")
+                for (k in Media.KINDS) {
+                    val n = missing?.get(k.id)
+                    rows += Options.Row("media-kind", k.name, value = when { n == null -> "…"; n == 0 -> "All found"; else -> "$n missing" }, sub = if ((n ?: 0) > 0 && !job.running) "A finds them" else null, tag = k.id)
+                }
+                rows += Options.Row(Options.HEAD, "Sources")
+                for (s in Media.SOURCES) rows += Options.Row("source", s.name, value = Media.status(s.id, games.artKeys),
+                    sub = s.kinds.joinToString(", ") { Media.kind(it).name.lowercase() }.replaceFirstChar { it.uppercase() }, tag = s.id)
+            }
+            Step.SOURCE -> {
+                val s = Media.source(srcId)
+                page("Settings › Media", s.name, s.steps.mapIndexed { i, t -> if (s.steps.size > 1) "${i + 1}.  $t" else t }.joinToString("\n"))
+                rows += Options.Row("close-source", "Done", primary = true)
+                val mine = games.artKeys.optJSONObject(s.id) ?: org.json.JSONObject()
+                for (f in s.fields) {
+                    val v = mine.optString(f.key)
+                    rows += Options.Row("field", f.label, value = if (v.isEmpty()) (if (f.optional) "Optional" else "Not set") else if (f.secret) "••••••" + v.takeLast(3) else v, tag = f)
+                }
+                if (s.fields.isNotEmpty()) rows += Options.Row("test", "Test it", value = Media.status(s.id, games.artKeys), sub = "A quick search, to check the account works")
             }
             Step.LIGHT -> {
             page("Settings", "Lighting", "Press left or right to change a value, and watch the cartridge. Your choice is saved.")
@@ -241,7 +279,17 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             "go" -> show(r.tag as Step)
             "again" -> { games.setupDone = false; host.finished(this) }
             "close" -> host.finished(this)
-            "close-light", "close-saved", "close-art" -> show(Step.MENU)
+            "close-light", "close-saved", "close-art", "close-media" -> show(Step.MENU)
+            "close-source" -> show(Step.MEDIA)
+            "source" -> { srcId = r.tag as String; show(Step.SOURCE) }
+            "field" -> (r.tag as Media.Field).let { f ->
+                val all = games.artKeys; val mine = all.optJSONObject(srcId) ?: org.json.JSONObject().also { all.put(srcId, it) }
+                host.askText(f.label, mine.optString(f.key)) { v -> mine.put(f.key, v.trim()); games.artKeys = all; fill() }
+            }
+            "test" -> testSource()
+            "media-all" -> findAll(null)
+            "media-kind" -> findAll(setOf(r.tag as String))
+            "media-stop" -> { MediaJob.cancel(); fill() }
             "del-shell" -> (r.tag as Shell).let { s -> confirmDelete(s.name) { carts.shells.delete(s.id) } }
             "del-look" -> (r.tag as ConsoleLook).let { l -> confirmDelete(l.name) { l.custom?.let { looks.delete(it) } } }
             "sounds" -> { games.sounds = !games.sounds; Sounds.enabled = games.sounds; Sounds.play(Sounds.PICK); fill() }
@@ -290,6 +338,34 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         }
         p.onClose = { board.removeView(p); picker = null }
         picker = p; board.put(p, 0, 0, 1334, 750)
+    }
+
+    // ---------- Settings › Media ----------
+
+    private fun count() {
+        missing = null
+        val list = games.all
+        Thread {
+            val m = HashMap<String, Int>()
+            for (g in list) { val i = meta.peek(g); for (k in Media.kindsFor(g.sys)) if (!Media.has(i, k.id)) m[k.id] = (m[k.id] ?: 0) + 1 }
+            board.post { missing = m; if (step == Step.MEDIA) fill() }
+        }.start()
+    }
+    private fun findAll(only: Set<String>?) {
+        if (MediaJob.running) return
+        MediaJob.onChange = { if (step == Step.MEDIA) { if (!MediaJob.running) count(); fill() } }
+        MediaJob.start(games.all, only, meta, games.artKeys, ctx.cacheDir)
+        host.toast(if (only == null) "Finding everything missing. It carries on if you leave Settings." else "Finding every game’s ${Media.kind(only.first()).name.lowercase()}")
+        fill()
+    }
+    private fun testSource() {
+        val id = srcId; val keys = Media.keys(games.artKeys)
+        if (!Media.connected(id, games.artKeys)) return host.toast(if (id == "ss" && Media.ssWaiting) "Your account is saved. ScreenScraper starts working when Shelf’s developer credentials arrive." else "Fill in the fields first")
+        host.toast("Testing…")
+        Thread {
+            val r = try { ArtSources.test(id, keys, ctx.cacheDir) } catch (e: Exception) { "Didn’t work: " + (e.message ?: "no answer") }
+            board.post { host.toast(r) }
+        }.start()
     }
 
     private var picker: Picker? = null

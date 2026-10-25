@@ -545,3 +545,17 @@ Reception section can be just a heading) are dropped. Cartridge Inside: the firs
 front half; -1.05 with a wider gap shows it between the halves. Checked with contact sheets of Cartridge Inside (NES,
 Game Boy, GBA, N64, SNES, Genesis, at rest and turned) and the article's parsing on a sample in Wikipedia's format
 (Wikipedia can't be reached from Claude's sandbox); compile-checked. Not checked on a device.
+
+**Shelf Native 0.16 (October 2026): media and manuals.** The WebView app's six art sources (ArtSources.java) became
+the base of a media layer in Kotlin (`Media.kt`) covering ten kinds, text included (details from libretro,
+ScreenScraper, IGDB and TheGamesDB; descriptions from Wikipedia and the others), with each piece's source recorded.
+A fresh look-up used to rewrite everything; now anything chosen (not libretro's or Wikipedia's) is kept. The search for
+a free manual source: ScreenScraper needs an account and developer credentials, MobyGames is paid, LaunchBox goes
+through EmuMovies; retrokit's hand-catalogued list (on GitHub, reachable from the sandbox) and its archive.org PDFs
+turned out to be the answer, and the lookup was run for real on the JVM against its data. The DS box: the first
+reading of the case size had width and height the wrong way round (the user had a real one in hand). Home's lag: the
+picture was decoded on the main thread a quarter second after each move, and the sky's four gradients were remade
+every frame for 0.8 s. A VideoView doesn't follow the board's scaling (a SurfaceView), so the video plays on a
+TextureView. Checked: the retrokit lookup for six consoles, renders of the cases (NES clips, DS shape, the booklet),
+compile-checked. Not checked: the media page, Settings › Media, the reader and the manual's flight (Android views and
+Filament, only on the device), and every network source but retrokit's GitHub data.

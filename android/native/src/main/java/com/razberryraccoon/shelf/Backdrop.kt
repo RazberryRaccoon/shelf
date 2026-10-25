@@ -70,7 +70,9 @@ class Backdrop(ctx: Context) : View(ctx) {
         c.drawColor(Theme.bg)
         c.save(); c.translate(ox, oy); c.scale(scale, scale)
         // the nebula: two soft glows in the console's color (their gradients made again only when the color changes)
-        if (skyFor != mood) { skyFor = mood; sky = makeSky(mood) }
+        // while the color shifts (after each move on Home) the gradients are made again a few times a second, not every
+        // frame: the change is slow and soft, and making them every frame was part of what made moving feel heavy
+        if (skyFor != mood && (moodT >= 1f || time - skyAt > .07f)) { skyFor = mood; skyAt = time; sky = makeSky(mood) }
         p.shader = sky[0]; c.drawRect(0f, 0f, Stage.W, Stage.H, p)
         p.shader = sky[1]; c.drawRect(0f, 0f, Stage.W, Stage.H, p); p.shader = null
         // stars, twinkling slowly
@@ -100,7 +102,7 @@ class Backdrop(ctx: Context) : View(ctx) {
     }
 
     // the sky's gradients for one color: the nebula's two glows, the planet's atmosphere and the planet
-    private var skyFor = 0; private var sky: Array<Shader> = makeSky(mood)
+    private var skyFor = 0; private var skyAt = 0f; private var sky: Array<Shader> = makeSky(mood)
     private fun makeSky(m: Int): Array<Shader> {
         val x = 1190f; val y = -175f; val r = 390f
         return arrayOf(

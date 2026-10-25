@@ -292,6 +292,15 @@ Summarized from the first part of the conversation; the full transcript is kept 
   further up, pan speed); Inside closer, and "as [clipping] starts to happen, the shell pieces float away from the
   board". The user thought the DS box should be a little wider than tall; the measured case (Wikipedia's keep-case
   table, retail cases) is a little taller than wide, so the box follows the measurements and box art is cropped to fill.
+- After 0.15 (the user's notes): media management is "a must" and "high priority": a page of its own for each game
+  (not more rows in Game settings) and one in Settings; first match the ROM to a standard name, then each kind
+  (box front, box spine, cartridge art, box back, details, description, title screen, screenshot, video) fetched
+  on its own with "a list of options, naming which source each image came from", or all at once; setup help for
+  each source's account; missing media easy to spot. The user chose the tile grid, Shelf requesting ScreenScraper's
+  developer credentials, and two-page spreads for manuals. Manuals live "inside the game's box, on the left side",
+  chosen there in the open box or with a wide "Read the Manual" button that opens the box and brings the manual out.
+  The DS box "is more wide horizontally" (the user, holding one). The Museum names media for what they are ("UMD",
+  "CD", "app cartridge"). Home should feel snappier, but not at the cost of any polish.
 - After 0.14 (the user's notes): "Anytime I click 'customize' or open the shell customization menu, it should always
   have the cartridge 3D model displayed"; About opens "a new page over the game page (again, very similar to how the
   images open) that lays everything out more like a full article": the name, then release year, developer/publisher

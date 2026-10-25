@@ -6,6 +6,8 @@
 //   cover          the cover, its origin on the hinge: turn it around y to open (0 closed, -π lying open to the left)
 //   front / back / spine   the art: flat planes with their own matte material and a texture slot
 //   media          where the cartridge, disc or card sits in the tray (its centre)
+//   manual         the game's manual, its origin at its centre: a booklet held inside the cover (its cover art on
+//                  'manual-art', facing the tray when closed and you when open); a jewel case's front booklet
 //   body / inner   the case's plastic, which the app colors
 import * as THREE from 'three';
 import { outlinePoints, slab, plasticMaterial, labelMaterial } from './cartridge.js';
@@ -14,7 +16,7 @@ import { outlinePoints, slab, plasticMaterial, labelMaterial } from './cartridge
 export const CASES = {
   nes: { size: [127, 182, 25] }, snes: { size: [174, 121, 28] }, n64: { size: [174, 121, 28] }, genesis: { size: [128, 197, 25] },
   gb: { size: [123, 123, 20] }, gbc: { size: [123, 123, 20] }, gba: { size: [123, 123, 20] },
-  ps1: { size: [142, 125, 9.9], jewel: true }, ds: { size: [122, 135, 15] }, psp: { size: [104, 177, 14] }, android: { size: [135, 171, 12] },
+  ps1: { size: [142, 125, 9.9], jewel: true }, ds: { size: [135, 122, 15] }, psp: { size: [104, 177, 14] }, android: { size: [135, 171, 12] },
 };
 
 const rrect = (w, h, r, x = 0, y = 0) => outlinePoints([[x - w / 2, y - h / 2, r], [x + w / 2, y - h / 2, r], [x + w / 2, y + h / 2, r], [x - w / 2, y + h / 2, r]]);
@@ -55,7 +57,13 @@ export function buildCase(sys, mediaSize, opts) {
   if (disc) {   // a hub with teeth that grips the disc
     const hub = new THREE.Mesh(new THREE.CylinderGeometry(9, 9, 1.4, 40).rotateX(Math.PI / 2).translate(0, 0, floor + .7), tray); hub.name = 'inner'; base.add(hub);
   } else for (const s of [-1, 1]) {   // two clips at the edge of the well
-    const clip = new THREE.Mesh(slab(rrect(10, 2.8, 1), [], tz - .2, tz + .8, .3, 2), tray); clip.position.set(s * (mw / 2 + 3), s * mh * .2, 0); clip.name = 'inner'; base.add(clip);
+    // beside it where there's room inside the wall; where the cartridge nearly fills the box's width (the NES), above
+    // and below it instead, lying along the edge, so they never poke out through the sides
+    const side = mw / 2 + 3 + 5 <= W / 2 - 2.5;
+    const clip = new THREE.Mesh(slab(side ? rrect(10, 2.8, 1) : rrect(10, 2.4, 1), [], tz - .2, tz + .8, .3, 2), tray);
+    if (side) clip.position.set(s * (mw / 2 + 3), s * mh * .2, 0);
+    else clip.position.set(s * mw * .22, s * Math.min(mh / 2 + 2.6, H / 2 - 3.8), 0);
+    clip.name = 'inner'; base.add(clip);
   }
   // the back and the spine carry art
   const back = artPlane(W - 3, H - 3, Math.max(.5, r - 1.5), art('case-back'), 'back'); back.rotation.y = Math.PI; back.position.z = -D / 2 - .3; base.add(back);
@@ -73,9 +81,25 @@ export function buildCase(sys, mediaSize, opts) {
   }
   const front = artPlane(W - (jewel ? 4 : 5.6), H - (jewel ? 4 : 5.6), Math.max(.4, r - 2.8), art('case-front'), 'front');
   // the art sits clear of the plastic (or the two flicker against each other); a jewel case's art is behind its clear cover
-  front.position.z = jewel ? top + .3 : D / 2 + .3; shell.add(front);
+  front.position.z = jewel ? top + .3 : D / 2 + .3;
+  if (jewel) {   // a jewel case's front art is its booklet: the manual slides out from behind the clear cover
+    const book = new THREE.Group(); book.name = 'manual'; book.position.z = front.position.z; front.position.z = 0; book.add(front); shell.add(book);
+  } else shell.add(front);
   const lining = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(rrect(W - 5, H - 5, Math.max(.4, r - 2.5)).map(p => new THREE.Vector2(p[0], p[1]))), 8).rotateY(Math.PI).translate(0, 0, top - .3), inner);
   lining.name = 'inner'; if (!jewel) shell.add(lining);
+  if (!jewel) {
+    // the manual: a booklet a little smaller than the cover, lying against its inside under two clips; its own cover
+    // (the art) faces the tray when the case is shut, and you when it lies open
+    const mw = W - 16, mh = H - 18, mt = 1.4, mz = top - .4 - mt / 2;
+    const book = new THREE.Group(); book.name = 'manual'; book.position.set(0, 0, mz);
+    const paper = plasticMaterial({ color: '#efece4', roughness: .85, clearcoat: 0, clearcoatRoughness: .9 }); paper.name = 'manual-paper';
+    const sheet = new THREE.Mesh(slab(rrect(mw, mh, 1.2), [], -mt / 2, mt / 2, .2, 2), paper); sheet.name = 'manual-paper'; book.add(sheet);
+    const face = artPlane(mw - 1, mh - 1, .8, art('manual-art'), 'manual-art'); face.rotation.y = Math.PI; face.position.z = -mt / 2 - .15; book.add(face);
+    shell.add(book);
+    for (const s of [-1, 1]) {   // the clips that hold it, at the cover's top and bottom edges
+      const clip = new THREE.Mesh(slab(rrect(14, 3, 1), [], top - .4 - mt - .7, top - .2, .3, 2), inner); clip.position.set(0, s * (mh / 2 + .6), 0); clip.name = 'inner'; shell.add(clip);
+    }
+  }
   cover.add(shell); group.add(cover);
 
   // where the media sits: centred in the well, resting on its floor

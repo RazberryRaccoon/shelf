@@ -16,10 +16,20 @@ import java.util.concurrent.Executors
  * (files/meta), so it's looked up once per game.
  */
 class Meta(private val ctx: Context, private val games: Games) {
-    class Info(val name: String?, val fields: Map<String, String>, val pics: Map<String, File>)
+    /**
+     * What's known: the matched name, text fields, media files by kind (box, spine, back, label, title, shot, video,
+     * manual), and where each came from (`src`, by kind, "details" and "description" included).
+     */
+    class Info(val name: String?, val fields: Map<String, String>, val pics: Map<String, File>, val src: Map<String, String> = emptyMap())
     companion object {
+        /** What libretro's thumbnails have, looked up on their own. */
         val KINDS = listOf("box" to "Box", "title" to "Title screen", "shot" to "Screenshot")
+        /** The pictures a game's page shows, in order (each where it has one); the video plays when chosen. */
+        fun pictures(sys: String) = listOf("box" to "Box", "back" to "Box back", "label" to "${Games.mediaName(sys)} art", "title" to "Title screen", "shot" to "Screenshot", "video" to "Video")
         private const val VERSION = 3   // 3: the whole Wikipedia article, for About's article page
+        /** Sources Shelf uses on its own when it first looks a game up; anything else was chosen and is kept. */
+        val AUTO = setOf("libretro", "Wikipedia")
+        val DETAILS = listOf("releaseyear", "developer", "publisher", "genre", "players")
         private const val WIKI = "https://en.wikipedia.org/w/api.php?format=json&formatversion=2&action=query"
     }
 
@@ -28,7 +38,7 @@ class Meta(private val ctx: Context, private val games: Games) {
      * opening section, and the whole thing): a search for the title as a video game on its console, keeping only an
      * article whose title matches the game's closely and that's about a video game.
      */
-    private fun wikipedia(title: String, sys: String): Triple<String, String, String>? = try {
+    fun wikipedia(title: String, sys: String): Triple<String, String, String>? = try {
         val clean = title.replace(Regex("\\s+"), " ").trim()
         val words = ArtIndex.norm(clean).split(" ").filter { it.isNotEmpty() }.toTypedArray()
         val q = "\"$clean\" video game ${Games.NAMES[sys] ?: ""}"
@@ -55,7 +65,7 @@ class Meta(private val ctx: Context, private val games: Games) {
     private val dir = File(ctx.filesDir, "meta").apply { mkdirs() }
     private val work = Executors.newSingleThreadExecutor()
     private val ui = Handler(Looper.getMainLooper())
-    private val known = HashMap<String, Info>()
+    private val known = java.util.concurrent.ConcurrentHashMap<String, Info>()
     private val waiting = HashMap<String, MutableList<(Info?) -> Unit>>()
 
     private fun key(g: Game) = Integer.toHexString(g.path.hashCode())
@@ -85,39 +95,87 @@ class Meta(private val ctx: Context, private val games: Games) {
         val name = games.match(g)
             ?: ix.byChecksum(File(g.path))?.name
             ?: ix.search(g.title, 1).firstOrNull()?.takeIf { it.score >= .6 }?.e?.name
+        // what was chosen on the media page (anything not found automatically from libretro or Wikipedia) is kept
+        val old = readRaw(g)
+        val src = HashMap<String, String>(); val kept = HashMap<String, File>()
+        old?.let { o -> o.src.forEach { (k, s) -> if (s !in AUTO) { src[k] = s; o.pics[k]?.let { f -> kept[k] = f } } } }
         val fields = HashMap(name?.let { ix.details(it) } ?: emptyMap())
+        // details and a description chosen on the media page stay as they were; otherwise libretro's, and Wikipedia's
+        if ("details" in src) old?.fields?.let { o -> DETAILS.forEach { k -> o[k]?.let { fields[k] = it } ?: fields.remove(k) } }
+        else if (name != null && DETAILS.any { it in fields }) src["details"] = "libretro"
+        val text = listOf("description", "descsource", "article", "wikititle")
+        if ("description" in src) old?.fields?.let { o -> text.forEach { k -> o[k]?.let { fields[k] = it } ?: fields.remove(k) } }
         // libretro rarely has a description; Wikipedia's article on the game usually does (its opening section)
-        if ((fields["description"]?.length ?: 0) < 200) wikipedia(name?.let { ArtIndex.stripTags(it) } ?: g.title, g.sys)?.let { (t, intro, all) ->
-            fields["description"] = intro; fields["descsource"] = "Wikipedia"; fields["article"] = all; fields["wikititle"] = t }
-        val pics = HashMap<String, File>()
+        else if ((fields["description"]?.length ?: 0) < 200) wikipedia(name?.let { ArtIndex.stripTags(it) } ?: g.title, g.sys)?.let { (t, intro, all) ->
+            fields["description"] = intro; fields["descsource"] = "Wikipedia"; fields["article"] = all; fields["wikititle"] = t; src["description"] = "Wikipedia" }
+        val pics = HashMap<String, File>(kept)
         if (name != null) for ((kind, _) in KINDS) {
+            if (kind in kept) continue
             val f = File(dir, key(g) + "-" + kind + ".png")
             if (!f.exists() || f.length() == 0L) {
                 val folder = mapOf("box" to "Named_Boxarts", "title" to "Named_Titles", "shot" to "Named_Snaps")[kind]!!
                 val bytes = try { ArtIndex.download(ix.artUrl(folder, name)) } catch (e: Exception) { null }
                 if (bytes != null) f.writeBytes(bytes) else f.delete()
             }
-            if (f.exists()) pics[kind] = f
+            if (f.exists()) { pics[kind] = f; src[kind] = "libretro" }
         }
-        val j = JSONObject().put("v", VERSION).put("name", name ?: JSONObject.NULL).put("fields", JSONObject(fields as Map<*, *>))
-            .put("pics", JSONObject().apply { pics.forEach { (k, f) -> put(k, f.path) } })
+        return Info(name, fields, pics, src).also { write(g, it) }
+    }
+
+    private fun write(g: Game, i: Info) {
+        val j = JSONObject().put("v", VERSION).put("name", i.name ?: JSONObject.NULL).put("fields", JSONObject(i.fields as Map<*, *>))
+            .put("pics", JSONObject().apply { i.pics.forEach { (k, f) -> put(k, f.path) } })
+            .put("src", JSONObject(i.src as Map<*, *>))
         file(g).writeText(j.toString())
-        return Info(name, fields, pics)
+    }
+
+    /** Forgets a game's details or description (Remove it, on the media page). */
+    fun clearText(g: Game, kind: String) {
+        val i = cached(g) ?: return
+        val keys = if (kind == "details") DETAILS else listOf("description", "article", "wikititle", "descsource")
+        val n = Info(i.name, i.fields - keys.toSet(), i.pics, i.src - kind); known[g.path] = n; write(g, n)
+    }
+
+    /** What's known, without looking anything up or remembering it (safe off the main thread: Settings › Media counts). */
+    fun peek(g: Game): Info? = known[g.path] ?: read(g)
+
+    /** Looks a game up now, on the calling thread (off the main thread: finding media for every game). */
+    fun lookUpNow(g: Game): Info? = try { lookUp(g).also { known[g.path] = it } } catch (e: Exception) { null }
+
+    /** Runs on the main thread. */
+    fun post(r: () -> Unit) { ui.post(r) }
+
+    /** Where a game's media of this kind is kept on the device. */
+    fun mediaFile(g: Game, kind: String, ext: String) = File(dir, key(g) + "-" + kind + "." + ext)
+
+    /**
+     * Keeps a choice from the media page: a file of this kind (or none, to forget it), and/or text fields, and where
+     * it came from. Call on the main thread; saved at once.
+     */
+    fun setMedia(g: Game, kind: String, file: File?, fields: Map<String, String>? = null, source: String?) {
+        val i = cached(g) ?: Info(games.match(g), emptyMap(), emptyMap())
+        val pics = HashMap(i.pics); val f = HashMap(i.fields); val src = HashMap(i.src)
+        if (file != null) pics[kind] = file else if (fields == null) pics.remove(kind)?.takeIf { it.parentFile == dir }?.delete()
+        if (fields != null) { if (kind == "description") listOf("description", "descsource", "article", "wikititle").forEach { f.remove(it) }; f.putAll(fields) }
+        if (source != null) src[kind] = source else src.remove(kind)
+        val n = Info(i.name, f, pics, src); known[g.path] = n; write(g, n)
     }
 
     /** Forgets what was found, so the next look-up starts over (after choosing which game it is). */
     fun forget(g: Game) {
         known.remove(g.path); file(g).delete()
-        for ((kind, _) in KINDS) File(dir, key(g) + "-" + kind + ".png").delete()
+        dir.listFiles()?.filter { it.name.startsWith(key(g) + "-") }?.forEach { it.delete() }
     }
 
-    private fun read(g: Game): Info? = try {
-        val j = JSONObject(file(g).readText())
-        if (j.optInt("v") < VERSION) return null   // looked up before Wikipedia descriptions: look again (pictures are kept)
-        val f = j.getJSONObject("fields"); val p = j.getJSONObject("pics")
+    private fun read(g: Game): Info? = readRaw(g)?.takeIf { raw(g)?.optInt("v") ?: 0 >= VERSION }   // older: look again (pictures and choices are kept)
+    private fun raw(g: Game): JSONObject? = try { JSONObject(file(g).readText()) } catch (e: Exception) { null }
+    private fun readRaw(g: Game): Info? = try {
+        val j = raw(g)!!
+        val f = j.getJSONObject("fields"); val p = j.getJSONObject("pics"); val s = j.optJSONObject("src") ?: JSONObject()
         Info(j.optString("name").takeIf { !j.isNull("name") && it.isNotEmpty() },
             f.keys().asSequence().associateWith { f.getString(it) },
-            p.keys().asSequence().associateWith { File(p.getString(it)) }.filterValues { it.exists() })
+            p.keys().asSequence().associateWith { File(p.getString(it)) }.filterValues { it.exists() },
+            s.keys().asSequence().associateWith { s.getString(it) })
     } catch (e: Exception) { null }
 
     /** A picture, shrunk to about `maxW` wide as it's read. */

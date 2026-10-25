@@ -160,7 +160,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
 
     private fun openSetup(settings: Boolean) {
         home.visible = false
-        setup = Setup(this, stage, board, backdrop, games, carts, this, settings)
+        setup = Setup(this, stage, board, backdrop, games, carts, this, settings, meta)
     }
     override fun openSettings() = openSetup(settings = true)
 
@@ -258,7 +258,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
 
     private var held: String? = null
     private var lastRepeat = 0L
-    private val repeat = object : Runnable { override fun run() { held?.let { input(it); ui.postDelayed(this, 110) } } }
+    private val repeat = object : Runnable { override fun run() { held?.let { input(it); ui.postDelayed(this, 95) } } }
     /** Buttons go to whichever screen is showing. */
     private fun input(a: String) { if (safeMode) return safeInput(a); launch?.let { return it.input(a) }; if (home.picker != null) home.input(a) else museum?.input(a) ?: setup?.input(a) ?: home.input(a) }   // a game starting takes every button (any one skips); then a message over everything
 
@@ -293,7 +293,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         val dir = if (abs(x) > .55f || abs(y) > .55f) (if (abs(x) > abs(y)) (if (x > 0) "right" else "left") else (if (y > 0) "down" else "up")) else null
         if (dir != held) {
             held = dir; ui.removeCallbacks(repeat)
-            if (dir != null) { input(dir); ui.postDelayed(repeat, 380) }
+            if (dir != null) { input(dir); ui.postDelayed(repeat, 320) }
         }
         return true
     }
