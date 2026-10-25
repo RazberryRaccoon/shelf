@@ -41,6 +41,7 @@ class CartStyle(val sys: String, j: JSONObject) {
 class Carts(private val stage: Stage, val shells: Shells) {
     val styles: Map<String, CartStyle>
     private val files = HashMap<String, ByteBuffer>()
+    private val boards = HashMap<String, Texture>()   // each style's circuit-board print, drawn once and shared
     private val sampler = TextureSampler(TextureSampler.MinFilter.LINEAR_MIPMAP_LINEAR, TextureSampler.MagFilter.LINEAR, TextureSampler.WrapMode.CLAMP_TO_EDGE)
 
     init {
@@ -72,10 +73,19 @@ class Carts(private val stage: Stage, val shells: Shells) {
         val asset = stage.assets.createAsset(data.duplicate()) ?: return null
         stage.resources.loadResources(asset)
         asset.releaseSourceData()
-        val cart = Cart(stage, asset, style, sampler, labelBitmap(style, title))
+        val cart = Cart(stage, asset, style, sampler, labelBitmap(style, title), boardFor(style))
         cart.apply(v)
         stage.scene.addEntities(asset.entities)
         return cart
+    }
+
+    /**
+     * The circuit board's printed back, drawn by the app: pictures embedded in the exported models don't show on the
+     * device (the print was there in the Studio's renders but never on the Retroid), so it's put on here, as labels are.
+     */
+    private fun boardFor(style: CartStyle): Texture = boards.getOrPut(style.sys) {
+        val b = Paintings.board((style.w * .78f) / (style.h * .72f), BOARD_CODES[style.sys] ?: "RT-01", maxOf(8, Math.round(style.w * .78f / 2.6f)))
+        pictureTexture(stage, b).also { b.recycle() }
     }
 
     /** Until art downloads come to the native app: Shelf's own label, sized to this cartridge's label window. */
@@ -84,7 +94,7 @@ class Carts(private val stage: Stage, val shells: Shells) {
 }
 
 /** One cartridge in the scene: where it is, and its shell color. */
-class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartStyle, sampler: TextureSampler, label: Bitmap) {
+class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartStyle, sampler: TextureSampler, label: Bitmap, board: Texture? = null) {
     private val rm = stage.engine.renderableManager
     private val tm = stage.engine.transformManager
     private val plastic: MaterialInstance? = materialOf("body")
@@ -107,6 +117,13 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
         labelTex.generateMipmaps(stage.engine)
         label.recycle()
         labelMat?.takeIf { m -> m.material.parameters.any { it.name == "baseColorMap" && it.type == Material.Parameter.Type.SAMPLER_2D } }?.setParameter("baseColorMap", labelTex, sampler)
+        // the board's printed back: the face whose material is named pcb-print (the box's sixth face, -z, if names are missing)
+        val pcb = asset.getFirstEntityByName("pcb").takeIf { it != 0 }?.let { rm.getInstance(it) }?.takeIf { it != 0 }
+        if (board != null && pcb != null) {
+            val n = rm.getPrimitiveCount(pcb)
+            val k = (0 until n).firstOrNull { rm.getMaterialInstanceAt(pcb, it).name == "pcb-print" } ?: if (n == 6) 5 else -1
+            if (k >= 0) rm.getMaterialInstanceAt(pcb, k).takeIf { m -> m.material.parameters.any { it.name == "baseColorMap" && it.type == Material.Parameter.Type.SAMPLER_2D } }?.setParameter("baseColorMap", board, sampler)
+        }
     }
 
     private fun materialOf(name: String): MaterialInstance? {
@@ -239,3 +256,7 @@ fun seeThrough(glb: ByteBuffer): ByteBuffer {
     out.put(all, 20 + jsonLen, rest)
     out.flip(); return out
 }
+
+/** RaccoonTek's own part numbers for each board (the Studio's BOARD_CODES; invented, no console maker's names). */
+private val BOARD_CODES = mapOf("nes" to "RT-8B-01", "snes" to "RT-16S-02", "n64" to "RT-64X-03", "genesis" to "RT-16G-04",
+    "gb" to "RT-PK1-05", "gbc" to "RT-PK2-06", "gba" to "RT-PK3-07", "ds" to "RT-DS-08", "psp" to "RT-UM-09", "android" to "RT-AC-10")

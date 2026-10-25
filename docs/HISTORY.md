@@ -432,3 +432,16 @@ matched up together, it forms a sort of 'canyon' down the middle": each half's s
 segment), 0.3 to 0.55 mm, the halves' other ends buried in the walls. (4) Screws on each cartridge's back, metal, in
 round recesses with a cross in the head and a shaft into the shell; the N64's first spot crossed its curved top edge
 and broke the wall's shape, caught by a probe, so every recess is now checked to sit inside its outline.
+
+Notes on the cartridge round and the Museum: (1) the seam canyon was right. (2) RaccoonTek still didn't show on the
+device, nor the board's traces: the print was a picture embedded in the model file, which shows in the Studio's
+renders, and nothing in Shelf Native had ever shown such a picture (labels and box art are drawn by the app and put on
+by it). So the app now draws the board's print itself (`Paintings.board`, Orbitron bundled) and puts it on the
+board's back face, found by its material's name. (3) Home consoles in the Museum were seen from below: the resting tilt
+had the wrong sign; they (and the DS, which lies open) are now seen from a little above. (4) Consoles are sized by
+their whole depth too, so deep ones no longer crowd the screen. (5) The views flow by sliding instead of shrinking:
+the console waits below the screen and the cartridge-and-box above it, so Console → Cartridge slides the console down
+as the cartridge comes down, and Closed box → Console sends the box up as the console comes up; consoles change by
+sliding sideways, like the timeline. (6) The hint names L and R separately. (7) Handheld screens are set into their
+bezels, under a clear glossy cover (a window cut in the bezel); a render caught two placed below the shell's surface
+and the DS's two flickering against it. (8) Home's cartridges fly in from far away with a small bounce, quickly.

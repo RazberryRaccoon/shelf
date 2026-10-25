@@ -44,9 +44,12 @@ object Theme {
 /** Manrope for text and Unbounded for titles, as in the prototype (both SIL Open Font License, in assets/fonts). */
 object Fonts {
     lateinit var body: Typeface; lateinit var bold: Typeface; lateinit var display: Typeface; lateinit var displayBold: Typeface
+    /** Orbitron (SIL Open Font License, assets/fonts): RaccoonTek's lettering on the circuit boards. */
+    lateinit var tech: Typeface; lateinit var techLight: Typeface
     fun load(ctx: Context) {
         fun f(file: String, wght: Int) = Typeface.Builder(ctx.assets, "fonts/$file").setFontVariationSettings("'wght' $wght").build()
         body = f("Manrope.ttf", 500); bold = f("Manrope.ttf", 700); display = f("Unbounded.ttf", 500); displayBold = f("Unbounded.ttf", 600)
+        tech = f("Orbitron.ttf", 800); techLight = f("Orbitron.ttf", 500)
     }
 
     /** A title in white with a soft dark edge, wrapped onto lines no wider than `maxW`, its last line ending at `bottom`. */
@@ -83,6 +86,36 @@ object Paintings {
         val b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888); val c = Canvas(b)
         scene(c, w.toFloat(), h.toFloat(), title)
         Fonts.titleOn(c, title, w * .07f, h * .9f, w * .86f, minOf(w, h) * .13f)
+        return b
+    }
+    /**
+     * The back of a cartridge's circuit board (the Studio's boardPrint, drawn here): green solder mask, faint copper
+     * traces, the row of gold contacts, and white silkscreen: RaccoonTek, the board's part number, a few markings.
+     * `aspect` is the board's width over its height.
+     */
+    fun board(aspect: Float, code: String, contacts: Int): Bitmap {
+        val w = 768; val h = (w / aspect).toInt().coerceIn(128, 1536)
+        val b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888); val c = Canvas(b); val p = Paint(Paint.ANTI_ALIAS_FLAG)
+        c.drawColor(Color.rgb(29, 90, 59))
+        var seed = 7L; fun rnd(): Float { seed = (seed * 16807) % 2147483647; return seed / 2147483647f }
+        p.style = Paint.Style.STROKE; p.strokeWidth = w * .006f; p.strokeCap = Paint.Cap.ROUND; p.strokeJoin = Paint.Join.ROUND
+        repeat(26) {   // traces: straight runs with 45° turns, the way boards are routed
+            var x = rnd() * w; var y = h * (.12f + rnd() * .76f); val path = android.graphics.Path().apply { moveTo(x, y) }
+            repeat(3) { val d = w * (.05f + rnd() * .14f); when ((rnd() * 4).toInt()) { 0 -> x += d; 1 -> x -= d; 2 -> { x += d * .7f; y += d * .7f * (if (rnd() < .5f) 1 else -1) }; else -> { x -= d * .7f; y += d * .7f * (if (rnd() < .5f) 1 else -1) } }; path.lineTo(x, y) }
+            p.style = Paint.Style.STROKE; p.color = Color.argb(72, 120, 190, 140); c.drawPath(path, p)
+            p.style = Paint.Style.FILL; p.color = Color.argb(115, 200, 220, 160); c.drawCircle(x, y, w * .007f, p)
+        }
+        p.style = Paint.Style.FILL; p.color = Color.rgb(201, 165, 78)   // the contacts along the bottom edge
+        for (i in 0 until contacts) c.drawRect((i + .2f) * w / contacts, h * .9f, (i + .8f) * w / contacts, h.toFloat(), p)
+        p.style = Paint.Style.STROKE; p.strokeWidth = w * .004f; p.color = Color.argb(217, 240, 244, 236); c.drawRect(w * .04f, h * .06f, w * .96f, h * .84f, p)
+        p.style = Paint.Style.FILL; p.color = Color.rgb(240, 244, 236); p.textAlign = Paint.Align.CENTER; p.typeface = Fonts.tech
+        var size = w * .13f; p.textSize = size
+        val tw = p.measureText("RaccoonTek"); if (tw > w * .78f) { size *= w * .78f / tw; p.textSize = size }
+        c.drawText("RaccoonTek", w / 2f, h * .4f + size * .35f, p)
+        p.typeface = Fonts.techLight; p.textSize = size * .3f
+        c.drawText("$code  ·  REV 2.0", w / 2f, h * .4f + size * 1.05f, p)
+        p.textAlign = Paint.Align.LEFT; p.textSize = size * .2f
+        c.drawText("U1", w * .08f, h * .16f, p); c.drawText("C3", w * .84f, h * .74f, p)
         return b
     }
     fun picture(w: Int, h: Int, title: String): Bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also { scene(Canvas(it), w.toFloat(), h.toFloat(), title) }

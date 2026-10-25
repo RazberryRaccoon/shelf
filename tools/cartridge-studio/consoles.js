@@ -77,10 +77,9 @@ export const CONSOLES = {
     build(k) {   // tall and gray, with the rounded lower corner, a framed screen and slanted speaker slots
       const { M } = k, z = .16, B0 = M.plastic('#2a2a31'), K = M.plastic('#9a99a2');
       k.on(k.solid(k.rounded([[-.45, -.74, .04], [.45, -.74, .3], [.45, .74, .03], [-.45, .74, .03]]), .32, .04), k.at(0, 0, 0), M.shell);
-      k.face(k.solid(k.rounded([[-.39, .04, .02], [.39, .04, .13], [.39, .66, .02], [-.39, .66, .02]]), .006, .002, 2), 0, 0, z + .002, M.plastic('#585b6c'));
-      k.face(k.plane(.47, .43), 0, .345, z + .0055, M.lcd('#7f8e5c'));
-      k.face(k.plane(.66, .008), 0, .628, z + .0055, M.lcd('#8b2c51')); k.face(k.plane(.66, .008), 0, .614, z + .0055, M.lcd('#3b3e90'));
-      k.face(k.disc(.016, .004), -.33, .43, z + .006, M.led('#ff2a2a'));
+      k.window(k.rounded([[-.39, .04, .02], [.39, .04, .13], [.39, .66, .02], [-.39, .66, .02]]), k.at(0, 0, z), .009, .47, .43, 0, .345, M.plastic('#585b6c'), M.lcd('#7f8e5c'));
+      k.face(k.plane(.66, .008), 0, .628, z + .0095, M.lcd('#8b2c51')); k.face(k.plane(.66, .008), 0, .614, z + .0095, M.lcd('#3b3e90'));
+      k.face(k.disc(.016, .004), -.33, .43, z + .01, M.led('#ff2a2a'));
       k.dpad(-.21, -.2, z, .27, B0);
       [[.3, -.15], [.13, -.23]].forEach(([x, y]) => k.face(k.dome(.066, .03), x, y, z, M.plastic('#9c2a5c')));
       [-.06, .1].forEach(x => k.face(k.bar(.13, .036, .02, .017), x, -.46, z + .008, M.plastic('#8d8c97'), .45));
@@ -94,9 +93,8 @@ export const CONSOLES = {
     build(k) {   // smaller, the screen centered high
       const { M } = k, z = .135, B0 = M.plastic('#26323a');
       k.on(k.solid(k.rrect(.78, 1.33, [.13, .13, .05, .05], 8), .27, .04), k.at(0, 0, 0), M.shell);
-      k.face(k.solid(k.rrect(.66, .56, .05, 6), .006, .002, 2), 0, .31, z + .002, M.plastic('#2a2c33'));
-      k.face(k.plane(.45, .41), 0, .31, z + .0055, M.screen);
-      k.face(k.disc(.014, .004), -.29, .38, z + .006, M.led('#ff3a3a'));
+      k.window(k.rrect(.66, .56, .05, 6), k.at(0, .31, z), .009, .45, .41, 0, 0, M.plastic('#2a2c33'), M.screen);
+      k.face(k.disc(.014, .004), -.29, .38, z + .01, M.led('#ff3a3a'));
       k.dpad(-.2, -.22, z, .24, B0);
       [[.25, -.17], [.1, -.25]].forEach(([x, y]) => k.face(k.dome(.058, .028), x, y, z, M.plastic('#4a3f93')));
       [-.07, .08].forEach(x => k.face(k.bar(.11, .032, .018, .015), x, -.45, z + .007, M.plastic('#1f2a30')));
@@ -109,13 +107,12 @@ export const CONSOLES = {
     build(k) {   // wide, with firm corners, the screen between the controls, shoulder buttons along the top edge
       const { M } = k, z = .1225, B0 = M.plastic('#c5c4d2'), D = M.plastic('#3b3488');
       k.on(k.solid(k.rrect(1.445, .82, [.2, .2, .1, .1], 8), .245, .03), k.at(0, 0, 0), M.shell);
-      k.face(k.solid(k.rrect(.84, .6, .06, 6), .006, .002, 2), 0, .03, z + .002, M.plastic('#18181f'));
-      k.face(k.plane(.62, .415), 0, .045, z + .0055, M.screen);
+      k.window(k.rrect(.84, .6, .06, 6), k.at(0, .03, z), .009, .62, .415, 0, .015, M.plastic('#18181f'), M.screen);
       k.dpad(-.565, .07, z, .2, D);                                                                     // kept clear of the screen's bezel
       [[.625, .13], [.495, .03]].forEach(([x, y]) => k.face(k.dome(.055, .028), x, y, z, B0));
       [[-.565, -.21], [-.565, -.29]].forEach(([x, y]) => k.face(k.dome(.024, .014), x, y, z, B0));
       k.grille(.55, -.24, z, 3, 3, .035);
-      k.face(k.disc(.012, .004), -.36, -.215, z + .005, M.led('#5bff8a'));                               // on the bezel, under the screen's corner
+      k.face(k.disc(.012, .004), -.36, -.215, z + .0095, M.led('#5bff8a'));                              // on the bezel, under the screen's corner
       [-1, 1].forEach(s => k.on(k.slabY(k.rrect(.26, .11, .025), .035, .012), k.at(s * .47, .41 + .0165, -.06), D));
       k.up(k.bar(.62, .1, .004, .01), 0, .411, -.05, M.dark);
     },
@@ -140,8 +137,7 @@ export const CONSOLES = {
     build(k) {   // the original two-screen clamshell
       const { M } = k, P0 = M.plastic('#2c2e35'), K = M.plastic('#d3d5dc');
       k.on(k.slabY(k.rrect(1.49, .85, .12, 8), .14, .03), k.at(0, 0, 0), M.shell);
-      k.up(k.bar(1.42, .78, .004, .1), 0, .071, 0, P0);
-      k.up(k.plane(.62, .46), 0, .074, 0, M.screen);
+      k.window(k.rrect(1.42, .78, .1, 8), k.at(0, .07, 0, -Math.PI / 2, 0, 0), .007, .62, .46, 0, 0, P0, M.screen);
       k.up(k.cross(.17, .055, .03), -.52, .071, -.03, M.plastic('#3a3c44'));
       [[.52, -.11], [.52, .05], [.44, -.03], [.6, -.03]].forEach(([x, z]) => k.up(k.dome(.033, .02), x, .071, z, K));
       [[.48, .26], [.56, .26]].forEach(([x, z]) => k.up(k.dome(.018, .01), x, .071, z, K));
@@ -151,9 +147,8 @@ export const CONSOLES = {
       // the top half, built standing up from the hinge; closed, it lies on the bottom half
       k.lid({ hinge: [0, .135, -.43], closed: Math.PI / 2, open: -.35 }, L => {
         L.on(L.solid(L.rrect(1.49, .85, .12, 8), .13, .03), L.at(0, .44, 0), M.shell);
-        L.on(L.bar(1.42, .78, .004, .1), L.at(0, .44, .066), P0);
-        L.on(L.plane(.62, .46), L.at(0, .44, .069), M.screen);
-        [-1, 1].forEach(s => { for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) L.on(L.disc(.01, .002), L.at(s * .55 + (i - 1) * .03, .49 + (j - 1) * .03, .069), M.dark); });
+        L.window(L.rrect(1.42, .78, .1, 8), L.at(0, .44, .065), .007, .62, .46, 0, 0, P0, M.screen);
+        [-1, 1].forEach(s => { for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) L.on(L.disc(.01, .002), L.at(s * .55 + (i - 1) * .03, .49 + (j - 1) * .03, .0722), M.dark); });
       });
     },
   },
@@ -162,7 +157,7 @@ export const CONSOLES = {
     build(k) {   // a glossy black oval with a wide screen in the middle
       const { M } = k, z = .115, K = M.plastic('#2c2d33');
       k.on(k.solid(k.rrect(1.7, .74, .33, 10), .23, .05), k.at(0, 0, 0), M.shell);
-      k.face(k.plane(.96, .545), 0, .02, z + .001, M.screen);
+      k.window(k.rrect(1.02, .6, .03, 6), k.at(0, .02, z), .007, .96, .545, 0, 0, M.plastic('#0b0c0f'), M.screen);
       [[-.075, 0, Math.PI / 2], [.075, 0, -Math.PI / 2], [0, .075, 0], [0, -.075, Math.PI]]   // all pointing inward
         .forEach(([dx, dy, r]) => k.face(k.tri(.04, .02), -.64 + dx, .12 + dy, z + .008, K, r));
       k.face(k.lathe([[0, .035], [.045, .033], [.06, .02], [.062, 0], [0, 0]], 24), -.64, -.17, z, M.plastic('#5e6068'));
@@ -188,8 +183,7 @@ export const CONSOLES = {
       const { M } = k, z = .1, K = M.plastic('#d9dbe3'), S = M.plastic('#4a4e5c'), D = M.plastic('#3b3f4d');
       const stick = x => k.face(k.lathe([[0, .04], [.05, .038], [.07, .025], [.075, 0], [0, 0]], 24), x, -.2, z, S);
       k.on(k.solid(k.rrect(1.9, .82, .14, 8), .2, .04), k.at(0, 0, 0), M.shell);
-      k.face(k.solid(k.rrect(1.14, .68, .05, 6), .005, .002, 2), 0, .02, z + .001, M.plastic('#0e1015'));
-      k.face(k.plane(1.06, .6), 0, .02, z + .0045, M.screen);
+      k.window(k.rrect(1.14, .68, .05, 6), k.at(0, .02, z), .008, 1.06, .6, 0, 0, M.plastic('#0e1015'), M.screen);
       k.dpad(-.72, .13, z, .2, D);
       stick(-.72); k.face(k.ring(.08, .1, .004, 32), -.72, -.2, z + .001, M.dark);
       [[.085, 0], [-.085, 0], [0, .085], [0, -.085]].forEach(([dx, dy]) => k.face(k.dome(.04, .02), .72 + dx, .13 + dy, z, K));
