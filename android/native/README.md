@@ -47,7 +47,28 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
-## What's in version 0.12
+## What's in version 0.13
+
+The user's ten notes on 0.12:
+1. The GBA's cartridge goes all the way in, flush, as on the real one (a deeper pocket).
+2. The lids move: the DS starts closed, takes its card and opens; the PlayStation's lid and the PSP's door open for the
+   disc and close after it. Each lid is its own hinged part in the console's file (`Console.lid`).
+3. Settings › Your saved colors lists every shell and console color you've made; A deletes one (after asking).
+4. The box does one thing at a time: from the closed box to the cartridge, the cover opens, then the cartridge lifts
+   out, then the box goes (and closing, the cartridge settles in before the cover shuts). Game page and Museum.
+5. Game settings takes the cartridge apart on a surface: the halves separate and lie side by side (the front turned
+   over), the board comes up and out and is set down below them, and a small screwdriver appears (`Cart.teardown`).
+   Leaving puts it back together. The box steps aside first.
+6. Cartridge boards have a program chip with its legs, a second chip, and a coin battery on the cartridges that kept
+   saves on one (NES, SNES, Genesis, Game Boy, Game Boy Color).
+7. The Museum's row says "Customize console colors".
+8. Boxes are their real sizes (the DS case 122 × 135 mm, the PSP's 104 × 177; see RESEARCH.md), and a game's box shows
+   its downloaded front box art, cropped to fill, never stretched.
+9. Settings › Home picture: which picture (screenshot, title screen, box art, none), brightness, how far up it
+   reaches, how much fades, the fade (plain, dots, or lines that thin out), and pan speed, shown live as you change them.
+10. Inside is closer, and the halves move further off as you turn the board toward them, so it never goes through them.
+
+## What was in version 0.12
 
 **Starting a game, and coming back** (`Launch.kt`). Play: Home (or the page) steps aside and the game's console rises
 into view in its Museum colors; the cartridge flies from where it was, lines up with the slot and slides in (the Game

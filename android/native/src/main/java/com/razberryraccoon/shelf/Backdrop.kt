@@ -36,9 +36,24 @@ class Backdrop(ctx: Context) : View(ctx) {
     private var pic: Bitmap? = null; private var picFrom: Bitmap? = null; private var picT = 1f
     var picVisible = 1f
     fun picture(b: Bitmap?) { if (b === pic) return; picFrom?.takeIf { it !== b }?.recycle(); picFrom = pic; pic = b; picT = 0f }
-    private val picTop = 424f; private val picH = Stage.H - picTop
-    private val dots: Bitmap = dotMask()
-    private val dim = LightingColorFilter(Color.rgb(51, 54, 66), 0)   // the prototype's [.2, .21, .26]: far in the background
+    // how it's shown (Settings › Home picture): where it starts down the screen, how much of it fades and how, how
+    // bright, how fast it pans. The fade's mask is made again only when one of those changes.
+    private var picTop = Art.TOP; private val picH get() = Stage.H - picTop
+    private var fade = Art.FADE; private var fadeType = Art.DOTS; private var pan = Art.PAN; private var panT = 0f
+    private var dots: Bitmap = fadeMask()
+    private var dim = dimFor(Art.BRIGHT)
+    /** While Settings › Home picture is open, the picture shows over everything else's fading, so changes can be seen. */
+    var previewArt = false
+    fun art(bright: Float, top: Float, fadeLen: Float, type: Int, speed: Float) {
+        dim = dimFor(bright); pan = speed
+        if (top != picTop || fadeLen != fade || type != fadeType) {
+            picTop = top; fade = fadeLen; fadeType = type
+            dots.recycle(); dots = fadeMask()
+            dotShader = android.graphics.BitmapShader(dots, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply { setLocalMatrix(Matrix().apply { setTranslate(0f, picTop) }) }
+        }
+    }
+    /** Dimmed (far in the background) with a little blue, as the prototype's [.2, .21, .26] at the start. */
+    private fun dimFor(b: Float) = LightingColorFilter(Color.rgb((255 * b).toInt().coerceIn(0, 255), (255 * b * 1.06f).toInt().coerceIn(0, 255), (255 * b * 1.29f).toInt().coerceIn(0, 255)), 0)
 
     /** Shadows to draw under the cartridges: x, y (center), width, strength. */
     val shadows = ArrayList<FloatArray>()
@@ -46,6 +61,7 @@ class Backdrop(ctx: Context) : View(ctx) {
     fun tick(dt: Float) {
         time += dt
         moodT = minOf(1f, moodT + dt / .8f); mood = blend(moodFrom, moodTo, ease(moodT))
+        panT += dt * pan
         picT = minOf(1f, picT + dt / .45f)
         invalidate()
     }
@@ -61,9 +77,10 @@ class Backdrop(ctx: Context) : View(ctx) {
         for (s in stars) { p.color = Color.argb((90 + 110 * (.5f + .5f * sin(time * .6f + s[3]))).toInt(), 238, 241, 255); c.drawCircle(s[0], s[1], s[2], p) }
         planet(c)
         // the picture, then the shadows on top of it
-        val sweep = .5f - .5f * cos(time * 2 * PI.toFloat() / 56f)   // there and back, about 28 seconds each way
-        picFrom?.let { if (picT < 1) drawPicture(c, it, (1 - ease(picT)) * picVisible, sweep) }
-        pic?.let { drawPicture(c, it, ease(picT) * picVisible, sweep) }
+        val sweep = .5f - .5f * cos(panT * 2 * PI.toFloat() / 56f)   // there and back, about 28 seconds each way at the usual speed
+        val vis = if (previewArt) 1f else picVisible
+        picFrom?.let { if (picT < 1) drawPicture(c, it, (1 - ease(picT)) * vis, sweep) }
+        pic?.let { drawPicture(c, it, ease(picT) * vis, sweep) }
         // shadows: one soft round shadow, drawn once, stretched flat under each object
         for (s in shadows) {
             if (s[2] < 2f || s[3] < .01f) continue
@@ -98,7 +115,7 @@ class Backdrop(ctx: Context) : View(ctx) {
         Canvas(b).drawCircle(64f, 64f, 64f, Paint(Paint.ANTI_ALIAS_FLAG).apply { shader = RadialGradient(64f, 64f, 64f, Color.argb(150, 0, 0, 0), Color.TRANSPARENT, Shader.TileMode.CLAMP) })
     }
 
-    private val dotShader = android.graphics.BitmapShader(dots, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply { setLocalMatrix(Matrix().apply { setTranslate(0f, picTop) }) }
+    private var dotShader = android.graphics.BitmapShader(dots, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply { setLocalMatrix(Matrix().apply { setTranslate(0f, picTop) }) }
     private val picMatrix = Matrix()
 
     /** The picture, panning diagonally from its top left to its bottom right, masked by the dots in one step. */
@@ -114,19 +131,37 @@ class Backdrop(ctx: Context) : View(ctx) {
         p.shader = null; p.colorFilter = null; p.alpha = 255
     }
 
-    /** Solid at the bottom, then rows of dots that shrink toward the top (as in the prototype's homeDotMask). */
-    private fun dotMask(): Bitmap {
-        val w = Stage.W.toInt(); val h = picH.toInt(); val b = Bitmap.createBitmap(w, h, Bitmap.Config.ALPHA_8); val c = Canvas(b)
+    /**
+     * Where the picture shows: solid at the bottom, then fading out toward the top over `fade` of its height, one of three
+     * ways: a plain fade; rows of dots that shrink toward the top (as in the prototype's homeDotMask); or horizontal lines
+     * that get thinner and farther apart the higher they are.
+     */
+    private fun fadeMask(): Bitmap {
+        val w = Stage.W.toInt(); val h = picH.toInt().coerceAtLeast(8); val b = Bitmap.createBitmap(w, h, Bitmap.Config.ALPHA_8); val c = Canvas(b)
         val q = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
-        val pitch = 13f; val solid = h * .5f
+        val solid = h * (1 - fade)   // the fading part is the top `fade` of the picture
         c.drawRect(0f, solid, w.toFloat(), h.toFloat(), q)
-        var y = solid; var row = 0
-        while (y > -pitch) {
-            val t = (y / solid).coerceIn(0f, 1f); val r = pitch * (.06f + .66f * Math.pow(t.toDouble(), 1.25).toFloat())
-            q.alpha = ((.45f + .55f * t) * 255).toInt()
-            var x = if (row % 2 == 1) pitch / 2 else 0f
-            while (x < w + pitch) { c.drawCircle(x, y, r, q); x += pitch }
-            y -= pitch * .866f; row++
+        when (fadeType) {
+            Art.FADE_PLAIN -> { q.shader = android.graphics.LinearGradient(0f, 0f, 0f, solid, Color.TRANSPARENT, Color.WHITE, Shader.TileMode.CLAMP); c.drawRect(0f, 0f, w.toFloat(), solid, q) }
+            Art.DOTS -> {
+                val pitch = 13f; var y = solid; var row = 0
+                while (y > -pitch) {
+                    val t = (y / solid).coerceIn(0f, 1f); val r = pitch * (.06f + .66f * Math.pow(t.toDouble(), 1.25).toFloat())
+                    q.alpha = ((.45f + .55f * t) * 255).toInt()
+                    var x = if (row % 2 == 1) pitch / 2 else 0f
+                    while (x < w + pitch) { c.drawCircle(x, y, r, q); x += pitch }
+                    y -= pitch * .866f; row++
+                }
+            }
+            else -> {   // lines: thick and close together near the solid part, thinner and farther apart further up
+                var y = solid
+                while (y > 0) {
+                    val t = (y / solid).coerceIn(0f, 1f); val gap = 6f + 22f * (1 - t); val thick = gap * (.15f + .75f * Math.pow(t.toDouble(), 1.4).toFloat())
+                    q.alpha = ((.5f + .5f * t) * 255).toInt()
+                    c.drawRect(0f, y - thick, w.toFloat(), y, q)
+                    y -= gap
+                }
+            }
         }
         return b
     }
@@ -136,4 +171,12 @@ class Backdrop(ctx: Context) : View(ctx) {
         fun blend(a: Int, b: Int, t: Float) = Color.rgb(
             (Color.red(a) + (Color.red(b) - Color.red(a)) * t).toInt(), (Color.green(a) + (Color.green(b) - Color.green(a)) * t).toInt(), (Color.blue(a) + (Color.blue(b) - Color.blue(a)) * t).toInt())
     }
+}
+
+/** Home picture's settings: the starting values, and the three ways its top can fade. */
+object Art {
+    const val BRIGHT = .2f; const val TOP = 424f; const val FADE = .5f; const val PAN = 1f
+    const val FADE_PLAIN = 0; const val DOTS = 1; const val LINES = 2
+    val FADES = listOf("Fade", "Dots", "Lines")
+    val KINDS = listOf("shot" to "Screenshot", "title" to "Title screen", "box" to "Box art", "none" to "None")
 }

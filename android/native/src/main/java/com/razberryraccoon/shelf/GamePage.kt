@@ -61,16 +61,21 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     // cartridge settles into its tray, the cover swings shut.
     private var view = games.pageView
     private val sampler = com.google.android.filament.TextureSampler(com.google.android.filament.TextureSampler.MinFilter.LINEAR_MIPMAP_LINEAR, com.google.android.filament.TextureSampler.MagFilter.LINEAR, com.google.android.filament.TextureSampler.WrapMode.CLAMP_TO_EDGE)
-    private val case: Case? = carts.model("case-${game.sys}.glb")?.let { Case(stage, it, game.title, sampler) }?.also { it.hide() }
+    private val case: Case? = carts.model("case-${game.sys}.glb")?.let { Case(stage, it, game.title, sampler, meta.cached(game)?.pics?.get("box")?.let { f -> meta.bitmap(f, 512) }) }?.also { it.hide() }
     private var caseK = 0f; private var inBox = 0f; private var openK = 1f
+    // Game settings takes the cartridge apart on a surface (Cart.teardown), with a screwdriver beside it: how far, 0..1
+    private var tk = 0f
+    private val tool: Model? = carts.model("screwdriver.glb")?.let { Model(stage, it) }?.also { it.hide() }
+    private val tearing get() = mode == Mode.SETTINGS && cart?.canOpen == true
     /** Starting the game: the start animation has the cartridge, and the page fades out of its way (and back after). */
     var launching = false
     private var launchK = 0f
     private var flipped = false
     // each view's resting angle: the cartridge's front a little turned so its side shows, the open box from a little
     // above so the tray shows, the closed box's front; X adds a half turn to show the back
-    private val restPitch: Float get() = when (view) { 1 -> -.42f; 2 -> -.12f; else -> -.1f }
-    private val restYaw: Float get() = (when (view) { 1 -> -.12f; 2 -> -.35f; else -> -.28f }) + if (flipped) PI.toFloat() else 0f
+    // taken apart (Game settings), looking down on the surface the parts lie on
+    private val restPitch: Float get() = if (tearing) -.95f else when (view) { 1 -> -.42f; 2 -> -.12f; else -> -.1f }
+    private val restYaw: Float get() = (if (tearing) 0f else when (view) { 1 -> -.12f; 2 -> -.35f; else -> -.28f }) + if (flipped) PI.toFloat() else 0f
     private var yaw = -.2f; private var pitch = -.1f
     private var vYaw = 0f; private var vPitch = 0f
     private var idle = 9f                // seconds since the stick was last used
@@ -212,9 +217,19 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         stage.turnKey(wrap(yaw - restYaw) * .3f * k)
         // from its place in the row to the left half, arcing up a little on the way
         val x = lerp(from[0], 350f, k); val y = lerp(from[1], 384f, k) - sin(PI.toFloat() * k) * 46f + sin(time * .8f) * 4f * k
-        val px = lerp(from[2], 400f, k)
+        // taking it apart: once the box is out of the way; the layout is wider and taller than the cartridge, so it
+        // shrinks to fit and moves up a little (the parts are laid out below the halves)
+        tk = if (tearing && !closing && !launching && inBox < .05f && caseK < .1f) min(1f, tk + dt / 1.05f) else maxOf(0f, tk - dt / .8f)
+        val te = Backdrop.ease(tk)
+        val big = cart?.let { maxOf(it.style.w, it.style.h) } ?: 1f
+        val fit = cart?.let { c -> big / maxOf(2.3f * c.style.w, 1.25f * c.style.h) } ?: 1f
+        val px = lerp(from[2], 400f, k) * lerp(1f, fit, te)
+        val ty = (cart?.style?.h ?: 0f) * .2f * (px / big) * te
         val ry = lerp(-.2f, yaw, k); val rx = lerp(-.1f, pitch, k)
-        if (!launching) cart?.place(x, y, lerp(40f, 70f, k), ry, rx, px, held = true)
+        if (!launching) cart?.place(x, y - ty, lerp(40f, 70f, k), ry, rx, px, held = true)
+        cart?.teardown(tk)
+        val spot = cart?.toolSpot(tk)
+        if (tool != null) { if (spot != null && tk > .66f && !launching) tool.placeMatrix(FloatArray(16).also { android.opengl.Matrix.multiplyMM(it, 0, cart!!.placed, 0, spot, 0) }) else tool.hide() }
         placeBox(dt, x, y, ry, rx, k)
         cart?.brightness(lerp(1.02f, 1f, k))
         if (!launching) cart?.let { c ->
@@ -538,10 +553,12 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     private fun placeBox(dt: Float, x: Float, y: Float, ry: Float, rx: Float, k: Float) {
         val c = case ?: return
         fun ease(cur: Float, want: Float, rate: Float) = cur + (want - cur) * min(1f, dt * rate)
-        val boxed = !closing && !launching && view >= 1   // starting the game, the box steps aside with the page
-        caseK = ease(caseK, if (boxed) 1f else 0f, 7f)
-        inBox = ease(inBox, if (boxed) 1f else 0f, 6f)
-        openK = ease(openK, if (view == 2 && !closing) 0f else 1f, 5f)
+        val boxed = !closing && !launching && mode != Mode.SETTINGS && tk < .05f && view >= 1   // the box steps aside to start the game, and for Game settings
+        // one thing after another, as you'd do it: to close, the cartridge settles into the tray before the cover swings
+        // shut; to take it out, the cover opens, then the cartridge lifts out, then the box goes
+        openK = ease(openK, if (boxed && view == 2 && inBox > .95f) 0f else 1f, 5f)
+        inBox = ease(inBox, if (boxed || openK < .9f) 1f else 0f, 6f)
+        caseK = ease(caseK, if (boxed || inBox > .1f) 1f else 0f, 7f)
         c.open = Backdrop.ease(openK.coerceIn(0f, 1f))
         val kk = Backdrop.ease(caseK.coerceIn(0f, 1f)) * k
         if (kk < .02f) { c.hide(); return }
@@ -561,7 +578,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     }
 
     fun destroy() {
-        case?.destroy()
+        case?.destroy(); tool?.destroy()
         board.removeView(panel); board.removeView(hint); board.removeView(studioPanel); viewer?.let { board.removeView(it) }
         stage.turnKey(0f)
         shots.recycle()

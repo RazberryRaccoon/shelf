@@ -14,7 +14,7 @@ import { outlinePoints, slab, plasticMaterial, labelMaterial } from './cartridge
 export const CASES = {
   nes: { size: [127, 182, 25] }, snes: { size: [174, 121, 28] }, n64: { size: [174, 121, 28] }, genesis: { size: [128, 197, 25] },
   gb: { size: [123, 123, 20] }, gbc: { size: [123, 123, 20] }, gba: { size: [123, 123, 20] },
-  ps1: { size: [142, 125, 9.9], jewel: true }, ds: { size: [125, 137, 14] }, psp: { size: [104, 175, 14] }, android: { size: [135, 171, 12] },
+  ps1: { size: [142, 125, 9.9], jewel: true }, ds: { size: [122, 135, 15] }, psp: { size: [104, 177, 14] }, android: { size: [135, 171, 12] },
 };
 
 const rrect = (w, h, r, x = 0, y = 0) => outlinePoints([[x - w / 2, y - h / 2, r], [x + w / 2, y - h / 2, r], [x + w / 2, y + h / 2, r], [x - w / 2, y + h / 2, r]]);

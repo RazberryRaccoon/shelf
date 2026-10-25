@@ -198,16 +198,78 @@ export function buildCartridge(style, opts) {
   const printed = new THREE.MeshPhysicalMaterial({ map: opts.boardTexture || boardPrint(style), roughness: .6, clearcoat: .2, clearcoatRoughness: .5 }); printed.name = 'pcb-print';
   const pcb = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, Math.min(1, D * .12)), [green, green, green, green, green, printed]);
   pcb.position.set(0, by, bz); pcb.name = 'pcb'; inside.add(pcb);
-  const chip = new THREE.Mesh(new THREE.BoxGeometry(bw * .38, bh * .3, Math.min(1.4, D * .15)), new THREE.MeshPhysicalMaterial({ color: '#141418', roughness: .5 }));
-  chip.position.set(-bw * .12, by + bh * .12, bz + Math.min(1.2, D * .14)); inside.add(chip);
+  // The game's chips on the board's front face, molded: the program chip (a flat package with its legs along both long
+  // sides), a smaller one beside it, and, on the cartridges that kept saves on a battery, a coin cell with its tab.
+  const pz = bz + Math.min(1, D * .12) / 2, black = new THREE.MeshPhysicalMaterial({ color: '#141418', roughness: .5 }), tin = new THREE.MeshPhysicalMaterial({ color: '#d4d7dc', metalness: 1, roughness: .32 });
+  black.name = 'chip'; tin.name = 'chip-leg';
+  const chipH = Math.min(1.3, D * .14);
+  const legged = (w, h, x, y) => {
+    const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, chipH), black); body.position.set(x, y, pz + .2 + chipH / 2); inside.add(body);
+    const dot = new THREE.Mesh(new THREE.CylinderGeometry(Math.min(w, h) * .06, Math.min(w, h) * .06, .05, 12).rotateX(Math.PI / 2), tin); dot.position.set(x - w * .38, y + h * .3, pz + .22 + chipH); inside.add(dot);
+    const n = Math.max(4, Math.round(w / 1.27));
+    for (let i = 0; i < n; i++) for (const sgn of [-1, 1]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(.4, 1.2, .2), tin); leg.position.set(x - w / 2 + (i + .5) * w / n, y + sgn * (h / 2 + .45), pz + .1); inside.add(leg);
+    }
+  };
+  legged(bw * .4, bh * .28, -bw * .14, by + bh * .14);    // the program
+  legged(bw * .2, bh * .16, bw * .26, by + bh * .2);      // the mapper or save chip
+  if (BATTERY.has(style.name)) {   // a coin cell lying on the board, held by its spot-welded tab
+    const r = Math.min(10, bw * .16, bh * .2), t = Math.min(3.2, D * .28);
+    const cell = new THREE.Mesh(new THREE.CylinderGeometry(r, r, t, 40).rotateX(Math.PI / 2), tin); cell.position.set(bw * .2, by - bh * .14, pz + t / 2 + .1); inside.add(cell);
+    const tab = new THREE.Mesh(new THREE.BoxGeometry(r * .5, r * 1.7, .25), tin); tab.position.set(bw * .2, by - bh * .14, pz + t + .25); inside.add(tab);
+  }
   const gold = new THREE.MeshPhysicalMaterial({ color: '#d6b25a', metalness: 1, roughness: .3 }), n = Math.max(8, Math.round(bw / 2.6));
   for (let i = 0; i < n; i++) {   // the edge connector's contacts, along the bottom
     const c = new THREE.Mesh(new THREE.BoxGeometry(bw / n * .6, bh * .12, .1), gold);
     c.position.set(-bw / 2 + (i + .5) * bw / n, by - bh / 2 + bh * .07, bz + Math.min(.55, D * .07)); inside.add(c);
   }
   group.add(inside);
-  group.userData.materials = { plastic, label: label.material }; group.userData.slotted = slotted;
+  group.userData.materials = { plastic, label: label.material }; group.userData.slotted = slotted; group.userData.seamZ = seamZ;
   return group;
+}
+
+// The cartridges whose games kept their saves on a battery: their boards have a coin cell.
+const BATTERY = new Set(['NES', 'Super Nintendo', 'Sega Genesis', 'Game Boy', 'Game Boy Color']);
+
+/**
+ * For the export: the cartridge in three parts, as it comes apart (the app takes it apart in Game settings): "back"
+ * (the back half, with the screws), "front" (the front half, its face and label) and "board" (the circuit board and its
+ * chips). Every part keeps its place.
+ */
+export function splitCart(group) {
+  group.updateMatrixWorld(true);
+  const parts = { back: new THREE.Group(), front: new THREE.Group(), board: new THREE.Group() };
+  for (const [n, g] of Object.entries(parts)) g.name = n;
+  const inside = group.getObjectByName('inside'), seam = group.userData.seamZ ?? 0, meshes = [];
+  group.traverse(o => { if (o.isMesh) meshes.push(o); });
+  for (const m of meshes) {
+    let p = null; for (let q = m; q; q = q.parent) if (q === inside) p = 'board';
+    if (!p) p = m.name === 'screw' || m.name === 'contact' ? 'back' : new THREE.Box3().setFromObject(m).getCenter(new THREE.Vector3()).z < seam ? 'back' : 'front';
+    if (p === 'board' && !inside.visible) continue;   // no board to show (cards): it isn't exported
+    parts[p].attach(m);
+  }
+  const out = new THREE.Group(); out.name = group.name; out.add(parts.back, parts.front, parts.board); out.userData = group.userData; return out;
+}
+
+/**
+ * A small precision screwdriver, for taking a cartridge apart: a round handle with grip flutes and a turning cap, a
+ * steel shaft, a three-pointed tip. Millimetres, lying along x.
+ */
+export function buildScrewdriver() {
+  const g = new THREE.Group(); g.name = 'screwdriver';
+  const grip = new THREE.MeshPhysicalMaterial({ color: '#c8243a', roughness: .38, clearcoat: .6, clearcoatRoughness: .25 }); grip.name = 'handle';
+  const cap = new THREE.MeshPhysicalMaterial({ color: '#1d1e22', roughness: .5 }); cap.name = 'cap';
+  const steel = new THREE.MeshPhysicalMaterial({ color: '#d7dae0', metalness: 1, roughness: .25 }); steel.name = 'steel';
+  const lathe = (prof, m, seg = 40) => { const l = new THREE.Mesh(new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), seg), m); l.rotation.z = -Math.PI / 2; g.add(l); return l; };
+  lathe([[0, 0], [4.2, 0], [5, 1.2], [5, 52], [4.4, 56], [2.2, 60], [0, 60]], grip);            // the handle
+  for (let i = 0; i < 8; i++) {   // flutes along it, for the fingers
+    const a = i / 8 * Math.PI * 2, f = new THREE.Mesh(new THREE.BoxGeometry(44, 1.2, .9), cap);
+    f.position.set(28, Math.cos(a) * 4.85, Math.sin(a) * 4.85); f.rotation.x = a; g.add(f);
+  }
+  lathe([[0, -6], [4.6, -6], [4.9, -4.6], [4.9, 0], [0, 0]], cap);                // the turning cap at the end
+  lathe([[0, 60], [1.3, 60], [1.3, 92], [.9, 95], [0, 96]], steel, 20);                          // the shaft and its tip
+  for (const a of [0, 2.094, 4.189]) { const w = new THREE.Mesh(new THREE.BoxGeometry(3, .5, .6), steel); w.position.set(94.5, Math.cos(a) * .45, Math.sin(a) * .45); w.rotation.x = a; g.add(w); }
+  return g;
 }
 
 // The outline with a slot cut up into it from the middle of its bottom edge: `w` wide (at most the straight part of

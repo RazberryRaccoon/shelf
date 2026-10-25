@@ -162,14 +162,14 @@ export const CONSOLES = {
     },
   },
   gba: {
-    insert: { at: [0, 38, -7.75], rot: [0, Math.PI, 0], from: [0, 70, 0], turn: Math.PI },   // half in, sticking up out of the back
+    insert: { at: [0, 24.25, -7.75], rot: [0, Math.PI, 0], from: [0, 70, 0], turn: Math.PI },   // all the way in, flush with the top
     name: 'Game Boy Advance', finish: plastic('#4e46a8', .4, .45), seam: { axis: 'z', at: -.0375 },
     build(k) {   // wide, with firm corners, the screen between the controls, shoulder buttons along the top edge
       const { M } = k, z = .1225, B0 = M.plastic('#c5c4d2', 'buttons'), SS = M.plastic('#c5c4d2', 'small'), D = M.plastic('#3b3488', 'dpad'), SH = M.plastic('#3b3488', 'shoulders');
       const out = k.rrect(1.445, .82, [.2, .2, .1, .1], 8);
-      k.body(out, .245, .03, -.0375, k.at(0, 0, 0), M.shell, k.notch(out, .295, .21));   // the cartridge half sticks up out of its pocket
-      k.up(k.bar(.56, .07, .003, .005), 0, .2115, -.08, M.dark);
-      k.half('lower', () => k.face(k.bar(.59, .195, .015, .004, .002), 0, .3075, -.045, M.shell));
+      k.body(out, .245, .03, -.0375, k.at(0, 0, 0), M.shell, k.notch(out, .295, .075));   // the pocket takes the whole cartridge
+      k.up(k.bar(.56, .07, .003, .005), 0, .0765, -.08, M.dark);
+      k.half('lower', () => k.face(k.bar(.59, .33, .015, .004, .002), 0, .2425, -.045, M.shell));
       k.window(k.rrect(.84, .6, .06, 6), k.at(0, .03, z), .009, .62, .415, 0, .015, M.plastic('#18181f', 'bezel'), M.picture('#0c0f14'));
       k.dpad(-.565, .07, z, .2, D);                                                                     // kept clear of the screen's bezel
       [[.625, .13], [.495, .03]].forEach(([x, y]) => k.face(k.dome(.055, .028), x, y, z, B0));

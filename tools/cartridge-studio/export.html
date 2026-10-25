@@ -19,7 +19,7 @@ import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometr
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { STYLES } from './cartridges.js';
 import { CONSOLES, CONSOLE_COLORS, PART_NAMES } from './consoles.js';
-import { buildCartridge, applyVariant, fontReady } from './cartridge.js';
+import { buildCartridge, applyVariant, fontReady, splitCart, buildScrewdriver } from './cartridge.js';
 import { buildConsole, splitHalves } from './console.js';
 import { buildBoard, placeBoard, BOARDS, MASK } from './board.js';
 import { buildCase, CASES } from './case.js';
@@ -70,13 +70,20 @@ window.exportAll = async ({ consoles = false, cases = false, carts = true } = {}
   for (const [id, style] of Object.entries(carts ? STYLES : {})) {
     const tune = { ...DEFAULTS, ...style.finish };
     const cart = buildCartridge(style, { bevel: tune.bevel, segments: tune.segments, finish: tune, labelTexture: placeholder() });
+    // where it comes apart (Game settings); measured before the export splits it: the seam between its halves, and the board's extent (millimetres)
+    const inside = cart.getObjectByName('inside'), bb = inside && inside.visible ? new THREE.Box3().setFromObject(inside) : null;
+    const apart = bb ? { seam: +cart.userData.seamZ.toFixed(3), board: [bb.min.x, bb.min.y, bb.min.z, bb.max.x, bb.max.y, bb.max.z].map(v => +v.toFixed(3)) } : null;
     applyVariant(cart, style.variants[0], tune);
-    files[`cart-${id}.glb`] = await glb(mergeByMaterial(cart, cartNames(cart)));
+    // in three parts (back half, front half, board), each merged by material: the app takes it apart in Game settings
+    const parts = c => { const names = cartNames(c), sp = splitCart(c), out = new THREE.Group(); out.name = c.name;
+      for (const n of ['back', 'front', 'board']) { const m = mergeByMaterial(sp.getObjectByName(n), names); m.name = n; out.add(m); } return out; };
+    files[`cart-${id}.glb`] = await glb(parts(cart));
     // every style gets a see-through model: the app's Studio offers clear, frosted and smoke finishes for any cartridge
     const clear = style.variants.find(v => v.clear) || { ...style.variants[0], clear: 'transparent' };
-    { const c2 = buildCartridge(style, { bevel: tune.bevel, segments: tune.segments, finish: tune, labelTexture: placeholder() }); applyVariant(c2, clear, tune); files[`cart-${id}-clear.glb`] = await glb(mergeByMaterial(c2, cartNames(c2))); }
-    variants[id] = { name: style.name, size: style.size, depth: style.depth, label: style.label, finish: style.finish, variants: style.variants };
+    { const c2 = buildCartridge(style, { bevel: tune.bevel, segments: tune.segments, finish: tune, labelTexture: placeholder() }); applyVariant(c2, clear, tune); files[`cart-${id}-clear.glb`] = await glb(parts(c2)); }
+    variants[id] = { name: style.name, size: style.size, depth: style.depth, label: style.label, finish: style.finish, variants: style.variants, apart };
   }
+  if (carts) files['screwdriver.glb'] = await glb(mergeByMaterial(buildScrewdriver()));   // for taking a cartridge apart
   for (const [id, entry] of consoles ? Object.entries(CONSOLES) : []) {
     const tune = { ...DEFAULTS, ...entry.finish };
     const make = () => {
@@ -90,8 +97,15 @@ window.exportAll = async ({ consoles = false, cases = false, carts = true } = {}
       return entry.seam ? splitHalves(con, entry.seam) : con;
     };
     // the two halves stay apart (nodes "lower" and "upper"), each merged by material, so the app can open the upper one
+    // a lid stays its own node ("lid", on its hinge, inside its half) so the app can open and close it
     const halves = con => { if (!entry.seam) return mergeByMaterial(con); const out = new THREE.Group(); out.name = con.name;
-      for (const n of ['lower', 'upper']) { const m = mergeByMaterial(con.getObjectByName(n)); m.name = n; out.add(m); } return out; };
+      for (const n of ['lower', 'upper']) {
+        const h = con.getObjectByName(n), lid = h.children.find(c => c.name === 'lid');
+        if (lid) h.remove(lid);
+        const m = mergeByMaterial(h); m.name = n; out.add(m);
+        if (lid) { const l = mergeByMaterial(lid); l.name = 'lid'; l.position.copy(lid.position); l.quaternion.copy(lid.quaternion); m.add(l); h.add(lid); }
+      }
+      return out; };
     const con = make();
     files[`console-${id}.glb`] = await glb(halves(con));
     // How the Inside view takes it apart, like an exploded drawing: both halves slide straight away from the board along
@@ -104,7 +118,10 @@ window.exportAll = async ({ consoles = false, cases = false, carts = true } = {}
     if (entry.insert) {
       const ins = entry.insert, centre = name => { const b = new THREE.Box3(); con.traverse(o => { if (o.isMesh && [].concat(o.material).some(x => x.name === name)) b.expandByObject(o); }); return b.isEmpty() ? null : b.getCenter(new THREE.Vector3()).toArray().map(v => +v.toFixed(2)); };
       const seat = new THREE.Matrix4().compose(new THREE.Vector3(...ins.at), new THREE.Quaternion().setFromEuler(new THREE.Euler(ins.rot[0], ins.rot[1], ins.rot[2], 'YXZ')), new THREE.Vector3(1, 1, 1));
-      launch = { seat: seat.elements.map(v => +v.toFixed(5)), from: ins.from, turn: ins.turn || 0, led: centre('power-led'), screen: centre('screen-picture') };
+      const lidPivot = con.getObjectByName('lid'), lidInfo = lidPivot && lidPivot.userData.lid;
+      launch = { seat: seat.elements.map(v => +v.toFixed(5)), from: ins.from, turn: ins.turn || 0, led: centre('power-led'), screen: centre('screen-picture'),
+        // its lid's hinge (millimetres, turning about x), closed and open angles, and where it rests
+        lid: lidInfo ? { hinge: lidPivot.position.toArray().map(v => +v.toFixed(3)), closed: lidInfo.closed, open: lidInfo.open, rest: entry.lid.rest } : null };
     }
     let explode = null;
     if (entry.seam) {

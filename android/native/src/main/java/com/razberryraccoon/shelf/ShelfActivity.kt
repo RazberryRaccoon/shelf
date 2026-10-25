@@ -71,6 +71,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         meta = Meta(this, games)
         consoles = Consoles(this, stage)
         home = Home(this, stage, board, backdrop, games, carts, meta, this)
+        home.refreshPicture()   // Home picture's look from Settings
         if (!games.setupDone) openSetup(settings = false)
         // the interface and backdrop follow the 3D layer's fit, so all three line up
         root.addOnLayoutChangeListener { _, l, t, r, b, _, _, _, _ ->
@@ -181,10 +182,12 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         setup.destroy(); this.setup = null
         if (!games.setupDone) { openSetup(settings = false); return }   // "run first-time setup again"
         home.refreshProfile()
+        home.reshell()   // a shell you deleted in Settings comes off the cartridges wearing it
         rescan { home.visible = true }
     }
 
     override fun hasStorage() = Environment.isExternalStorageManager()
+    override fun artChanged() = home.refreshPicture()
     override fun toast(msg: String) = home.show(msg)
 
     private var folderThen: ((String?) -> Unit)? = null

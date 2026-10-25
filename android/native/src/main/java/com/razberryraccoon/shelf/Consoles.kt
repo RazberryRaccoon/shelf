@@ -29,7 +29,10 @@ class ConsoleInfo(val sys: String, val name: String, val parts: List<Pair<String
  * the straight path it slides in along (`from`, from the seated spot), how far the console turns round to take it, and
  * where its power light and its picture screen are (what the view eases in on).
  */
-class LaunchMarks(val seat: FloatArray, val from: FloatArray, val turn: Float, val led: FloatArray?, val screen: FloatArray?)
+class LaunchMarks(val seat: FloatArray, val from: FloatArray, val turn: Float, val led: FloatArray?, val screen: FloatArray?, val lid: Lid?)
+
+/** A console's lid (the DS's top half, the PlayStation's lid, the PSP's disc door): its hinge (turning about x, in millimetres), its angles closed and open, and how it rests (0 closed, 1 open). */
+class Lid(val hinge: FloatArray, val closed: Float, val open: Float, val rest: Float)
 
 /** How the Inside view takes a console apart: its halves slide along the seam's axis, the upper (a handheld's front) by `upper` millimetres, the lower by `lower`. */
 class Explode(val axis: Char, val upper: Float, val lower: Float)
@@ -54,7 +57,8 @@ class Consoles(ctx: Context, stage: Stage) {
                 c.optJSONObject("board")?.let { b -> b.getJSONArray("size").let { z -> BoardInfo(b.getString("code"), Color.parseColor(b.getString("mask")), z.getDouble(0).toFloat(), z.getDouble(1).toFloat()) } },
                 c.optJSONObject("explode")?.let { o -> Explode(o.getString("axis")[0], o.getDouble("upper").toFloat(), o.getDouble("lower").toFloat()) },
                 c.optJSONObject("launch")?.let { l -> fun arr(k: String) = l.optJSONArray(k)?.let { a -> FloatArray(a.length()) { a.getDouble(it).toFloat() } }
-                    LaunchMarks(arr("seat") ?: FloatArray(16).also { android.opengl.Matrix.setIdentityM(it, 0) }, arr("from") ?: FloatArray(3), l.optDouble("turn", 0.0).toFloat(), arr("led"), arr("screen")) })
+                    LaunchMarks(arr("seat") ?: FloatArray(16).also { android.opengl.Matrix.setIdentityM(it, 0) }, arr("from") ?: FloatArray(3), l.optDouble("turn", 0.0).toFloat(), arr("led"), arr("screen"),
+                        l.optJSONObject("lid")?.let { d -> d.optJSONArray("hinge")?.let { h -> Lid(FloatArray(3) { h.getDouble(it).toFloat() }, d.getDouble("closed").toFloat(), d.getDouble("open").toFloat(), d.optDouble("rest", 0.0).toFloat()) } }) })
         } }
     }
 
@@ -132,6 +136,16 @@ class Console(stage: Stage, asset: FilamentAsset, private val file: JSONObject?,
     private val screenColor = fileMaterial("screen-picture")?.optJSONObject("pbrMetallicRoughness")?.optJSONArray("baseColorFactor")?.let { c -> FloatArray(3) { c.optDouble(it, 0.0).toFloat() } } ?: floatArrayOf(.01f, .01f, .01f)
     private var shown: com.google.android.filament.Texture? = null
 
+    private val lidEnt = asset.getFirstEntityByName("lid")
+    /** Its lid, 0 closed to 1 open, on its hinge. */
+    fun lid(k: Float, l: Lid?) {
+        if (lidEnt == 0 || l == null) return
+        val m = FloatArray(16).also { android.opengl.Matrix.setIdentityM(it, 0) }
+        android.opengl.Matrix.translateM(m, 0, l.hinge[0], l.hinge[1], l.hinge[2])
+        android.opengl.Matrix.rotateM(m, 0, Math.toDegrees((l.closed + (l.open - l.closed) * k).toDouble()).toFloat(), 1f, 0f, 0f)
+        tm.setTransform(tm.getInstance(lidEnt), m)
+    }
+
     /** The power light, 0 off to 1 on. */
     fun power(k: Float) = leds.forEach { it.set("emissiveFactor", ledGlow[0] * k, ledGlow[1] * k, ledGlow[2] * k) }
 
@@ -154,11 +168,11 @@ class Console(stage: Stage, asset: FilamentAsset, private val file: JSONObject?,
      * Takes the console apart, 0 whole to 1 apart, like an exploded drawing: the upper half (a handheld's front) and the
      * lower (its back) slide straight away from each other along the seam's axis, leaving room for the board between.
      */
-    fun explode(k: Float, e: Explode?) {
+    fun explode(k: Float, e: Explode?, extra: Float = 0f) {
         if (e == null) return
         halves.forEachIndexed { i, (ent, rest) ->
             if (ent == 0) return@forEachIndexed
-            val d = k * (if (i == 1) e.upper else -e.lower)
+            val d = k * (if (i == 1) e.upper + extra else -(e.lower + extra))   // extra: further off while a turned board needs the room
             val m = FloatArray(16).also { android.opengl.Matrix.setIdentityM(it, 0) }
             android.opengl.Matrix.translateM(m, 0, if (e.axis == 'x') d else 0f, if (e.axis == 'y') d else 0f, if (e.axis == 'z') d else 0f)
             val out = FloatArray(16); android.opengl.Matrix.multiplyMM(out, 0, m, 0, rest, 0)

@@ -12,6 +12,7 @@ import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.TextView
 import kotlin.math.min
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
@@ -30,9 +31,11 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         fun rescan(then: () -> Unit)
         fun toast(msg: String)
         fun finished(setup: Setup)
+        /** Settings › Home picture changed something: show it now, behind the page. */
+        fun artChanged()
     }
 
-    private enum class Step { WELCOME, WHO, GAMES, EMUS, DONE, MENU, LIGHT }
+    private enum class Step { WELCOME, WHO, GAMES, EMUS, DONE, MENU, LIGHT, SAVED, ART }
     private var step = if (settings) Step.MENU else Step.WELCOME
     private val flow = listOf(Step.WELCOME, Step.WHO, Step.GAMES, Step.EMUS, Step.DONE)
 
@@ -58,6 +61,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
     private val cx = (PX + PW + Stage.W) / 2f; private val cy = Stage.H / 2f - 20f
     private val order = listOf("gba", "snes", "n64", "gb", "nes", "ds", "genesis", "gbc", "psp", "ps1", "android")
     private var shownCount = 0f   // the found-games count, counting up
+    private val looks = ConsoleLooks(ctx)   // your console colors (Your saved colors): above init, which fills the menu with their count
 
     init {
         board.put(panel, PX, PY, PW, PH)
@@ -76,6 +80,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
 
     private fun show(s: Step) {
         step = s
+        backdrop.previewArt = s == Step.ART
         options.reset()
         fill()
         dots.visibility = if (settings) View.INVISIBLE else View.VISIBLE
@@ -149,10 +154,34 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                 rows += Options.Row("go", "Emulators", tag = Step.EMUS)
                 rows += Options.Row("go", "Your name and color", value = games.name, tag = Step.WHO)
                 rows += Options.Row("go", "Lighting", value = "Brightness of the 3D", tag = Step.LIGHT)
+                rows += Options.Row("go", "Home picture", value = Art.KINDS.firstOrNull { it.first == games.artKind }?.second ?: "", sub = "The picture of the selected game behind Home", tag = Step.ART)
+                rows += Options.Row("go", "Your saved colors", value = "${carts.shells.all.size + looks.count()}", sub = "Shells and console colors you’ve made, to delete", tag = Step.SAVED)
                 rows += Options.Row("pageview", "A game’s page opens on", value = "‹  ${PAGE_VIEWS[games.pageView]}  ›", sub = "On the page itself, L2 and R2 go through all three")
                 rows += Options.Row("sounds", "Sounds", value = if (games.sounds) "On" else "Off", sub = "Soft clicks and chimes as you move around")
                 rows += Options.Row("again", "Run first-time setup again")
                 rows += Options.Row("close", "Done", primary = true)
+            }
+            Step.SAVED -> {
+                page("Settings", "Your saved colors", "The shells and console colors you’ve made. A deletes one; cartridges and consoles wearing it go back to their standard colors.")
+                rows += Options.Row("close-saved", "Done", primary = true)
+                val shells = carts.shells.all
+                if (shells.isNotEmpty()) rows += Options.Row(Options.HEAD, "Cartridge shells")
+                shells.forEach { rows += Options.Row("del-shell", it.name, sub = Materials.of(it.material).name, dot = it.color, tag = it) }
+                val mine = Games.NAMES.keys.flatMap { sys -> looks.all(sys).map { sys to it } }
+                if (mine.isNotEmpty()) rows += Options.Row(Options.HEAD, "Console colors")
+                mine.forEach { (sys, l) -> rows += Options.Row("del-look", l.name, sub = Games.NAMES[sys] ?: sys, dot = l.parts["shell"]?.color, tag = l) }
+                if (shells.isEmpty() && mine.isEmpty()) rows += Options.Row("none", "Nothing saved yet", sub = "Make shells in a game’s Customize, console colors in the Museum")
+            }
+            Step.ART -> {
+                page("Settings", "Home picture", "Left and right change a value; it shows behind this page as you go.")
+                rows += Options.Row("close-art", "Done", primary = true)
+                rows += Options.Row("art", "Picture", value = "‹  ${Art.KINDS.firstOrNull { it.first == games.artKind }?.second}  ›", sub = "Which picture of the selected game (another if it doesn’t have that one)", tag = "kind")
+                rows += Options.Row("art", "Brightness", value = "${(games.artBright * 100).roundToInt()}%", sub = "How bright it is, behind everything", tag = "bright")
+                rows += Options.Row("art", "Height", value = "${((Stage.H - games.artTop) / Stage.H * 100).roundToInt()}% of the screen", sub = "How far up the screen it reaches", tag = "top")
+                rows += Options.Row("art", "Fade length", value = "${(games.artFade * 100).roundToInt()}%", sub = "How much of it fades out toward the top", tag = "fade")
+                rows += Options.Row("art", "Fade", value = "‹  ${Art.FADES[games.artFadeType]}  ›", sub = "A plain fade, dots that shrink, or lines that thin out", tag = "type")
+                rows += Options.Row("art", "Pan speed", value = if (games.artPan == 0f) "Still" else "${"%.2g".format(games.artPan)}×", sub = "How fast it drifts across", tag = "pan")
+                rows += Options.Row("art-reset", "Back to the starting look")
             }
             Step.LIGHT -> {
             page("Settings", "Lighting", "Press left or right to change a value, and watch the cartridge. Your choice is saved.")
@@ -174,6 +203,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         picker?.let { it.input(a); return }
         val r = options.current()
         if (r?.key == "light" && (a == "left" || a == "right")) return adjustLight(r.tag as String, if (a == "left") -1 else 1)
+        if (r?.key == "art" && (a == "left" || a == "right" || a == "a")) return adjustArt(r.tag as String, if (a == "left") -1 else 1)
         if (r?.key == "pageview" && (a == "left" || a == "right" || a == "a")) { games.pageView = (games.pageView + (if (a == "left") 2 else 1)) % 3; Sounds.play(Sounds.MOVE); return fill() }
         when (a) {
             "up" -> Sounds.play(if (options.move(-1)) Sounds.MOVE else Sounds.BUMP)
@@ -211,10 +241,25 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             "go" -> show(r.tag as Step)
             "again" -> { games.setupDone = false; host.finished(this) }
             "close" -> host.finished(this)
-            "close-light" -> show(Step.MENU)
+            "close-light", "close-saved", "close-art" -> show(Step.MENU)
+            "del-shell" -> (r.tag as Shell).let { s -> confirmDelete(s.name) { carts.shells.delete(s.id) } }
+            "del-look" -> (r.tag as ConsoleLook).let { l -> confirmDelete(l.name) { l.custom?.let { looks.delete(it) } } }
             "sounds" -> { games.sounds = !games.sounds; Sounds.enabled = games.sounds; Sounds.play(Sounds.PICK); fill() }
+            "art-reset" -> { games.artKind = "shot"; games.artBright = Art.BRIGHT; games.artTop = Art.TOP; games.artFade = Art.FADE; games.artFadeType = Art.DOTS; games.artPan = Art.PAN; host.artChanged(); fill() }
             "light-reset" -> { games.lightEnv = Look.ENV; games.lightExposure = Look.EXPOSURE; games.lightKey = Look.KEY; applyLight(); fill() }
         }
+    }
+
+    private fun adjustArt(which: String, d: Int) {
+        when (which) {
+            "kind" -> games.artKind = Art.KINDS[(Art.KINDS.indexOfFirst { it.first == games.artKind } + d + Art.KINDS.size) % Art.KINDS.size].first
+            "bright" -> games.artBright = (((games.artBright + .02f * d) * 50).roundToInt() / 50f).coerceIn(.02f, 1f)
+            "top" -> games.artTop = (games.artTop - 20f * d).coerceIn(150f, 650f)
+            "fade" -> games.artFade = ((games.artFade + .05f * d) * 20).roundToInt().coerceIn(1, 18) / 20f
+            "type" -> games.artFadeType = (games.artFadeType + d + 3) % 3
+            "pan" -> games.artPan = ((games.artPan + .25f * d) * 4).roundToInt().coerceIn(0, 16) / 4f
+        }
+        Sounds.play(Sounds.MOVE); host.artChanged(); fill()
     }
 
     private fun adjustLight(which: String, d: Int) {
@@ -234,6 +279,18 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
 
     /** Whatever Shelf suggested, and you didn't change, becomes the choice. */
     private fun keepSuggestions() { for (k in Games.NAMES.keys) if (games.emulator(k) == null) games.suggestion(k)?.let { games.setEmulator(k, it) } }
+
+    private fun ConsoleLooks.count() = Games.NAMES.keys.sumOf { all(it).size }
+
+    /** Asks before deleting something you made. */
+    private fun confirmDelete(name: String, delete: () -> Unit) {
+        val p = Picker(ctx, "Delete $name?", listOf(Picker.Row("Delete", "It can’t be brought back"), Picker.Row("Keep it", "")), start = 1) { k ->
+            if (k == 0) { delete(); host.toast("Deleted $name") }
+            fill()
+        }
+        p.onClose = { board.removeView(p); picker = null }
+        picker = p; board.put(p, 0, 0, 1334, 750)
+    }
 
     private var picker: Picker? = null
     private fun chooseEmulator(sys: String) {
@@ -271,6 +328,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
     }
 
     fun destroy() {
+        backdrop.previewArt = false
         board.removeView(panel); picker?.let { board.removeView(it) }
         showcase.values.forEach { it?.destroy() }; showcase.clear()
         backdrop.shadows.clear()
