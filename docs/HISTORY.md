@@ -559,3 +559,9 @@ every frame for 0.8 s. A VideoView doesn't follow the board's scaling (a Surface
 TextureView. Checked: the retrokit lookup for six consoles, renders of the cases (NES clips, DS shape, the booklet),
 compile-checked. Not checked: the media page, Settings › Media, the reader and the manual's flight (Android views and
 Filament, only on the device), and every network source but retrokit's GitHub data.
+
+**0.16.1: reading a manual closed the app** (the user, at once, with no problem page after). No Java report, so it
+was native: `TransformManager.getParent` returns an entity and `setParent` takes an instance, and the booklet was
+re-attached each frame with the entity. Lesson: in Filament's Java API check `@Entity` against `@EntityInstance` (the
+annotations are in the bytecode: `javap -v`), and prefer placing a node relative to its parent over re-parenting.
+Native crashes now show on the next start (`ApplicationExitInfo`, Android 11+).

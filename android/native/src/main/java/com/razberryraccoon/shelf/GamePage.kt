@@ -418,7 +418,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val f = manualFile() ?: return
         if (manualCoverFor == f.path) return
         manualCoverFor = f.path
-        Thread { val b = try { MediaPage.pdfCover(f, 512) } catch (e: Exception) { null }; board.post { if (closing || b == null) b?.recycle() else case?.manualArt(b) } }.start()
+        Thread { val b = try { MediaPage.pdfCover(f, 512) } catch (e: Throwable) { null }; board.post { if (closing || b == null) b?.recycle() else case?.manualArt(b) } }.start()
     }
     /**
      * Reads the manual: the box comes in and opens (if it wasn't showing), the booklet lifts out of the cover and comes
@@ -468,10 +468,9 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
             2 -> { manualK = min(1f, manualK + dt / .9f); if (manualK >= 1f) { manualStage = 3; manualFile()?.let { openReader(it) } ?: run { manualStage = 4 } } }
             4 -> { manualK = maxOf(0f, manualK - dt / .8f); if (manualK <= 0f) manualStage = 0 }
         }
-        c.manualIn(manualFocus)
-        if (manualK <= 0f) return
+        if (manualK <= 0f) return c.manualIn(manualFocus)
         // lifted off the cover toward you, then carried to the middle of the screen, facing you, as big as the reader's cover
-        val rest = c.manualWorld(); val ms = c.manualSize
+        val rest = c.manualRestWorld(); val ms = c.manualSize
         val out = FloatArray(16).also { android.opengl.Matrix.translateM(it, 0, rest, 0, 0f, 0f, if (c.jewel) 30f else -30f) }
         val s = Manual.PAGE_H / ms[1]
         val target = FloatArray(16).also { android.opengl.Matrix.setIdentityM(it, 0); android.opengl.Matrix.translateM(it, 0, Stage.W / 2, Stage.H - 50f - Manual.PAGE_H / 2, 400f)

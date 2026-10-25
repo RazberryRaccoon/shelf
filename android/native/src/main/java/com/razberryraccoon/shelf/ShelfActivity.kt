@@ -46,6 +46,9 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
             try { crashFile.writeText(android.util.Log.getStackTraceString(e)) } catch (_: Exception) { }
             previous?.uncaughtException(t, e)
         }
+        // A crash below Kotlin (in the 3D engine or Android's own code) can't be caught above; Android keeps why the app
+        // last stopped, though, so a native crash since the last look is shown the same way
+        nativeCrash(crashFile)
         // If the last start never got going (or closed on an error), show what happened instead of starting the 3D again
         booting = java.io.File(filesDir, "booting")
         if (booting.exists() || crashFile.exists()) { safeMode = true; showProblem(crashFile); return }
@@ -88,12 +91,29 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
     private var frames = 0
 
     /** A plain screen (no 3D, no custom fonts) with what went wrong: Shelf's own saved error, or Android's log of it. */
+    /** Android's record of how Shelf last stopped: a native crash not seen before is written where crashes are kept. */
+    private fun nativeCrash(crashFile: java.io.File) {
+        try {
+            val am = getSystemService(android.app.ActivityManager::class.java) ?: return
+            val last = am.getHistoricalProcessExitReasons(packageName, 0, 1).firstOrNull() ?: return
+            val prefs = getSharedPreferences("shelf", MODE_PRIVATE)
+            if (last.timestamp <= prefs.getLong("exit-seen", 0L)) return
+            prefs.edit().putLong("exit-seen", last.timestamp).apply()
+            if (last.reason != android.app.ApplicationExitInfo.REASON_CRASH_NATIVE || crashFile.exists()) return
+            val lines = ArrayList<String>()
+            lines += "Native crash (in the 3D engine or Android): ${last.description ?: "no description"}"
+            lines += "At ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date(last.timestamp))}"
+            lines += lastErrors()   // Android's log from then, where it still has it (the native backtrace's first lines)
+            crashFile.writeText(lines.joinToString("\n"))
+        } catch (_: Exception) { }
+    }
+
     private fun showProblem(crashFile: java.io.File) {
         val lines = if (crashFile.exists()) crashFile.readLines().map { it.trim() }.filter { it.isNotEmpty() }.take(14) else lastErrors()
         val col = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.VERTICAL; setPadding(64, 48, 64, 48); setBackgroundColor(Theme.bg) }
         fun line(t: String, size: Float, color: Int, mono: Boolean = false) = android.widget.TextView(this).apply {
             text = t; textSize = size; setTextColor(color); if (mono) typeface = android.graphics.Typeface.MONOSPACE; setPadding(0, 6, 0, 6) }
-        col.addView(line("Shelf Native closed while starting last time", 22f, Theme.fg))
+        col.addView(line(if (crashFile.exists()) "Shelf Native closed on an error last time" else "Shelf Native closed while starting last time", 22f, Theme.fg))
         col.addView(line("A photo of this screen helps Claude fix it.", 15f, Theme.fg2))
         for (l in lines.ifEmpty { listOf("No details were saved.") }) col.addView(line(l.take(160), 11f, Theme.fg2, mono = true))
         col.addView(line("A  Try again        B  Close", 17f, Theme.fg))
