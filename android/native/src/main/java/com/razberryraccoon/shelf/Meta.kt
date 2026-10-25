@@ -19,15 +19,16 @@ class Meta(private val ctx: Context, private val games: Games) {
     class Info(val name: String?, val fields: Map<String, String>, val pics: Map<String, File>)
     companion object {
         val KINDS = listOf("box" to "Box", "title" to "Title screen", "shot" to "Screenshot")
-        private const val VERSION = 2
+        private const val VERSION = 3   // 3: the whole Wikipedia article, for About's article page
         private const val WIKI = "https://en.wikipedia.org/w/api.php?format=json&formatversion=2&action=query"
     }
 
     /**
-     * The opening section of the game's Wikipedia article, as plain text: a search for the title as a video game on its
-     * console, keeping only an article whose title matches the game's closely and that's about a video game.
+     * The game's Wikipedia article as plain text, with its section headings as "== Gameplay ==" lines (its title, the
+     * opening section, and the whole thing): a search for the title as a video game on its console, keeping only an
+     * article whose title matches the game's closely and that's about a video game.
      */
-    private fun wikipedia(title: String, sys: String): String? = try {
+    private fun wikipedia(title: String, sys: String): Triple<String, String, String>? = try {
         val clean = title.replace(Regex("\\s+"), " ").trim()
         val words = ArtIndex.norm(clean).split(" ").filter { it.isNotEmpty() }.toTypedArray()
         val q = "\"$clean\" video game ${Games.NAMES[sys] ?: ""}"
@@ -43,9 +44,11 @@ class Meta(private val ctx: Context, private val games: Games) {
             if (s > bestScore) { bestScore = s; best = t }
         }
         if (best == null || bestScore < .6) null else {
-            val page = JSONObject(String(ArtIndex.download("$WIKI&prop=extracts&exintro=1&explaintext=1&redirects=1&titles=" + ArtIndex.enc(best)) ?: return null))
+            val page = JSONObject(String(ArtIndex.download("$WIKI&prop=extracts&explaintext=1&exsectionformat=wiki&redirects=1&titles=" + ArtIndex.enc(best)) ?: return null))
                 .getJSONObject("query").getJSONArray("pages").getJSONObject(0)
-            page.optString("extract").trim().replace(Regex("\\n{2,}"), "\n\n").takeIf { it.length > 80 && !it.contains("may refer to") }
+            val all = page.optString("extract").trim().replace(Regex("\\n{2,}"), "\n\n")
+            val intro = all.substringBefore("\n==").trim()
+            if (intro.length > 80 && !intro.contains("may refer to")) Triple(page.optString("title", best!!), intro, all) else null
         }
     } catch (e: Exception) { null }
 
@@ -84,7 +87,8 @@ class Meta(private val ctx: Context, private val games: Games) {
             ?: ix.search(g.title, 1).firstOrNull()?.takeIf { it.score >= .6 }?.e?.name
         val fields = HashMap(name?.let { ix.details(it) } ?: emptyMap())
         // libretro rarely has a description; Wikipedia's article on the game usually does (its opening section)
-        if ((fields["description"]?.length ?: 0) < 200) wikipedia(name?.let { ArtIndex.stripTags(it) } ?: g.title, g.sys)?.let { fields["description"] = it; fields["descsource"] = "Wikipedia" }
+        if ((fields["description"]?.length ?: 0) < 200) wikipedia(name?.let { ArtIndex.stripTags(it) } ?: g.title, g.sys)?.let { (t, intro, all) ->
+            fields["description"] = intro; fields["descsource"] = "Wikipedia"; fields["article"] = all; fields["wikititle"] = t }
         val pics = HashMap<String, File>()
         if (name != null) for ((kind, _) in KINDS) {
             val f = File(dir, key(g) + "-" + kind + ".png")

@@ -536,3 +536,12 @@ the box and slots it in again. A straight lift toward the camera hardly shows th
 the cartridge waits a little above the tray as well. Checked with contact sheets of the flow (SNES, Genesis, in
 perspective with the app's lens), the new teardown (NES, Game Boy) and the Game Boy pockets; compile-checked. Not
 checked on a device.
+
+**Shelf Native 0.15 (October 2026): three notes.** Customize shell from Game settings boxed the cartridge, because only
+Game settings itself kept the box away; now anything but the page itself does. About's article needed the whole
+Wikipedia article, so the look-up asks for it with its section headings (`exsectionformat=wiki`) and keeps the
+opening as the description; reference sections and headings left empty (Wikipedia's plain text drops tables, so a
+Reception section can be just a heading) are dropped. Cartridge Inside: the first angle (-.8) hid the board behind the
+front half; -1.05 with a wider gap shows it between the halves. Checked with contact sheets of Cartridge Inside (NES,
+Game Boy, GBA, N64, SNES, Genesis, at rest and turned) and the article's parsing on a sample in Wikipedia's format
+(Wikipedia can't be reached from Claude's sandbox); compile-checked. Not checked on a device.

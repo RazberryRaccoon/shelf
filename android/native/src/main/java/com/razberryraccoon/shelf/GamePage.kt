@@ -74,8 +74,10 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     // each view's resting angle: the cartridge's front a little turned so its side shows, the open box from a little
     // above so the tray shows, the closed box's front; X adds a half turn to show the back
     // taken apart (Game settings), looking down on the surface the parts lie on
-    private val restPitch: Float get() = if (tearing) -.95f else when (view) { 1 -> -.42f; 2 -> -.12f; else -> -.1f }
-    private val restYaw: Float get() = (if (tearing) 0f else when (view) { 1 -> -.12f; 2 -> -.35f; else -> -.28f }) + if (flipped) PI.toFloat() else 0f
+    // Customize shell and the Studio always show the cartridge itself, out of its box, so you see the colors you pick
+    private val shown get() = if (mode == Mode.PAGE) view else 0
+    private val restPitch: Float get() = if (tearing) -.95f else when (shown) { 1 -> -.42f; 2 -> -.12f; else -> -.1f }
+    private val restYaw: Float get() = (if (tearing) 0f else when (shown) { 1 -> -.12f; 2 -> -.35f; else -> -.28f }) + if (flipped) PI.toFloat() else 0f
     private var yaw = -.2f; private var pitch = -.1f
     private var vYaw = 0f; private var vPitch = 0f
     private var idle = 9f                // seconds since the stick was last used
@@ -96,7 +98,8 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     private val picsHead = head("PICTURES")
     private val shots = Shots(ctx)
     private val aboutHead = head("ABOUT")
-    private val about = text(21f, Fonts.body, Theme.fg2).apply { setLineSpacing(0f, 1.45f); setPadding(18, 14, 18, 16) }
+    private val about = text(21f, Fonts.body, Theme.fg2).apply { setLineSpacing(0f, 1.45f); setPadding(18, 14, 18, 16); maxLines = 9; ellipsize = TextUtils.TruncateAt.END }
+    private val readMore = key("A", "Read the article").apply { alpha = 0f }
     private val credit = text(17f, Fonts.body, Theme.fg3).apply { setPadding(18, 0, 18, 0) }
     private val listHead = head("")
     private val list = Options(ctx)
@@ -110,6 +113,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     private var before: Variant? = null  // the shell color to go back to if you press B
     private var info: Meta.Info? = null
     private var viewer: Viewer? = null
+    private var article: Article? = null   // About, opened up as an article
     private var shotsFor: Meta.Info? = null   // the look-up the thumbnails were made from
 
     init {
@@ -126,6 +130,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         col.addView(shots, LinearLayout.LayoutParams(-1, Shots.HEIGHT).apply { topMargin = 6; leftMargin = -Shots.INSET; rightMargin = -Shots.INSET })
         col.addView(aboutHead, lp(16))
         col.addView(about, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 4; leftMargin = -18; rightMargin = -18 })
+        col.addView(readMore, LinearLayout.LayoutParams(-2, -2).apply { topMargin = 2; bottomMargin = 10 })
         col.addView(credit, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 4; leftMargin = -18; rightMargin = -18 })
         scroll.addView(col, android.widget.FrameLayout.LayoutParams(-1, -2))
         panel.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f).apply { leftMargin = -EDGE; rightMargin = -EDGE })   // reaches into the padding: room for focus rings
@@ -189,7 +194,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
 
     fun tick(dt: Float) {
         time += dt
-        viewer?.tick(dt)
+        viewer?.tick(dt); article?.tick(dt)
         // closing: the cartridge comes out of its box and the box slides away first, then it goes back to the row
         t = if (closing) (if (flow.s > .02f) t else maxOf(0f, t - dt / .5f)) else min(1f, t + dt / .6f)
         val k = Backdrop.ease(t)
@@ -203,7 +208,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         if (studio == null && studioK == 0f && studioPanel.parent != null) board.removeView(studioPanel)
         // the stick: turn while held, coast when let go, then settle back to the front (or the back, after X)
         val sx = dead(stickX); val sy = dead(stickY)
-        if (!closing && viewer == null && (sx != 0f || sy != 0f)) {
+        if (!closing && viewer == null && article == null && (sx != 0f || sy != 0f)) {
             vYaw += (sx * 3.4f - vYaw) * min(1f, dt * 8f); vPitch += (sy * 2.6f - vPitch) * min(1f, dt * 8f)
             idle = 0f
         } else {
@@ -228,7 +233,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val ty = (cart?.style?.h ?: 0f) * .3f * (px / big) * te
         val ry = lerp(-.2f, yaw, k); val rx = lerp(-.1f, pitch, k)
         if (!launching) cart?.place(x, y - ty, lerp(40f, 70f, k), ry, rx, px, held = true)
-        val boxedTo = if (case == null || closing || launching || mode == Mode.SETTINGS || tk > .02f || t < .25f) 0f else when (view) { 1 -> 2f; 2 -> 3f; else -> 0f }
+        val boxedTo = if (case == null || closing || launching || mode != Mode.PAGE || tk > .02f || t < .25f) 0f else when (view) { 1 -> 2f; 2 -> 3f; else -> 0f }
         val was = flow.s
         flow.tick(dt, boxedTo, if (closing) 1.3f else 1f)
         if (was < 2f && flow.s >= 2f) Sounds.play(Sounds.CLICK)        // the cartridge seats in its tray
@@ -252,6 +257,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     fun input(a: String) {
         if (closing) return
         viewer?.let { if (it.input(a)) return }
+        article?.let { if (it.input(a)) return }
         when (mode) {
             Mode.COLORS -> return colorsInput(a)
             Mode.STUDIO -> return if (a == "x") flip() else studio?.input(a) ?: Unit
@@ -288,6 +294,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
                 // reading: up and down scroll the text, and leave it at either end
                 "up" -> if (scroll.scrollY > aboutHead.top - 40 + 10) scroll.smoothScrollBy(0, -140) else goTo(if (shots.count > 0) Zone.PICS else Zone.TILES)
                 "down" -> if (scroll.scrollY + scroll.height < col.height) scroll.smoothScrollBy(0, 140) else Sounds.play(Sounds.BUMP)
+                "a" -> openArticle()
             }
         }
     }
@@ -296,12 +303,13 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         zone = z; Sounds.play(Sounds.MOVE)
         tiles.active = z == Zone.TILES; shots.active = z == Zone.PICS
         about.background = if (z == Zone.ABOUT) round(Theme.chip, 22f, Theme.sel, 2.5f) else null
+        readMore.animate().alpha(if (z == Zone.ABOUT && info?.fields?.get("description") != null) 1f else 0f).setDuration(200).start()
         tiles.invalidate(); shots.invalidate()
         // keep the part you're in in view
         scroll.smoothScrollTo(0, when (z) { Zone.TILES -> 0; Zone.PICS -> picsHead.top - 80; Zone.ABOUT -> aboutHead.top - 40 }.coerceAtLeast(0))
     }
 
-    fun close() { if (!closing) { closing = true; studio = null; viewer?.let { board.removeView(it); viewer = null }; if (mode == Mode.COLORS) endColors(keep = false); Sounds.play(Sounds.CLOSE) } }
+    fun close() { if (!closing) { closing = true; studio = null; viewer?.let { board.removeView(it); viewer = null }; article?.let { board.removeView(it); article = null }; if (mode == Mode.COLORS) endColors(keep = false); Sounds.play(Sounds.CLOSE) } }
 
     private fun play() {
         if (games.emulatorFor(game) == null) return chooseEmulator(then = true)
@@ -346,6 +354,20 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val v = Viewer(ctx, pics.map { it.first }, pics.map { meta.bitmap(it.second, 1200) }, shots.at, title.text.toString())
         v.onClose = { board.removeView(v); if (viewer === v) viewer = null }
         viewer = v; board.put(v, 0, 0, 1334, 750)
+        Sounds.play(Sounds.OPEN)
+    }
+
+    /** About as a full article over everything: the game's name and facts, the whole Wikipedia article, its pictures. */
+    private fun openArticle() {
+        val i = info ?: return Sounds.play(Sounds.BUMP)
+        val f = i.fields
+        val text = f["article"] ?: f["description"] ?: return Sounds.play(Sounds.BUMP)
+        val facts = listOfNotNull(f["releaseyear"], f["developer"], f["publisher"]?.takeIf { it != f["developer"] }, f["genre"])
+        val source = if (f["descsource"] == "Wikipedia") "From Wikipedia" + (f["wikititle"]?.let { "’s article “$it”" } ?: "") + ", under CC BY-SA 4.0." else null
+        val pics = Meta.KINDS.mapNotNull { (k, name) -> i.pics[k]?.let { name to meta.bitmap(it, 900) } }
+        val v = Article(ctx, game.sys, title.text.toString(), facts, text, source, pics)
+        v.onClose = { board.removeView(v); if (article === v) article = null }
+        article = v; board.put(v, 0, 0, 1334, 750)
         Sounds.play(Sounds.OPEN)
     }
 
@@ -585,7 +607,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
 
     fun destroy() {
         case?.destroy(); tool?.destroy()
-        board.removeView(panel); board.removeView(hint); board.removeView(studioPanel); viewer?.let { board.removeView(it) }
+        board.removeView(panel); board.removeView(hint); board.removeView(studioPanel); viewer?.let { board.removeView(it) }; article?.let { board.removeView(it) }
         stage.turnKey(0f)
         shots.recycle()
     }

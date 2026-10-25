@@ -39,7 +39,8 @@ that we've learned … and make an Android game launcher that's the best it can 
   drawing (the stick turns only the board), hollow shells; 0.11 fixes their shading; 0.12 the start and return
   animations (`Launch.kt`) and the box on the game page (cartridge, open box, closed box; L2/R2; a Settings default);
   0.13 the user's ten notes (lids, cartridge teardown in Game settings, Home picture settings, real box sizes…); 0.14 the user's five notes (one box sequence, `BoxFlow`, for the page
-  and the Museum; a slower, roomier teardown; smaller Game Boy pockets; a bigger closed box).
+  and the Museum; a slower, roomier teardown; smaller Game Boy pockets; a bigger closed box); 0.15 the user's three notes (Customize shell
+  always shows the cartridge, About as an article (`Article.kt`), the Museum's Cartridge Inside).
   Next: the Library (see DECISIONS.md and ROADMAP.md). The user paused inspecting the rarer shell colors until they can be seen big (0.3 makes that possible).
   Kotlin is compile-checked locally with the Kotlin 2.4 compiler against `android-all` and Filament's AARs.
 - The Android SDK can't be downloaded in Claude's sandbox (dl.google.com is blocked): compile-check the Java against
