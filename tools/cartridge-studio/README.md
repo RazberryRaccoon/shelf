@@ -53,4 +53,12 @@ prototype's clamshell cases at the real boxes' sizes, with a cover on a hinge, a
 tray the cartridge sits in), and `--no-carts` leaves the cartridges as they are. Run it again after changing the models
 and commit the results.
 
-`vendor/` holds three.js 0.160.0 (MIT, see `THREE-LICENSE`) and the files it needs, so the page works offline.
+Every cartridge is built in two halves like the real ones: front and back walls and a middle layer, with a fine seam
+line around the sides where the halves meet. Cartridges with an edge connector (NES, SNES, N64, Genesis, Game Boy,
+Game Boy Color, GBA) are hollow and open at the bottom, so the circuit board shows from below; the DS and Android cards
+have their gold contacts on the back, set into a pocket between plastic ribs (`contacts` in `cartridges.js`). The
+board's back carries a printed silkscreen (`boardPrint` in `cartridge.js`): RaccoonTek in Orbitron, an invented part
+number, traces and contacts, seen through a clear shell's back.
+
+`vendor/` holds three.js 0.160.0 (MIT, see `THREE-LICENSE`) and the files it needs, so the page works offline, and
+`vendor/fonts/Orbitron.ttf` (SIL Open Font License, see `Orbitron-OFL.txt`) for the boards' print.

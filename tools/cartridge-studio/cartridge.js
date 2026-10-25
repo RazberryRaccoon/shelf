@@ -110,10 +110,37 @@ export function buildCartridge(style, opts) {
   const plastic = plasticMaterial(opts.finish);
   const group = new THREE.Group(); group.name = style.name;
 
-  // the body, up to the bottom of the label recess…
-  const core = new THREE.Mesh(slab(body, [], back, front - recess, b, segments), plastic); core.name = 'body';
-  // …and a front plate with the recess cut through it. Its back edge is buried inside the body, so no seam shows;
-  // the hole's own bevel rounds the edge of the recess.
+  // The body is built like the real thing, from two halves: a back wall and a front wall (each rounded on its outer
+  // edge) and a middle layer between them with no bevel, reaching into the walls' rounded inner ends so the sides stay
+  // one smooth surface. Where the halves meet, a fine seam runs around the sides: the middle is split there, and a
+  // slightly smaller strip fills the gap. Cartridges with an edge connector are hollow and open at the bottom, a slot
+  // cut up into the middle layer as tall and wide as the circuit board, so it shows from below. Cards keep their
+  // contacts on the outside: a shallow pocket in the back wall with gold contacts between plastic ribs.
+  const floorZ = front - recess, [W0, H0] = style.size;
+  const bw0 = W0 * .78, bh0 = H0 * .72, pcbTop = -H0 / 2 + bh0 + H0 * .03;
+  const slotted = style.slot !== false && D >= 6;
+  const skin = Math.min(2 * b + .4, D * .3), mid0 = back + skin - b, mid1 = floorZ - skin + b;
+  const core = new THREE.Group(); core.name = 'shell';
+  const ct = style.contacts, pocket = ct && rrect(0, -H0 / 2 + ct.bottom + ct.h / 2 + .1, ct.n * ct.pitch + .5, ct.h + .5, .4);
+  const backWall = new THREE.Mesh(slab(body, pocket ? [pocket] : [], back, back + skin, b, segments), plastic); backWall.name = 'body';
+  const frontWall = new THREE.Mesh(slab(body, [], floorZ - skin, floorZ, b, segments), plastic); frontWall.name = 'body';
+  core.add(backWall, frontWall);
+  const middleLine = slotted ? withSlot(body, bw0 + 2, pcbTop + 1.2) : body;
+  const seam = Math.max(.3, D * .025), seamZ = Math.min(Math.max((back + front) / 2, mid0 + seam + .2), mid1 - seam - .2);
+  const halves = [[mid0, seamZ - seam / 2], [seamZ + seam / 2, mid1]];
+  for (const [z0, z1] of halves) { const m = new THREE.Mesh(slab(middleLine, [], z0, z1, 0, 1), plastic); m.name = 'body'; core.add(m); }
+  const filler = new THREE.Mesh(slab(offset(middleLine, -Math.min(.2, seam * .5)), [], seamZ - seam / 2 - .05, seamZ + seam / 2 + .05, 0, 1), plastic); filler.name = 'body';
+  core.add(filler);
+  if (ct) {   // the card's contacts: gold, on the pocket's floor, with ribs between them up to the back's surface
+    const gold = new THREE.MeshPhysicalMaterial({ color: '#d6b25a', metalness: 1, roughness: .28, clearcoat: .2 }); gold.name = 'contact-gold';
+    const cy = -H0 / 2 + ct.bottom + ct.h / 2 + .1, depth = mid0 - back, x0 = -(ct.n - 1) * ct.pitch / 2;
+    for (let i = 0; i < ct.n; i++) {
+      const pad = new THREE.Mesh(new THREE.BoxGeometry(ct.w, ct.h, .08), gold); pad.position.set(x0 + i * ct.pitch, cy, mid0 - .04); pad.name = 'contact'; core.add(pad);
+      if (i < ct.n - 1) { const rib = new THREE.Mesh(new THREE.BoxGeometry(ct.pitch - ct.w - .1, ct.h + .5, depth), plastic); rib.position.set(x0 + (i + .5) * ct.pitch, cy, back + depth / 2); rib.name = 'body'; core.add(rib); }
+    }
+  }
+  // …and a front plate with the recess cut through it. Its back edge is buried in the front wall and the middle, so no
+  // groove shows; the hole's own bevel rounds the edge of the recess.
   const overlap = 2 * Math.min(b, recess) + .3;
   const plate = new THREE.Mesh(slab(body, holes, front - recess - overlap, front, Math.min(b, (recess + overlap) / 2 - .02), segments), plastic); plate.name = 'front';
   group.add(core, plate);
@@ -133,11 +160,15 @@ export function buildCartridge(style, opts) {
     const m = new THREE.Mesh(slab(rrect(r.x, r.y, r.w, r.h, Math.min(r.r, r.h / 2)), [], z0, z1, Math.min(b, r.height * .45, r.h * .3), Math.max(2, segments - 2)), plastic);
     m.name = 'ridge'; group.add(m);
   }
-  // the circuit board inside, seen only through clear plastic
-  const [W, H] = style.size, inside = new THREE.Group(); inside.name = 'inside'; inside.visible = false;
+  // the circuit board inside, seen through clear plastic and, on slotted cartridges, from below
+  const [W, H] = style.size, inside = new THREE.Group(); inside.name = 'inside'; inside.visible = slotted;
   const bw = W * .78, bh = H * .72, bz = back + D * .38, by = -H / 2 + bh / 2 + H * .03;
   const pcb = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, Math.min(1, D * .12)), new THREE.MeshPhysicalMaterial({ color: '#2c6a43', roughness: .55, clearcoat: .3 }));
   pcb.position.set(0, by, bz); inside.add(pcb);
+  // the board's back, printed like a real one (boardPrint): seen through a clear shell's back
+  const pt = Math.min(1, D * .12), print = new THREE.Mesh(new THREE.PlaneGeometry(bw * .98, bh * .98).rotateY(Math.PI),
+    new THREE.MeshPhysicalMaterial({ map: opts.boardTexture || boardPrint(style), roughness: .6, clearcoat: .2, clearcoatRoughness: .5 }));
+  print.position.set(0, by, bz - pt / 2 - .03); print.name = 'pcb-print'; inside.add(print);
   const chip = new THREE.Mesh(new THREE.BoxGeometry(bw * .38, bh * .3, Math.min(1.4, D * .15)), new THREE.MeshPhysicalMaterial({ color: '#141418', roughness: .5 }));
   chip.position.set(-bw * .12, by + bh * .12, bz + Math.min(1.2, D * .14)); inside.add(chip);
   const gold = new THREE.MeshPhysicalMaterial({ color: '#d6b25a', metalness: 1, roughness: .3 }), n = Math.max(8, Math.round(bw / 2.6));
@@ -146,8 +177,61 @@ export function buildCartridge(style, opts) {
     c.position.set(-bw / 2 + (i + .5) * bw / n, by - bh / 2 + bh * .07, bz + Math.min(.55, D * .07)); inside.add(c);
   }
   group.add(inside);
-  group.userData.materials = { plastic, label: label.material };
+  group.userData.materials = { plastic, label: label.material }; group.userData.slotted = slotted;
   return group;
+}
+
+// The outline with a slot cut up into it from the middle of its bottom edge: `w` wide (at most the straight part of
+// the bottom edge, less a millimetre each side) and reaching up to `top`.
+function withSlot(pts, w, top) {
+  const minY = Math.min(...pts.map(p => p[1])), out = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], c = pts[(i + 1) % pts.length];
+    out.push(a);
+    if (Math.abs(a[1] - minY) < 1e-6 && Math.abs(c[1] - minY) < 1e-6 && c[0] - a[0] > 4) {   // the bottom edge, left to right
+      const mid = (a[0] + c[0]) / 2, half = Math.min(w, c[0] - a[0] - 2) / 2;
+      out.push([mid - half, minY], [mid - half, top], [mid + half, top], [mid + half, minY]);
+    }
+  }
+  return out;
+}
+
+// ---------- the circuit board's print ----------
+
+// Orbitron (SIL Open Font License, vendor/fonts) for the board's maker: RaccoonTek. ready resolves once it's loaded.
+export const fontReady = typeof FontFace === 'undefined' ? Promise.resolve() :
+  new FontFace('Orbitron', 'url(./vendor/fonts/Orbitron.ttf)', { weight: '400 900' }).load().then(f => document.fonts.add(f)).catch(() => {});
+
+// The back of a circuit board: green solder mask, faint copper traces, white silkscreen: RaccoonTek, the board's part
+// number, and a few tiny markings. Drawn for each cartridge style at its board's proportions.
+// RaccoonTek's own part numbers, one per board (invented; no console maker's names on the boards)
+const BOARD_CODES = { 'NES': 'RT-8B-01', 'Super Nintendo': 'RT-16S-02', 'Nintendo 64': 'RT-64X-03', 'Sega Genesis': 'RT-16G-04',
+  'Game Boy': 'RT-PK1-05', 'Game Boy Color': 'RT-PK2-06', 'Game Boy Advance': 'RT-PK3-07' };
+export function boardPrint(style) {
+  const [W0, H0] = style.size, aspect = (W0 * .78) / (H0 * .72), w = 1024, h = Math.round(w / aspect);
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d');
+  x.fillStyle = '#1d5a3b'; x.fillRect(0, 0, w, h);
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  x.strokeStyle = 'rgba(120, 190, 140, .28)'; x.lineWidth = w * .006; x.lineCap = 'round'; x.lineJoin = 'round';
+  for (let i = 0; i < 26; i++) {   // traces: straight runs with 45° turns, the way boards are routed
+    let px = rnd() * w, py = h * (.12 + rnd() * .76); x.beginPath(); x.moveTo(px, py);
+    for (let k = 0; k < 3; k++) { const d = w * (.05 + rnd() * .14), dir = Math.floor(rnd() * 4); if (dir === 0) px += d; else if (dir === 1) px -= d; else { px += d * (dir === 2 ? .7 : -.7); py += d * .7 * (rnd() < .5 ? 1 : -1); } x.lineTo(px, py); }
+    x.stroke(); x.fillStyle = 'rgba(200, 220, 160, .45)'; x.beginPath(); x.arc(px, py, w * .007, 0, Math.PI * 2); x.fill();
+  }
+  x.fillStyle = '#c9a54e';   // the contacts' row along the bottom edge
+  const n = Math.max(8, Math.round(W0 * .78 / 2.6));
+  for (let i = 0; i < n; i++) x.fillRect((i + .2) * w / n, h * .9, w / n * .6, h * .1);
+  x.strokeStyle = 'rgba(240, 244, 236, .85)'; x.lineWidth = w * .004; x.strokeRect(w * .04, h * .06, w * .92, h * .78);
+  x.fillStyle = '#f0f4ec'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  let size = w * .13; x.font = `800 ${size}px Orbitron, sans-serif`;
+  const tw = x.measureText('RaccoonTek').width; if (tw > w * .78) { size *= w * .78 / tw; x.font = `800 ${size}px Orbitron, sans-serif`; }
+  x.fillText('RaccoonTek', w / 2, h * .4);
+  x.font = `500 ${size * .3}px Orbitron, sans-serif`;
+  x.fillText(`${BOARD_CODES[style.name] || 'RT-01'}  ·  REV 2.0`, w / 2, h * .4 + size * .78);
+  x.textAlign = 'left'; x.font = `500 ${size * .2}px Orbitron, sans-serif`;
+  x.fillText('U1', w * .08, h * .14); x.fillText('C3', w * .84, h * .72);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return t;
 }
 
 // A disc: a thin ring, glossy underneath, with the label printed across the top and a clear hub around the hole.
@@ -179,7 +263,7 @@ export function applyVariant(group, variant, tune) {
   m.transmission = clear ? 1 : 0; m.thickness = clear ? 2.5 : 0; m.ior = 1.49;
   m.attenuationColor.set(clear ? variant.color : '#ffffff'); m.attenuationDistance = clear === 'transparent' ? 30 : clear ? 10 : Infinity;
   if (clear) m.color.lerp(new THREE.Color(1, 1, 1), .35);   // see-through plastic is tinted mostly by its depth, not its surface
-  const inside = group.getObjectByName('inside'); if (inside) inside.visible = !!clear;   // discs and cards have nothing inside
+  const inside = group.getObjectByName('inside'); if (inside && !group.userData.slotted) inside.visible = !!clear;   // a slotted cartridge's board shows from below too
 }
 
 // ---------- a label to show until you load your own art ----------

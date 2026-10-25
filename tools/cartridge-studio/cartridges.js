@@ -94,6 +94,7 @@ export const STYLES = {
     name: 'Nintendo DS', size: [35, 33], depth: 3.8,
     outline: [[-17.5, -16.5, 1], [17.5, -16.5, 1], [17.5, 13.5, .4], [14.5, 16.5, .4], [-17.5, 16.5, 1.2]],
     label: [0, -3, 28, 20, .8, .35],
+    contacts: { n: 17, pitch: 1.45, w: .85, h: 4.2, bottom: .7 },   // on the back, along the bottom edge, set in between ribs
     ridges: repeat(3, i => ({ x: -1.5, y: 10.6 + i * 1.6, w: 18, h: .7, r: .35, height: .25, side: 'front' })),
     finish: plastic('#3b3d47', .42, .45),
     variants: [v('Gray', '#3b3d47', 'Standard'), v('White', '#e6e6ea', 'DSi-only games'),
@@ -111,6 +112,7 @@ export const STYLES = {
     name: 'Android game card', size: [42, 30], depth: 3.5,
     outline: [[-21, -15, 2.2], [21, -15, 2.2], [21, 15, 2.2], [-21, 15, 2.2]],
     label: [0, -2, 34, 20, 1.2, .35],
+    contacts: { n: 10, pitch: 2.3, w: 1.5, h: 4, bottom: .7 },
     ridges: repeat(3, i => ({ x: 0, y: 10.6 + i * 1.5, w: 20, h: .6, r: .3, height: .25, side: 'front' })),
     finish: plastic('#262a3a', .4, .5),
     variants: [v('Midnight', '#262a3a', 'Standard'), v('White', '#e6e6ea', ''), v('Red', '#c0392b', ''), v('Blue', '#2d5fa8', '')],

@@ -265,6 +265,10 @@ Summarized from the first part of the conversation; the full transcript is kept 
   cartridge, cartridge in box, box closed. Make all the new lighting and model texturing apply to the console designs."
   A console's default shell applies to its standard cartridges; special editions are recognized automatically from the
   title ("Yes, auto-detect") and keep their real colors, as do games the user customized.
+- Open-bottomed cartridges (after 0.6): "open the bottom of the cartridge up, just like the real cartridges, and have the
+  circuitboard visible by looking in from the bottom." Every board's back says "RaccoonTek" "in a futuristic/technologic
+  font" (Orbitron), "small but readable … only really visible when a clear material is selected." Cards and discs
+  stay solid.
 - **For the box round (the user, after 0.5):** "when the completed game page is finished and the default is the
   cartridge in the open box, I want selecting the cartridge in the box to 'pick up the cartridge' and hide the box,
   producing a view similar to how the game page is now. But the cartridge in the open box stays the default." Close

@@ -408,3 +408,18 @@ the tray; the NES cartridge nearly fills its box, so the tray's well came out as
 and a comment swallowed the line that added the front art. Special editions are recognized from the title against the
 cartridge research (checked against 26 real file names, accents and "Black and White" included). Not checked on a
 device.
+
+After 0.6, the user: "I'd like to open the bottom of the cartridge up, just like the real cartridges, and have the
+circuitboard visible by looking in from the bottom," and every board printed "RaccoonTek" in a futuristic font,
+visible through a clear shell's back. The cartridges with edge connectors are now built hollow in the Studio: a back
+and a front wall (rounded on their outer edges) and an unbeveled middle layer with a slot cut up from the bottom edge,
+reaching into the walls' rounded inner ends so the sides stay seamless. The board shows in every shell now, and its
+back is printed (Orbitron, OFL) with an invented part number (the first draft used console names, which the no-branding
+rule doesn't allow). Checked with headless renders from below and through a clear back drawn the way the app draws
+it, and with the app's own see-through conversion on every model. Not checked on a device.
+
+Then: the DS and Android cards' contacts on the outside, gold and set in a little, and "a faint - but visible - seam
+line on the edges of the cartridges, just like the real thing." Every cartridge is now two halves: the middle layer is
+split at mid-depth with a slightly smaller strip filling the gap, leaving a groove about 0.3–0.4 mm wide and 0.15 mm
+deep around the sides; the cards' contacts sit on a pocket's floor 0.3 mm below the back, between ribs flush with it.
+Checked by ray probes (the seam's depth, the contacts' inset) and renders.

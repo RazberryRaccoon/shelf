@@ -18,7 +18,7 @@ import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { STYLES } from './cartridges.js';
 import { CONSOLES } from './consoles.js';
-import { buildCartridge, applyVariant } from './cartridge.js';
+import { buildCartridge, applyVariant, fontReady } from './cartridge.js';
 import { buildConsole } from './console.js';
 import { buildCase, CASES } from './case.js';
 
@@ -33,6 +33,7 @@ const CASE_COLORS = { genesis: ['#17181d', '#101114'], ps1: ['#24262e', '#16171c
 
 window.exportAll = async ({ consoles = false, cases = false, carts = true } = {}) => {
   const files = {}, variants = {};
+  await fontReady;   // the circuit boards' print uses Orbitron
   for (const [id, style] of Object.entries(carts ? STYLES : {})) {
     const tune = { ...DEFAULTS, ...style.finish };
     const cart = buildCartridge(style, { bevel: tune.bevel, segments: tune.segments, finish: tune, labelTexture: placeholder() });
