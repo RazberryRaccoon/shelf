@@ -76,8 +76,7 @@ class Case(stage: Stage, asset: FilamentAsset, title: String, private val sample
     // the manual: a booklet inside the cover (a jewel case's front booklet), which can be lifted a little or carried out
     private val manual = asset.getFirstEntityByName("manual")
     private val manualRest = FloatArray(16)
-    private var manualParent = 0
-    private var manualOut = false
+    private var manualParent = 0   // the entity it hangs from (the cover); it always stays there, see manualAt
     val hasManual get() = manual != 0
     /** A jewel case's booklet is its front art; the others have a booklet of their own inside the cover. */
     val jewel get() = asset.getFirstEntityByName("manual-art") == 0
@@ -86,7 +85,7 @@ class Case(stage: Stage, asset: FilamentAsset, title: String, private val sample
 
     init {
         if (cover != 0) tm.getTransform(tm.getInstance(cover), coverRest)
-        if (manual != 0) { val i = tm.getInstance(manual); tm.getTransform(i, manualRest); manualParent = tm.getParent(i) }
+        if (manual != 0) { val i = tm.getInstance(manual); tm.getTransform(i, manualRest); manualParent = tm.getParent(i) }   // an entity, not an instance
         // the front: the game's own box art if it's been downloaded (cropped to fill the box's real front, never
         // stretched), else Shelf's label painting at the front's shape
         val aspect = (half[0] / half[1]).coerceIn(.3f, 3f)
@@ -133,19 +132,25 @@ class Case(stage: Stage, asset: FilamentAsset, title: String, private val sample
     /** The manual back in its place in the cover, lifted toward you by `k` (0..1, a few millimetres) while it's chosen. */
     fun manualIn(k: Float) {
         if (manual == 0) return
-        val i = tm.getInstance(manual)
-        if (manualOut) { tm.setParent(i, manualParent); manualOut = false }
         val m = FloatArray(16); Matrix.translateM(m, 0, manualRest, 0, 0f, 0f, if (jewel) 3f * k else -3f * k)   // toward you, out of the open cover
-        tm.setTransform(i, m)
+        tm.setTransform(tm.getInstance(manual), m)
     }
-    /** Where the manual is now, in the world (at rest in the cover, or wherever it was carried). */
-    fun manualWorld(): FloatArray = FloatArray(16).also { tm.getWorldTransform(tm.getInstance(manual), it) }
-    /** Carries the manual out of the case, to this place in the world. */
+    /** The cover's place in the world (what the manual hangs from). */
+    private fun parentWorld(): FloatArray = FloatArray(16).also {
+        val pi = if (manualParent != 0) tm.getInstance(manualParent) else 0
+        if (pi != 0) tm.getWorldTransform(pi, it) else Matrix.setIdentityM(it, 0)
+    }
+    /** Where the manual rests in the cover, in the world. */
+    fun manualRestWorld(): FloatArray = FloatArray(16).also { Matrix.multiplyMM(it, 0, parentWorld(), 0, manualRest, 0) }
+    /**
+     * Carries the manual out of the case, to this place in the world. It stays attached to the cover (re-parenting in
+     * Filament mixes entities and instances, and a wrong one stops the app outright), placed relative to it instead.
+     */
     fun manualAt(world: FloatArray) {
         if (manual == 0) return
-        val i = tm.getInstance(manual)
-        if (!manualOut) { tm.setParent(i, 0); manualOut = true }
-        tm.setTransform(i, world)
+        val inv = FloatArray(16)
+        if (!Matrix.invertM(inv, 0, parentWorld(), 0)) return
+        tm.setTransform(tm.getInstance(manual), FloatArray(16).also { Matrix.multiplyMM(it, 0, inv, 0, world, 0) })
     }
 
     /** Where a cartridge sits in the tray: the case's last placement, moved to the tray's centre (same millimetres). */

@@ -52,6 +52,15 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
+## What's in version 0.16.1
+
+- Reading a manual closed the app. Carrying the booklet out of the box re-attached it to its cover each frame with
+  the cover's *entity* where Filament wanted its *instance*, and Filament stops the app outright on that. The booklet
+  now always stays attached to its cover and is placed relative to it. Reading pages is guarded against damaged or
+  oversized PDFs too.
+- A crash inside the 3D engine or Android's own code (below Kotlin) left no report. Shelf now asks Android how it last
+  stopped, and a native crash shows on the problem page the next time it opens, with Android's log from then.
+
 ## What's in version 0.16
 
 The user's six notes on 0.15:

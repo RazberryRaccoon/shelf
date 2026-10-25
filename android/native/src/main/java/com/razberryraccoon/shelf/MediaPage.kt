@@ -77,7 +77,7 @@ class MediaPage(ctx: Context, private val game: Game, private val title: String,
                     "manual" -> pdfCover(f, 300)
                     else -> meta.bitmap(f, 360)
                 }
-            } catch (e: Exception) { null }
+            } catch (e: Throwable) { null }   // a damaged file, or one too big to read, leaves the tile empty
             ui.post { if (closing) b?.recycle() else { thumbs[kind] = b; invalidate() } }
         }
     }

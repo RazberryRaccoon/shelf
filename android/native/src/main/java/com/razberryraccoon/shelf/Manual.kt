@@ -47,7 +47,7 @@ class Manual(ctx: Context, file: File, private val title: String, start: Int, ma
                 fd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY); pdf = PdfRenderer(fd!!)
                 val n = pdf!!.pageCount
                 ui.post { pages = n; at = at.coerceIn(0, spreads() - 1); want(); invalidate() }
-            } catch (e: Exception) { ui.post { failed = true; invalidate() } }
+            } catch (e: Throwable) { ui.post { failed = true; invalidate() } }
         }
     }
 
@@ -66,7 +66,7 @@ class Manual(ctx: Context, file: File, private val title: String, start: Int, ma
                     val w = (page.width * s).toInt().coerceAtLeast(1); val h = (page.height * s).toInt().coerceAtLeast(1)
                     Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also { it.eraseColor(Color.WHITE); page.render(it, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY) }
                 }
-            } catch (e: Exception) { null }
+            } catch (e: Throwable) { null }
             ui.post { if (b == null) return@post; if (closing || pg !in asked) b.recycle() else { bitmaps[pg] = b; invalidate() } }
         }
     }
@@ -98,7 +98,7 @@ class Manual(ctx: Context, file: File, private val title: String, start: Int, ma
         if (turnDir != 0) { turn += dt / .5f; if (turn >= 1f) { turn = 0f; turnDir = 0 } }
         if (noteT > 0) noteT -= dt
         if (closing && shown == 0f) {
-            work.execute { try { pdf?.close(); fd?.close() } catch (e: Exception) { } }; work.shutdown()
+            work.execute { try { pdf?.close(); fd?.close() } catch (e: Throwable) { } }; work.shutdown()
             bitmaps.values.forEach { it.recycle() }; bitmaps.clear(); onClose?.invoke()
         }
         invalidate()
