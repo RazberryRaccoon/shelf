@@ -48,6 +48,8 @@ open class Model(protected val stage: Stage, val asset: FilamentAsset) {
         Matrix.translateM(matrix, 0, -center[0], -center[1], -center[2])
         tm.setTransform(tm.getInstance(asset.root), matrix)
     }
+    /** Places it by a whole transform. */
+    fun placeMatrix(t: FloatArray) = tm.setTransform(tm.getInstance(asset.root), t)
     /** Out of sight, without unloading it. */
     fun hide() = place(-4000f, 0f, 0f, 0f, 0f, 1f)
 
@@ -62,7 +64,7 @@ open class Model(protected val stage: Stage, val asset: FilamentAsset) {
  * A game's case (case.js in the Studio): its art on the front, back and spine, and a cover that opens on the spine
  * hinge. `open` 0 is closed, 1 lies open to the left with the tray showing.
  */
-class Case(stage: Stage, asset: FilamentAsset, title: String, private val sampler: TextureSampler) : Model(stage, asset) {
+class Case(stage: Stage, asset: FilamentAsset, title: String, private val sampler: TextureSampler, front: Bitmap? = null) : Model(stage, asset) {
     private val textures = ArrayList<Texture>()
     private val coverRest = FloatArray(16)
     private val cover = asset.getFirstEntityByName("cover")
@@ -71,10 +73,20 @@ class Case(stage: Stage, asset: FilamentAsset, title: String, private val sample
 
     init {
         if (cover != 0) tm.getTransform(tm.getInstance(cover), coverRest)
-        art("front", Paintings.label(512, 640, title))
-        art("back", Paintings.picture(512, 640, "$title back"))
+        // the front: the game's own box art if it's been downloaded (cropped to fill the box's real front, never
+        // stretched), else Shelf's label painting at the front's shape
+        val aspect = (half[0] / half[1]).coerceIn(.3f, 3f)
+        art("front", front?.let { f -> fill(f, aspect).also { if (it !== f) f.recycle() } } ?: Paintings.label(512, (512 / aspect).toInt(), title))
+        art("back", Paintings.picture(512, (512 / aspect).toInt(), "$title back"))
         art("spine", Paintings.picture(96, 640, title))
         hinge()
+    }
+
+    /** A picture cropped to this shape (width / height), centred, so it fills it without stretching. */
+    private fun fill(b: Bitmap, aspect: Float): Bitmap {
+        val a = b.width.toFloat() / b.height
+        val w = if (a > aspect) (b.height * aspect).toInt() else b.width; val h = if (a > aspect) b.height else (b.width / aspect).toInt()
+        return Bitmap.createBitmap(b, (b.width - w) / 2, (b.height - h) / 2, w.coerceAtLeast(1), h.coerceAtLeast(1))
     }
 
     private fun art(part: String, b: Bitmap) {

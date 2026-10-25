@@ -37,7 +37,8 @@ that we've learned … and make an Android game launcher that's the best it can 
   Studio (update C, first half); 0.8 circuit boards inside the consoles (see-through shells, the Inside view); 0.9 seams (consoles
   open along them Inside), Game Boy cartridge pockets, real translucent editions; 0.10 Inside as an exploded
   drawing (the stick turns only the board), hollow shells; 0.11 fixes their shading; 0.12 the start and return
-  animations (`Launch.kt`) and the box on the game page (cartridge, open box, closed box; L2/R2; a Settings default).
+  animations (`Launch.kt`) and the box on the game page (cartridge, open box, closed box; L2/R2; a Settings default);
+  0.13 the user's ten notes (lids, cartridge teardown in Game settings, Home picture settings, real box sizes…).
   Next: the Library (see DECISIONS.md and ROADMAP.md). The user paused inspecting the rarer shell colors until they can be seen big (0.3 makes that possible).
   Kotlin is compile-checked locally with the Kotlin 2.4 compiler against `android-all` and Filament's AARs.
 - The Android SDK can't be downloaded in Claude's sandbox (dl.google.com is blocked): compile-check the Java against

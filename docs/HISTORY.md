@@ -518,3 +518,11 @@ the whole start for a Game Boy and an N64 rebuilt with the app's own timing and 
 cartridge's flight (blending two placements keeps its size and shape half way, which plain matrix blending wouldn't).
 Not yet animated: the DS opening, the PlayStation's lid and the PSP's door (each is merged into its console's half, so
 the game goes in through them). Compile-checked; not checked on a device.
+
+**Shelf Native 0.13 (October 2026): ten notes.** Lids became their own hinged nodes in the export (a lid stays whole in
+the half its hinge is in); cartridges export in three parts (back, front, board) with their seam and board measured
+first (the first try measured after the split had already moved everything out, and got nothing). Two init-order
+traps were avoided by putting new fields above `init` (Settings reads the saved console colors while it first draws).
+Checked with contact sheets of the start for the DS, PlayStation, PSP and GBA, and of the teardown for a Game Boy and an
+NES cartridge; compile-checked. Not checked on a device. The DS box: the user remembered it as wider than tall; the
+measurements say slightly taller, so it follows them (noted in DECISIONS).

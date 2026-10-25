@@ -30,8 +30,13 @@ Source: https://consolemods.org/wiki/Cart_Labels
   Source: Hand Held Legend's "Game Box Protector" listing.
 - **Genesis case:** 128 mm wide and 197 mm tall, including the tab, per a YouTube measurement. Depth is about 25 mm *(to verify)*.
 - **CD jewel case** (PlayStation): 142 × 125 × 9.9 mm. Source: https://en.wikipedia.org/wiki/Keep_case
-- **DS case:** about 125 × 137 × 14 mm *(to verify)*.
-- **PSP case:** about 104 × 175 × 14 mm *(to verify)*.
+- **DS case:** 122 mm wide × 135 mm tall × 15 mm (black North American and Japanese cases; clear European ones are
+  20 mm deep): a little taller than wide. Retail replacement cases agree within a few millimetres (124–125 × 134–136).
+  Sources: https://en.wikipedia.org/wiki/Keep_case, https://www.walvisproducts.eu/a-56765154/blue-ray-boxes-game-cases/nintendo-ds-game-case-colour-transparent/
+- **PSP (UMD) case:** 104 × 177 × 14 mm. Sources: https://en.wikipedia.org/wiki/Universal_Media_Disc,
+  https://www.walvisproducts.eu/a-97378107/blue-ray-boxes-game-cases/standard-umd-psp-case-colour-transparent/
+- **Box art on the boxes:** front scans (libretro's Named_Boxarts are at most 512 px wide, any height) are fitted to
+  the box's real front by cropping to fill, never stretched, so a scan of any shape sits right on the model.
 - **Blu-ray keep case** (Android games): about 135 × 171 × 12 mm *(to verify)*.
 
 ## RetroArch on Android

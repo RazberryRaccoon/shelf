@@ -284,6 +284,14 @@ Summarized from the first part of the conversation; the full transcript is kept 
   stick just moves the circuitboard around, leaving the console halves alone. Then cycling to the next type puts the
   circuitboard back to its default position, the two halves connect again." And the halves "should be hollowed out
   more, like the cartridges are," not flat and chunky.
+- After 0.12 (the user's notes): the GBA cartridge goes all the way in ("It goes all the way in on the real thing");
+  Game settings takes the cartridge apart ("the two halves separate, set down, then the circuit board comes up and
+  out, and set down … a 3d modeled small screwdriver should appear", quickly, on a surface but no table model);
+  cartridge boards get "a processor and a battery (for those that have them)"; Home picture settings (which image,
+  brightness, position, fade length, fade type: normal, dots, or horizontal lines that get thinner and farther apart
+  further up, pan speed); Inside closer, and "as [clipping] starts to happen, the shell pieces float away from the
+  board". The user thought the DS box should be a little wider than tall; the measured case (Wikipedia's keep-case
+  table, retail cases) is a little taller than wide, so the box follows the measurements and box art is cropped to fill.
 - The start and return animations (0.12, the user's choices): "About 2.5 seconds", "Any button skips", and a home
   console's ends "easing in on the power light" (a handheld's on its screen, showing the title screen).
 - The game page's model (0.12, the user): "an option in the main settings page for what the default 3D model is when

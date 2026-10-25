@@ -94,6 +94,14 @@ class Games(private val ctx: Context) {
     fun consoleLook(sys: String): String? = prefs.getString("console-look:$sys", null)
     /** What a game's page shows first: 0 the cartridge, 1 the cartridge in its open box, 2 the box closed (Settings). */
     var pageView: Int get() = prefs.getInt("page-view", 1); set(v) = prefs.edit().putInt("page-view", v).apply()
+    // Home's picture of the selected game (Settings › Home picture): which picture, how bright, where it starts down the
+    // screen, how much of it fades out at the top and how, and how fast it pans
+    var artKind: String get() = prefs.getString("art:kind", "shot") ?: "shot"; set(v) = prefs.edit().putString("art:kind", v).apply()
+    var artBright: Float get() = prefs.getFloat("art:bright", Art.BRIGHT); set(v) = prefs.edit().putFloat("art:bright", v).apply()
+    var artTop: Float get() = prefs.getFloat("art:top", Art.TOP); set(v) = prefs.edit().putFloat("art:top", v).apply()
+    var artFade: Float get() = prefs.getFloat("art:fade", Art.FADE); set(v) = prefs.edit().putFloat("art:fade", v).apply()
+    var artFadeType: Int get() = prefs.getInt("art:fade-type", Art.DOTS); set(v) = prefs.edit().putInt("art:fade-type", v).apply()
+    var artPan: Float get() = prefs.getFloat("art:pan", Art.PAN); set(v) = prefs.edit().putFloat("art:pan", v).apply()
     fun setConsoleLook(sys: String, key: String?) = prefs.edit().apply { if (key == null) remove("console-look:$sys") else putString("console-look:$sys", key) }.apply()
 
     /** Every way this console's games can start: RetroArch's cores first, then standalone emulators, installed ones marked. */

@@ -139,7 +139,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         val look = consoles.lookFor(e.sys, games.consoleLook(e.sys))
         val keep = rows.current()?.key
         rows.rows = listOf(Options.Row("view", "Showing", value = "‹  ${views[view]}  ›")) +
-            (if (look == null) emptyList() else listOf(Options.Row("look", "Console colors", value = look.name, sub = look.note.ifEmpty { "Your own, from the Studio" }, dot = shellDot(look)))) +
+            (if (look == null) emptyList() else listOf(Options.Row("look", "Customize console colors", value = look.name, sub = look.note.ifEmpty { "Your own, from the Studio" }, dot = shellDot(look)))) +
             Options.Row("shell", "Default shell", value = v?.name ?: "", sub = "Its standard cartridges on Home; special editions keep theirs", dot = v?.color)
         rows.rows.indexOfFirst { it.key == keep }.takeIf { it > 0 }?.let { rows.focus(it) }
         rows.invalidate()
@@ -224,9 +224,11 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         groupY = ease(groupY, if (onConsole) -OFF else 0f, 7f)
         inside = ease(inside, if (view == INSIDE) 1f else 0f, 4.5f)
         val gone = groupY < -OFF * .85f   // the cartridge and box are out of sight above
-        caseK = when { view == 2 || view == 3 -> ease(caseK, 1f, 7f); view == 1 -> ease(caseK, 0f, 7f); gone -> 0f; else -> caseK }
-        inBox = when { view == 2 || view == 3 -> ease(inBox, 1f, 6f); view == 1 -> ease(inBox, 0f, 6f); gone -> 0f; else -> inBox }
-        openK = when { view == 3 -> ease(openK, 0f, 5f); view == 1 || view == 2 -> ease(openK, 1f, 5f); gone -> 1f; else -> openK }
+        // one thing after another: closing, the cartridge settles into the tray before the cover swings shut; taking it
+        // out, the cover opens, then the cartridge lifts out, then the box goes
+        openK = when { view == 3 -> ease(openK, if (inBox > .95f) 0f else 1f, 5f); view == 1 || view == 2 -> ease(openK, 1f, 5f); gone -> 1f; else -> openK }
+        inBox = when { view == 2 || view == 3 -> ease(inBox, 1f, 6f); view == 1 -> ease(inBox, if (openK > .9f) 0f else 1f, 6f); gone -> 0f; else -> inBox }
+        caseK = when { view == 2 || view == 3 -> ease(caseK, 1f, 7f); view == 1 -> ease(caseK, if (inBox < .1f) 0f else 1f, 7f); gone -> 0f; else -> caseK }
         case?.open = Backdrop.ease(openK.coerceIn(0f, 1f))
         // turning: the stick while held, a coast when let go, then back to the view's resting angle
         val sx = dead(stickX); val sy = dead(stickY); val r = rest()
@@ -255,8 +257,10 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
             if (y > Stage.H + 400) { m.hide(); b?.hide() }
             else {
                 val diag = kotlin.math.sqrt(m.half[0] * m.half[0] + m.half[1] * m.half[1] + m.half[2] * m.half[2])
-                m.place(cx, y, 30f, yaw + wrap(ir[0] - yaw) * ik, pitch + (ir[1] - pitch) * ik, 2 * 215f * maxOf(m.half[0], m.half[1]) / diag * (1 - .3f * ik))
-                m.explode(ik, consoles.info[ex().sys]?.explode)
+                val cyaw = yaw + wrap(ir[0] - yaw) * ik; val cpitch = pitch + (ir[1] - pitch) * ik
+                m.place(cx, y, 30f, cyaw, cpitch, 2 * 215f * maxOf(m.half[0], m.half[1]) / diag * (1 - .08f * ik))
+                val apart = consoles.info[ex().sys]?.explode
+                m.explode(ik, apart, if (b != null && apart != null) reach(b, apart.axis, cyaw, cpitch) else 0f)
                 if (b != null) { if (ik < .002f) b.follow(m.matrix) else b.turnIn(m, yaw, pitch) }
                 shadow(cx, y, 360f)
             }
@@ -292,6 +296,20 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         android.opengl.Matrix.rotateM(m, 0, Math.toDegrees(pitch.toDouble()).toFloat(), 1f, 0f, 0f)
         android.opengl.Matrix.rotateM(m, 0, Math.toDegrees(yaw.toDouble()).toFloat(), 0f, 1f, 0f)
         android.opengl.Matrix.scaleM(m, 0, s, s, s)
+    }
+
+    /**
+     * How much further the halves move off so a turned board can't reach into them: how far the board, turned by the
+     * stick against the halves' angle, now reaches along the seam's axis, beyond how far it reaches lying in place.
+     */
+    private fun reach(b: ConsoleBoard, axis: Char, cyaw: Float, cpitch: Float): Float {
+        fun rot(ry: Float, rx: Float) = FloatArray(16).also { android.opengl.Matrix.setIdentityM(it, 0)
+            android.opengl.Matrix.rotateM(it, 0, Math.toDegrees(rx.toDouble()).toFloat(), 1f, 0f, 0f); android.opengl.Matrix.rotateM(it, 0, Math.toDegrees(ry.toDouble()).toFloat(), 0f, 1f, 0f) }
+        val ct = FloatArray(16); android.opengl.Matrix.transposeM(ct, 0, rot(cyaw, cpitch), 0)
+        val r = FloatArray(16); android.opengl.Matrix.multiplyMM(r, 0, ct, 0, rot(yaw, pitch), 0)   // the board's turn, seen from the halves
+        val a = if (axis == 'x') 0 else if (axis == 'y') 1 else 2
+        val along = (0..2).sumOf { i -> (abs(r[i * 4 + a]) * b.half[i]).toDouble() }.toFloat()
+        return maxOf(0f, along - b.half[a]) * 1.08f
     }
 
     private fun shadow(x: Float, y: Float, w: Float) {

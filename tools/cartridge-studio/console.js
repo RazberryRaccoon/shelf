@@ -210,7 +210,10 @@ export function buildConsole(entry, opts) {
 export function splitHalves(group, seam) {
   group.updateMatrixWorld(true);
   const lower = new THREE.Group(), upper = new THREE.Group(); lower.name = 'lower'; upper.name = 'upper';
-  const meshes = []; group.traverse(o => { if (o.isMesh) meshes.push(o); });
+  // a lid (the DS's top half, the PlayStation's lid, the PSP's door) stays whole, on its hinge, in the half its hinge is in
+  const lid = group.userData.lid || null, inLid = o => { for (let p = o.parent; p; p = p.parent) if (p === lid) return true; return false; };
+  const meshes = []; group.traverse(o => { if (o.isMesh && !inLid(o)) meshes.push(o); });
+  if (lid) { const at = lid.getWorldPosition(new THREE.Vector3()); (at[seam.axis] >= seam.at * MM ? upper : lower).attach(lid); }
   for (const m of meshes) {
     let h = m.userData.half;
     if (!h) { const c = new THREE.Box3().setFromObject(m).getCenter(new THREE.Vector3()); h = c[seam.axis] >= seam.at * MM ? 'upper' : 'lower'; }

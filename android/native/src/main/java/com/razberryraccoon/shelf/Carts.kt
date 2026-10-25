@@ -12,6 +12,8 @@ import com.google.android.filament.gltfio.FilamentAsset
 import org.json.JSONObject
 import java.nio.ByteBuffer
 import kotlin.math.pow
+import kotlin.math.sin
+import kotlin.math.PI
 
 /** One of a cartridge's real shell colors (tools/cartridge-studio/cartridges.js, via cartridges.json). */
 data class Variant(val name: String, val color: Int, val games: String, val clear: String?, val sheen: Boolean,
@@ -35,6 +37,9 @@ class CartStyle(val sys: String, j: JSONObject) {
                 v.optString("clear").ifEmpty { null }, v.optBoolean("sheen")) } }
     }
     fun variant(name: String?) = variants.firstOrNull { it.name == name } ?: variants[0]
+    val depth = j.optDouble("depth", 10.0).toFloat()
+    /** Where it comes apart (Game settings): its board's extent (min x, y, z, max x, y, z, in millimetres), if it has one. */
+    val board: FloatArray? = j.optJSONObject("apart")?.optJSONArray("board")?.let { a -> FloatArray(6) { a.getDouble(it).toFloat() } }
 }
 
 /** The exported Studio models, loaded once and copied for each cartridge on screen. */
@@ -104,6 +109,9 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
     private val rm = stage.engine.renderableManager
     private val tm = stage.engine.transformManager
     private val plastic: MaterialInstance? = materialOf("body")
+    // the shell is in two halves now (taken apart in Game settings): every piece of it takes the same color
+    private val plastics: List<MaterialInstance> = asset.getEntitiesByName("body").toList().mapNotNull { e -> rm.getInstance(e).takeIf { it != 0 }?.let { rm.getMaterialInstanceAt(it, 0) } }.distinct().ifEmpty { listOfNotNull(plastic) }
+    private fun body(name: String, vararg v: Float) = plastics.forEach { it.set(name, *v) }
     private val labelMat: MaterialInstance? = materialOf("label")
     // GEN_MIPMAPPABLE: Filament refuses to make the smaller, sharper copies (mipmaps) of a texture without it, and stops the app
     private val labelTex: Texture = Texture.Builder().width(label.width).height(label.height).levels(32 - Integer.numberOfLeadingZeros(maxOf(label.width, label.height)))
@@ -144,7 +152,7 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
     /** The Studio's rules (cartridge.js, applyVariant): metallic gold and silver, see-through clear and frosted shells. */
     fun apply(v: Variant) {
         variant = v
-        plastic?.set("emissiveFactor", 0f, 0f, 0f); plastic?.set("sheenColorFactor", 0f, 0f, 0f)
+        body("emissiveFactor", 0f, 0f, 0f); body("sheenColorFactor", 0f, 0f, 0f)
         if (v.material != null) return applyMaterial(v, Materials.of(v.material))
         val lin = intArrayOf(Color.red(v.color), Color.green(v.color), Color.blue(v.color)).map { srgbToLinear(it / 255f) }.toFloatArray()
         base = when {
@@ -153,14 +161,14 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
             v.sheen -> if (Color.red(v.color) - Color.blue(v.color) > 60) floatArrayOf(1f, .766f, .336f) else floatArrayOf(.972f, .96f, .915f)
             else -> lin
         }
-        val mi = plastic ?: return
+        if (plastics.isEmpty()) return
         val r = style.roughness
-        mi.set("roughnessFactor", when (v.clear) { "transparent" -> .06f; "frosted" -> maxOf(.4f, r); else -> if (v.sheen) .28f else r })
-        mi.set("metallicFactor", if (v.sheen) 1f else 0f)
-        mi.set("clearCoatFactor", if (v.sheen) .5f else style.clearcoat)
-        mi.set("clearCoatRoughnessFactor", if (v.clear == "transparent") .05f else style.clearcoatRoughness)
+        body("roughnessFactor", when (v.clear) { "transparent" -> .06f; "frosted" -> maxOf(.4f, r); else -> if (v.sheen) .28f else r })
+        body("metallicFactor", if (v.sheen) 1f else 0f)
+        body("clearCoatFactor", if (v.sheen) .5f else style.clearcoat)
+        body("clearCoatRoughnessFactor", if (v.clear == "transparent") .05f else style.clearcoatRoughness)
         alpha = when (v.clear) { "transparent" -> .38f; "frosted" -> .7f; else -> 1f }
-        mi.set("emissiveFactor", 0f, 0f, 0f)
+        body("emissiveFactor", 0f, 0f, 0f)
         tint()
     }
 
@@ -169,21 +177,61 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
         val lin = intArrayOf(Color.red(v.color), Color.green(v.color), Color.blue(v.color)).map { srgbToLinear(it / 255f) }.toFloatArray()
         base = if (m.metallic > 0) metalColor(lin, v.color, m) else FloatArray(3) { (lin[it] + (1 - lin[it]) * m.lift) * m.dim }
         alpha = m.alpha
-        val mi = plastic ?: return tint()
-        mi.set("roughnessFactor", m.rough ?: if (m.id == "frosted") maxOf(.4f, style.roughness) else style.roughness)
-        mi.set("metallicFactor", m.metallic)
-        mi.set("clearCoatFactor", m.coat ?: style.clearcoat)
-        mi.set("clearCoatRoughnessFactor", m.coatRough ?: style.clearcoatRoughness)
-        if (m.glow > 0) mi.set("emissiveFactor", base[0] * m.glow, base[1] * m.glow, base[2] * m.glow)
-        if (m.sheen > 0) { mi.set("sheenColorFactor", m.sheen, m.sheen, m.sheen); mi.set("sheenRoughnessFactor", .35f) }
+        if (plastics.isEmpty()) return tint()
+        body("roughnessFactor", m.rough ?: if (m.id == "frosted") maxOf(.4f, style.roughness) else style.roughness)
+        body("metallicFactor", m.metallic)
+        body("clearCoatFactor", m.coat ?: style.clearcoat)
+        body("clearCoatRoughnessFactor", m.coatRough ?: style.clearcoatRoughness)
+        if (m.glow > 0) body("emissiveFactor", base[0] * m.glow, base[1] * m.glow, base[2] * m.glow)
+        if (m.sheen > 0) { body("sheenColorFactor", m.sheen, m.sheen, m.sheen); body("sheenRoughnessFactor", .35f) }
         tint()
     }
 
     /** Dims the cartridges you're not on, a little. */
     fun brightness(k: Float) { if (k != bright) { bright = k; tint() } }
     private fun tint() {
-        plastic?.set("baseColorFactor", base[0] * bright, base[1] * bright, base[2] * bright, alpha)
+        body("baseColorFactor", base[0] * bright, base[1] * bright, base[2] * bright, alpha)
         labelMat?.set("baseColorFactor", bright, bright, bright, 1f)
+    }
+
+    // ---------- taken apart (Game settings) ----------
+
+    private val parts = listOf("back", "front", "board").map { asset.getFirstEntityByName(it) }
+    /** Whether it can be taken apart: a cartridge with halves and a board (not a card or a disc). */
+    val canOpen get() = style.board != null && parts.all { it != 0 }
+
+    /**
+     * Taken apart on a surface, 0 whole to 1 apart, quickly and in order: the halves separate, slide aside and lie down
+     * (the front turned over, so both show their insides), then the board lifts up and out and is set down below them.
+     * The surface is the plane of the cartridge's back; the page tilts the whole thing to look down on it.
+     */
+    fun teardown(k: Float) {
+        if (!canOpen) return
+        val w = style.w; val h = style.h; val d = style.depth; val b = style.board ?: return
+        fun e(v: Float) = Backdrop.ease(v.coerceIn(0f, 1f))
+        val s1 = e(k / .3f); val s2 = e((k - .2f) / .4f); val s3 = e((k - .45f) / .25f); val s4 = e((k - .65f) / .3f)
+        val m = FloatArray(16)
+        // the back half: aside to the left and up a little, lying as it is
+        Matrix.setIdentityM(m, 0); Matrix.translateM(m, 0, -.58f * w * s2, .18f * h * s2, 0f)
+        tm.setTransform(tm.getInstance(parts[0]), m)
+        // the front half: lifts off, then turns over as it goes to the right, and lies down with its inside up
+        val lift = d * 1.2f * s1 * (1 - s2) + sin(PI.toFloat() * s2) * w * .22f
+        Matrix.setIdentityM(m, 0); Matrix.translateM(m, 0, .58f * w * s2, .18f * h * s2, lift)
+        Matrix.rotateM(m, 0, 180f * s2, 0f, 1f, 0f)
+        tm.setTransform(tm.getInstance(parts[1]), m)
+        // the board: up and out of the back half, then down below the halves, lying on the surface
+        val cx = (b[0] + b[3]) / 2; val cy = (b[1] + b[4]) / 2
+        val down = -d / 2 - b[2]   // its underside onto the surface
+        Matrix.setIdentityM(m, 0); Matrix.translateM(m, 0, -cx * s4, (-.7f * h - cy) * s4, d * 1.6f * s3 * (1 - s4) + down * s4)
+        tm.setTransform(tm.getInstance(parts[2]), m)
+    }
+    /** Where the screwdriver lies beside the parts (its transform within the cartridge's), and how big, 0 to 1. */
+    fun toolSpot(k: Float): FloatArray? {
+        if (!canOpen) return null
+        val s = Backdrop.ease(((k - .7f) / .3f).coerceIn(0f, 1f)).coerceAtLeast(.001f)
+        return FloatArray(16).also { Matrix.setIdentityM(it, 0)
+            Matrix.translateM(it, 0, 0f, -1.22f * style.h, -style.depth / 2 + 5f + (1 - s) * 18f)   // settling onto the surface as it appears
+            Matrix.rotateM(it, 0, 8f, 0f, 0f, 1f); Matrix.scaleM(it, 0, s, s, s); Matrix.translateM(it, 0, -48f, 0f, 0f) }
     }
 
     /** Places it by a whole transform (a cartridge sitting in its case's tray). */

@@ -37,6 +37,7 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
     private val marks = info?.launch
     private val hand = game.sys in SCREENS        // it has a screen to show the title on (and eases in on it)
     private val upright = game.sys in UPRIGHT     // held upright, seen nearly face on (the DS lies open, like a home console)
+    private val opensAfter = (marks?.lid?.rest ?: 0f) > .5f   // its lid rests open (the DS): closed for the card, then open
     private val sampler = TextureSampler(TextureSampler.MinFilter.LINEAR_MIPMAP_LINEAR, TextureSampler.MagFilter.LINEAR, TextureSampler.WrapMode.CLAMP_TO_EDGE)
     private val look = consoles.lookFor(game.sys, games.consoleLook(game.sys))
     private val console: Console? = run {
@@ -116,7 +117,7 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
         val c = console
         val going = intoK > .5f
         // how far through each beat, the same measures going in and coming out
-        val rise: Float; val turnK: Float; val fly: Float; val slide: Float; val powerK: Float; val screenK: Float; val inK: Float; val dark: Float
+        val rise: Float; val turnK: Float; val fly: Float; val slide: Float; val powerK: Float; val screenK: Float; val inK: Float; val dark: Float; val lidK: Float
         if (going) {
             rise = ease(t / .55f)
             turnK = ease((t - .2f) / .5f) - ease((t - 1.35f) / .5f)
@@ -124,6 +125,9 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
             slide = Backdrop.ease(clamp((t - 1f) / .3f))
             if (t >= 1.3f) once(0, Sounds.CLICK)
             powerK = clamp((t - 1.45f) / .3f); if (t >= 1.45f) once(1, Sounds.CHIME)
+            // a lid that rests open (the DS) starts closed and opens once the card's in; one that rests closed (the
+            // PlayStation's lid, the PSP's door) opens for the game and closes after it
+            lidK = if (opensAfter) ease((t - 1.3f) / .45f) else ease((t - .35f) / .4f) - ease((t - 1.3f) / .3f)
             screenK = if (hand) clamp((t - 1.6f) / .4f) else 0f
             inK = ease((t - 1.95f) / .55f)
             dark = if (phase == Phase.PLAYING) 1f else clamp((t - 2.05f) / .45f)
@@ -137,6 +141,7 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
             turnK = ease((t - .5f) / .3f)
             slide = 1 - Backdrop.ease(clamp((t - .75f) / .25f))
             fly = 1 - ease((t - 1f) / .6f)
+            lidK = if (opensAfter) 1 - ease((t - .5f) / .3f) else ease((t - .5f) / .25f) - ease((t - 1.02f) / .3f)
             rise = 1 - ease((t - 1.05f) / .5f)
         }
         black.alpha = dark
@@ -158,6 +163,7 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
             c.place(x, y, 30f, yaw, pitch, px0 * zoom)
         }
         c.power(powerK)
+        c.lid(lidK, marks?.lid)
         c.picture(picture, sampler, screenK)
         circuit?.follow(c.matrix)
         backdrop.shadows.add(floatArrayOf(x, y + 200f * zoom, 420f * zoom, .8f * rise * (1 - inK)))

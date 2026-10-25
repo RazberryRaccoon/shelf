@@ -99,6 +99,12 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
 
     fun refreshProfile() = profile.set(games.name.ifEmpty { "Player" }, games.color)
 
+    /** After Settings › Home picture: the picture's look, and the picture itself (a different kind may be chosen). */
+    fun refreshPicture() {
+        backdrop.art(games.artBright, games.artTop, games.artFade, games.artFadeType, games.artPan)
+        picFor = current(); backdrop.picture(current()?.let { pictureOf(it) })
+    }
+
     /**
      * Starting a game: Home (and the page, if it's open) steps aside, and the game's cartridge goes to the start
      * animation, with where it is now.
@@ -140,10 +146,15 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
 
     private fun current() = slots.getOrNull(i)?.game
 
-    /** Home's picture of a game: its screenshot or title screen from libretro, or Shelf's own painting until those arrive. */
-    private fun pictureOf(g: Game): android.graphics.Bitmap {
+    /**
+     * Home's picture of a game: the kind chosen in Settings › Home picture (its screenshot, title screen or box), else
+     * another it has, or Shelf's own painting until those arrive; none at all if that's the choice.
+     */
+    private fun pictureOf(g: Game): android.graphics.Bitmap? {
+        val kind = games.artKind
+        if (kind == "none") return null
         val info = lookup.cached(g)
-        val f = info?.pics?.get("shot") ?: info?.pics?.get("title")
+        val f = info?.pics?.get(kind) ?: info?.pics?.get("shot") ?: info?.pics?.get("title") ?: info?.pics?.get("box")
         if (info == null) lookup.get(g) { got -> if (got?.pics?.isNotEmpty() == true && current() == g && page == null) { picFor = null; picTimer = .01f } }   // looks it up quietly, then shows it
         return f?.let { lookup.bitmap(it, 800) } ?: Paintings.picture(800, 196, g.title)
     }
