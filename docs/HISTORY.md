@@ -500,3 +500,11 @@ rounded outside edge, 2.4 mm walls, the seam's chamfer on the rim); outlines at 
 point, with tight corners that would fold over themselves meeting in the middle instead. With hollow halves the Game
 Boy pockets looked straight into the console, so they got floors. Checked with renders of each half from its open side
 and of all eleven exploded, and the board-fit probe; compile-checked; not checked on a device.
+
+**Shelf Native 0.11 (October 2026): the hollow shells' shading.** The user saw that since 0.10 "the texture doesn't
+cover the thickness of the edge." Renders from above, next to the 0.9 shells, showed a hard dark band across every
+rounded edge; a probe of the triangles found every surface of the new hollow halves wound to face into the plastic, so
+the renderer hid the real outside and showed the far wall's inside, lit backwards. The winding was flipped, and a new
+probe casts a ray off every triangle of every console's halves to check it faces out of the plastic (all do, apart
+from a handful of hairline slivers at tight corners and rays grazing along walls). The 0.10 renders had looked right
+because the inside surfaces sit only 2.4 mm in. Lesson: check which way new geometry faces with a probe, not by eye.
