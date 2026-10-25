@@ -456,3 +456,8 @@ load faster too); the background no longer makes new gradients every frame (one 
 made only when its color changes) or an offscreen layer for Home's picture (one compose shader instead); Filament's
 screen-space refraction pass is off (nothing refracts now, but the disc's clear hub switched it on); the Museum keeps
 consoles it has shown loaded and loads the neighbours ahead.
+
+The speed-up round closed the app on opening the Museum: `NullPointerException … Map.get … Museum.load`. The list of
+loaded consoles was declared below the Museum's `init`, which already uses it (Kotlin sets up a class's properties in
+order, so it was still null). Moved up; every class was scanned for a property declared after an `init` that uses
+it, and nothing else was. A lesson for the compile checks: they can't catch this, so new fields go above `init`.

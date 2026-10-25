@@ -74,6 +74,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
     private enum class Zone { ROWS, FACTS, SHELLS }
     private var zone = Zone.ROWS
     private var before: String? = null   // the default shell to go back to if you press B in the list
+    private val loaded = HashMap<String, Loaded>()   // consoles shown so far (load): declared before init, which uses it
 
     init {
         val j = JSONObject(String(stage.readAsset("museum.json").let { b -> ByteArray(b.remaining()).also { b.get(it) } }))
@@ -132,7 +133,6 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
      * forth along the timeline doesn't stop to load (the neighbours load quietly ahead, one at a time: see tick).
      */
     private class Loaded(val console: Model?, val case: Case?, var cart: Cart?)
-    private val loaded = HashMap<String, Loaded>()
     private fun load(e: Exhibit) = loaded.getOrPut(e.sys) {
         Loaded(carts.model("console-${e.sys}.glb")?.let { Model(stage, it) }, carts.model("case-${e.sys}.glb")?.let { Case(stage, it, e.example, sampler) },
             carts.make(e.sys, e.example, games.defaultShell(e.sys))).also { it.console?.hide(); it.case?.hide(); it.cart?.place(-4000f, 0f, 0f, 0f, 0f, 1f) }
