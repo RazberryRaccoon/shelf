@@ -50,7 +50,7 @@ function cup(pts, zFace, zRim, bev, wall = 2.4, segs = 6) {
   const tri = (a, b, c) => P.push(...a, ...b, ...c);
   for (let k = 0; k + 1 < rings.length; k++) for (let i = 0; i < n; i++) {
     const j = (i + 1) % n, a = rings[k][i], b = rings[k][j], c = rings[k + 1][j], d = rings[k + 1][i];
-    if (s > 0) { tri(a, d, c); tri(a, c, b); } else { tri(a, b, c); tri(a, c, d); }
+    if (s > 0) { tri(a, b, c); tri(a, c, d); } else { tri(a, d, c); tri(a, c, b); }   // wound so every surface faces out of the plastic
   }
   // the outside of the face, and the inside of it (facing the open side), flat
   const flat = (ring, z, out) => {

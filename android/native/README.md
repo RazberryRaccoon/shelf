@@ -47,7 +47,13 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
-## What's in version 0.10
+## What's in version 0.11
+
+A fix: 0.10's hollow console halves were built inside out (every surface wound to face into the plastic), so the
+renderer hid each half's real outside and showed the inside of the far wall, 2.4 mm in and lit backwards; the rounded
+edges looked dark and thin. They face out now, and look exactly as the solid shells did.
+
+## What was in version 0.10
 
 Inside is an exploded drawing now: as the console turns to a three-quarter view, its halves slide straight apart along
 the seam (a home console's top up and its base down, a handheld's front toward you and its back away), leaving the
