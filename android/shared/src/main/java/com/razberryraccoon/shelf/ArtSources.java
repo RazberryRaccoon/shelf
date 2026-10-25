@@ -20,7 +20,8 @@ import java.util.Map;
 
 /**
  * The art services Shelf can search, one type of art at a time. Each answers with pictures to choose from.
- * Kinds: box (front), back, spine, label (cartridge or disc), title (title screen), shot (screenshot).
+ * Kinds: box (front), back, spine, label (cartridge or disc), title (title screen), shot (screenshot); and, from
+ * ScreenScraper only, video (a gameplay clip) and manual (a PDF).
  *
  *   libretro           box, title, shot              no account
  *   ScreenScraper      all six                        account, plus developer credentials
@@ -130,7 +131,9 @@ final class ArtSources {
              SS_SYSTEM.put("gbc", 10); SS_SYSTEM.put("gba", 12); SS_SYSTEM.put("ps1", 57); SS_SYSTEM.put("ds", 15); SS_SYSTEM.put("psp", 61); SS_SYSTEM.put("android", 63); }
     private static final Map<String, String[]> SS_TYPES = new HashMap<>();
     static { SS_TYPES.put("box", new String[] { "box-2D" }); SS_TYPES.put("back", new String[] { "box-2D-back" }); SS_TYPES.put("spine", new String[] { "box-2D-side" });
-             SS_TYPES.put("label", new String[] { "support-2D", "support-texture" }); SS_TYPES.put("title", new String[] { "sstitle" }); SS_TYPES.put("shot", new String[] { "ss" }); }
+             SS_TYPES.put("label", new String[] { "support-2D", "support-texture" }); SS_TYPES.put("title", new String[] { "sstitle" }); SS_TYPES.put("shot", new String[] { "ss" });
+             // Shelf Native's media page: the gameplay video (the normalized one is short and evenly sized) and the manual (a PDF)
+             SS_TYPES.put("video", new String[] { "video-normalized", "video" }); SS_TYPES.put("manual", new String[] { "manuel" }); }
 
     static String ssAuth(JSONObject keys) {
         JSONObject k = keys.optJSONObject("ss");
@@ -160,7 +163,8 @@ final class ArtSources {
                 if (m == null || !type.equals(m.optString("type"))) continue;
                 String u = m.optString("url"); if (u.isEmpty()) continue;
                 String region = m.optString("region");
-                out.add(new Option("ScreenScraper", name + (region.isEmpty() ? "" : " (" + region.toUpperCase(Locale.ROOT) + ")"), u, u + "&maxwidth=240"));
+                boolean picture = !kind.equals("video") && !kind.equals("manual");
+                out.add(new Option("ScreenScraper", name + (region.isEmpty() ? "" : " (" + region.toUpperCase(Locale.ROOT) + ")"), u, picture ? u + "&maxwidth=240" : null));
                 if (out.size() >= 4) return out;
             }
         return out;

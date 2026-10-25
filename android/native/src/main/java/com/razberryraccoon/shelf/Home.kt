@@ -152,13 +152,26 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
      * Home's picture of a game: the kind chosen in Settings › Home picture (its screenshot, title screen or box), else
      * another it has, or Shelf's own painting until those arrive; none at all if that's the choice.
      */
-    private fun pictureOf(g: Game): android.graphics.Bitmap? {
+    private fun pictureOf(g: Game): android.graphics.Bitmap? = pictureFile(g).let { (none, f) -> if (none) null else f?.let { lookup.bitmap(it, 800) } ?: Paintings.picture(800, 196, g.title) }
+    /** Which picture file shows for a game (or none at all), looking the game up quietly if it hasn't been yet. */
+    private fun pictureFile(g: Game): Pair<Boolean, java.io.File?> {
         val kind = games.artKind
-        if (kind == "none") return null
+        if (kind == "none") return true to null
         val info = lookup.cached(g)
-        val f = info?.pics?.get(kind) ?: info?.pics?.get("shot") ?: info?.pics?.get("title") ?: info?.pics?.get("box")
         if (info == null) lookup.get(g) { got -> if (got?.pics?.isNotEmpty() == true && current() == g && page == null) { picFor = null; picTimer = .01f } }   // looks it up quietly, then shows it
-        return f?.let { lookup.bitmap(it, 800) } ?: Paintings.picture(800, 196, g.title)
+        return false to (info?.pics?.get(kind) ?: info?.pics?.get("shot") ?: info?.pics?.get("title") ?: info?.pics?.get("box"))
+    }
+    // the picture is read from its file off the main thread, so moving along the row never waits on it
+    private val reader = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private val ui = android.os.Handler(android.os.Looper.getMainLooper())
+    private fun showPicture(g: Game?) {
+        if (g == null) return backdrop.picture(null)
+        val (none, f) = pictureFile(g)
+        if (none) return backdrop.picture(null)
+        reader.execute {
+            val b = f?.let { lookup.bitmap(it, 800) } ?: Paintings.picture(800, 196, g.title)
+            ui.post { if (picFor == g && current() == g) backdrop.picture(b) else b?.recycle() }
+        }
     }
 
     private fun refreshInfo() {
@@ -179,7 +192,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
 
     fun tick(dt: Float) {
         time += dt
-        f += (i - f) * min(1f, dt * 8f)
+        f += (i - f) * min(1f, dt * 11f)
         rise = if (visible) min(1f, rise + dt / 1.4f) else maxOf(0f, rise - dt / .35f)
         if (visible) riseT += dt
         val shownK = Backdrop.ease(min(1f, rise * 2f))
@@ -197,7 +210,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
             val bob = sin(time * .8f + k * 1.7f) * (if (foc) 4f else 3f)
             val tx = ROW_X + off * STEP + sign(off) * min(abs(off), 1f) * (NEXT - STEP)
             val ty = (if (k == i) 302f else 326f)
-            val ease = min(1f, dt * 10f)
+            val ease = min(1f, dt * 13f)
             s.x += (tx - s.x) * ease; s.y += (ty - s.y) * min(1f, dt * 7f)
             s.z += ((if (k == i) 40f else 0f) - s.z) * ease
             s.px += ((if (k == i) BIG else SMALL) - s.px) * ease
@@ -217,7 +230,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
             }
         }
         page?.tick(dt)
-        if (picTimer > 0) { picTimer -= dt; if (picTimer <= 0) current().let { g -> if (g != picFor) { picFor = g; backdrop.picture(g?.let { pictureOf(it) }) } } }
+        if (picTimer > 0) { picTimer -= dt; if (picTimer <= 0) current().let { g -> if (g != picFor) { picFor = g; showPicture(g) } } }
         if (toastLeft > 0) { toastLeft = (toastUntil - android.os.SystemClock.uptimeMillis()) / 1000f; toast.alpha = min(1f, toastLeft / .3f).coerceAtLeast(0f) }
         clockLeft -= dt; if (clockLeft <= 0) clockTick()
     }

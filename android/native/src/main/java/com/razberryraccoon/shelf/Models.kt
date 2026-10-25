@@ -67,23 +67,43 @@ open class Model(protected val stage: Stage, val asset: FilamentAsset) {
  * A game's case (case.js in the Studio): its art on the front, back and spine, and a cover that opens on the spine
  * hinge. `open` 0 is closed, 1 lies open to the left with the tray showing.
  */
-class Case(stage: Stage, asset: FilamentAsset, title: String, private val sampler: TextureSampler, front: Bitmap? = null) : Model(stage, asset) {
+class Case(stage: Stage, asset: FilamentAsset, title: String, private val sampler: TextureSampler, front: Bitmap? = null, back: Bitmap? = null, spine: Bitmap? = null) : Model(stage, asset) {
     private val textures = ArrayList<Texture>()
     private val coverRest = FloatArray(16)
     private val cover = asset.getFirstEntityByName("cover")
     private val media = asset.getFirstEntityByName("media")
     var open = 0f; set(v) { field = v; hinge() }
+    // the manual: a booklet inside the cover (a jewel case's front booklet), which can be lifted a little or carried out
+    private val manual = asset.getFirstEntityByName("manual")
+    private val manualRest = FloatArray(16)
+    private var manualParent = 0
+    private var manualOut = false
+    val hasManual get() = manual != 0
+    /** A jewel case's booklet is its front art; the others have a booklet of their own inside the cover. */
+    val jewel get() = asset.getFirstEntityByName("manual-art") == 0
+    /** The booklet's width and height, in millimetres. */
+    val manualSize get() = if (jewel) floatArrayOf(2 * half[0] - 4, 2 * half[1] - 4) else floatArrayOf(2 * half[0] - 16, 2 * half[1] - 18)
 
     init {
         if (cover != 0) tm.getTransform(tm.getInstance(cover), coverRest)
+        if (manual != 0) { val i = tm.getInstance(manual); tm.getTransform(i, manualRest); manualParent = tm.getParent(i) }
         // the front: the game's own box art if it's been downloaded (cropped to fill the box's real front, never
         // stretched), else Shelf's label painting at the front's shape
         val aspect = (half[0] / half[1]).coerceIn(.3f, 3f)
+        // the manual's booklet wears the box art too, until the manual itself is downloaded (its first page then)
+        if (manual != 0 && !jewel) manualSize.let { ms -> val a = (ms[0] / ms[1]).coerceIn(.3f, 3f)
+            art("manual-art", front?.copy(Bitmap.Config.ARGB_8888, false)?.let { c -> fill(c, a).also { if (it !== c) c.recycle() } } ?: Paintings.label(400, (400 / a).toInt(), "$title manual")) }
         art("front", front?.let { f -> fill(f, aspect).also { if (it !== f) f.recycle() } } ?: Paintings.label(512, (512 / aspect).toInt(), title))
-        art("back", Paintings.picture(512, (512 / aspect).toInt(), "$title back"))
-        art("spine", Paintings.picture(96, 640, title))
+        art("back", back?.let { b -> fill(b, aspect).also { if (it !== b) b.recycle() } } ?: Paintings.picture(512, (512 / aspect).toInt(), "$title back"))
+        // the spine is a narrow strip, as tall as the box; a downloaded spine is cropped to it the same way
+        val sa = ((2 * half[2] - 2) / (2 * half[1] - 4)).coerceIn(.04f, .5f)
+        art("spine", spine?.let { s0 -> upright(s0).let { b -> fill(b, sa).also { if (it !== b) b.recycle() } } } ?: Paintings.picture(96, 640, title))
         hinge()
     }
+
+    /** A spine scanned lying down (wider than tall) stood up, turned a quarter clockwise so its text reads top to bottom. */
+    private fun upright(b: Bitmap): Bitmap = if (b.width <= b.height) b else
+        Bitmap.createBitmap(b, 0, 0, b.width, b.height, android.graphics.Matrix().apply { postRotate(90f) }, true).also { b.recycle() }
 
     /** A picture cropped to this shape (width / height), centred, so it fills it without stretching. */
     private fun fill(b: Bitmap, aspect: Float): Bitmap {
@@ -105,6 +125,27 @@ class Case(stage: Stage, asset: FilamentAsset, title: String, private val sample
         Matrix.rotateM(m.also { Matrix.setIdentityM(it, 0) }, 0, -180f * open * .97f, 0f, 1f, 0f)
         val out = FloatArray(16); Matrix.multiplyMM(out, 0, coverRest, 0, m, 0)
         tm.setTransform(tm.getInstance(cover), out)
+    }
+
+    /** The manual's own cover art (its PDF's first page), on a case whose booklet is its own. */
+    fun manualArt(b: Bitmap) { if (jewel) b.recycle() else art("manual-art", b) }
+
+    /** The manual back in its place in the cover, lifted toward you by `k` (0..1, a few millimetres) while it's chosen. */
+    fun manualIn(k: Float) {
+        if (manual == 0) return
+        val i = tm.getInstance(manual)
+        if (manualOut) { tm.setParent(i, manualParent); manualOut = false }
+        val m = FloatArray(16); Matrix.translateM(m, 0, manualRest, 0, 0f, 0f, if (jewel) 3f * k else -3f * k)   // toward you, out of the open cover
+        tm.setTransform(i, m)
+    }
+    /** Where the manual is now, in the world (at rest in the cover, or wherever it was carried). */
+    fun manualWorld(): FloatArray = FloatArray(16).also { tm.getWorldTransform(tm.getInstance(manual), it) }
+    /** Carries the manual out of the case, to this place in the world. */
+    fun manualAt(world: FloatArray) {
+        if (manual == 0) return
+        val i = tm.getInstance(manual)
+        if (!manualOut) { tm.setParent(i, 0); manualOut = true }
+        tm.setTransform(i, world)
     }
 
     /** Where a cartridge sits in the tray: the case's last placement, moved to the tray's centre (same millimetres). */

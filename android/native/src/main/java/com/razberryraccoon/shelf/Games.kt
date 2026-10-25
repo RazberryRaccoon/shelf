@@ -16,6 +16,8 @@ class Games(private val ctx: Context) {
     var installed: Set<String> = emptySet(); private set
 
     companion object {
+        /** What a console's games are, by their own name: a cartridge, a CD, a UMD, a game card, an app cartridge. */
+        fun mediaName(sys: String) = when (sys) { "ps1" -> "CD"; "psp" -> "UMD"; "ds" -> "Game card"; "android" -> "App cartridge"; else -> "Cartridge" }
         /** Console names, from the prototype's PLAT table. */
         val NAMES = mapOf("nes" to "NES", "snes" to "Super Nintendo", "n64" to "Nintendo 64", "genesis" to "Sega Genesis", "gb" to "Game Boy",
             "gbc" to "Game Boy Color", "gba" to "Game Boy Advance", "ps1" to "PlayStation", "ds" to "Nintendo DS", "psp" to "PlayStation Portable")
@@ -50,6 +52,14 @@ class Games(private val ctx: Context) {
     var lightEnv: Float get() = prefs.getFloat("light:env", Look.ENV); set(v) = prefs.edit().putFloat("light:env", v).apply()
     var lightExposure: Float get() = prefs.getFloat("light:exposure", Look.EXPOSURE); set(v) = prefs.edit().putFloat("light:exposure", v).apply()
     var lightKey: Float get() = prefs.getFloat("light:key", Look.KEY); set(v) = prefs.edit().putFloat("light:key", v).apply()
+    /** The accounts and keys for the media sources (Settings › Media), as ArtSources reads them: {ss: {user, …}, tgdb: {key}, …}. */
+    var artKeys: JSONObject
+        get() = try { JSONObject(prefs.getString("art-keys", "{}") ?: "{}") } catch (e: Exception) { JSONObject() }
+        set(v) = prefs.edit().putString("art-keys", v.toString()).apply()
+    /** Where you were in a game's manual, and your bookmarks: spreads (0 is the cover). */
+    fun manualPlace(g: Game): Pair<Int, List<Int>> = (prefs.getString("manual:${g.path}", null) ?: "0|").split("|").let { p ->
+        (p[0].toIntOrNull() ?: 0) to p.getOrElse(1) { "" }.split(",").mapNotNull { it.toIntOrNull() } }
+    fun setManualPlace(g: Game, at: Int, marks: List<Int>) = prefs.edit().putString("manual:${g.path}", "$at|" + marks.joinToString(",")).apply()
     var sounds: Boolean get() = prefs.getBoolean("sounds", true); set(v) = prefs.edit().putBoolean("sounds", v).apply()
     var setupDone: Boolean get() = prefs.getBoolean("setup", false); set(v) = prefs.edit().putBoolean("setup", v).apply()
 

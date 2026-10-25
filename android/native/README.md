@@ -37,7 +37,11 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Home.kt` | Home: the row of recent games, the top bar, details, the shell color and emulator pickers. |
 | `GamePage.kt` | A game's page: the cartridge to turn with the right stick, the details and icon tiles, live shell colors. |
 | `Article.kt` | A game's About opened up as an article over the page (Wikipedia's article, its pictures between the paragraphs). |
-| `Meta.kt` | A game's details and pictures from libretro's database, saved on the device. |
+| `Meta.kt` | A game's details and media, saved on the device, with where each piece came from. |
+| `Media.kt` | Every source (libretro, Wikipedia, retrokit's manuals, ScreenScraper, TheGamesDB, RetroAchievements, SteamGridDB, IGDB), each kind's choices, Find everything missing. |
+| `MediaPage.kt` | Game settings › Media: a tile for each kind of media, every source's choices. |
+| `Manual.kt` | The manual reader: two-page spreads, turning pages, bookmarks. |
+| `Player.kt` | A game's video, played when you choose it. |
 | `Museum.kt` | The Museum: the timeline, the six views of each console (Console and Cartridge, each also Inside; the box open and closed), its story, its colors (and the console Studio) and its default shell. |
 | `Consoles.kt` | Console colors (the real ones, yours, painting a console part by part) and its circuit board. |
 | `Models.kt` | Consoles and cases: placing any model, a case's art, its hinged cover and its tray. |
@@ -48,7 +52,39 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
-## What's in version 0.15
+## What's in version 0.16
+
+The user's six notes on 0.15:
+1. The NES box's clips sit above and below the cartridge, inside the box (they poked out of its sides).
+2. Moving along Home is lighter: the background picture is read off the main thread, the sky's colors are made a
+   few times a second while they shift instead of every frame, the row follows a little faster, and holding a
+   direction repeats a little sooner. Nothing was taken away.
+3. Media, all in one place:
+   - **Game settings › Media** opens a page of its own: the game's standard name (Change match picks it), Find
+     everything missing, and a tile for each kind (box front, spine, back, cartridge art, title screen, screenshot,
+     video, details, description, manual) showing what it has and where it came from, or a dashed outline where
+     it's missing. A on a tile lists every source's choices, each labelled with its source (Remove it, too); X finds
+     a missing one on its own.
+   - **Settings › Media**: how many games are missing each kind, with A to find them all (it carries on in the
+     background), Find everything missing, and every source with its state and step-by-step setup (what to sign up
+     for, where to find the key), its fields, and Test it.
+   - Sources: libretro, Wikipedia and retrokit's manual library need nothing; ScreenScraper, TheGamesDB,
+     RetroAchievements, SteamGridDB and IGDB need a free account or key. ScreenScraper also needs Shelf's own
+     developer credentials (see docs/SCREENSCRAPER.md).
+   - The page shows them: a downloaded back and spine go on the 3D box, the pictures row has the box back,
+     cartridge art and the video (which plays only when you choose it), and the credits say where things came from.
+     Choices you make are kept when a game is looked up again.
+4. The DS box is wider than tall (135 × 122 mm), so its art isn't cut off.
+5. The Museum calls each console's games by their name: Cartridge, CD (PlayStation), UMD (PSP), Game card (DS),
+   App cartridge (Android), and their Inside views too.
+6. Manuals: a booklet inside each box's cover (a jewel case's front booklet), wearing the manual's own cover once
+   it's downloaded. "Read the manual" (under the tiles) brings in the open box if it isn't showing, lifts the booklet
+   out of the cover and up in front of you, and opens it into the reader; or, with the box open, left from the first
+   tile chooses the booklet where it lies. The reader shows two-page spreads with a page folding over as you turn,
+   Y bookmarks, L1/R1 jump between bookmarks, and your place is kept. Manuals come free from retrokit's library on
+   archive.org (and ScreenScraper, once connected); "Find the manual" fetches one the first time.
+
+## What was in version 0.15
 
 The user's three notes on 0.14:
 1. Customize shell (and the Studio) always shows the cartridge itself: from Game settings it puts itself back together

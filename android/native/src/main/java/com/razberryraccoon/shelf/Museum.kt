@@ -42,6 +42,12 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
     private val exhibits: List<Exhibit>
     private var at = 0
     private val views = listOf("Console", "Cartridge", "Cartridge Inside", "In its box", "Box closed", "Console Inside")   // Console Inside: left of Console
+    /** A view's name for this console: its games by their own name (a CD, a UMD, a game card), not always "Cartridge". */
+    private fun viewName(v: Int): String {
+        val e = ex()
+        val one = Games.mediaName(e.sys)
+        return when (v) { 1 -> one; CART_INSIDE -> "$one Inside"; else -> views[v] }
+    }
     private var view = 0
     private var shellsChanged = false
 
@@ -138,9 +144,9 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         val e = ex(); val v = carts.variantFor(e.sys, games.defaultShell(e.sys))
         val look = consoles.lookFor(e.sys, games.consoleLook(e.sys))
         val keep = rows.current()?.key
-        rows.rows = listOf(Options.Row("view", "Showing", value = "‹  ${views[view]}  ›")) +
+        rows.rows = listOf(Options.Row("view", "Showing", value = "‹  ${viewName(view)}  ›")) +
             (if (look == null) emptyList() else listOf(Options.Row("look", "Customize console colors", value = look.name, sub = look.note.ifEmpty { "Your own, from the Studio" }, dot = shellDot(look)))) +
-            Options.Row("shell", "Default shell", value = v?.name ?: "", sub = "Its standard cartridges on Home; special editions keep theirs", dot = v?.color)
+            Options.Row("shell", "Default shell", value = v?.name ?: "", sub = "Its standard ${viewName(1).let { if (it.length <= 3) it + "s" else it.lowercase() + "s" }} on Home; special editions keep theirs", dot = v?.color)
         rows.rows.indexOfFirst { it.key == keep }.takeIf { it > 0 }?.let { rows.focus(it) }
         rows.invalidate()
     }
