@@ -47,7 +47,23 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
-## What's in version 0.11
+## What's in version 0.12
+
+**Starting a game, and coming back** (`Launch.kt`). Play: Home (or the page) steps aside and the game's console rises
+into view in its Museum colors; the cartridge flies from where it was, lines up with the slot and slides in (the Game
+Boys turn round to take it in their back pockets, the DS takes its card in the back edge, the PSP its disc behind the
+back door, the PlayStation its disc in the well, the NES flat through its front door). It seats with a soft click, the
+power light comes on with a quiet chime, a handheld's screen glows with the game's title screen (the label art until
+one's downloaded), and the view eases in on the power light or the screen as everything fades to black: about 2.5
+seconds, then the game starts. Coming back plays it backwards: out of black, the screen dims, the light goes off, the
+cartridge slides out and flies home, and the console sinks away. Any button skips to the end of either. Where each game
+sits, and the path it slides in along, are each console's `insert` in the Studio's `consoles.js`.
+
+**The box on the game page.** A game's page shows the cartridge, the cartridge in its open box, or the box closed;
+L2 and R2 go through them, and they flow into each other as in the Museum. Settings › "A game's page opens on" chooses
+which comes first (the open box, unless you change it).
+
+## What was in version 0.11
 
 A fix: 0.10's hollow console halves were built inside out (every surface wound to face into the plastic), so the
 renderer hid each half's real outside and showed the inside of the far wall, 2.4 mm in and lit backwards; the rounded

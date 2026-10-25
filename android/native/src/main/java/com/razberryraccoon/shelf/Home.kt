@@ -52,7 +52,11 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     /** Home hides while setup or settings are open; coming back, the cartridges rise into place one after another. */
     var visible = true; set(v) { if (v && !field) { rise = 0f; riseT = 0f; zone = "row"; refreshTop() }; field = v }   // back on Home, the cursor's on the games
     private var rise = 0f
-    private var riseT = 0f   // seconds since Home came back; each cartridge starts rising a moment after the one before
+    private var riseT = 0f
+    // starting a game: its cartridge belongs to the start animation (Launch) until it's back; then Home shows that game
+    private var launchingPath: String? = null
+    private var landedPath: String? = null   // back from a game: its cartridge is already in place, so it doesn't fly in again
+    private var focusPath: String? = null    // the game to keep selected as the row is reordered (it moves to the front)   // seconds since Home came back; each cartridge starts rising a moment after the one before
 
     private val title = text(48f, Fonts.display, Theme.fg)
     private val meta = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
@@ -95,6 +99,29 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
 
     fun refreshProfile() = profile.set(games.name.ifEmpty { "Player" }, games.color)
 
+    /**
+     * Starting a game: Home (and the page, if it's open) steps aside, and the game's cartridge goes to the start
+     * animation, with where it is now.
+     */
+    fun takeForLaunch(g: Game): Pair<Cart?, FloatArray> {
+        val p = page?.takeIf { it.game.path == g.path }
+        val c = p?.cart ?: slots.firstOrNull { it.game.path == g.path }?.cart
+        launchingPath = g.path; focusPath = g.path; landedPath = null
+        p?.launching = true
+        visible = false
+        return c to (c?.current() ?: FloatArray(16).also { android.opengl.Matrix.setIdentityM(it, 0) })
+    }
+
+    /** Back from a game: its cartridge is home again, selected (it's moved to the front of the row). */
+    fun landed(g: Game) {
+        launchingPath = null; landedPath = g.path
+        page?.launching = false
+        slots.indexOfFirst { it.game.path == g.path }.takeIf { it >= 0 }?.let { i = it; f = it.toFloat() }
+        focusPath = null
+        visible = true
+        refreshInfo()
+    }
+
     // ---------- games in the row ----------
 
     fun setGames(list: List<Game>) {
@@ -105,6 +132,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         slots.clear()
         for (g in keep) slots.add(old[g.path] ?: Slot(g, carts.make(g.sys, g.title, carts.shellFor(games, g))))
         i = i.coerceIn(0, maxOf(0, slots.size - 1))
+        focusPath?.let { p -> slots.indexOfFirst { it.game.path == p }.takeIf { it >= 0 }?.let { i = it; f = it.toFloat() } }
         // back from playing with a page open: the game moved to the front of the row, so follow it there
         page?.let { p -> i = slots.indexOfFirst { it.game.path == p.game.path }; f = i.toFloat(); p.refresh() }
         refreshInfo()
@@ -147,10 +175,11 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         for (v in listOf(title, meta, message)) v.alpha = shownK * (1 - pageK)
         dockLabel.alpha = minOf(dockLabel.alpha, shownK)
         backdrop.picVisible = shownK * (1 - pageK)
-        if (!visible && rise == 0f) { slots.forEach { it.cart?.place(-2000f, 0f, 0f, 0f, 0f, 1f) }; return }
+        if (!visible && rise == 0f) { slots.forEach { if (it.game.path != launchingPath) it.cart?.place(-2000f, 0f, 0f, 0f, 0f, 1f) }; page?.tick(dt); return }
         if (visible) backdrop.shadows.clear()
         slots.forEachIndexed { k, s ->
             if (k == i && page != null) return@forEachIndexed   // the page holds this one
+            if (s.game.path == launchingPath) return@forEachIndexed   // the start animation holds this one
             val off = k - f; val foc = k == i && picker == null
             val bob = sin(time * .8f + k * 1.7f) * (if (foc) 4f else 3f)
             val tx = ROW_X + off * STEP + sign(off) * min(abs(off), 1f) * (NEXT - STEP)
@@ -163,7 +192,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
             val cart = s.cart ?: return@forEachIndexed
             // rising into place, each a moment after the one before
             // arriving: each flies in from far away, quickly, one just after another, overshoots a little and settles
-            val rest = if (visible) flyIn(((riseT - k * .035f) / .42f).coerceIn(0f, 1f)) else Backdrop.ease(rise)   // leaving, they shrink away
+            val rest = if (s.game.path == landedPath && visible) 1f else if (visible) flyIn(((riseT - k * .035f) / .42f).coerceIn(0f, 1f)) else Backdrop.ease(rise)   // leaving, they shrink away
             // while a page is open, the others sink out of the way, each a beat after the one before
             val away = page?.let { Backdrop.ease((pageK * 1.4f - abs(k - i) * .06f).coerceIn(0f, 1f)) } ?: 0f
             val up = rest.coerceAtMost(1f) * (1 - away); val lift = -away * 640f   // a page opening sends the others up and away

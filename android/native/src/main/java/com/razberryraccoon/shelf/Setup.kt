@@ -149,6 +149,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                 rows += Options.Row("go", "Emulators", tag = Step.EMUS)
                 rows += Options.Row("go", "Your name and color", value = games.name, tag = Step.WHO)
                 rows += Options.Row("go", "Lighting", value = "Brightness of the 3D", tag = Step.LIGHT)
+                rows += Options.Row("pageview", "A game’s page opens on", value = "‹  ${PAGE_VIEWS[games.pageView]}  ›", sub = "On the page itself, L2 and R2 go through all three")
                 rows += Options.Row("sounds", "Sounds", value = if (games.sounds) "On" else "Off", sub = "Soft clicks and chimes as you move around")
                 rows += Options.Row("again", "Run first-time setup again")
                 rows += Options.Row("close", "Done", primary = true)
@@ -173,6 +174,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         picker?.let { it.input(a); return }
         val r = options.current()
         if (r?.key == "light" && (a == "left" || a == "right")) return adjustLight(r.tag as String, if (a == "left") -1 else 1)
+        if (r?.key == "pageview" && (a == "left" || a == "right" || a == "a")) { games.pageView = (games.pageView + (if (a == "left") 2 else 1)) % 3; Sounds.play(Sounds.MOVE); return fill() }
         when (a) {
             "up" -> Sounds.play(if (options.move(-1)) Sounds.MOVE else Sounds.BUMP)
             "down" -> Sounds.play(if (options.move(1)) Sounds.MOVE else Sounds.BUMP)
@@ -348,3 +350,6 @@ class Dots(ctx: Context) : View(ctx) {
         for (k in 0 until 5) { p.color = if (k <= at) Theme.accentOf(null) else Theme.chip; c.drawRoundRect(RectF(k * 44f, 6f, k * 44f + 35, 12f), 3f, 3f, p) }
     }
 }
+
+/** The game page's three views, in order (Games.pageView). */
+val PAGE_VIEWS = listOf("Cartridge", "Open box", "Closed box")

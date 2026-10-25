@@ -22,7 +22,14 @@ data class ConsoleLook(val name: String, val note: String, val parts: Map<String
 }
 
 /** A console's paintable parts, in order ("shell" to "Shell"), and the colors it really came in, its first one standard. */
-class ConsoleInfo(val sys: String, val name: String, val parts: List<Pair<String, String>>, val looks: List<ConsoleLook>, val board: BoardInfo?, val explode: Explode?)
+class ConsoleInfo(val sys: String, val name: String, val parts: List<Pair<String, String>>, val looks: List<ConsoleLook>, val board: BoardInfo?, val explode: Explode?, val launch: LaunchMarks?)
+
+/**
+ * The start animation's marks, in the console's millimetres: where its game sits once it's in (a whole transform, `seat`),
+ * the straight path it slides in along (`from`, from the seated spot), how far the console turns round to take it, and
+ * where its power light and its picture screen are (what the view eases in on).
+ */
+class LaunchMarks(val seat: FloatArray, val from: FloatArray, val turn: Float, val led: FloatArray?, val screen: FloatArray?)
 
 /** How the Inside view takes a console apart: its halves slide along the seam's axis, the upper (a handheld's front) by `upper` millimetres, the lower by `lower`. */
 class Explode(val axis: Char, val upper: Float, val lower: Float)
@@ -45,7 +52,9 @@ class Consoles(ctx: Context, stage: Stage) {
                 c.getJSONArray("parts").let { a -> (0 until a.length()).map { a.getJSONArray(it).let { p -> p.getString(0) to p.getString(1) } } },
                 c.getJSONArray("colors").let { a -> (0 until a.length()).map { a.getJSONObject(it).let { l -> ConsoleLook(l.getString("name"), l.optString("note"), parts(l.getJSONObject("parts"))) } } },
                 c.optJSONObject("board")?.let { b -> b.getJSONArray("size").let { z -> BoardInfo(b.getString("code"), Color.parseColor(b.getString("mask")), z.getDouble(0).toFloat(), z.getDouble(1).toFloat()) } },
-                c.optJSONObject("explode")?.let { o -> Explode(o.getString("axis")[0], o.getDouble("upper").toFloat(), o.getDouble("lower").toFloat()) })
+                c.optJSONObject("explode")?.let { o -> Explode(o.getString("axis")[0], o.getDouble("upper").toFloat(), o.getDouble("lower").toFloat()) },
+                c.optJSONObject("launch")?.let { l -> fun arr(k: String) = l.optJSONArray(k)?.let { a -> FloatArray(a.length()) { a.getDouble(it).toFloat() } }
+                    LaunchMarks(arr("seat") ?: FloatArray(16).also { android.opengl.Matrix.setIdentityM(it, 0) }, arr("from") ?: FloatArray(3), l.optDouble("turn", 0.0).toFloat(), arr("led"), arr("screen")) })
         } }
     }
 
@@ -84,7 +93,7 @@ class ConsoleLooks(ctx: Context) {
  * "role:dpad"; a part in two shades has "role:band" and "role:band#2"). The file's own colors are kept, so a part
  * that new colors leave alone goes back to how the model was made.
  */
-class Console(stage: Stage, asset: FilamentAsset, file: JSONObject?, val clear: Boolean = false) : Model(stage, asset) {
+class Console(stage: Stage, asset: FilamentAsset, private val file: JSONObject?, val clear: Boolean = false) : Model(stage, asset) {
     private class Own(val color: FloatArray, val rough: Float, val metal: Float, val coat: Float, val coatRough: Float)
     private val mats = ArrayList<Pair<String, MaterialInstance>>()
     private val own = HashMap<String, Own>()
@@ -112,6 +121,34 @@ class Console(stage: Stage, asset: FilamentAsset, file: JSONObject?, val clear: 
 
     // the two halves, each its own node in the file, and where they rest when the console is whole
     private val halves = listOf("lower", "upper").map { n -> asset.getFirstEntityByName(n).let { e -> e to FloatArray(16).also { if (e != 0) tm.getTransform(tm.getInstance(e), it) } } }
+
+    // its power light and its picture screen (the start animation turns them on), with their own colors from the file
+    private fun instances(name: String) = asset.renderableEntities.flatMap { e -> rm.getInstance(e).takeIf { it != 0 }?.let { ri -> (0 until rm.getPrimitiveCount(ri)).map { rm.getMaterialInstanceAt(ri, it) } } ?: emptyList() }
+        .filter { it.name == name }.distinct()
+    private fun fileMaterial(name: String) = file?.optJSONArray("materials")?.let { a -> (0 until a.length()).map { a.getJSONObject(it) }.firstOrNull { it.optString("name") == name } }
+    private val leds = instances("power-led")
+    private val ledGlow = fileMaterial("power-led")?.optJSONArray("emissiveFactor")?.let { e -> FloatArray(3) { e.optDouble(it, 0.0).toFloat() } } ?: floatArrayOf(1f, .2f, .2f)
+    private val screens = instances("screen-picture")
+    private val screenColor = fileMaterial("screen-picture")?.optJSONObject("pbrMetallicRoughness")?.optJSONArray("baseColorFactor")?.let { c -> FloatArray(3) { c.optDouble(it, 0.0).toFloat() } } ?: floatArrayOf(.01f, .01f, .01f)
+    private var shown: com.google.android.filament.Texture? = null
+
+    /** The power light, 0 off to 1 on. */
+    fun power(k: Float) = leds.forEach { it.set("emissiveFactor", ledGlow[0] * k, ledGlow[1] * k, ledGlow[2] * k) }
+
+    /**
+     * The screen showing a picture (the game's title screen), 0 its own dark glass to 1 glowing with the picture. The
+     * picture goes on the first time it's asked for; null leaves the screen as it is.
+     */
+    fun picture(t: com.google.android.filament.Texture?, sampler: com.google.android.filament.TextureSampler, k: Float) {
+        if (t == null) return
+        for (mi in screens) {
+            if (shown !== t) for (p in listOf("baseColorMap", "emissiveMap")) if (mi.material.parameters.any { it.name == p && it.type == com.google.android.filament.Material.Parameter.Type.SAMPLER_2D }) mi.setParameter(p, t, sampler)
+            val b = .12f * k   // a little of the picture in the glass's own color, the rest its glow
+            mi.set("baseColorFactor", screenColor[0] * (1 - k) + b, screenColor[1] * (1 - k) + b, screenColor[2] * (1 - k) + b, 1f)
+            mi.set("emissiveFactor", .92f * k, .92f * k, .92f * k)
+        }
+        shown = t
+    }
 
     /**
      * Takes the console apart, 0 whole to 1 apart, like an exploded drawing: the upper half (a handheld's front) and the

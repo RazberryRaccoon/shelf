@@ -508,3 +508,13 @@ the renderer hid the real outside and showed the far wall's inside, lit backward
 probe casts a ray off every triangle of every console's halves to check it faces out of the plastic (all do, apart
 from a handful of hairline slivers at tight corners and rays grazing along walls). The 0.10 renders had looked right
 because the inside surfaces sit only 2.4 mm in. Lesson: check which way new geometry faces with a probe, not by eye.
+
+**Shelf Native 0.12 (October 2026): starting a game, coming back, and the box on the game page.** Update C's second
+half, after the user agreed the plan (2.5 seconds, any button skips, home consoles easing in on the power light), plus
+the user's mid-round request for the game page's three views with a Settings default. The consoles gained named power
+lights and picture screens (a texture slot the app fills with the title screen), and each an `insert`: where its game
+sits and the path it slides in along. Checked with renders of every game seated and on its way in, contact sheets of
+the whole start for a Game Boy and an N64 rebuilt with the app's own timing and placement, and a JVM test of the
+cartridge's flight (blending two placements keeps its size and shape half way, which plain matrix blending wouldn't).
+Not yet animated: the DS opening, the PlayStation's lid and the PSP's door (each is merged into its console's half, so
+the game goes in through them). Compile-checked; not checked on a device.
