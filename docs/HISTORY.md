@@ -526,3 +526,13 @@ traps were avoided by putting new fields above `init` (Settings reads the saved 
 Checked with contact sheets of the start for the DS, PlayStation, PSP and GBA, and of the teardown for a Game Boy and an
 NES cartridge; compile-checked. Not checked on a device. The DS box: the user remembered it as wider than tall; the
 measurements say slightly taller, so it follows them (noted in DECISIONS).
+
+**Shelf Native 0.14 (October 2026): five notes, mostly motion.** The box's three separate eases (box, cartridge in
+tray, cover), each chasing its own target, became one track with four stops (`BoxFlow`: cartridge alone, box in with
+the cartridge over the tray, cartridge seated, cover shut) that is walked one step at a time at fixed speeds, so every
+change of view passes through the same steps in either direction and each step comes to rest. The page and the Museum
+share it, and the start animation now takes a separate return spot, so a boxed page gets its cartridge back out of
+the box and slots it in again. A straight lift toward the camera hardly shows through the page's long lens (14°), so
+the cartridge waits a little above the tray as well. Checked with contact sheets of the flow (SNES, Genesis, in
+perspective with the app's lens), the new teardown (NES, Game Boy) and the Game Boy pockets; compile-checked. Not
+checked on a device.

@@ -57,12 +57,12 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     // turning it in your hands
     private var stickX = 0f; private var stickY = 0f
     // What the page shows (Settings chooses which first; L2 and R2 go through them): 0 the cartridge, 1 the cartridge in
-    // its open box, 2 the box closed. They flow into each other as in the Museum: the box grows round the cartridge, the
-    // cartridge settles into its tray, the cover swings shut.
+    // its open box, 2 the box closed. They flow into each other along one line of steps (BoxFlow, as in the Museum): the
+    // open box slides in from the left, the cartridge slots into its tray, the cover swings shut; and back the same way.
     private var view = games.pageView
     private val sampler = com.google.android.filament.TextureSampler(com.google.android.filament.TextureSampler.MinFilter.LINEAR_MIPMAP_LINEAR, com.google.android.filament.TextureSampler.MagFilter.LINEAR, com.google.android.filament.TextureSampler.WrapMode.CLAMP_TO_EDGE)
     private val case: Case? = carts.model("case-${game.sys}.glb")?.let { Case(stage, it, game.title, sampler, meta.cached(game)?.pics?.get("box")?.let { f -> meta.bitmap(f, 512) }) }?.also { it.hide() }
-    private var caseK = 0f; private var inBox = 0f; private var openK = 1f
+    private val flow = BoxFlow()
     // Game settings takes the cartridge apart on a surface (Cart.teardown), with a screwdriver beside it: how far, 0..1
     private var tk = 0f
     private val tool: Model? = carts.model("screwdriver.glb")?.let { Model(stage, it) }?.also { it.hide() }
@@ -190,7 +190,8 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     fun tick(dt: Float) {
         time += dt
         viewer?.tick(dt)
-        t = if (closing) maxOf(0f, t - dt / .5f) else min(1f, t + dt / .6f)
+        // closing: the cartridge comes out of its box and the box slides away first, then it goes back to the row
+        t = if (closing) (if (flow.s > .02f) t else maxOf(0f, t - dt / .5f)) else min(1f, t + dt / .6f)
         val k = Backdrop.ease(t)
         val pk = Backdrop.ease(((t - .3f) / .7f).coerceIn(0f, 1f))
         studioK = if (studio != null) min(1f, studioK + dt / .3f) else maxOf(0f, studioK - dt / .25f)
@@ -219,18 +220,23 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val x = lerp(from[0], 350f, k); val y = lerp(from[1], 384f, k) - sin(PI.toFloat() * k) * 46f + sin(time * .8f) * 4f * k
         // taking it apart: once the box is out of the way; the layout is wider and taller than the cartridge, so it
         // shrinks to fit and moves up a little (the parts are laid out below the halves)
-        tk = if (tearing && !closing && !launching && inBox < .05f && caseK < .1f) min(1f, tk + dt / 1.05f) else maxOf(0f, tk - dt / .8f)
+        tk = if (tearing && !closing && !launching && flow.s < .02f) min(1f, tk + dt / 2.6f) else maxOf(0f, tk - dt / 1.4f)
         val te = Backdrop.ease(tk)
         val big = cart?.let { maxOf(it.style.w, it.style.h) } ?: 1f
-        val fit = cart?.let { c -> big / maxOf(2.3f * c.style.w, 1.25f * c.style.h) } ?: 1f
+        val fit = cart?.let { c -> 1.3f * big / maxOf(2.9f * c.style.w, 1.45f * c.style.h) } ?: 1f   // the parts' spread, seen from above, about 520 across
         val px = lerp(from[2], 400f, k) * lerp(1f, fit, te)
-        val ty = (cart?.style?.h ?: 0f) * .2f * (px / big) * te
+        val ty = (cart?.style?.h ?: 0f) * .3f * (px / big) * te
         val ry = lerp(-.2f, yaw, k); val rx = lerp(-.1f, pitch, k)
         if (!launching) cart?.place(x, y - ty, lerp(40f, 70f, k), ry, rx, px, held = true)
+        val boxedTo = if (case == null || closing || launching || mode == Mode.SETTINGS || tk > .02f || t < .25f) 0f else when (view) { 1 -> 2f; 2 -> 3f; else -> 0f }
+        val was = flow.s
+        flow.tick(dt, boxedTo, if (closing) 1.3f else 1f)
+        if (was < 2f && flow.s >= 2f) Sounds.play(Sounds.CLICK)        // the cartridge seats in its tray
+        if (was < 3f && flow.s >= 3f) Sounds.play(Sounds.CLOSE)        // the cover shuts
         cart?.teardown(tk)
         val spot = cart?.toolSpot(tk)
         if (tool != null) { if (spot != null && tk > .66f && !launching) tool.placeMatrix(FloatArray(16).also { android.opengl.Matrix.multiplyMM(it, 0, cart!!.placed, 0, spot, 0) }) else tool.hide() }
-        placeBox(dt, x, y, ry, rx, k)
+        placeBox(x, y, ry, rx)
         cart?.brightness(lerp(1.02f, 1f, k))
         if (!launching) cart?.let { c ->
             val big = maxOf(c.style.w, c.style.h)
@@ -540,33 +546,33 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     private fun setView(v: Int) {
         val to = (v + 3) % 3
         if (case == null && to != 0) return Sounds.play(Sounds.BUMP)   // a console with no box made for it yet
-        // from the cartridge straight to the closed box (left from Cartridge), it arrives already closed with the cartridge in
-        if (view == 0 && to == 2 && caseK < .05f) { inBox = 1f; openK = 0f }
         view = to; idle = 9f; vYaw = 0f; fillHint()
-        Sounds.play(if (to == 2) Sounds.CLOSE else Sounds.MOVE)
+        Sounds.play(Sounds.MOVE)
     }
 
     /**
-     * The box around the cartridge, and the cartridge in its tray: the case at most 400 across (open, its cover lies to
-     * the left, so it shrinks to fit and moves right to stay centred), the cartridge between where it floats and the tray.
+     * The box and the cartridge, by how far along the flow is. The open box (its cover lying to the left, so it sits right
+     * of the cartridge's spot to stay centred) at most 400 across, slid in from off the left edge; the cartridge from
+     * where it floats to just over the tray, then down into it; the cover shut. Closed, it grows (up to 500 tall) to fill
+     * the left half, so the box art shows big.
      */
-    private fun placeBox(dt: Float, x: Float, y: Float, ry: Float, rx: Float, k: Float) {
+    private fun placeBox(x: Float, y: Float, ry: Float, rx: Float) {
         val c = case ?: return
-        fun ease(cur: Float, want: Float, rate: Float) = cur + (want - cur) * min(1f, dt * rate)
-        val boxed = !closing && !launching && mode != Mode.SETTINGS && tk < .05f && view >= 1   // the box steps aside to start the game, and for Game settings
-        // one thing after another, as you'd do it: to close, the cartridge settles into the tray before the cover swings
-        // shut; to take it out, the cover opens, then the cartridge lifts out, then the box goes
-        openK = ease(openK, if (boxed && view == 2 && inBox > .95f) 0f else 1f, 5f)
-        inBox = ease(inBox, if (boxed || openK < .9f) 1f else 0f, 6f)
-        caseK = ease(caseK, if (boxed || inBox > .1f) 1f else 0f, 7f)
-        c.open = Backdrop.ease(openK.coerceIn(0f, 1f))
-        val kk = Backdrop.ease(caseK.coerceIn(0f, 1f)) * k
-        if (kk < .02f) { c.hide(); return }
-        val s = min(400f / (2 * maxOf(c.half[0], c.half[1])), 300f / (2 * c.half[0]))
-        val shift = maxOf(0f, -kotlin.math.cos(PI.toFloat() * .97f * c.open)) * c.half[0] * s * kk * kotlin.math.cos(ry)
-        c.place(x + shift, y, 50f, ry, rx, s * 2 * maxOf(c.half[0], c.half[1]) * kk)
-        val ib = Backdrop.ease(inBox.coerceIn(0f, 1f))
-        if (!launching) cart?.let { ct -> if (ib > .01f) { val free = ct.placed.copyOf(); val tray = c.mediaMatrix(); ct.placeMatrix(FloatArray(16) { free[it] + (tray[it] - free[it]) * ib }) } }
+        if (flow.s < .001f) { c.hide(); return }
+        val shut = flow.closed
+        c.open = 1 - shut
+        val big = 2 * maxOf(c.half[0], c.half[1])
+        val open = min(400f / big, 300f / (2 * c.half[0]))
+        val s = lerp(open, maxOf(open, min(500f / (2 * c.half[1]), 440f / (2 * c.half[0]))), shut)
+        val shift = maxOf(0f, -kotlin.math.cos(PI.toFloat() * .97f * c.open)) * c.half[0] * s * kotlin.math.cos(ry)
+        val at = x + shift
+        val bx = at - (1 - flow.boxIn) * (at + 4 * c.half[0] * s + 40f)   // off the left edge, the open cover and all
+        c.place(bx, y, 50f, ry, rx, s * big)
+        if (launching) return
+        val ct = cart ?: return
+        val tray = c.mediaMatrix()
+        val hover = c.hoverMatrix(ct.style.h, ct.style.depth)
+        ct.placeMatrix(if (flow.s <= 1f) Poses.blend(ct.placed, hover, flow.boxIn) else Poses.blend(hover, tray, flow.down))
     }
 
     /** Under the cartridge: what the triggers show, and the turning keys. */

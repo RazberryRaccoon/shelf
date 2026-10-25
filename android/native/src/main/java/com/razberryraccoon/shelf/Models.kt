@@ -1,5 +1,8 @@
 package com.razberryraccoon.shelf
 
+import kotlin.math.acos
+import kotlin.math.sin
+import kotlin.math.sqrt
 import android.graphics.Bitmap
 import android.opengl.Matrix
 import com.google.android.filament.Material
@@ -111,5 +114,91 @@ class Case(stage: Stage, asset: FilamentAsset, title: String, private val sample
         return FloatArray(16).also { Matrix.multiplyMM(it, 0, matrix, 0, local, 0) }
     }
 
+    /**
+     * Just over the tray, where a cartridge `h` tall and `d` deep waits before it goes in: up out of the well and a little
+     * above it, so going down into it reads as slotting in (seen through the page's long lens, a lift toward you alone
+     * hardly shows).
+     */
+    fun hoverMatrix(h: Float, d: Float): FloatArray = mediaMatrix().also { Matrix.translateM(it, 0, 0f, h * .2f + 10f, d * 2f + 12f) }
+
     override fun destroy() { super.destroy(); textures.forEach { stage.engine.destroyTexture(it) } }
+}
+
+/** Turning one placement into another smoothly. */
+object Poses {
+    /**
+     * Between two placements: position and size in a straight line, the turn along the shortest way round (blending the
+     * matrices themselves would squash the cartridge half way).
+     */
+    fun blend(a: FloatArray, b: FloatArray, k: Float): FloatArray {
+        val sa = scaleOf(a); val sb = scaleOf(b)
+        val qa = quat(a, sa); val qb = quat(b, sb)
+        val q = slerp(qa, qb, k); val s = sa + (sb - sa) * k
+        val out = rotation(q)
+        for (i in 0..2) for (j in 0..2) out[i * 4 + j] *= s
+        for (i in 12..14) out[i] = a[i] + (b[i] - a[i]) * k
+        out[15] = 1f
+        return out
+    }
+    private fun scaleOf(m: FloatArray) = sqrt(m[0] * m[0] + m[1] * m[1] + m[2] * m[2]).coerceAtLeast(1e-6f)
+    /** A rotation (column-major, scale removed) as a quaternion (x, y, z, w). */
+    private fun quat(m: FloatArray, s: Float): FloatArray {
+        val m00 = m[0] / s; val m11 = m[5] / s; val m22 = m[10] / s
+        val m21 = m[6] / s; val m12 = m[9] / s; val m02 = m[8] / s; val m20 = m[2] / s; val m10 = m[1] / s; val m01 = m[4] / s
+        val tr = m00 + m11 + m22
+        return when {
+            tr > 0 -> { val r = sqrt(tr + 1f) * 2; floatArrayOf((m21 - m12) / r, (m02 - m20) / r, (m10 - m01) / r, .25f * r) }
+            m00 > m11 && m00 > m22 -> { val r = sqrt(1f + m00 - m11 - m22) * 2; floatArrayOf(.25f * r, (m01 + m10) / r, (m02 + m20) / r, (m21 - m12) / r) }
+            m11 > m22 -> { val r = sqrt(1f + m11 - m00 - m22) * 2; floatArrayOf((m01 + m10) / r, .25f * r, (m12 + m21) / r, (m02 - m20) / r) }
+            else -> { val r = sqrt(1f + m22 - m00 - m11) * 2; floatArrayOf((m02 + m20) / r, (m12 + m21) / r, .25f * r, (m10 - m01) / r) }
+        }
+    }
+    private fun slerp(a: FloatArray, b0: FloatArray, k: Float): FloatArray {
+        var b = b0; var d = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3]
+        if (d < 0) { b = FloatArray(4) { -b0[it] }; d = -d }
+        if (d > .9995f) return FloatArray(4) { a[it] + (b[it] - a[it]) * k }.let { q -> val l = sqrt(q.sumOf { (it * it).toDouble() }).toFloat(); FloatArray(4) { q[it] / l } }
+        val th = acos(d.coerceIn(-1f, 1f)); val s = sin(th)
+        val wa = sin((1 - k) * th) / s; val wb = sin(k * th) / s
+        return FloatArray(4) { a[it] * wa + b[it] * wb }
+    }
+    /** A quaternion as a column-major rotation matrix. */
+    private fun rotation(q: FloatArray): FloatArray {
+        val (x, y, z, w) = q
+        return floatArrayOf(
+            1 - 2 * (y * y + z * z), 2 * (x * y + z * w), 2 * (x * z - y * w), 0f,
+            2 * (x * y - z * w), 1 - 2 * (x * x + z * z), 2 * (y * z + x * w), 0f,
+            2 * (x * z + y * w), 2 * (y * z - x * w), 1 - 2 * (x * x + y * y), 0f,
+            0f, 0f, 0f, 1f)
+    }
+}
+
+/**
+ * How a game goes into its box, as one line of steps, the same forwards and backwards (the game page and the Museum):
+ * 0, the cartridge on its own and the box off to the left; 1, the open box slid in from the left and the cartridge
+ * hovering over its tray; 2, the cartridge lowered into the tray (the open box); 3, the cover shut (the closed box).
+ * Going from one view to another passes through every step between, each eased to a stop (so the cartridge distinctly
+ * slots in), so the cartridge to the closed box slides the box in, slots the cartridge, then shuts the cover.
+ */
+class BoxFlow {
+    var s = 0f; private set
+    fun snap(v: Float) { s = v }
+    /** Moves toward `target` at each step's own pace: the box sliding in .6 s, the cartridge going down .32 s, the cover .45 s. */
+    fun tick(dt: Float, target: Float, speed: Float = 1f) {
+        var left = dt * speed
+        while (left > 0f && kotlin.math.abs(target - s) > 1e-4f) {
+            val up = target > s
+            val step = (if (up) kotlin.math.floor(s) else kotlin.math.ceil(s) - 1).toInt().coerceIn(0, 2)
+            val edge = if (up) minOf(target, step + 1f) else maxOf(target, step.toFloat())
+            val need = kotlin.math.abs(edge - s) * DUR[step]
+            if (left >= need) { s = edge; left -= need } else { s += (if (up) 1 else -1) * left / DUR[step]; left = 0f }
+        }
+    }
+    private fun part(a: Float) = Backdrop.ease((s - a).coerceIn(0f, 1f))
+    /** The box in from the left (0 off, 1 in place); the cartridge from where it floats to over the tray, by the same. */
+    val boxIn get() = part(0f)
+    /** The cartridge from over the tray down into it. */
+    val down get() = part(1f)
+    /** The cover, 0 open to 1 shut. */
+    val closed get() = part(2f)
+    private companion object { val DUR = floatArrayOf(.6f, .32f, .45f) }
 }

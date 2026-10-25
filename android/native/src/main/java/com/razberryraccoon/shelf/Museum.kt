@@ -55,7 +55,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
     // how present each piece is (eased toward its target every frame), and turning
     private var leaving = -1; private var slideX = 0f; private var slideTo = 0f   // switching consoles: a slide to the side
     private var consoleY = OFF; private var groupY = -OFF; private var age = 0f   // the console's and the cartridge-and-box's offsets from centre
-    private var caseK = 0f; private var openK = 1f; private var inBox = 0f; private var inside = 0f
+    private val flow = BoxFlow(); private var inside = 0f
     private var time = 0f; private var closing = false; private var shown = 0f
     private var stickX = 0f; private var stickY = 0f
     private var yaw = -.4f; private var pitch = -.2f; private var vYaw = 0f; private var vPitch = 0f; private var idle = 9f
@@ -224,12 +224,18 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         groupY = ease(groupY, if (onConsole) -OFF else 0f, 7f)
         inside = ease(inside, if (view == INSIDE) 1f else 0f, 4.5f)
         val gone = groupY < -OFF * .85f   // the cartridge and box are out of sight above
-        // one thing after another: closing, the cartridge settles into the tray before the cover swings shut; taking it
-        // out, the cover opens, then the cartridge lifts out, then the box goes
-        openK = when { view == 3 -> ease(openK, if (inBox > .95f) 0f else 1f, 5f); view == 1 || view == 2 -> ease(openK, 1f, 5f); gone -> 1f; else -> openK }
-        inBox = when { view == 2 || view == 3 -> ease(inBox, 1f, 6f); view == 1 -> ease(inBox, if (openK > .9f) 0f else 1f, 6f); gone -> 0f; else -> inBox }
-        caseK = when { view == 2 || view == 3 -> ease(caseK, 1f, 7f); view == 1 -> ease(caseK, if (inBox < .1f) 0f else 1f, 7f); gone -> 0f; else -> caseK }
-        case?.open = Backdrop.ease(openK.coerceIn(0f, 1f))
+        // one line of steps, as on a game's page (BoxFlow): the open box slides in from the left, the cartridge slots into
+        // its tray, the cover shuts; and back the same way. Out of sight above (on the console), it's simply where the
+        // next view wants it, so the console to the closed box arrives already closed
+        val boxTo = if (case == null) 0f else when (view) { 2 -> 2f; 3 -> 3f; else -> 0f }
+        if (gone) flow.snap(boxTo)
+        else {
+            val was = flow.s
+            flow.tick(dt, boxTo)
+            if (was < 2f && flow.s >= 2f) Sounds.play(Sounds.CLICK)
+            if (was < 3f && flow.s >= 3f) Sounds.play(Sounds.CLOSE)
+        }
+        case?.open = 1 - flow.closed
         // turning: the stick while held, a coast when let go, then back to the view's resting angle
         val sx = dead(stickX); val sy = dead(stickY); val r = rest()
         if (!closing && (sx != 0f || sy != 0f)) { vYaw += (sx * 3.4f - vYaw) * min(1f, dt * 8f); vPitch += (sy * 2.6f - vPitch) * min(1f, dt * 8f); idle = 0f }
@@ -265,29 +271,36 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
                 shadow(cx, y, 360f)
             }
         }
-        // the case: closed it's at most 400 across; open, the cover lies to the left, so it shrinks to fit and shifts right
+        // the case: open, at most 400 across, its cover lying to the left (so it sits right to stay centred), slid in from
+        // off the left edge; closed, a little bigger (up to 470 tall), so the front shows well
         val gy = cy + groupY
         val c = case
-        val caseS = if (c == null) 1f else min(400f / (2 * maxOf(c.half[0], c.half[1])), 300f / (2 * c.half[0]))
-        val kk = Backdrop.ease(caseK.coerceIn(0f, 1f))
+        val inK = flow.boxIn
         if (c != null) {
-            if (kk < .02f || gy < -400) c.hide()
+            if (flow.s < .001f || gy < -400) c.hide()
             else {
-                val px = caseS * 2 * maxOf(c.half[0], c.half[1]) * kk
-                // the open cover lies to the left of the base: move the whole box right by half the overhang, so it stays centred
-                val shift = maxOf(0f, -kotlin.math.cos(PI.toFloat() * .97f * c.open)) * c.half[0] * caseS * kk * kotlin.math.cos(yaw)
-                c.place(cx + shift, gy, 20f, yaw, pitch, px)
+                val big = 2 * maxOf(c.half[0], c.half[1])
+                val open = min(400f / big, 300f / (2 * c.half[0]))
+                val caseS = lerp(open, maxOf(open, min(470f / (2 * c.half[1]), 420f / (2 * c.half[0]))), flow.closed)
+                val shift = maxOf(0f, -kotlin.math.cos(PI.toFloat() * .97f * c.open)) * c.half[0] * caseS * kotlin.math.cos(yaw)
+                val at = cx + shift
+                c.place(at - (1 - inK) * (at + 4 * c.half[0] * caseS + 40f), gy, 20f, yaw, pitch, caseS * big)
             }
         }
-        // the cartridge: free in the middle, or sitting in the tray, or on its way between the two
+        // the cartridge: free in the middle, then just over the tray as the box comes in, then down into it
         val ct = cart ?: return
         if (gy < -400) { ct.place(-4000f, 0f, 0f, 0f, 0f, 1f); return }
         val free = FloatArray(16).also { freeMatrix(it, ct, cx, gy, 1f) }
-        val ib = Backdrop.ease(inBox.coerceIn(0f, 1f))
-        if (c == null || ib < .01f || kk < .02f) ct.placeMatrix(free)
-        else { val tray = c.mediaMatrix(); ct.placeMatrix(FloatArray(16) { free[it] + (tray[it] - free[it]) * ib }) }
-        shadow(cx, gy, 380f * maxOf(1 - ib, kk))
+        if (c == null || flow.s < .001f) ct.placeMatrix(free)
+        else {
+            val tray = c.mediaMatrix()
+            val hover = c.hoverMatrix(ct.style.h, ct.style.depth)
+            ct.placeMatrix(if (flow.s <= 1f) Poses.blend(free, hover, inK) else Poses.blend(hover, tray, flow.down))
+        }
+        shadow(cx, gy, 380f)
     }
+
+    private fun lerp(a: Float, b: Float, k: Float) = a + (b - a) * k
 
     private fun freeMatrix(m: FloatArray, c: Cart, x: Float, y: Float, k: Float) {
         val s = 380f * k / maxOf(c.style.w, c.style.h)
@@ -349,9 +362,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
     private fun toRows() { zone = Zone.ROWS; facts.background = null; rows.active = true; rows.invalidate(); scroll.smoothScrollTo(0, 0); Sounds.play(Sounds.MOVE) }
 
     private fun setView(v: Int) {
-        // coming straight from the console to the closed box (left from Console), it arrives already closed with its cartridge in
-        if ((view == 0 || view == INSIDE) && v == 3 && groupY < -OFF * .85f) { caseK = 1f; inBox = 1f; openK = 0f }
-        view = v; idle = 9f; vYaw = 0f; fillRows(); Sounds.play(if (v == 3) Sounds.CLOSE else Sounds.MOVE) }
+        view = v; idle = 9f; vYaw = 0f; fillRows(); Sounds.play(Sounds.MOVE) }
 
     private fun switchTo(k: Int) {
         if (k !in exhibits.indices) return Sounds.play(Sounds.BUMP)

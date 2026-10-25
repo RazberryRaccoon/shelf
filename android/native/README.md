@@ -47,7 +47,27 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
-## What's in version 0.13
+## What's in version 0.14
+
+The user's five notes on 0.13:
+1. Opening a game's page from Home: the cartridge floats down to its spot and, for the open or closed box, the open box
+   slides in from the left, the cartridge comes to rest just over its tray and then drops in with a click, and (closed
+   box) the cover swings shut. Going back to Home plays it the other way. Starting a game from a boxed page, the box
+   slides away as the cartridge flies off; coming back, the cartridge returns to its spot and the box slides in for it
+   again.
+2. Game settings takes the cartridge apart more deliberately (about 2.6 seconds): the front half lifts off, the halves
+   move well apart and settle on the surface, then the board rises out of the back half and is set down below them,
+   then the screwdriver appears. Everything is spaced further apart and shown bigger. Settings work while it plays.
+3. L2 and R2 between the cartridge, the open box and the closed box walk through the same steps in either direction
+   (`BoxFlow` in `Models.kt`): the cartridge to the closed box slides the box in, slots the cartridge, shuts the
+   cover; the closed box to the cartridge opens it, lifts the cartridge out and slides the box away. The box never
+   grows out of nothing. The Museum's "Showing" views use the same steps.
+4. The Game Boy, Game Boy Color and Game Boy Advance cartridge pockets are smaller: only about the top of a seated
+   cartridge shows.
+5. The closed box is bigger on the game page (up to 500 tall), filling the left half so the front art shows well;
+   a little bigger in the Museum too.
+
+## What was in version 0.13
 
 The user's ten notes on 0.12:
 1. The GBA's cartridge goes all the way in, flush, as on the real one (a deeper pocket).
