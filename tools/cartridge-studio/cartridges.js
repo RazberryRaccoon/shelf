@@ -23,6 +23,7 @@ const n64Arc = (() => { const w = 58, rise = 15, R = (w * w + rise * rise) / (2 
 export const STYLES = {
   nes: {
     name: 'NES', size: [120, 133], depth: 17,
+    screws: { r: 2.3, at: [[-53, -50], [53, -50], [0, 55]] },
     outline: [[-60, -66.5, 2], [60, -66.5, 2], [60, 66.5, 2], [-60, 66.5, 2]],
     label: [0, 17.5, 55, 90, 1.5, 1],
     ridges: repeat(7, i => ({ x: 0, y: -40 - i * 3.6, w: 78, h: 1.4, r: .7, height: .7, side: 'front' })),
@@ -33,6 +34,7 @@ export const STYLES = {
   },
   snes: {   // the North American cartridge: wider and squarer than the Japanese and European one, with inset grooves
     name: 'Super Nintendo', size: [136, 88], depth: 20,
+    screws: { r: 2.3, at: [[-45, 33], [45, 33]] },
     outline: [[-68, -44, 2], [68, -44, 2], [68, 41, 1.5], [65, 44, 1.5], [-65, 44, 1.5], [-68, 41, 1.5]],
     label: [0, 21.5, 82.5, 37, 1.5, .9],
     recesses: [[-56.5, -4, 6, 62, 2.5], [56.5, -4, 6, 62, 2.5]],
@@ -42,6 +44,7 @@ export const STYLES = {
   },
   n64: {
     name: 'Nintendo 64', size: [116, 80], depth: 18,
+    screws: { r: 2.2, at: [[-30, 30], [30, 30]] },
     outline: [[-58, -40, 2.5], [58, -40, 2.5], [58, -30, 0], [54.5, -30, .6], [54.5, -22, .6], [58, -22, 0], [58, 25, 7],
       n64Arc, [-58, 25, 7], [-58, -22, 0], [-54.5, -22, .6], [-54.5, -30, .6], [-58, -30, 0]],
     label: [0, 2, 54.5, 62.5, 1.5, .9],
@@ -54,6 +57,7 @@ export const STYLES = {
   },
   genesis: {
     name: 'Sega Genesis', size: [100, 130], depth: 18,
+    screws: { r: 2.2, at: [[0, 50]] },
     outline: [[-42, -65, 2], [42, -65, 2], [42, -40, 1.5], [50, -32, 1.5], [50, 65, 6], [-50, 65, 6], [-50, -32, 1.5], [-42, -40, 1.5]],
     label: [0, 25, 74, 60, 1.5, .9],
     ridges: repeat(4, i => ({ x: 0, y: -18 - i * 4, w: 60, h: 1.6, r: .8, height: .6, side: 'front' })),
@@ -62,6 +66,7 @@ export const STYLES = {
   },
   gb: {
     name: 'Game Boy', size: [57, 65], depth: 8,
+    screws: { r: 1.6, at: [[0, 24]] },
     outline: [[-28.5, -32.5, 1.2], [28.5, -32.5, 1.2], [28.5, 26.5, .6], [22.5, 32.5, .6], [-28.5, 32.5, 2.5]],
     label: [0, -3.5, 42, 37, 1, .6],
     ridges: repeat(4, i => ({ x: -2, y: 20 + i * 2.6, w: 34, h: 1, r: .5, height: .4, side: 'front' })),
@@ -71,6 +76,7 @@ export const STYLES = {
   },
   gbc: {
     name: 'Game Boy Color', size: [57, 65], depth: 8,
+    screws: { r: 1.6, at: [[0, 24]] },
     outline: [[-28.5, -32.5, 1.2], [28.5, -32.5, 1.2], [28.5, 32.5, 3], [-28.5, 32.5, 3]],
     label: [0, -3.5, 42, 37, 1, .6],
     ridges: repeat(4, i => ({ x: 0, y: 20 + i * 2.6, w: 34, h: 1, r: .5, height: .4, side: 'front' })),
@@ -81,7 +87,8 @@ export const STYLES = {
   },
   gba: {
     name: 'Game Boy Advance', size: [57.5, 33.5], depth: 8,
-    outline: [[-27.35, -16.75, 1.2], [-11, -16.75, .4], [-9, -17.95, .4], [9, -17.95, .4], [11, -16.75, .4], [27.35, -16.75, 1.2],
+    screws: { r: 1.5, at: [[0, 12.5]] },
+    outline: [[-27.35, -16.75, 1.2], [27.35, -16.75, 1.2],
       [27.35, 8.95, .3], [28.75, 9.75, .3], [28.75, 15.15, .3], [27.15, 16.75, .3], [-27.15, 16.75, .3], [-28.75, 15.15, .3], [-28.75, 9.75, .3], [-27.35, 8.95, .3]],
     label: [0, -4.5, 44, 21.2, 1, .5],
     ridges: repeat(3, i => ({ x: 0, y: 10.4 + i * 1.8, w: 34, h: .8, r: .4, height: .35, side: 'front' })),

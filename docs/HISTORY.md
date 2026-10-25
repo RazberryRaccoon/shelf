@@ -423,3 +423,12 @@ line on the edges of the cartridges, just like the real thing." Every cartridge 
 split at mid-depth with a slightly smaller strip filling the gap, leaving a groove about 0.3–0.4 mm wide and 0.15 mm
 deep around the sides; the cards' contacts sit on a pocket's floor 0.3 mm below the back, between ribs flush with it.
 Checked by ray probes (the seam's depth, the contacts' inset) and renders.
+
+Notes on that: (1) "RaccoonTek" didn't show through a clear back on the device: the print was a sheet 0.03 mm behind
+the board, too close at the app's scale for the depth test, so the plain green won. It's now the board's own back
+face (a material per box face). (2) The GBA had a tab on its bottom edge, and only the tab was open; the tab is gone
+and the whole bottom is open. (3) "Mold the back side to have a little inset part, so that when the two halves are
+matched up together, it forms a sort of 'canyon' down the middle": each half's seam edge is a 45° chamfer (one bevel
+segment), 0.3 to 0.55 mm, the halves' other ends buried in the walls. (4) Screws on each cartridge's back, metal, in
+round recesses with a cross in the head and a shaft into the shell; the N64's first spot crossed its curved top edge
+and broke the wall's shape, caught by a probe, so every recess is now checked to sit inside its outline.

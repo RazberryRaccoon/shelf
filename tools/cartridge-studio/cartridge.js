@@ -110,35 +110,63 @@ export function buildCartridge(style, opts) {
   const plastic = plasticMaterial(opts.finish);
   const group = new THREE.Group(); group.name = style.name;
 
-  // The body is built like the real thing, from two halves: a back wall and a front wall (each rounded on its outer
-  // edge) and a middle layer between them with no bevel, reaching into the walls' rounded inner ends so the sides stay
-  // one smooth surface. Where the halves meet, a fine seam runs around the sides: the middle is split there, and a
-  // slightly smaller strip fills the gap. Cartridges with an edge connector are hollow and open at the bottom, a slot
-  // cut up into the middle layer as tall and wide as the circuit board, so it shows from below. Cards keep their
-  // contacts on the outside: a shallow pocket in the back wall with gold contacts between plastic ribs.
+  // The body is built like the real thing, from two halves. Where they meet, each half's edge is molded with a small
+  // 45° chamfer, so together they form a little V-shaped canyon around the sides that catches the light.
+  // Cartridges (thick enough): a back wall and a front wall, each rounded on its outer edge, and between them two
+  // middle halves whose outer ends are buried in the walls (so only the canyon shows). Cartridges with an edge
+  // connector are hollow and open at the bottom: a slot cut up into the middle as tall and wide as the circuit board.
+  // Screws hold the back on: metal heads in round recesses, their shafts reaching into the shell.
+  // Cards (too thin for walls): just the two halves, rounded all round. Their contacts are on the outside, gold pads
+  // in a shallow pocket on the back between plastic ribs.
   const floorZ = front - recess, [W0, H0] = style.size;
   const bw0 = W0 * .78, bh0 = H0 * .72, pcbTop = -H0 / 2 + bh0 + H0 * .03;
-  const slotted = style.slot !== false && D >= 6;
-  const skin = Math.min(2 * b + .4, D * .3), mid0 = back + skin - b, mid1 = floorZ - skin + b;
+  const thick = D >= 6, slotted = style.slot !== false && thick;
+  const chamfer = Math.max(.3, Math.min(.55, D * .03));
   const core = new THREE.Group(); core.name = 'shell';
+  const part = (geo, name = 'body') => { const m = new THREE.Mesh(geo, plastic); m.name = name; core.add(m); return m; };
   const ct = style.contacts, pocket = ct && rrect(0, -H0 / 2 + ct.bottom + ct.h / 2 + .1, ct.n * ct.pitch + .5, ct.h + .5, .4);
-  const backWall = new THREE.Mesh(slab(body, pocket ? [pocket] : [], back, back + skin, b, segments), plastic); backWall.name = 'body';
-  const frontWall = new THREE.Mesh(slab(body, [], floorZ - skin, floorZ, b, segments), plastic); frontWall.name = 'body';
-  core.add(backWall, frontWall);
-  const middleLine = slotted ? withSlot(body, bw0 + 2, pcbTop + 1.2) : body;
-  const seam = Math.max(.3, D * .025), seamZ = Math.min(Math.max((back + front) / 2, mid0 + seam + .2), mid1 - seam - .2);
-  const halves = [[mid0, seamZ - seam / 2], [seamZ + seam / 2, mid1]];
-  for (const [z0, z1] of halves) { const m = new THREE.Mesh(slab(middleLine, [], z0, z1, 0, 1), plastic); m.name = 'body'; core.add(m); }
-  const filler = new THREE.Mesh(slab(offset(middleLine, -Math.min(.2, seam * .5)), [], seamZ - seam / 2 - .05, seamZ + seam / 2 + .05, 0, 1), plastic); filler.name = 'body';
-  core.add(filler);
+  const sc = style.screws, bores = sc ? sc.at.map(([x, y]) => outlinePoints([[x - sc.r - .45, y - sc.r - .45, sc.r + .44], [x + sc.r + .45, y - sc.r - .45, sc.r + .44], [x + sc.r + .45, y + sc.r + .45, sc.r + .44], [x - sc.r - .45, y + sc.r + .45, sc.r + .44]])) : [];
+  let backFloor, seamZ;
+  if (thick) {
+    const skin = Math.min(2 * b + chamfer + .15, D * .3), lo = back + b + .05, hi = floorZ - b - .05;
+    seamZ = Math.min(Math.max((back + front) / 2, lo + chamfer + .1), hi - chamfer - .1);
+    part(slab(body, bores, back, back + skin, b, segments));
+    part(slab(body, [], floorZ - skin, floorZ, b, segments));
+    const line = slotted ? withSlot(body, bw0 + 2, pcbTop + 1.2) : body;
+    part(slab(line, [], lo, seamZ, chamfer, 1)); part(slab(line, [], seamZ, hi, chamfer, 1));   // one segment: a straight 45° chamfer
+    backFloor = lo;
+  } else {
+    const t = Math.min(.45, D * .12);
+    seamZ = (back + floorZ) / 2;
+    part(slab(body, pocket ? [pocket] : [], back, seamZ, t, segments));
+    part(slab(body, [], seamZ, floorZ, t, segments));
+    if (pocket) part(slab(offset(pocket, t + .1), [], back + .35, seamZ - .1, 0, 1));   // the pocket's floor, .35 mm in
+    backFloor = back + .35;
+  }
   if (ct) {   // the card's contacts: gold, on the pocket's floor, with ribs between them up to the back's surface
     const gold = new THREE.MeshPhysicalMaterial({ color: '#d6b25a', metalness: 1, roughness: .28, clearcoat: .2 }); gold.name = 'contact-gold';
-    const cy = -H0 / 2 + ct.bottom + ct.h / 2 + .1, depth = mid0 - back, x0 = -(ct.n - 1) * ct.pitch / 2;
+    const cy = -H0 / 2 + ct.bottom + ct.h / 2 + .1, depth = backFloor - back, x0 = -(ct.n - 1) * ct.pitch / 2;
     for (let i = 0; i < ct.n; i++) {
-      const pad = new THREE.Mesh(new THREE.BoxGeometry(ct.w, ct.h, .08), gold); pad.position.set(x0 + i * ct.pitch, cy, mid0 - .04); pad.name = 'contact'; core.add(pad);
-      if (i < ct.n - 1) { const rib = new THREE.Mesh(new THREE.BoxGeometry(ct.pitch - ct.w - .1, ct.h + .5, depth), plastic); rib.position.set(x0 + (i + .5) * ct.pitch, cy, back + depth / 2); rib.name = 'body'; core.add(rib); }
+      const pad = new THREE.Mesh(new THREE.BoxGeometry(ct.w, ct.h, .08), gold); pad.position.set(x0 + i * ct.pitch, cy, backFloor - .04); pad.name = 'contact'; core.add(pad);
+      if (i < ct.n - 1) { const rib = part(new THREE.BoxGeometry(ct.pitch - ct.w - .1, ct.h + .5, depth)); rib.position.set(x0 + (i + .5) * ct.pitch, cy, back + depth / 2); }
     }
   }
+  if (sc) {   // screws: a domed metal head in each recess, a cross in it, and the shaft into the shell
+    const steel = new THREE.MeshPhysicalMaterial({ color: '#c9ccd2', metalness: 1, roughness: .32 }); steel.name = 'screw';
+    const dark = new THREE.MeshPhysicalMaterial({ color: '#2a2c31', metalness: 1, roughness: .6 }); dark.name = 'screw-recess';
+    for (const [x, y] of sc.at) {
+      const head = new THREE.Mesh(new THREE.SphereGeometry(sc.r, 28, 8, 0, Math.PI * 2, 0, Math.PI * .32).rotateX(-Math.PI / 2), steel);
+      const lift = sc.r * Math.cos(Math.PI * .32);   // the dome's rim sits on the recess floor
+      head.position.set(x, y, backFloor + lift - .02); head.scale.z = .55; head.name = 'screw'; core.add(head);
+      const rim = new THREE.Mesh(new THREE.CylinderGeometry(sc.r, sc.r, .25, 28).rotateX(Math.PI / 2), steel); rim.position.set(x, y, backFloor - .1); rim.name = 'screw'; core.add(rim);
+      for (const a of [0, Math.PI / 2]) {   // the cross, sunk into the dome
+        const slot = new THREE.Mesh(new THREE.BoxGeometry(sc.r * 1.15, sc.r * .2, .3), dark); slot.rotation.z = a; slot.position.set(x, y, backFloor - .1 - sc.r * .55 * (1 - Math.cos(Math.PI * .32)) - .02); slot.name = 'screw'; core.add(slot);
+      }
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(sc.r * .45, sc.r * .45, Math.max(1, floorZ - backFloor - 1), 16).rotateX(Math.PI / 2), steel);
+      shaft.position.set(x, y, (backFloor + floorZ - 1) / 2); shaft.name = 'screw'; core.add(shaft);
+    }
+  }
+
   // …and a front plate with the recess cut through it. Its back edge is buried in the front wall and the middle, so no
   // groove shows; the hole's own bevel rounds the edge of the recess.
   const overlap = 2 * Math.min(b, recess) + .3;
@@ -163,12 +191,13 @@ export function buildCartridge(style, opts) {
   // the circuit board inside, seen through clear plastic and, on slotted cartridges, from below
   const [W, H] = style.size, inside = new THREE.Group(); inside.name = 'inside'; inside.visible = slotted;
   const bw = W * .78, bh = H * .72, bz = back + D * .38, by = -H / 2 + bh / 2 + H * .03;
-  const pcb = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, Math.min(1, D * .12)), new THREE.MeshPhysicalMaterial({ color: '#2c6a43', roughness: .55, clearcoat: .3 }));
-  pcb.position.set(0, by, bz); inside.add(pcb);
-  // the board's back, printed like a real one (boardPrint): seen through a clear shell's back
-  const pt = Math.min(1, D * .12), print = new THREE.Mesh(new THREE.PlaneGeometry(bw * .98, bh * .98).rotateY(Math.PI),
-    new THREE.MeshPhysicalMaterial({ map: opts.boardTexture || boardPrint(style), roughness: .6, clearcoat: .2, clearcoatRoughness: .5 }));
-  print.position.set(0, by, bz - pt / 2 - .03); print.name = 'pcb-print'; inside.add(print);
+  // The board, its back printed like a real one (boardPrint), seen through a clear shell's back. The print is the board's
+  // own back face (a box takes a material per face: +x, -x, +y, -y, +z, -z), not a sheet in front of it, which at the
+  // app's scale was too close for the depth test to tell apart and lost to the plain green.
+  const green = new THREE.MeshPhysicalMaterial({ color: '#2c6a43', roughness: .55, clearcoat: .3 });
+  const printed = new THREE.MeshPhysicalMaterial({ map: opts.boardTexture || boardPrint(style), roughness: .6, clearcoat: .2, clearcoatRoughness: .5 }); printed.name = 'pcb-print';
+  const pcb = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, Math.min(1, D * .12)), [green, green, green, green, green, printed]);
+  pcb.position.set(0, by, bz); pcb.name = 'pcb'; inside.add(pcb);
   const chip = new THREE.Mesh(new THREE.BoxGeometry(bw * .38, bh * .3, Math.min(1.4, D * .15)), new THREE.MeshPhysicalMaterial({ color: '#141418', roughness: .5 }));
   chip.position.set(-bw * .12, by + bh * .12, bz + Math.min(1.2, D * .14)); inside.add(chip);
   const gold = new THREE.MeshPhysicalMaterial({ color: '#d6b25a', metalness: 1, roughness: .3 }), n = Math.max(8, Math.round(bw / 2.6));
