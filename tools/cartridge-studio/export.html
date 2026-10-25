@@ -15,6 +15,7 @@
 // the app recolors them per game. The label carries a tiny placeholder picture, so its material keeps a texture slot
 // the app fills with the game's own label.
 import * as THREE from 'three';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { STYLES } from './cartridges.js';
 import { CONSOLES } from './consoles.js';
@@ -28,6 +29,37 @@ const placeholder = () => { const c = document.createElement('canvas'); c.width 
 const glb = obj => new Promise((res, rej) => new GLTFExporter().parse(obj, buf => {
   let s = ''; const b = new Uint8Array(buf); for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); res(btoa(s)); }, rej, { binary: true }));
 
+// One mesh per material. A cartridge is built from dozens of parts (walls, ridges, each gold contact, each screw's
+// pieces); drawn separately they cost the phone's graphics chip a draw call each, every frame. Merged by material they
+// look the same and cost a handful. Names the app looks for: the plastic is "body", the label "label", the board's
+// printed face "pcb" (its material keeps the name pcb-print). Only what's visible goes in, as before.
+function mergeByMaterial(root, names = {}) {
+  root.updateMatrixWorld(true);
+  const toRoot = new THREE.Matrix4().copy(root.matrixWorld).invert(), buckets = new Map();
+  const take = (g, mat) => {   // the same attributes on every piece: position, normal, uv
+    const out = new THREE.BufferGeometry();
+    for (const a of ['position', 'normal']) out.setAttribute(a, g.getAttribute(a));
+    out.setAttribute('uv', g.getAttribute('uv') || new THREE.BufferAttribute(new Float32Array(g.getAttribute('position').count * 2), 2));
+    if (!buckets.has(mat)) buckets.set(mat, []); buckets.get(mat).push(out);
+  };
+  root.traverseVisible(o => {
+    if (!o.isMesh) return;
+    const g = (o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone()).applyMatrix4(new THREE.Matrix4().multiplyMatrices(toRoot, o.matrixWorld));
+    if (!Array.isArray(o.material)) return take(g, o.material);
+    for (const grp of g.groups) {   // a box with a material per face: each face's triangles go with its own material
+      const part = new THREE.BufferGeometry();
+      for (const a of ['position', 'normal', 'uv']) { const s = g.getAttribute(a); if (s) part.setAttribute(a, new THREE.BufferAttribute(s.array.slice(grp.start * s.itemSize, (grp.start + grp.count) * s.itemSize), s.itemSize)); }
+      take(part, o.material[grp.materialIndex]);
+    }
+  });
+  const out = new THREE.Group(); out.name = root.name;
+  // points shared again after merging, so the files stay small
+  for (const [mat, geos] of buckets) { const m = new THREE.Mesh(mergeVertices(mergeGeometries(geos), 1e-4), mat); m.name = names.get?.(mat) || mat.name || 'part'; out.add(m); }
+  return out;
+}
+const cartNames = c => new Map([[c.userData.materials.plastic, 'body'], [c.userData.materials.label, 'label'], ...[...findMaterial(c, 'pcb-print')].map(m => [m, 'pcb'])]);
+const findMaterial = (root, name) => { const s = new Set(); root.traverse(o => { if (o.isMesh) [].concat(o.material).forEach(m => { if (m.name === name) s.add(m); }); }); return s; };
+
 // each console's case color: the real cases' where they were plastic, otherwise one quiet grey for all (boxes stay plain)
 const CASE_COLORS = { genesis: ['#17181d', '#101114'], ps1: ['#24262e', '#16171c'], ds: ['#d9dce4', '#c4c8d2'], psp: ['#1f2128', '#15161b'], android: ['#262b3a', '#1b1f2b'] };
 
@@ -38,17 +70,17 @@ window.exportAll = async ({ consoles = false, cases = false, carts = true } = {}
     const tune = { ...DEFAULTS, ...style.finish };
     const cart = buildCartridge(style, { bevel: tune.bevel, segments: tune.segments, finish: tune, labelTexture: placeholder() });
     applyVariant(cart, style.variants[0], tune);
-    files[`cart-${id}.glb`] = await glb(cart);
+    files[`cart-${id}.glb`] = await glb(mergeByMaterial(cart, cartNames(cart)));
     // every style gets a see-through model: the app's Studio offers clear, frosted and smoke finishes for any cartridge
     const clear = style.variants.find(v => v.clear) || { ...style.variants[0], clear: 'transparent' };
-    { const c2 = buildCartridge(style, { bevel: tune.bevel, segments: tune.segments, finish: tune, labelTexture: placeholder() }); applyVariant(c2, clear, tune); files[`cart-${id}-clear.glb`] = await glb(c2); }
+    { const c2 = buildCartridge(style, { bevel: tune.bevel, segments: tune.segments, finish: tune, labelTexture: placeholder() }); applyVariant(c2, clear, tune); files[`cart-${id}-clear.glb`] = await glb(mergeByMaterial(c2, cartNames(c2))); }
     variants[id] = { name: style.name, size: style.size, depth: style.depth, label: style.label, finish: style.finish, variants: style.variants };
   }
   for (const [id, entry] of consoles ? Object.entries(CONSOLES) : []) {
     const tune = { ...DEFAULTS, ...entry.finish };
     const con = buildConsole(entry, { round: 1, segments: 6, finish: tune, lid: entry.lid ? entry.lid.rest : 0 });
     for (const m of con.userData.materials.plastics) { m.roughness = tune.roughness; m.clearcoat = tune.clearcoat; m.clearcoatRoughness = tune.clearcoatRoughness; }   // as the Studio's applyLook does
-    files[`console-${id}.glb`] = await glb(con);
+    files[`console-${id}.glb`] = await glb(mergeByMaterial(con));
   }
   for (const [id, style] of Object.entries(cases ? STYLES : {})) {
     if (!CASES[id]) continue;

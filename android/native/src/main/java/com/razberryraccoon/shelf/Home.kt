@@ -50,7 +50,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     var page: GamePage? = null; private set
     var needsStorage = false
     /** Home hides while setup or settings are open; coming back, the cartridges rise into place one after another. */
-    var visible = true; set(v) { if (v && !field) { rise = 0f; riseT = 0f }; field = v }
+    var visible = true; set(v) { if (v && !field) { rise = 0f; riseT = 0f; zone = "row"; refreshTop() }; field = v }   // back on Home, the cursor's on the games
     private var rise = 0f
     private var riseT = 0f   // seconds since Home came back; each cartridge starts rising a moment after the one before
 
@@ -163,7 +163,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
             val cart = s.cart ?: return@forEachIndexed
             // rising into place, each a moment after the one before
             // arriving: each flies in from far away, quickly, one just after another, overshoots a little and settles
-            val rest = if (visible) flyIn(((riseT - k * .035f) / .42f).coerceIn(0f, 1f)) else 1f
+            val rest = if (visible) flyIn(((riseT - k * .035f) / .42f).coerceIn(0f, 1f)) else Backdrop.ease(rise)   // leaving, they shrink away
             // while a page is open, the others sink out of the way, each a beat after the one before
             val away = page?.let { Backdrop.ease((pageK * 1.4f - abs(k - i) * .06f).coerceIn(0f, 1f)) } ?: 0f
             val up = rest.coerceAtMost(1f) * (1 - away); val lift = -away * 640f   // a page opening sends the others up and away

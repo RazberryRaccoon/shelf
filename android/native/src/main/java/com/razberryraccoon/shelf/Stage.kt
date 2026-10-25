@@ -73,6 +73,9 @@ class Stage(private val ctx: Context, private val surface: TextureView) : Choreo
         view.blendMode = View.BlendMode.TRANSLUCENT   // keeps the backdrop visible through the empty parts
         renderer.clearOptions = renderer.clearOptions.apply { clear = true; clearColor = doubleArrayOf(0.0, 0.0, 0.0, 0.0) }
         view.multiSampleAntiAliasingOptions = view.multiSampleAntiAliasingOptions.apply { enabled = true; sampleCount = 4 }
+        // nothing on screen bends light through itself any more (see-through shells are blended), but the disc's clear hub
+        // would still switch on a whole extra copy of the frame for refraction whenever it's on screen
+        view.setScreenSpaceRefractionEnabled(false)
         view.colorGrading = ColorGrading.Builder().toneMapper(ToneMapper.ACESLegacy()).build(engine)
         camera.setExposure(Look.EXPOSURE)
         LightManager.Builder(LightManager.Type.DIRECTIONAL)

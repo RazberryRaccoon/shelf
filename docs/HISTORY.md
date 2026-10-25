@@ -445,3 +445,14 @@ as the cartridge comes down, and Closed box → Console sends the box up as the 
 sliding sideways, like the timeline. (6) The hint names L and R separately. (7) Handheld screens are set into their
 bezels, under a clear glossy cover (a window cut in the bezel); a render caught two placed below the shell's surface
 and the DS's two flickering against it. (8) Home's cartridges fly in from far away with a small bounce, quickly.
+
+Then: (1) switching consoles was slow, and going left the console stopped short of the screen's edge and vanished (the
+exhibit sits left of centre, so the right edge is farther; both directions now clear the screen, faster); (2) back on
+Home the cursor stayed in the top bar (it now returns to the games); (3) Home's picture pans faster and diagonally;
+(4) the Museum's console appeared while Home's cartridge was still there (Home's cartridges now shrink away, and the
+console rises in after them); (5) "a little bit slow/laggy". Speed-ups that keep the look: every model is merged into
+one mesh per material at export (an NES cartridge from 71 draw calls to 8; the model files from 37 MB to 18 MB, so they
+load faster too); the background no longer makes new gradients every frame (one shadow sprite, the sky's gradients
+made only when its color changes) or an offscreen layer for Home's picture (one compose shader instead); Filament's
+screen-space refraction pass is off (nothing refracts now, but the disc's clear hub switched it on); the Museum keeps
+consoles it has shown loaded and loads the neighbours ahead.

@@ -48,7 +48,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
 
     // how present each piece is (eased toward its target every frame), and turning
     private var leaving = -1; private var slideX = 0f; private var slideTo = 0f   // switching consoles: a slide to the side
-    private var consoleY = 0f; private var groupY = -OFF   // the console's and the cartridge-and-box's offsets from centre
+    private var consoleY = OFF; private var groupY = -OFF; private var age = 0f   // the console's and the cartridge-and-box's offsets from centre
     private var caseK = 0f; private var openK = 1f; private var inBox = 0f
     private var time = 0f; private var closing = false; private var shown = 0f
     private var stickX = 0f; private var stickY = 0f
@@ -101,12 +101,11 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
 
     /** Puts a console on show: loads its models, fills the panel. */
     private fun show(k: Int) {
-        unload()
+        console?.hide(); case?.hide(); cart?.place(-4000f, 0f, 0f, 0f, 0f, 1f)   // the last console's models stay loaded, out of sight
         at = k.coerceIn(0, exhibits.size - 1)
         val e = ex()
-        console = carts.model("console-${e.sys}.glb")?.let { Model(stage, it) }
-        case = carts.model("case-${e.sys}.glb")?.let { Case(stage, it, e.example, sampler) }
-        cart = carts.make(e.sys, e.example, games.defaultShell(e.sys))
+        val l = load(e)
+        console = l.console; case = l.case; cart = l.cart
         backdrop.mood(Theme.accentOf(e.sys))
         timeline.at = at; timeline.invalidate()
         label.text = "MUSEUM  ·  ${e.year}"
@@ -128,8 +127,20 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         rows.invalidate()
     }
 
+    /**
+     * A console's three models, loaded the first time it's shown and kept until the Museum closes, so moving back and
+     * forth along the timeline doesn't stop to load (the neighbours load quietly ahead, one at a time: see tick).
+     */
+    private class Loaded(val console: Model?, val case: Case?, var cart: Cart?)
+    private val loaded = HashMap<String, Loaded>()
+    private fun load(e: Exhibit) = loaded.getOrPut(e.sys) {
+        Loaded(carts.model("console-${e.sys}.glb")?.let { Model(stage, it) }, carts.model("case-${e.sys}.glb")?.let { Case(stage, it, e.example, sampler) },
+            carts.make(e.sys, e.example, games.defaultShell(e.sys))).also { it.console?.hide(); it.case?.hide(); it.cart?.place(-4000f, 0f, 0f, 0f, 0f, 1f) }
+    }
+
     private fun unload() {
-        console?.destroy(); console = null; case?.destroy(); case = null; cart?.destroy(); cart = null
+        loaded.values.forEach { it.console?.destroy(); it.case?.destroy(); it.cart?.destroy() }; loaded.clear()
+        console = null; case = null; cart = null
     }
 
     // ---------- every frame ----------
@@ -154,10 +165,13 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         panel.alpha = sk; panel.translationX = (1 - sk) * 70f; timeline.alpha = sk; hint.alpha = sk
         fun ease(cur: Float, want: Float, rate: Float) = cur + (want - cur) * min(1f, dt * rate)
         // switching consoles: the exhibit slides off to the side, the next one slides in from the other
-        slideX = ease(slideX, slideTo, 8f)
-        if (leaving >= 0 && abs(slideX - slideTo) < 40f) { val dir = if (leaving > at) 1 else -1; show(leaving); leaving = -1; slideX = dir * 1000f; slideTo = 0f }
+        slideX = ease(slideX, slideTo, 14f)
+        if (leaving >= 0 && abs(slideX - slideTo) < 60f) { val next = leaving > at; show(leaving); leaving = -1; slideX = if (next) RIGHT else LEFT; slideTo = 0f }
+        // while nothing's moving, the consoles either side load ahead, one per frame
+        age += dt
+        if (leaving < 0 && age > .8f) listOf(at + 1, at - 1).firstOrNull { it in exhibits.indices && exhibits[it].sys !in loaded }?.let { load(exhibits[it]) }
         // the views flow into each other: the console waits below the screen and the cartridge (with its box) above it
-        consoleY = ease(consoleY, if (view == 0) 0f else OFF, 7f)
+        if (age > .3f) consoleY = ease(consoleY, if (view == 0) 0f else OFF, 7f)   // opening, it waits for Home's cartridges to clear
         groupY = ease(groupY, if (view == 0) -OFF else 0f, 7f)
         val gone = groupY < -OFF * .85f   // the cartridge and box are out of sight above
         caseK = when { view >= 2 -> ease(caseK, 1f, 7f); view == 1 -> ease(caseK, 0f, 7f); gone -> 0f; else -> caseK }
@@ -265,7 +279,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
     private fun switchTo(k: Int) {
         if (k !in exhibits.indices) return Sounds.play(Sounds.BUMP)
         if (leaving >= 0) return
-        leaving = k; slideTo = if (k > at) -1000f else 1000f; Sounds.play(Sounds.MOVE)
+        leaving = k; slideTo = if (k > at) LEFT else RIGHT; Sounds.play(Sounds.MOVE)
         timeline.at = k; timeline.invalidate()
     }
 
@@ -296,7 +310,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         val key = list.current()?.tag as? String ?: return
         val e = ex(); val v = carts.variantFor(e.sys, key) ?: return
         val c = cart
-        if (c == null || (v.clear != null) != (c.variant.clear != null)) { c?.destroy(); cart = carts.make(e.sys, e.example, v) } else c.apply(v)
+        if (c == null || (v.clear != null) != (c.variant.clear != null)) { c?.destroy(); cart = carts.make(e.sys, e.example, v); loaded[e.sys]?.cart = cart } else c.apply(v)
     }
 
     private fun shellsInput(a: String) {
@@ -315,7 +329,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
     }
     private fun previewTo(v: Variant) {
         val e = ex(); val c = cart
-        if (c == null || (v.clear != null) != (c.variant.clear != null)) { c?.destroy(); cart = carts.make(e.sys, e.example, v) } else c.apply(v)
+        if (c == null || (v.clear != null) != (c.variant.clear != null)) { c?.destroy(); cart = carts.make(e.sys, e.example, v); loaded[e.sys]?.cart = cart } else c.apply(v)
     }
     private fun endShells() {
         list.onFocus = null
@@ -347,6 +361,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
     companion object {
         private val HANDHELDS = setOf("gb", "gbc", "gba", "psp", "android")   // upright; the DS lies open, like a home console
         private const val OFF = 720f   // how far off screen a piece waits
+        private const val LEFT = -900f; private const val RIGHT = 1300f   // slides that clear the screen: the exhibit sits left of centre
         private val ORDER = listOf("nes", "genesis", "gb", "snes", "ps1", "n64", "gbc", "gba", "ds", "psp", "android")
         private val LONG = mapOf("nes" to "Nintendo Entertainment System", "snes" to "Super Nintendo", "n64" to "Nintendo 64", "genesis" to "Sega Genesis",
             "gb" to "Game Boy", "gbc" to "Game Boy Color", "gba" to "Game Boy Advance", "ps1" to "PlayStation", "ds" to "Nintendo DS",
