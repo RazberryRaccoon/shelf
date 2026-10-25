@@ -53,44 +53,65 @@ class Backdrop(ctx: Context) : View(ctx) {
     override fun onDraw(c: Canvas) {
         c.drawColor(Theme.bg)
         c.save(); c.translate(ox, oy); c.scale(scale, scale)
-        // the nebula: two soft glows in the console's color
-        p.shader = RadialGradient(300f, 160f, 700f, Color.argb(70, Color.red(mood), Color.green(mood), Color.blue(mood)), Color.TRANSPARENT, Shader.TileMode.CLAMP)
-        c.drawRect(0f, 0f, Stage.W, Stage.H, p)
-        p.shader = RadialGradient(1100f, 700f, 600f, Color.argb(40, Color.red(mood), Color.green(mood), Color.blue(mood)), Color.TRANSPARENT, Shader.TileMode.CLAMP)
-        c.drawRect(0f, 0f, Stage.W, Stage.H, p); p.shader = null
+        // the nebula: two soft glows in the console's color (their gradients made again only when the color changes)
+        if (skyFor != mood) { skyFor = mood; sky = makeSky(mood) }
+        p.shader = sky[0]; c.drawRect(0f, 0f, Stage.W, Stage.H, p)
+        p.shader = sky[1]; c.drawRect(0f, 0f, Stage.W, Stage.H, p); p.shader = null
         // stars, twinkling slowly
         for (s in stars) { p.color = Color.argb((90 + 110 * (.5f + .5f * sin(time * .6f + s[3]))).toInt(), 238, 241, 255); c.drawCircle(s[0], s[1], s[2], p) }
         planet(c)
         // the picture, then the shadows on top of it
-        val sweep = .5f - .5f * cos(time * 2 * PI.toFloat() / 92f)   // there and back over about 46 seconds each way
+        val sweep = .5f - .5f * cos(time * 2 * PI.toFloat() / 56f)   // there and back, about 28 seconds each way
         picFrom?.let { if (picT < 1) drawPicture(c, it, (1 - ease(picT)) * picVisible, sweep) }
         pic?.let { drawPicture(c, it, ease(picT) * picVisible, sweep) }
+        // shadows: one soft round shadow, drawn once, stretched flat under each object
         for (s in shadows) {
-            if (s[2] < 2f || s[3] < .01f) continue   // a shadow with no size can't be drawn (Android refuses a gradient of radius 0)
-            p.shader = RadialGradient(s[0], s[1], s[2] / 2, Color.argb((150 * s[3]).toInt(), 0, 0, 0), Color.TRANSPARENT, Shader.TileMode.CLAMP)
-            c.save(); c.scale(1f, .22f, s[0], s[1]); c.drawCircle(s[0], s[1], s[2] / 2, p); c.restore()
+            if (s[2] < 2f || s[3] < .01f) continue
+            p.alpha = (255 * s[3]).toInt().coerceIn(0, 255)
+            shadowDst.set(s[0] - s[2] / 2, s[1] - s[2] * .11f, s[0] + s[2] / 2, s[1] + s[2] * .11f)
+            c.drawBitmap(shadowSprite, null, shadowDst, p)
         }
-        p.shader = null
+        p.alpha = 255
         c.restore()
     }
 
     private fun planet(c: Canvas) {
         val x = 1190f; val y = -175f; val r = 390f
-        p.shader = RadialGradient(x, y, r * 1.18f, intArrayOf(Color.argb(90, Color.red(mood), Color.green(mood), Color.blue(mood)), Color.TRANSPARENT), floatArrayOf(.82f, 1f), Shader.TileMode.CLAMP)
-        c.drawCircle(x, y, r * 1.18f, p)   // the atmosphere's glow
-        p.shader = RadialGradient(x - r * .35f, y + r * .55f, r * 1.25f, intArrayOf(blend(mood, Color.WHITE, .55f), blend(mood, Theme.bg, .45f), Color.rgb(6, 8, 20)), floatArrayOf(0f, .55f, 1f), Shader.TileMode.CLAMP)
-        c.drawCircle(x, y, r, p)
+        p.shader = sky[2]; c.drawCircle(x, y, r * 1.18f, p)   // the atmosphere's glow
+        p.shader = sky[3]; c.drawCircle(x, y, r, p)
         p.shader = null
     }
 
+    // the sky's gradients for one color: the nebula's two glows, the planet's atmosphere and the planet
+    private var skyFor = 0; private var sky: Array<Shader> = makeSky(mood)
+    private fun makeSky(m: Int): Array<Shader> {
+        val x = 1190f; val y = -175f; val r = 390f
+        return arrayOf(
+            RadialGradient(300f, 160f, 700f, Color.argb(70, Color.red(m), Color.green(m), Color.blue(m)), Color.TRANSPARENT, Shader.TileMode.CLAMP),
+            RadialGradient(1100f, 700f, 600f, Color.argb(40, Color.red(m), Color.green(m), Color.blue(m)), Color.TRANSPARENT, Shader.TileMode.CLAMP),
+            RadialGradient(x, y, r * 1.18f, intArrayOf(Color.argb(90, Color.red(m), Color.green(m), Color.blue(m)), Color.TRANSPARENT), floatArrayOf(.82f, 1f), Shader.TileMode.CLAMP),
+            RadialGradient(x - r * .35f, y + r * .55f, r * 1.25f, intArrayOf(blend(m, Color.WHITE, .55f), blend(m, Theme.bg, .45f), Color.rgb(6, 8, 20)), floatArrayOf(0f, .55f, 1f), Shader.TileMode.CLAMP))
+    }
+
+    private val shadowDst = android.graphics.RectF()
+    private val shadowSprite: Bitmap = Bitmap.createBitmap(128, 128, Bitmap.Config.ARGB_8888).also { b ->
+        Canvas(b).drawCircle(64f, 64f, 64f, Paint(Paint.ANTI_ALIAS_FLAG).apply { shader = RadialGradient(64f, 64f, 64f, Color.argb(150, 0, 0, 0), Color.TRANSPARENT, Shader.TileMode.CLAMP) })
+    }
+
+    private val dotShader = android.graphics.BitmapShader(dots, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply { setLocalMatrix(Matrix().apply { setTranslate(0f, picTop) }) }
+    private val picMatrix = Matrix()
+
+    /** The picture, panning diagonally from its top left to its bottom right, masked by the dots in one step. */
     private fun drawPicture(c: Canvas, b: Bitmap, a: Float, sweep: Float) {
         if (a < .01f) return
         val zoom = 1.3f; val k = maxOf(Stage.W / b.width, picH / b.height) * zoom
-        val m = Matrix(); m.setScale(k, k); m.postTranslate(-(b.width * k - Stage.W) * sweep, picTop - (b.height * k - picH) / 2)
-        val layer = c.saveLayer(0f, picTop, Stage.W, Stage.H, null)
-        p.colorFilter = dim; p.alpha = (255 * a).toInt(); c.drawBitmap(b, m, p); p.colorFilter = null; p.alpha = 255
-        p.xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN); c.drawBitmap(dots, 0f, picTop, p); p.xfermode = null
-        c.restoreToCount(layer)
+        val ySlack = b.height * k - picH
+        picMatrix.setScale(k, k); picMatrix.postTranslate(-(b.width * k - Stage.W) * sweep, picTop - ySlack * (.15f + .7f * sweep))
+        val pic = android.graphics.BitmapShader(b, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply { setLocalMatrix(picMatrix) }
+        p.shader = android.graphics.ComposeShader(pic, dotShader, PorterDuff.Mode.DST_IN)   // the picture where the dots are
+        p.colorFilter = dim; p.alpha = (255 * a).toInt()
+        c.drawRect(0f, picTop, Stage.W, Stage.H, p)
+        p.shader = null; p.colorFilter = null; p.alpha = 255
     }
 
     /** Solid at the bottom, then rows of dots that shrink toward the top (as in the prototype's homeDotMask). */

@@ -51,7 +51,8 @@ see-through version of each (the app's Studio offers clear finishes for every ca
 sizes and color variants. `--consoles` adds the consoles, `--cases` the game cases ([`case.js`](case.js): the
 prototype's clamshell cases at the real boxes' sizes, with a cover on a hinge, art on the front, back and spine, and a
 tray the cartridge sits in), and `--no-carts` leaves the cartridges as they are. Run it again after changing the models
-and commit the results.
+and commit the results. Each model is merged into one mesh per material as it's exported
+(`mergeByMaterial`), so a cartridge costs the phone about 8 draw calls instead of up to 71; it looks the same.
 
 Every cartridge is built in two halves like the real ones, each half's edge molded with a small 45° chamfer, so where
 they meet a little V-shaped canyon runs around the sides; screws (`screws` in `cartridges.js`) hold the backs on. Cartridges with an edge connector (NES, SNES, N64, Genesis, Game Boy,
