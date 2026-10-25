@@ -41,7 +41,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
                           val cpu: String, val plays: String, val facts: List<String>, val example: String)
     private val exhibits: List<Exhibit>
     private var at = 0
-    private val views = listOf("Console", "Cartridge", "In its box", "Box closed", "Inside")   // Inside: left of Console
+    private val views = listOf("Console", "Cartridge", "Cartridge Inside", "In its box", "Box closed", "Console Inside")   // Console Inside: left of Console
     private var view = 0
     private var shellsChanged = false
 
@@ -55,7 +55,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
     // how present each piece is (eased toward its target every frame), and turning
     private var leaving = -1; private var slideX = 0f; private var slideTo = 0f   // switching consoles: a slide to the side
     private var consoleY = OFF; private var groupY = -OFF; private var age = 0f   // the console's and the cartridge-and-box's offsets from centre
-    private val flow = BoxFlow(); private var inside = 0f
+    private val flow = BoxFlow(); private var inside = 0f; private var cartInside = 0f
     private var time = 0f; private var closing = false; private var shown = 0f
     private var stickX = 0f; private var stickY = 0f
     private var yaw = -.4f; private var pitch = -.2f; private var vYaw = 0f; private var vPitch = 0f; private var idle = 9f
@@ -201,7 +201,8 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         return when (view) {
             0 -> if (hand) floatArrayOf(-.3f, -.08f) else floatArrayOf(-.45f, .42f)
             1 -> floatArrayOf(-.28f, -.1f)
-            2 -> floatArrayOf(-.12f, -.42f)
+            CART_INSIDE -> CART_REST.copyOf()
+            OPEN_BOX -> floatArrayOf(-.12f, -.42f)
             else -> floatArrayOf(-.35f, -.12f)
         }.also { if (flipped) it[0] += PI.toFloat() }
     }
@@ -227,7 +228,11 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         // one line of steps, as on a game's page (BoxFlow): the open box slides in from the left, the cartridge slots into
         // its tray, the cover shuts; and back the same way. Out of sight above (on the console), it's simply where the
         // next view wants it, so the console to the closed box arrives already closed
-        val boxTo = if (case == null) 0f else when (view) { 2 -> 2f; 3 -> 3f; else -> 0f }
+        // Cartridge Inside and the box take turns: the halves close round the board before the box comes, and the box
+        // goes before the cartridge comes apart
+        val boxTo = if (case == null || cartInside > .02f) 0f else when (view) { OPEN_BOX -> 2f; CLOSED_BOX -> 3f; else -> 0f }
+        cartInside = ease(cartInside, if (view == CART_INSIDE && flow.s < .02f) 1f else 0f, 4.5f)
+        if (cartInside < .002f && view != CART_INSIDE) cartInside = 0f
         if (gone) flow.snap(boxTo)
         else {
             val was = flow.s
@@ -290,7 +295,23 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         // the cartridge: free in the middle, then just over the tray as the box comes in, then down into it
         val ct = cart ?: return
         if (gy < -400) { ct.place(-4000f, 0f, 0f, 0f, 0f, 1f); return }
-        val free = FloatArray(16).also { freeMatrix(it, ct, cx, gy, 1f) }
+        // Cartridge Inside, as the console's Inside: it turns to a three-quarter view and comes apart like an exploded
+        // drawing (the halves straight out from the board), a little smaller so the spread fits; there the stick turns
+        // only the board, and the halves move further off while it needs the room
+        val ck = if (ct.canOpen) Backdrop.ease(cartInside.coerceIn(0f, 1f)) else 0f
+        val cyaw = yaw + wrap(CART_REST[0] - yaw) * ck; val cpitch = pitch + (CART_REST[1] - pitch) * ck
+        val spread = run { val st = ct.style; val d = st.depth * 3.8f + 48f
+            (maxOf(st.w, st.h) * 1.12f / (st.w * abs(kotlin.math.cos(CART_REST[0])) + d * abs(sin(CART_REST[0])))).coerceAtMost(1f) }
+        val free = FloatArray(16).also { freeMatrix(it, ct, cx, gy, lerp(1f, spread, ck), cyaw, cpitch) }
+        if (ct.canOpen) {
+            if (ck < .001f) ct.inside(0f)
+            else {
+                val r = turnAgainst(cyaw, cpitch)
+                val bh = ct.boardHalf!!
+                val along = (0..2).sumOf { i -> (abs(r[i * 4 + 2]) * bh[i]).toDouble() }.toFloat()
+                ct.inside(ck, r, maxOf(0f, along - bh[2]) * 1.08f)
+            }
+        }
         if (c == null || flow.s < .001f) ct.placeMatrix(free)
         else {
             val tray = c.mediaMatrix()
@@ -302,12 +323,12 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
 
     private fun lerp(a: Float, b: Float, k: Float) = a + (b - a) * k
 
-    private fun freeMatrix(m: FloatArray, c: Cart, x: Float, y: Float, k: Float) {
+    private fun freeMatrix(m: FloatArray, c: Cart, x: Float, y: Float, k: Float, ry: Float = yaw, rx: Float = pitch) {
         val s = 380f * k / maxOf(c.style.w, c.style.h)
         android.opengl.Matrix.setIdentityM(m, 0)
         android.opengl.Matrix.translateM(m, 0, x, Stage.H - y, 60f)
-        android.opengl.Matrix.rotateM(m, 0, Math.toDegrees(pitch.toDouble()).toFloat(), 1f, 0f, 0f)
-        android.opengl.Matrix.rotateM(m, 0, Math.toDegrees(yaw.toDouble()).toFloat(), 0f, 1f, 0f)
+        android.opengl.Matrix.rotateM(m, 0, Math.toDegrees(rx.toDouble()).toFloat(), 1f, 0f, 0f)
+        android.opengl.Matrix.rotateM(m, 0, Math.toDegrees(ry.toDouble()).toFloat(), 0f, 1f, 0f)
         android.opengl.Matrix.scaleM(m, 0, s, s, s)
     }
 
@@ -316,13 +337,18 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
      * stick against the halves' angle, now reaches along the seam's axis, beyond how far it reaches lying in place.
      */
     private fun reach(b: ConsoleBoard, axis: Char, cyaw: Float, cpitch: Float): Float {
-        fun rot(ry: Float, rx: Float) = FloatArray(16).also { android.opengl.Matrix.setIdentityM(it, 0)
-            android.opengl.Matrix.rotateM(it, 0, Math.toDegrees(rx.toDouble()).toFloat(), 1f, 0f, 0f); android.opengl.Matrix.rotateM(it, 0, Math.toDegrees(ry.toDouble()).toFloat(), 0f, 1f, 0f) }
-        val ct = FloatArray(16); android.opengl.Matrix.transposeM(ct, 0, rot(cyaw, cpitch), 0)
-        val r = FloatArray(16); android.opengl.Matrix.multiplyMM(r, 0, ct, 0, rot(yaw, pitch), 0)   // the board's turn, seen from the halves
+        val r = turnAgainst(cyaw, cpitch)
         val a = if (axis == 'x') 0 else if (axis == 'y') 1 else 2
         val along = (0..2).sumOf { i -> (abs(r[i * 4 + a]) * b.half[i]).toDouble() }.toFloat()
         return maxOf(0f, along - b.half[a]) * 1.08f
+    }
+
+    /** The stick's turn (yaw, pitch) as seen from something held at (ry, rx): how a board turns against its still halves. */
+    private fun turnAgainst(ry: Float, rx: Float): FloatArray {
+        fun rot(ry: Float, rx: Float) = FloatArray(16).also { android.opengl.Matrix.setIdentityM(it, 0)
+            android.opengl.Matrix.rotateM(it, 0, Math.toDegrees(rx.toDouble()).toFloat(), 1f, 0f, 0f); android.opengl.Matrix.rotateM(it, 0, Math.toDegrees(ry.toDouble()).toFloat(), 0f, 1f, 0f) }
+        val ct = FloatArray(16); android.opengl.Matrix.transposeM(ct, 0, rot(ry, rx), 0)
+        return FloatArray(16).also { android.opengl.Matrix.multiplyMM(it, 0, ct, 0, rot(yaw, pitch), 0) }
     }
 
     private fun shadow(x: Float, y: Float, w: Float) {
@@ -352,14 +378,21 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
             Zone.ROWS -> when (a) {
                 "up" -> if (!rows.move(-1)) Sounds.play(Sounds.BUMP) else Sounds.play(Sounds.MOVE)
                 "down" -> if (!rows.move(1)) { zone = Zone.FACTS; facts.background = round(Theme.chip, 22f, Theme.sel, 2.5f); rows.active = false; scroll.smoothScrollTo(0, factsHead.top - 40); Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.MOVE)
-                "left", "right" -> if (rows.current()?.key == "view") setView((view + (if (a == "left") -1 else 1) + views.size) % views.size) else switchTo(at + if (a == "left") -1 else 1)
-                "a" -> when (rows.current()?.key) { "view" -> setView((view + 1) % views.size); "look" -> startLooks(); "shell" -> startShells() }
+                "left", "right" -> if (rows.current()?.key == "view") setView(next(if (a == "left") -1 else 1)) else switchTo(at + if (a == "left") -1 else 1)
+                "a" -> when (rows.current()?.key) { "view" -> setView(next(1)); "look" -> startLooks(); "shell" -> startShells() }
                 "b" -> close()
             }
         }
     }
 
     private fun toRows() { zone = Zone.ROWS; facts.background = null; rows.active = true; rows.invalidate(); scroll.smoothScrollTo(0, 0); Sounds.play(Sounds.MOVE) }
+
+    /** The next view that way, past Cartridge Inside for a disc or card (nothing to take apart). */
+    private fun next(d: Int): Int {
+        var v = (view + d + views.size) % views.size
+        if (v == CART_INSIDE && cart?.canOpen != true) v = (v + d + views.size) % views.size
+        return v
+    }
 
     private fun setView(v: Int) {
         view = v; idle = 9f; vYaw = 0f; fillRows(); Sounds.play(Sounds.MOVE) }
@@ -588,9 +621,11 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
     }
 
     companion object {
+        private val CART_REST = floatArrayOf(-1.05f, .18f)   // Cartridge Inside: a three-quarter view, like an upright handheld's Inside
         private val HANDHELDS = setOf("gb", "gbc", "gba", "psp", "android")   // upright; the DS lies open, like a home console
         private const val OFF = 720f   // how far off screen a piece waits
-        private const val INSIDE = 4   // the views' order: Console, Cartridge, In its box, Box closed, Inside (left of Console)
+        // the views' order: Console, Cartridge, Cartridge Inside, In its box, Box closed, Console Inside (left of Console)
+        private const val CART_INSIDE = 2; private const val OPEN_BOX = 3; private const val CLOSED_BOX = 4; private const val INSIDE = 5
         private const val LEFT = -900f; private const val RIGHT = 1300f   // slides that clear the screen: the exhibit sits left of centre
         private val ORDER = listOf("nes", "genesis", "gb", "snes", "ps1", "n64", "gbc", "gba", "ds", "psp", "android")
         private val LONG = mapOf("nes" to "Nintendo Entertainment System", "snes" to "Super Nintendo", "n64" to "Nintendo 64", "genesis" to "Sega Genesis",

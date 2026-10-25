@@ -36,8 +36,9 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Carts.kt` | Loads the models, draws each game's label, applies shell colors, places each cartridge. |
 | `Home.kt` | Home: the row of recent games, the top bar, details, the shell color and emulator pickers. |
 | `GamePage.kt` | A game's page: the cartridge to turn with the right stick, the details and icon tiles, live shell colors. |
+| `Article.kt` | A game's About opened up as an article over the page (Wikipedia's article, its pictures between the paragraphs). |
 | `Meta.kt` | A game's details and pictures from libretro's database, saved on the device. |
-| `Museum.kt` | The Museum: the timeline, the four views of each console, its story, its colors (and the console Studio) and its default shell. |
+| `Museum.kt` | The Museum: the timeline, the six views of each console (Console and Cartridge, each also Inside; the box open and closed), its story, its colors (and the console Studio) and its default shell. |
 | `Consoles.kt` | Console colors (the real ones, yours, painting a console part by part) and its circuit board. |
 | `Models.kt` | Consoles and cases: placing any model, a case's art, its hinged cover and its tray. |
 | `Studio.kt` | The Studio: finishes, named colors, your saved shells, and its controls. |
@@ -47,7 +48,25 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
-## What's in version 0.14
+## What's in version 0.15
+
+The user's three notes on 0.14:
+1. Customize shell (and the Studio) always shows the cartridge itself: from Game settings it puts itself back together
+   and stays out of its box, turned to its usual angle, so you see the colors as you pick them.
+2. About opens up as an article (A on About): everything behind dims and a reading column rises in, with the game's
+   console, name, year, developer, publisher and genre at the top, then the whole Wikipedia article (not just its
+   opening) in larger type with indented paragraphs and section headings, the box, title screen and screenshot set
+   between the paragraphs with captions, and the credit at the end. Up and down read, left and right jump between
+   sections, a thin line beside the column fills as you read, B closes. (Games looked up before this are looked up
+   again once, quietly, for the whole article; pictures are kept.) The panel's About shows the opening few lines
+   and "A Read the article".
+3. The Museum's views are Console, Cartridge, Cartridge Inside, In its box, Box closed and Console Inside. Cartridge
+   Inside takes the cartridge apart like Console Inside: it turns to a three-quarter view, the halves float straight
+   out from the board, the stick turns only the board, and the halves move further off when it needs the room; X
+   turns the board over. Leaving it, the halves close round the board before the box comes (`Cart.inside`). Discs and
+   cards skip it.
+
+## What was in version 0.14
 
 The user's five notes on 0.13:
 1. Opening a game's page from Home: the cartridge floats down to its spot and, for the open or closed box, the open box

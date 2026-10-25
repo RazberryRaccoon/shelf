@@ -229,6 +229,31 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
         Matrix.translateM(m, 0, bx * (1 - away) - cx * away, ROW * h * apart * (1 - away) + (BOARD_Y * h - cy) * away, rise * up * (1 - away) + down * away)
         tm.setTransform(tm.getInstance(parts[2]), m)
     }
+    /**
+     * Taken apart like an exploded drawing (the Museum's Cartridge Inside), 0 whole to 1 apart: the front half floats off
+     * toward you and the back half away, straight out from the board, which stays where it was. `turn`, when given, turns
+     * the board on its own about its centre (a rotation in the cartridge's own frame: the stick turns only the board),
+     * and `extra` moves the halves further off while a turned board needs the room.
+     */
+    fun inside(k: Float, turn: FloatArray? = null, extra: Float = 0f) {
+        if (!canOpen) return
+        val b = style.board ?: return
+        val off = k * (style.depth * 1.4f + 24f + extra)
+        val m = FloatArray(16)
+        Matrix.setIdentityM(m, 0); Matrix.translateM(m, 0, 0f, 0f, -off); tm.setTransform(tm.getInstance(parts[0]), m)
+        Matrix.setIdentityM(m, 0); Matrix.translateM(m, 0, 0f, 0f, off); tm.setTransform(tm.getInstance(parts[1]), m)
+        Matrix.setIdentityM(m, 0)
+        if (turn != null) {
+            val cx = (b[0] + b[3]) / 2; val cy = (b[1] + b[4]) / 2; val cz = (b[2] + b[5]) / 2
+            Matrix.translateM(m, 0, cx, cy, cz)
+            val t = FloatArray(16); Matrix.multiplyMM(t, 0, m, 0, turn, 0); t.copyInto(m)
+            Matrix.translateM(m, 0, -cx, -cy, -cz)
+        }
+        tm.setTransform(tm.getInstance(parts[2]), m)
+    }
+    /** The board's half sizes (mm), for working out how far a turned board reaches. */
+    val boardHalf: FloatArray? get() = style.board?.let { b -> floatArrayOf((b[3] - b[0]) / 2, (b[4] - b[1]) / 2, (b[5] - b[2]) / 2) }
+
     /** Where the screwdriver lies beside the parts (its transform within the cartridge's), and how big, 0 to 1. */
     fun toolSpot(k: Float): FloatArray? {
         if (!canOpen) return null

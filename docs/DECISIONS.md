@@ -292,6 +292,12 @@ Summarized from the first part of the conversation; the full transcript is kept 
   further up, pan speed); Inside closer, and "as [clipping] starts to happen, the shell pieces float away from the
   board". The user thought the DS box should be a little wider than tall; the measured case (Wikipedia's keep-case
   table, retail cases) is a little taller than wide, so the box follows the measurements and box art is cropped to fill.
+- After 0.14 (the user's notes): "Anytime I click 'customize' or open the shell customization menu, it should always
+  have the cartridge 3D model displayed"; About opens "a new page over the game page (again, very similar to how the
+  images open) that lays everything out more like a full article": the name, then release year, developer/publisher
+  and genre, then the Wikipedia text "with paragraph indents, slightly larger font, and the game's images mingled
+  in"; the Museum's "Inside" becomes "Console Inside", with "Cartridge Inside" added, the same exploded view (the
+  shell can't be rotated, the right stick turns the board, the shell pieces get out of the way, the right zoom).
 - After 0.13 (the user's notes): opening a page, "the box comes in from the left while the cartridge floats down and gets
   smaller, then distinctly slots itself into the box … always bring in an open box from the left, then slot the
   cartridge in - then stay open if open box is selected, or close if closed box is selected", in reverse going back
