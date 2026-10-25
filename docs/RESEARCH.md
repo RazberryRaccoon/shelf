@@ -122,6 +122,32 @@ listings of the limited editions.
 - **Android handhelds:** no single maker; four of today's common colors (midnight, snow, indigo, and gray with purple
   buttons).
 
+## Console boards (for the circuit boards inside the consoles)
+Layouts are approximate: the reference sites with labelled board photos couldn't be opened from the sandbox, only
+searched. What the boards follow:
+- **NES (NES-CPU):** the 72-pin cartridge connector mid-board; the CPU (RP2A03) and picture chip (RP2C02), both 40-pin
+  DIPs; two 2 KB RAMs; the lockout chip; the RF modulator box; a regulator on a heatsink.
+  Sources: https://nesdev.org/wiki/Cartridge_connector, https://boardmaps.silvestron.com/nintendo-entertainment-system/NES-CPU-07
+- **SNES (SNS-CPU):** "the cartridge slot divides the system in two": the sound processors (S-SMP, S-DSP) and their RAM
+  on one side, the CPU, the two picture chips and their RAM on the other. Sources: https://fabiensanglard.net/snes_mobos/,
+  https://snes.nesdev.org/wiki/Version_differences
+- **N64 (NUS-CPU):** the CPU (VR4300), the RCP and the RDRAM under "three very pronounced steel blocks" (heat spreaders);
+  four controller ports along one side. Sources: https://n64brew.dev/wiki/Motherboard, https://www.ifixit.com/Teardown/Nintendo+64+Teardown/74923
+- **Genesis (VA boards):** the 68000 (a long 64-pin DIP), the Z80, the video chip (315-5313), the YM2612 FM chip.
+  Sources: https://segaretro.org/Mega_Drive_PCB_revisions, https://consolemods.org/wiki/Genesis:Motherboard_Differences
+- **Game Boy (DMG-CPU):** the cartridge connector at the top, the one-package CPU with its RAM and crystal, the screen's
+  ribbon, the link port, the volume wheel. Sources: https://gbdev.gg8.se/wiki/articles/DMG_Schematics, https://github.com/Gekkio/gb-schematics
+- **Game Boy Color, Game Boy Advance:** the slot along the top; the CPU (CPU CGB / CPU AGB) in the middle with one RAM;
+  the GBA's sound amplifier on the board's back. Sources: https://boardmaps.silvestron.com/nintendo-game-boy-color/CGB-CPU-02,
+  https://copetti.org/writings/consoles/game-boy-advance/
+- **PlayStation (PU boards):** CPU, GPU and SPU as large flat chips with their RAM, the disc drive's controller chips.
+  Sources: https://consolemods.org/wiki/PS1:PS1_Model_Differences, https://playstationdev.wiki/ps1devwiki/index.php/Motherboards
+- **DS (NTR-CPU):** the "CPU NTR" chip in the middle, the card slot at the back and the Game Boy Advance slot at the front.
+  Source: https://copetti.org/writings/consoles/nintendo-ds/
+- **PSP (TA-079):** the processor under a shield, memory, the radio on its own. Sources: https://www.ifixit.com/Teardown/PSP+1000+Teardown/1234,
+  https://consolemods.org/wiki/PSP:PSP_Model_Differences
+- **Android handhelds:** a phone-style board (a processor and memory under a metal can, a dark solder mask).
+
 ## North American SNES
 - **Cartridge:** 136 × 88 × 20 mm (the Japanese and European one is about 130 × 86 × 20), more angular, with inset
   grooves. Source: https://en.wikipedia.org/wiki/Super_Nintendo_Entertainment_System_Game_Pak,

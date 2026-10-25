@@ -34,7 +34,9 @@ that we've learned … and make an Android game launcher that's the best it can 
   0.1 is Home with the Cartridge Studio's models, lighting and color variants; 0.2 setup and Settings (with live
   Lighting); 0.3 the game page (turn the cartridge with the right stick, live shell colors, soft sounds); 0.4 its details,
   pictures and game settings from libretro's database; 0.5 the Studio (custom shells); 0.6 the Museum (consoles, cases, a console's default shell); 0.7 console colors and the console
-  Studio (update C, first half). Next, agreed: the console in the start and return animations (see DECISIONS.md); then the Library and the box on the game page. The user paused inspecting the rarer shell colors until they can be seen big (0.3 makes that possible).
+  Studio (update C, first half); 0.8 circuit boards inside the consoles (see-through shells, the Inside view). Next,
+  agreed: the console in the start and return animations, a handheld's screen showing the game's title screen (see
+  DECISIONS.md); then the Library and the box on the game page. The user paused inspecting the rarer shell colors until they can be seen big (0.3 makes that possible).
   Kotlin is compile-checked locally with the Kotlin 2.4 compiler against `android-all` and Filament's AARs.
 - The Android SDK can't be downloaded in Claude's sandbox (dl.google.com is blocked): compile-check the Java against
   Robolectric's `android-all` jar from Maven Central, and let GitHub Actions do the real build.

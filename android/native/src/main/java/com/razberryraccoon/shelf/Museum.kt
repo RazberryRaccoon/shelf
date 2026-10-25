@@ -41,12 +41,13 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
                           val cpu: String, val plays: String, val facts: List<String>, val example: String)
     private val exhibits: List<Exhibit>
     private var at = 0
-    private val views = listOf("Console", "Cartridge", "In its box", "Box closed")
+    private val views = listOf("Console", "Cartridge", "In its box", "Box closed", "Inside")   // Inside: left of Console
     private var view = 0
     private var shellsChanged = false
 
     // the models for the console on show
     private var console: Console? = null
+    private var circuit: ConsoleBoard? = null   // its circuit board, loaded when it shows (see-through, or Inside)
     private var cart: Cart? = null
     private var case: Case? = null
     private val sampler = TextureSampler(TextureSampler.MinFilter.LINEAR_MIPMAP_LINEAR, TextureSampler.MagFilter.LINEAR, TextureSampler.WrapMode.CLAMP_TO_EDGE)
@@ -54,7 +55,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
     // how present each piece is (eased toward its target every frame), and turning
     private var leaving = -1; private var slideX = 0f; private var slideTo = 0f   // switching consoles: a slide to the side
     private var consoleY = OFF; private var groupY = -OFF; private var age = 0f   // the console's and the cartridge-and-box's offsets from centre
-    private var caseK = 0f; private var openK = 1f; private var inBox = 0f
+    private var caseK = 0f; private var openK = 1f; private var inBox = 0f; private var inside = 0f
     private var time = 0f; private var closing = false; private var shown = 0f
     private var stickX = 0f; private var stickY = 0f
     private var yaw = -.4f; private var pitch = -.2f; private var vYaw = 0f; private var vPitch = 0f; private var idle = 9f
@@ -116,11 +117,11 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
 
     /** Puts a console on show: loads its models, fills the panel. */
     private fun show(k: Int) {
-        console?.hide(); case?.hide(); cart?.place(-4000f, 0f, 0f, 0f, 0f, 1f)   // the last console's models stay loaded, out of sight
+        console?.hide(); circuit?.hide(); case?.hide(); cart?.place(-4000f, 0f, 0f, 0f, 0f, 1f)   // the last console's models stay loaded, out of sight
         at = k.coerceIn(0, exhibits.size - 1)
         val e = ex()
         val l = load(e)
-        console = l.console; case = l.case; cart = l.cart
+        console = l.console; circuit = l.board; case = l.case; cart = l.cart
         backdrop.mood(Theme.accentOf(e.sys))
         timeline.at = at; timeline.invalidate()
         label.text = "MUSEUM  ·  ${e.year}"
@@ -148,15 +149,38 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
      * A console's three models, loaded the first time it's shown and kept until the Museum closes, so moving back and
      * forth along the timeline doesn't stop to load (the neighbours load quietly ahead, one at a time: see tick).
      */
-    private class Loaded(val console: Console?, val case: Case?, var cart: Cart?)
+    private class Loaded(var console: Console?, val case: Case?, var cart: Cart?, var board: ConsoleBoard? = null)
     private fun load(e: Exhibit) = loaded.getOrPut(e.sys) {
-        Loaded(carts.model("console-${e.sys}.glb")?.let { Console(stage, it, carts.description("console-${e.sys}.glb")).apply { consoles.lookFor(e.sys, games.consoleLook(e.sys))?.let { l -> paint(l.parts) } } }, carts.model("case-${e.sys}.glb")?.let { Case(stage, it, e.example, sampler) },
+        val look = consoles.lookFor(e.sys, games.consoleLook(e.sys))
+        Loaded(consoleModel(e.sys, look?.seeThrough() == true)?.apply { look?.let { paint(it.parts) } }, carts.model("case-${e.sys}.glb")?.let { Case(stage, it, e.example, sampler) },
             carts.make(e.sys, e.example, games.defaultShell(e.sys))).also { it.console?.hide(); it.case?.hide(); it.cart?.place(-4000f, 0f, 0f, 0f, 0f, 1f) }
     }
 
+    /** A console's model: the see-through one (its shell blended, for clear, frosted and smoke shells) or the solid one. */
+    private fun consoleModel(sys: String, clear: Boolean): Console? {
+        if (clear) carts.model("console-$sys-clear.glb")?.let { return Console(stage, it, carts.description("console-$sys-clear.glb"), clear = true) }
+        return carts.model("console-$sys.glb")?.let { Console(stage, it, carts.description("console-$sys.glb")) }
+    }
+
+    /** The board of the console on show, loaded the first time it's needed. */
+    private fun circuit(): ConsoleBoard? {
+        val e = ex(); val l = loaded[e.sys] ?: return null
+        l.board?.let { return it }
+        return carts.model("board-${e.sys}.glb")?.let { ConsoleBoard(stage, it, consoles.info[e.sys]?.board, sampler) }?.also { it.hide(); l.board = it; circuit = it }
+    }
+
+    /** Puts colors on the console on show, swapping in the see-through model when its shell needs it (or no longer does). */
+    private fun paint(parts: Map<String, PartPaint>) {
+        val l = loaded[ex().sys] ?: return
+        val clear = ConsoleLook("", "", parts).seeThrough()
+        var c = l.console
+        if (c != null && c.clear != clear) { c.destroy(); c = consoleModel(ex().sys, clear); l.console = c; console = c }
+        c?.paint(parts)
+    }
+
     private fun unload() {
-        loaded.values.forEach { it.console?.destroy(); it.case?.destroy(); it.cart?.destroy() }; loaded.clear()
-        console = null; case = null; cart = null
+        loaded.values.forEach { it.console?.destroy(); it.case?.destroy(); it.cart?.destroy(); it.board?.destroy() }; loaded.clear()
+        console = null; circuit = null; case = null; cart = null
     }
 
     // ---------- every frame ----------
@@ -167,12 +191,17 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
      * Each view's resting angle. Home consoles (and the DS, which lies open on a table) are seen from a little above, so
      * their tops and fronts show; the upright handhelds face you.
      */
-    private fun rest(): FloatArray = when (view) {
-        0 -> if (ex().sys in HANDHELDS) floatArrayOf(-.3f, -.08f) else floatArrayOf(-.45f, .42f)
-        1 -> floatArrayOf(-.28f, -.1f)
-        2 -> floatArrayOf(-.12f, -.42f)
-        else -> floatArrayOf(-.35f, -.12f)
-    }.also { if (flipped) it[0] += PI.toFloat() }
+    private fun rest(): FloatArray {
+        val hand = ex().sys in HANDHELDS
+        // inside a home console you look down on the board; turned over (X), up at its printed underside
+        if (view == INSIDE && !hand) return if (flipped) floatArrayOf(-.4f, -.95f) else floatArrayOf(-.4f, .78f)
+        return when (view) {
+            0, INSIDE -> if (hand) floatArrayOf(-.3f, -.08f) else floatArrayOf(-.45f, .42f)
+            1 -> floatArrayOf(-.28f, -.1f)
+            2 -> floatArrayOf(-.12f, -.42f)
+            else -> floatArrayOf(-.35f, -.12f)
+        }.also { if (flipped) it[0] += PI.toFloat() }
+    }
 
     fun tick(dt: Float) {
         time += dt
@@ -187,12 +216,14 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         age += dt
         if (leaving < 0 && age > .8f) listOf(at + 1, at - 1).firstOrNull { it in exhibits.indices && exhibits[it].sys !in loaded }?.let { load(exhibits[it]) }
         // the views flow into each other: the console waits below the screen and the cartridge (with its box) above it
-        if (age > .3f) consoleY = ease(consoleY, if (view == 0) 0f else OFF, 7f)   // opening, it waits for Home's cartridges to clear
-        groupY = ease(groupY, if (view == 0) -OFF else 0f, 7f)
+        val onConsole = view == 0 || view == INSIDE
+        if (age > .3f) consoleY = ease(consoleY, if (onConsole) 0f else OFF, 7f)   // opening, it waits for Home's cartridges to clear
+        groupY = ease(groupY, if (onConsole) -OFF else 0f, 7f)
+        inside = ease(inside, if (view == INSIDE) 1f else 0f, 4.5f)
         val gone = groupY < -OFF * .85f   // the cartridge and box are out of sight above
-        caseK = when { view >= 2 -> ease(caseK, 1f, 7f); view == 1 -> ease(caseK, 0f, 7f); gone -> 0f; else -> caseK }
-        inBox = when { view >= 2 -> ease(inBox, 1f, 6f); view == 1 -> ease(inBox, 0f, 6f); gone -> 0f; else -> inBox }
-        openK = when { view == 3 -> ease(openK, 0f, 5f); view != 0 -> ease(openK, 1f, 5f); gone -> 1f; else -> openK }
+        caseK = when { view == 2 || view == 3 -> ease(caseK, 1f, 7f); view == 1 -> ease(caseK, 0f, 7f); gone -> 0f; else -> caseK }
+        inBox = when { view == 2 || view == 3 -> ease(inBox, 1f, 6f); view == 1 -> ease(inBox, 0f, 6f); gone -> 0f; else -> inBox }
+        openK = when { view == 3 -> ease(openK, 0f, 5f); view == 1 || view == 2 -> ease(openK, 1f, 5f); gone -> 1f; else -> openK }
         case?.open = Backdrop.ease(openK.coerceIn(0f, 1f))
         // turning: the stick while held, a coast when let go, then back to the view's resting angle
         val sx = dead(stickX); val sy = dead(stickY); val r = rest()
@@ -211,12 +242,18 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         backdrop.shadows.clear()
         val cx = 360f + slideX; val cy = 330f + sin(time * .8f) * 4f
         // the console, sized by its whole depth too, so deep ones (seen from above) fit as well as flat ones
+        // Its board shows through a see-through shell, and on its own Inside: the console lifts away off the top of the
+        // screen and the board, left behind, grows a little to be looked at
         console?.let { m ->
             val y = cy + consoleY
-            if (y > Stage.H + 400) m.hide()
+            val ik = Backdrop.ease(inside.coerceIn(0f, 1f))
+            val b = if (m.clear || inside > .01f) circuit() else { circuit?.hide(); null }
+            if (y > Stage.H + 400) { m.hide(); b?.hide() }
             else {
                 val diag = kotlin.math.sqrt(m.half[0] * m.half[0] + m.half[1] * m.half[1] + m.half[2] * m.half[2])
-                m.place(cx, y, 30f, yaw, pitch, 2 * 215f * maxOf(m.half[0], m.half[1]) / diag)
+                val px = 2 * 215f * maxOf(m.half[0], m.half[1]) / diag
+                if (b != null) { m.place(cx, y, 30f, yaw, pitch, px * (1 + .3f * ik)); b.follow(m.matrix) }
+                if (ik > .995f) m.hide() else m.place(cx, y - ik * 820f, 30f, yaw, pitch, px)
                 shadow(cx, y, 360f)
             }
         }
@@ -291,7 +328,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
 
     private fun setView(v: Int) {
         // coming straight from the console to the closed box (left from Console), it arrives already closed with its cartridge in
-        if (view == 0 && v == 3 && groupY < -OFF * .85f) { caseK = 1f; inBox = 1f; openK = 0f }
+        if ((view == 0 || view == INSIDE) && v == 3 && groupY < -OFF * .85f) { caseK = 1f; inBox = 1f; openK = 0f }
         view = v; idle = 9f; vYaw = 0f; fillRows(); Sounds.play(if (v == 3) Sounds.CLOSE else Sounds.MOVE) }
 
     private fun switchTo(k: Int) {
@@ -370,7 +407,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         lookBefore = games.consoleLook(e.sys); previewed = lookBefore
         fillLooks(consoles.lookFor(e.sys, lookBefore)?.key)
         zone = Zone.LOOKS
-        if (view != 0) setView(0)   // show the console while choosing
+        if (view != 0 && view != INSIDE) setView(0)   // show the console while choosing
         Sounds.play(Sounds.OPEN)
     }
 
@@ -393,7 +430,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
     private fun previewLook() {
         val key = list.current()?.tag as? String ?: return
         if (key == "new") return   // keeps showing the last one you were on
-        consoles.lookFor(ex().sys, key)?.let { previewed = it.key; console?.paint(it.parts) }
+        consoles.lookFor(ex().sys, key)?.let { previewed = it.key; paint(it.parts) }
     }
 
     private fun looksInput(a: String) {
@@ -408,7 +445,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
                 Sounds.play(Sounds.PICK); endList()
                 if (consoles.lookFor(e.sys, key)?.parts?.values?.any { it.material != "plastic" } == true) vYaw += 1.4f   // show off the finish
             }
-            "b" -> { Sounds.play(Sounds.CLOSE); consoles.lookFor(e.sys, lookBefore)?.let { console?.paint(it.parts) }; endList() }
+            "b" -> { Sounds.play(Sounds.CLOSE); consoles.lookFor(e.sys, lookBefore)?.let { paint(it.parts) }; endList() }
             "y" -> consoles.custom.get(e.sys, list.current()?.tag as? String)?.let { lookOptions(it) }
         }
     }
@@ -434,7 +471,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         val start = edit ?: consoles.lookFor(e.sys, previewed)
         editingLook = edit
         working.clear(); start?.parts?.let { working.putAll(it) }
-        console?.paint(working)
+        paint(working)
         zone = Zone.PARTS; fillParts(0)
         Sounds.play(Sounds.OPEN)
     }
@@ -478,7 +515,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         val p = working[role]
         paintRole = role; paintBefore = p
         val v = StudioView(ctx, p?.color ?: c.ownColor(role), p?.material ?: c.ownMaterial(role), if (p == null) "As it was made" else "Custom", okLabel = "Done")
-        v.onChange = { color, material -> working[role] = PartPaint(color, material); console?.paint(working) }
+        v.onChange = { color, material -> working[role] = PartPaint(color, material); paint(working) }
         v.onSave = { closePart(keep = true) }
         v.onCancel = { closePart(keep = false) }
         painting = v
@@ -490,7 +527,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
     }
 
     private fun closePart(keep: Boolean) {
-        if (!keep) { paintBefore?.let { working[paintRole] = it } ?: working.remove(paintRole); console?.paint(working); Sounds.play(Sounds.CLOSE) } else Sounds.play(Sounds.PICK)
+        if (!keep) { paintBefore?.let { working[paintRole] = it } ?: working.remove(paintRole); paint(working); Sounds.play(Sounds.CLOSE) } else Sounds.play(Sounds.PICK)
         painting?.let { panel.removeView(it) }; painting = null
         zone = Zone.PARTS
         fillParts(consoles.info[ex().sys]?.parts?.indexOfFirst { it.first == paintRole } ?: 0)
@@ -520,6 +557,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
     companion object {
         private val HANDHELDS = setOf("gb", "gbc", "gba", "psp", "android")   // upright; the DS lies open, like a home console
         private const val OFF = 720f   // how far off screen a piece waits
+        private const val INSIDE = 4   // the views' order: Console, Cartridge, In its box, Box closed, Inside (left of Console)
         private const val LEFT = -900f; private const val RIGHT = 1300f   // slides that clear the screen: the exhibit sits left of centre
         private val ORDER = listOf("nes", "genesis", "gb", "snes", "ps1", "n64", "gbc", "gba", "ds", "psp", "android")
         private val LONG = mapOf("nes" to "Nintendo Entertainment System", "snes" to "Super Nintendo", "n64" to "Nintendo 64", "genesis" to "Sega Genesis",

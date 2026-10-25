@@ -269,6 +269,14 @@ Summarized from the first part of the conversation; the full transcript is kept 
   two rounds, the colors and the console Studio first (0.7), then the start and return animations in the chosen colors.
   A console's own colors are per console (its parts are its own), unlike cartridge shells, which every cartridge shares.
   See-through editions show as glassy colored plastic, since the consoles have no insides yet.
+- Console boards (after 0.7, the user): "I want each console to have a circuit board inside it too. It should be a little
+  more detailed than the cartridge one, and have more 3D modeled elements like processors, resistors, etc. Try to make it
+  look roughly like the real console's circuitboards … On the back (handhelds)/bottom (home consoles), it should have
+  the signature RaccoonTek text." Seen two ways ("Both"): see-through finishes really are see-through on a console's
+  shell, and a Museum view, Inside, lifts the console away from its board. Boards before the animations ("Boards first").
+- The start animation (after 0.7, the user): "When launching a handheld game, the intro animation should display the
+  game's title screen on the handheld's screen after the cartridge has been inserted and before the game fully launches
+  and takes over." Home consoles show just the console (no TV, no title screen behind it).
 - Open-bottomed cartridges (after 0.6): "open the bottom of the cartridge up, just like the real cartridges, and have the
   circuitboard visible by looking in from the bottom." Every board's back says "RaccoonTek" "in a futuristic/technologic
   font" (Orbitron), "small but readable … only really visible when a clear material is selected." Cards and discs

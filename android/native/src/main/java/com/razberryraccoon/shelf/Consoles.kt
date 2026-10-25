@@ -22,7 +22,13 @@ data class ConsoleLook(val name: String, val note: String, val parts: Map<String
 }
 
 /** A console's paintable parts, in order ("shell" to "Shell"), and the colors it really came in, its first one standard. */
-class ConsoleInfo(val sys: String, val name: String, val parts: List<Pair<String, String>>, val looks: List<ConsoleLook>)
+class ConsoleInfo(val sys: String, val name: String, val parts: List<Pair<String, String>>, val looks: List<ConsoleLook>, val board: BoardInfo?)
+
+/** Its circuit board's print: RaccoonTek's part number, the solder mask's color, the board's size in millimetres. */
+class BoardInfo(val code: String, val mask: Int, val w: Float, val h: Float)
+
+/** Whether these colors need the see-through console: its shell in a clear, frosted or smoke finish. */
+fun ConsoleLook.seeThrough() = parts["shell"]?.let { Materials.of(it.material).clear != null } == true
 
 /** Every console's real colors, and the ones you've made. */
 class Consoles(ctx: Context, stage: Stage) {
@@ -34,7 +40,8 @@ class Consoles(ctx: Context, stage: Stage) {
         info = j.keys().asSequence().associateWith { sys -> j.getJSONObject(sys).let { c ->
             ConsoleInfo(sys, c.getString("name"),
                 c.getJSONArray("parts").let { a -> (0 until a.length()).map { a.getJSONArray(it).let { p -> p.getString(0) to p.getString(1) } } },
-                c.getJSONArray("colors").let { a -> (0 until a.length()).map { a.getJSONObject(it).let { l -> ConsoleLook(l.getString("name"), l.optString("note"), parts(l.getJSONObject("parts"))) } } })
+                c.getJSONArray("colors").let { a -> (0 until a.length()).map { a.getJSONObject(it).let { l -> ConsoleLook(l.getString("name"), l.optString("note"), parts(l.getJSONObject("parts"))) } } },
+                c.optJSONObject("board")?.let { b -> b.getJSONArray("size").let { z -> BoardInfo(b.getString("code"), Color.parseColor(b.getString("mask")), z.getDouble(0).toFloat(), z.getDouble(1).toFloat()) } })
         } }
     }
 
@@ -73,7 +80,7 @@ class ConsoleLooks(ctx: Context) {
  * "role:dpad"; a part in two shades has "role:band" and "role:band#2"). The file's own colors are kept, so a part
  * that new colors leave alone goes back to how the model was made.
  */
-class Console(stage: Stage, asset: FilamentAsset, file: JSONObject?) : Model(stage, asset) {
+class Console(stage: Stage, asset: FilamentAsset, file: JSONObject?, val clear: Boolean = false) : Model(stage, asset) {
     private class Own(val color: FloatArray, val rough: Float, val metal: Float, val coat: Float, val coatRough: Float)
     private val mats = ArrayList<Pair<String, MaterialInstance>>()
     private val own = HashMap<String, Own>()
@@ -106,7 +113,7 @@ class Console(stage: Stage, asset: FilamentAsset, file: JSONObject?) : Model(sta
             val p = parts[role(n)]
             mi.set("emissiveFactor", 0f, 0f, 0f); mi.set("sheenColorFactor", 0f, 0f, 0f)
             if (p == null) {
-                mi.set("baseColorFactor", o.color[0], o.color[1], o.color[2], 1f)
+                mi.set("baseColorFactor", o.color[0], o.color[1], o.color[2], 1f)   // the see-through model's shell, too, is solid until it has a clear finish
                 mi.set("roughnessFactor", o.rough); mi.set("metallicFactor", o.metal)
                 mi.set("clearCoatFactor", o.coat); mi.set("clearCoatRoughnessFactor", o.coatRough)
                 continue
@@ -116,7 +123,10 @@ class Console(stage: Stage, asset: FilamentAsset, file: JSONObject?) : Model(sta
             val f = Materials.of(p.material)
             val lin = intArrayOf(Color.red(p.color), Color.green(p.color), Color.blue(p.color)).map { srgbToLinear(it / 255f) }.toFloatArray()
             val base = if (f.metallic > 0) metalColor(lin, p.color, f) else FloatArray(3) { (lin[it] + (1 - lin[it]) * f.lift) * f.dim }
-            mi.set("baseColorFactor", base[0], base[1], base[2], 1f)
+            // the see-through model's shell shows as much as the cartridges' clear shells do; elsewhere a clear finish is
+            // a glassy, polished plastic
+            val alpha = if (clear && n == "role:shell" && f.clear != null) f.alpha else 1f
+            mi.set("baseColorFactor", base[0], base[1], base[2], alpha)
             mi.set("roughnessFactor", f.rough ?: if (f.clear == "frosted") maxOf(.4f, o.rough) else o.rough)
             mi.set("metallicFactor", f.metallic)
             mi.set("clearCoatFactor", f.coat ?: if (f.clear != null) 1f else o.coat)
@@ -132,4 +142,34 @@ class Console(stage: Stage, asset: FilamentAsset, file: JSONObject?) : Model(sta
         Color.rgb(s(c[0]), s(c[1]), s(c[2]))
     } ?: Color.GRAY
     fun ownMaterial(role: String) = if ((own["role:$role"]?.metal ?: 0f) >= .5f) "metal" else "plastic"
+}
+
+/**
+ * A console's circuit board (board.js in the Studio), exported on its own in the console's own millimetres: placed with
+ * its console's transform, it sits exactly inside it. The app draws its top (traces under the solder mask) and its
+ * underside (RaccoonTek and the board's part number), as it does the cartridges' boards.
+ */
+class ConsoleBoard(stage: Stage, asset: FilamentAsset, info: BoardInfo?, sampler: com.google.android.filament.TextureSampler) : Model(stage, asset) {
+    private val textures = ArrayList<com.google.android.filament.Texture>()
+
+    init {
+        val aspect = info?.let { it.w / it.h } ?: 1.5f
+        val mask = info?.mask ?: Color.rgb(20, 83, 47)
+        picture("board-top", Paintings.traces(aspect, mask), sampler)
+        picture("board-print", Paintings.board(aspect, info?.code ?: "RT-01", 0, mask), sampler)
+    }
+
+    private fun picture(name: String, b: android.graphics.Bitmap, sampler: com.google.android.filament.TextureSampler) {
+        val mi = asset.renderableEntities.asSequence().mapNotNull { e -> rm.getInstance(e).takeIf { it != 0 } }
+            .flatMap { ri -> (0 until rm.getPrimitiveCount(ri)).asSequence().map { rm.getMaterialInstanceAt(ri, it) } }
+            .firstOrNull { it.name == name && it.material.parameters.any { p -> p.name == "baseColorMap" && p.type == com.google.android.filament.Material.Parameter.Type.SAMPLER_2D } }
+        if (mi == null) { b.recycle(); return }
+        val t = pictureTexture(stage, b); b.recycle(); textures += t
+        mi.setParameter("baseColorMap", t, sampler)
+    }
+
+    /** Puts it where its console is: the console's last placement. */
+    fun follow(m: FloatArray) = tm.setTransform(tm.getInstance(asset.root), m)
+
+    override fun destroy() { super.destroy(); textures.forEach { stage.engine.destroyTexture(it) } }
 }
