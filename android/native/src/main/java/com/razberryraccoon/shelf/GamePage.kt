@@ -37,7 +37,9 @@ import kotlin.math.sin
  */
 class GamePage(private val ctx: Context, private val board: Board, private val backdrop: Backdrop, private val stage: Stage,
                private val games: Games, private val carts: Carts, private val meta: Meta, val game: Game, var cart: Cart?,
-               private val from: FloatArray, private val host: Host) {
+               private val from: FloatArray, private val host: Host,
+               /** Opened from a box on Home: it starts as that closed box, and goes back into it closing. */
+               private val fromBox: Boolean = false) {
     interface Host {
         fun play(g: Game)
         fun pick(p: Picker)
@@ -45,6 +47,8 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         fun show(msg: String)
         fun cartChanged(g: Game, c: Cart?)
         fun closed(page: GamePage, homeChanged: Boolean)
+        /** Android's file picker, for a file of your own on the media page. */
+        fun openDocument(mimes: Array<String>, then: (android.net.Uri?) -> Unit)
     }
 
     private var t = 0f                  // 0 = in the row, 1 = open
@@ -64,6 +68,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     private val case: Case? = carts.model("case-${game.sys}.glb")?.let { val pics = meta.cached(game)?.pics
         Case(stage, it, game.title, sampler, pics?.get("box")?.let { f -> meta.bitmap(f, 512) }, pics?.get("back")?.let { f -> meta.bitmap(f, 512) }, pics?.get("spine")?.let { f -> meta.bitmap(f, 256) }) }?.also { it.hide() }
     private val flow = BoxFlow()
+    private val fromRy = from.getOrElse(3) { -.2f }   // how it was turned in Home's row
     // Game settings takes the cartridge apart on a surface (Cart.teardown), with a screwdriver beside it: how far, 0..1
     private var tk = 0f
     private val tool: Model? = carts.model("screwdriver.glb")?.let { Model(stage, it) }?.also { it.hide() }
@@ -107,6 +112,13 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     private var manualStage = 0       // 0 in its box, 1 waiting for the box to open, 2 coming out, 3 being read, 4 going back in
     private var manualK = 0f          // how far out: 0 in the cover, 1 in front of you
     private var manualFocus = 0f      // chosen where it lies (lifted a little)
+    // left of the tiles, the models themselves can be chosen: in the open box the cartridge (A starts the game) and the
+    // manual; the cartridge on its own, or the closed box, to look at closely (Inspect)
+    private var pick = 0              // in Zone.BOX: 0 the cartridge (or the closed box), 1 the manual
+    private var pickFocus = 0f        // how lifted the chosen cartridge or box is
+    private var inspecting = false
+    private var inspK = 0f; private var inspZoom = 1f; private var inspZoomTo = 1f
+    private var panX = 0f; private var panY = 0f; private var panToX = 0f; private var panToY = 0f
     private var reader: Manual? = null
     private var findingManual = false
     private var manualCoverFor: String? = null   // the manual whose cover the booklet wears
@@ -129,6 +141,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     private var shotsFor: Meta.Info? = null   // the look-up the thumbnails were made from
 
     init {
+        if (fromBox && case != null) flow.snap(3f)   // it starts as Home's closed box, with the cartridge inside
         val chips = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         val chip = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; background = round(Theme.chip, 19f); setPadding(16, 6, 16, 6) }
         chip.addView(chipDot, LinearLayout.LayoutParams(12, 12).apply { rightMargin = 9 }); chip.addView(chipText)
@@ -214,7 +227,9 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         time += dt
         viewer?.tick(dt); article?.tick(dt); media?.tick(dt); player?.tick(dt); reader?.tick(dt)
         // closing: the cartridge comes out of its box and the box slides away first, then it goes back to the row
-        t = if (closing) (if (flow.s > .02f) t else maxOf(0f, t - dt / .5f)) else min(1f, t + dt / .6f)
+        // from a box on Home, the box closes round the cartridge first instead, and that goes back
+        val ready = if (fromBox && case != null) flow.s > 2.98f else flow.s <= .02f
+        t = if (closing) (if (!ready) t else maxOf(0f, t - dt / .5f)) else min(1f, t + dt / .6f)
         val k = Backdrop.ease(t)
         val pk = Backdrop.ease(((t - .3f) / .7f).coerceIn(0f, 1f))
         studioK = if (studio != null) min(1f, studioK + dt / .3f) else maxOf(0f, studioK - dt / .25f)
@@ -222,7 +237,13 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         launchK = if (launching) min(1f, launchK + dt / .3f) else maxOf(0f, launchK - dt / .4f)
         val lk = 1 - Backdrop.ease(launchK)
         val mk = 1 - Backdrop.ease(manualK)   // the panel steps back while the manual is out
-        panel.alpha = pk * (1 - sk) * lk * mk; panel.translationX = (1 - pk) * 70f - sk * 40f
+        inspK = if (inspecting) min(1f, inspK + dt / .4f) else maxOf(0f, inspK - dt / .35f)
+        val ik = Backdrop.ease(inspK)
+        inspZoom += (inspZoomTo * (if (inspecting) 1f else 1f) - inspZoom) * min(1f, dt * 8f)
+        panX += ((if (inspecting) panToX else 0f) - panX) * min(1f, dt * 8f); panY += ((if (inspecting) panToY else 0f) - panY) * min(1f, dt * 8f)
+        backdrop.shade = ik * .75f
+        pickFocus += ((if (zone == Zone.BOX && pick == 0 && !inspecting) 1f else 0f) - pickFocus) * min(1f, dt * 10f)
+        panel.alpha = pk * (1 - sk) * lk * mk * (1 - ik); panel.translationX = (1 - pk) * 70f - sk * 40f
         studioPanel.alpha = pk * sk * lk; studioPanel.translationX = (1 - sk) * 50f
         if (studio == null && studioK == 0f && studioPanel.parent != null) board.removeView(studioPanel)
         // the stick: turn while held, coast when let go, then settle back to the front (or the back, after X)
@@ -234,6 +255,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
             vYaw *= exp(-dt * 1.7f); vPitch *= exp(-dt * 2.4f); idle += dt
         }
         yaw += vYaw * dt; pitch = (pitch + vPitch * dt).coerceIn(-1.35f, 1.35f)
+        if (inspecting) idle = 0f   // looking closely: it stays as you turned it
         if (idle > 1.2f || closing) {
             val target = restYaw + (2 * PI.toFloat()) * ((yaw - restYaw) / (2 * PI)).roundToLong()
             val r = min(1f, dt * (if (closing) 6f else 2.4f))
@@ -241,18 +263,25 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         }
         stage.turnKey(wrap(yaw - restYaw) * .3f * k)
         // from its place in the row to the left half, arcing up a little on the way
-        val x = lerp(from[0], 350f, k); val y = lerp(from[1], 384f, k) - sin(PI.toFloat() * k) * 46f + sin(time * .8f) * 4f * k
+        val x0 = lerp(from[0], 350f, k); val y0 = lerp(from[1], 384f, k) - sin(PI.toFloat() * k) * 46f + sin(time * .8f) * 4f * k
+        // looking closely: it moves to the middle of the screen, where the stick and buttons move it
+        val x = lerp(x0, Stage.W / 2 + panX, ik); val y = lerp(y0, Stage.H / 2 - 20f + panY, ik)
         // taking it apart: once the box is out of the way; the layout is wider and taller than the cartridge, so it
         // shrinks to fit and moves up a little (the parts are laid out below the halves)
         tk = if (tearing && !closing && !launching && flow.s < .02f) min(1f, tk + dt / 2.6f) else maxOf(0f, tk - dt / 1.4f)
         val te = Backdrop.ease(tk)
         val big = cart?.let { maxOf(it.style.w, it.style.h) } ?: 1f
         val fit = cart?.let { c -> 1.3f * big / maxOf(2.9f * c.style.w, 1.45f * c.style.h) } ?: 1f   // the parts' spread, seen from above, about 520 across
-        val px = lerp(from[2], 400f, k) * lerp(1f, fit, te)
+        val px = lerp(from[2], 400f, k) * lerp(1f, fit, te) * lerp(1f, 1.55f * inspZoom, if (view == 0) ik else 0f)
         val ty = (cart?.style?.h ?: 0f) * .3f * (px / big) * te
-        val ry = lerp(-.2f, yaw, k); val rx = lerp(-.1f, pitch, k)
+        val ry = lerp(fromRy, yaw, k); val rx = lerp(-.1f, pitch, k)
         if (!launching) cart?.place(x, y - ty, lerp(40f, 70f, k), ry, rx, px, held = true)
-        val boxedTo = if (case == null || closing || launching || mode != Mode.PAGE || tk > .02f || t < .25f) 0f else when (view) { 1 -> 2f; 2 -> 3f; else -> 0f }
+        val boxedTo = when {
+            case == null || launching || mode != Mode.PAGE || tk > .02f -> 0f
+            closing -> if (fromBox) 3f else 0f
+            t < .25f -> if (fromBox) 3f else 0f
+            else -> when (view) { 1 -> 2f; 2 -> 3f; else -> 0f }
+        }
         val was = flow.s
         flow.tick(dt, boxedTo, if (closing) 1.3f else 1f)
         if (was < 2f && flow.s >= 2f) Sounds.play(Sounds.CLICK)        // the cartridge seats in its tray
@@ -260,15 +289,16 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         cart?.teardown(tk)
         val spot = cart?.toolSpot(tk)
         if (tool != null) { if (spot != null && tk > .66f && !launching) tool.placeMatrix(FloatArray(16).also { android.opengl.Matrix.multiplyMM(it, 0, cart!!.placed, 0, spot, 0) }) else tool.hide() }
-        placeBox(x, y, ry, rx)
+        placeBox(x, y, ry, rx, ik)
         if (flow.s > .001f) placeManual(dt)
-        cart?.brightness(lerp(1.02f, 1f, k))
+        cart?.brightness(lerp(1.02f, 1f, k) + .14f * pickFocus * (if (view != 2) 1f else 0f))   // chosen: a little brighter
         if (!launching) cart?.let { c ->
             val big = maxOf(c.style.w, c.style.h)
-            backdrop.shadows.add(floatArrayOf(x, lerp(from[1] + c.style.h / big * from[2] / 2 + 24f, 600f, k), lerp(c.style.w / big * from[2] * .9f, 330f, k), 1f - .25f * k))
+            backdrop.shadows.add(floatArrayOf(x, lerp(from[1] + c.style.h / big * from[2] / 2 + 24f, 600f, k), lerp(c.style.w / big * from[2] * .9f, 330f, k), (1f - .25f * k) * (1 - ik)))
         }
         // the hint under the cartridge shows for a few seconds, then gets out of the way
         hint.alpha = pk * lk * mk
+        hint.translationX = ik * (Stage.W / 2 - 360f)   // looking closely: the buttons centred under the model
         if (closing && t == 0f) { destroy(); host.closed(this, homeChanged) }
     }
 
@@ -282,6 +312,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         player?.let { if (it.input(a)) return }
         reader?.let { if (it.input(a)) return }
         if (manualStage != 0) return   // the manual is on its way out or back
+        if (inspecting) return inspectInput(a)
         when (mode) {
             Mode.COLORS -> return colorsInput(a)
             Mode.STUDIO -> return if (a == "x") flip() else studio?.input(a) ?: Unit
@@ -295,7 +326,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         when (zone) {
             Zone.TILES -> when (a) {
                 // left from the first tile, with the box open, reaches the manual lying in it
-                "left" -> if (tiles.move(-1)) Sounds.play(Sounds.MOVE) else if (manualInBox()) goTo(Zone.BOX) else Sounds.play(Sounds.BUMP)
+                "left" -> if (tiles.move(-1)) Sounds.play(Sounds.MOVE) else if (canPick()) { pick = 0; goTo(Zone.BOX) } else Sounds.play(Sounds.BUMP)
                 "right" -> Sounds.play(if (tiles.move(1)) Sounds.MOVE else Sounds.BUMP)
                 "up" -> close()
                 "down" -> goTo(if (hasManuals) Zone.MANUAL else if (shots.count > 0) Zone.PICS else Zone.ABOUT)
@@ -315,8 +346,10 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
                 "left", "right" -> Sounds.play(Sounds.BUMP)
             }
             Zone.BOX -> when (a) {
-                "right", "b" -> goTo(Zone.TILES)
-                "a" -> readManual()
+                "left" -> if (pick == 0 && manualInBox()) { pick = 1; Sounds.play(Sounds.MOVE); fillHint() } else Sounds.play(Sounds.BUMP)
+                "right" -> if (pick == 1) { pick = 0; Sounds.play(Sounds.MOVE); fillHint() } else goTo(Zone.TILES)
+                "b" -> goTo(Zone.TILES)
+                "a" -> when { pick == 1 -> readManual(); view == 1 -> play(); else -> startInspect() }
                 else -> Sounds.play(Sounds.BUMP)
             }
             Zone.PICS -> when (a) {
@@ -348,7 +381,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         scroll.smoothScrollTo(0, when (z) { Zone.TILES, Zone.BOX -> 0; Zone.MANUAL -> manualBtn.top - 260; Zone.PICS -> picsHead.top - 80; Zone.ABOUT -> aboutHead.top - 40 }.coerceAtLeast(0))
     }
 
-    fun close() { if (!closing) { closing = true; studio = null; viewer?.let { board.removeView(it); viewer = null }; article?.let { board.removeView(it); article = null }; media?.let { board.removeView(it); media = null }; player?.let { board.removeView(it); player = null }; reader?.let { board.removeView(it); reader = null }; if (mode == Mode.COLORS) endColors(keep = false); Sounds.play(Sounds.CLOSE) } }
+    fun close() { if (!closing) { closing = true; inspecting = false; studio = null; viewer?.let { board.removeView(it); viewer = null }; article?.let { board.removeView(it); article = null }; media?.let { board.removeView(it); media = null }; player?.let { board.removeView(it); player = null }; reader?.let { board.removeView(it); reader = null }; if (mode == Mode.COLORS) endColors(keep = false); Sounds.play(Sounds.CLOSE) } }
 
     private fun play() {
         if (games.emulatorFor(game) == null) return chooseEmulator(then = true)
@@ -412,6 +445,27 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
 
     private fun manualFile() = info?.pics?.get("manual")?.takeIf { it.exists() }
     private fun manualInBox() = hasManuals && view == 1 && case?.hasManual == true && flow.s > 1.9f && manualStage == 0
+    /** Whether the model can be chosen now: settled in its view (the open box open, the closed box shut, or the cartridge alone). */
+    private fun canPick() = mode == Mode.PAGE && tk < .02f && manualStage == 0 && when (view) { 1 -> flow.s > 1.9f; 2 -> flow.s > 2.9f; else -> flow.s < .02f }
+
+    // ---------- looking closely (Inspect) ----------
+
+    /** The closed box or the cartridge, big in the middle of the screen with everything else dimmed. */
+    private fun startInspect() {
+        inspecting = true; inspZoomTo = 1f; panToX = 0f; panToY = 0f; idle = 0f
+        Sounds.play(Sounds.OPEN); fillHint()
+    }
+    private fun inspectInput(a: String) {
+        when (a) {
+            "rb" -> if (inspZoomTo < 3f) { inspZoomTo += .5f; Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
+            "lb" -> if (inspZoomTo > 1f) { inspZoomTo -= .5f; Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
+            // the left stick or the d-pad moves your view across it (the model the other way), a step at a time, eased
+            "left" -> panToX += 90f; "right" -> panToX -= 90f; "up" -> panToY += 90f; "down" -> panToY -= 90f
+            "b", "a" -> { inspecting = false; Sounds.play(Sounds.CLOSE); fillHint() }
+            "x" -> flip()
+        }
+        val lim = 260f * inspZoomTo; panToX = panToX.coerceIn(-lim, lim); panToY = panToY.coerceIn(-lim * .7f, lim * .7f)
+    }
     private fun refreshManual() {
         manualBtn.text = when { findingManual -> "Looking for the manual…"; manualFile() != null -> "Read the manual"; else -> "Find the manual" }
         // the booklet in the box wears the manual's own cover, once there is one
@@ -462,7 +516,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     private fun placeManual(dt: Float) {
         val c = case ?: return
         if (!c.hasManual) return
-        manualFocus += ((if (zone == Zone.BOX && manualStage == 0) 1f else 0f) - manualFocus) * min(1f, dt * 10f)
+        manualFocus += ((if (zone == Zone.BOX && pick == 1 && manualStage == 0) 1f else 0f) - manualFocus) * min(1f, dt * 10f)
         when (manualStage) {
             1 -> if (flow.s >= 1.98f) manualStage = 2
             2 -> { manualK = min(1f, manualK + dt / .9f); if (manualK >= 1f) { manualStage = 3; manualFile()?.let { openReader(it) } ?: run { manualStage = 4 } } }
@@ -516,7 +570,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
 
     private fun startColors(from: Mode, focusKey: String? = null) {
         if (carts.styles[game.sys] == null) return
-        if (mode != Mode.COLORS) { colorsFrom = from; before = carts.variantFor(game.sys, carts.shellFor(games, game)) }
+        if (mode != Mode.COLORS) { colorsFrom = from; before = carts.variantFor(game.sys, carts.shellFor(games, game)); finishPick = games.ownFinish(game) ?: -1 }
         mode = Mode.COLORS
         fillColors(focusKey ?: list.current()?.tag as? String ?: before?.key)
         Sounds.play(Sounds.OPEN)
@@ -526,6 +580,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val style = carts.styles[game.sys] ?: return
         val chosen = carts.shellFor(games, game) ?: style.variants[0].name
         val rows = ArrayList<Options.Row>()
+        rows += Options.Row("finish", "Label finish", value = "‹  ${finishName(finishPick)}  ›", sub = "How the label looks: paper, glossy, worn, holo…")
         rows += Options.Row(Options.HEAD, "Defaults for ${Games.NAMES[game.sys] ?: style.name}")
         style.variants.forEach { rows += Options.Row("v", it.name, sub = it.games.ifEmpty { "A color it came in" }, check = it.key == chosen, dot = it.color, tag = it.key) }
         rows += Options.Row(Options.HEAD, "Custom")
@@ -533,11 +588,20 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         rows += Options.Row("new", "+ Add new", sub = "Make your own in the Studio", tag = "new")
         list.onFocus = null
         showList("Customize shell", rows, 0)
-        rows.indexOfFirst { it.tag == focusKey }.takeIf { it >= 0 }?.let { list.focus(it) }
+        rows.indexOfFirst { it.tag == focusKey || it.key == focusKey }.takeIf { it >= 0 }?.let { list.focus(it) }
         list.onFocus = { preview(); Sounds.play(Sounds.MOVE) }
     }
 
+    // the label finish chosen in Customize shell: -1 is the default (Settings), else one of Labels.NAMES
+    private var finishPick = -1
+    private val finishShown get() = if (finishPick < 0) games.labelFinish else finishPick
+    private fun finishName(f: Int) = if (f < 0) "Default (${Labels.NAMES[games.labelFinish]})" else Labels.NAMES[f]
     private fun colorsInput(a: String) {
+        if (list.current()?.key == "finish" && (a == "left" || a == "right" || a == "a")) {
+            finishPick = (finishPick + 1 + (if (a == "left") Labels.NAMES.size else 1)) % (Labels.NAMES.size + 1) - 1
+            carts.refinish(cart, game.title, finishShown); vYaw += .9f   // turned a little, so the new finish catches the light
+            Sounds.play(Sounds.MOVE); fillColors("finish"); return
+        }
         when (a) {
             "up" -> if (!list.move(-1)) Sounds.play(Sounds.BUMP)
             "down" -> if (!list.move(1)) Sounds.play(Sounds.BUMP)
@@ -570,12 +634,15 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     private fun setVariant(v: Variant) {
         val c = cart
         if (c == null || (v.clear != null) != (c.variant.clear != null)) {   // clear shells are a different model: swap it in place
-            c?.destroy(); cart = carts.make(game.sys, game.title, v); host.cartChanged(game, cart)   // by the shell itself: one still being made in the Studio has no saved name to look up
+            c?.destroy(); cart = carts.make(game.sys, game.title, v); carts.refinish(cart, game.title, finishShown); host.cartChanged(game, cart)   // by the shell itself: one still being made in the Studio has no saved name to look up
         } else c.apply(v)
     }
 
     private fun endColors(keep: Boolean) {
-        val key = (list.current()?.tag as? String)?.takeIf { it != "new" }
+        // the finish is kept with the shell (A) or put back (B)
+        if (keep) games.setFinish(game, finishPick.takeIf { it >= 0 }) else finishPick = games.ownFinish(game) ?: -1
+        carts.refinish(cart, game.title, games.finishFor(game))
+        val key = (list.current()?.tag as? String)?.takeIf { it != "new" && it != "finish" }
         val picked = if (keep) key?.let { carts.variantFor(game.sys, it) } else null
         if (picked != null) { games.setVariant(game, picked.key); if (picked.sheen || picked.clear != null) vYaw += 1.6f }   // show off the new finish
         else before?.let { setVariant(it) }
@@ -669,6 +736,11 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         Sounds.play(Sounds.OPEN)
         val v = MediaPage(ctx, game, title.text.toString(), meta, games, ctx.cacheDir, object : MediaPage.Host {
             override fun changeMatch() = whichGame()
+            override fun chooseFile(kind: String, then: (Boolean) -> Unit) {
+                val mimes = when (kind) { "video" -> arrayOf("video/*"); "manual" -> arrayOf("application/pdf"); else -> arrayOf("image/*") }
+                host.openDocument(mimes) { uri -> if (uri == null) return@openDocument then(false)
+                    Thread { val ok = Backup.adopt(ctx, uri, game, kind, meta); board.post { then(ok) } }.start() }
+            }
             override fun show(msg: String) = host.show(msg)
             override fun changed() { info = meta.cached(game); refresh(); if (mode == Mode.SETTINGS) fillSettings() }
         })
@@ -702,7 +774,9 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     private fun setView(v: Int) {
         val to = (v + 3) % 3
         if (case == null && to != 0) return Sounds.play(Sounds.BUMP)   // a console with no box made for it yet
-        view = to; idle = 9f; vYaw = 0f; fillHint()
+        view = to; idle = 9f; vYaw = 0f
+        if (zone == Zone.BOX) { zone = Zone.TILES; tiles.active = true; tiles.invalidate() }   // the model chosen has gone; back to the tiles
+        fillHint()
         Sounds.play(Sounds.MOVE)
     }
 
@@ -712,14 +786,19 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
      * where it floats to just over the tray, then down into it; the cover shut. Closed, it grows (up to 500 tall) to fill
      * the left half, so the box art shows big.
      */
-    private fun placeBox(x: Float, y: Float, ry: Float, rx: Float) {
+    private fun placeBox(x: Float, y: Float, ry: Float, rx: Float, ik: Float = 0f) {
         val c = case ?: return
         if (flow.s < .001f) { c.hide(); return }
         val shut = flow.closed
         c.open = 1 - shut
         val big = 2 * maxOf(c.half[0], c.half[1])
         val open = min(400f / big, 300f / (2 * c.half[0]))
-        val s = lerp(open, maxOf(open, min(500f / (2 * c.half[1]), 440f / (2 * c.half[0]))), shut)
+        val s = lerp(open, maxOf(open, min(500f / (2 * c.half[1]), 440f / (2 * c.half[0]))), shut) *
+            // looking closely at the closed box: as big as the screen allows, then zoomed; chosen, it comes forward a touch
+            lerp(1f, min(640f / (2 * c.half[1]), 1000f / (2 * c.half[0])) / min(500f / (2 * c.half[1]), 440f / (2 * c.half[0])) * inspZoom, ik * shut) *
+            (1 + .035f * pickFocus * shut) *
+            // from a box on Home: as big as it was there to begin with (and closing, back to that)
+            (if (fromBox) lerp(from[2] / big / maxOf(.001f, min(500f / (2 * c.half[1]), 440f / (2 * c.half[0]))), 1f, Backdrop.ease(t)) else 1f)
         val shift = maxOf(0f, -kotlin.math.cos(PI.toFloat() * .97f * c.open)) * c.half[0] * s * kotlin.math.cos(ry)
         val at = x + shift
         val bx = at - (1 - flow.boxIn) * (at + 4 * c.half[0] * s + 40f)   // off the left edge, the open cover and all
@@ -728,19 +807,30 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val ct = cart ?: return
         val tray = c.mediaMatrix()
         val hover = c.hoverMatrix(ct.style.h, ct.style.depth)
-        ct.placeMatrix(if (flow.s <= 1f) Poses.blend(ct.placed, hover, flow.boxIn) else Poses.blend(hover, tray, flow.down))
+        val m = if (flow.s <= 1f) Poses.blend(ct.placed, hover, flow.boxIn) else Poses.blend(hover, tray, flow.down)
+        if (pickFocus > .001f && view == 1) android.opengl.Matrix.translateM(m, 0, 0f, 0f, 5f * pickFocus)   // chosen in its tray: lifted a little
+        ct.placeMatrix(m)
     }
 
     /** Under the cartridge: what the triggers show, and the turning keys. */
     private fun fillHint() {
         hint.removeAllViews()
-        if (zone == Zone.BOX) { hint.addView(key("A", "Read the manual")); hint.addView(key("Right", "Back to the page").apply { setPadding(26, 0, 0, 0) }); return }
+        if (inspecting) {
+            hint.addView(key("L1 R1", "Zoom")); hint.addView(key("R", "Turn").apply { setPadding(26, 0, 0, 0) })
+            hint.addView(key("L", "Move").apply { setPadding(26, 0, 0, 0) }); hint.addView(key("B", "Back").apply { setPadding(26, 0, 0, 0) }); return
+        }
+        if (zone == Zone.BOX) {
+            hint.addView(key("A", when { pick == 1 -> "Read the manual"; view == 1 -> "Start the game"; view == 2 -> "Look at the box"; else -> "Look closer" }))
+            if (pick == 0 && manualInBox()) hint.addView(key("Left", "The manual").apply { setPadding(26, 0, 0, 0) })
+            hint.addView(key("Right", "Back to the page").apply { setPadding(26, 0, 0, 0) }); return
+        }
         if (case != null) hint.addView(key("L2 R2", PAGE_VIEWS[view]))
         hint.addView(key("R", "Turn it").apply { setPadding(if (case != null) 26 else 0, 0, 0, 0) })
         hint.addView(key("X", "Flip it over").apply { setPadding(26, 0, 0, 0) })
     }
 
     fun destroy() {
+        backdrop.shade = 0f
         case?.destroy(); tool?.destroy()
         board.removeView(panel); board.removeView(hint); board.removeView(studioPanel); viewer?.let { board.removeView(it) }; article?.let { board.removeView(it) }; media?.let { board.removeView(it) }; player?.let { board.removeView(it) }; reader?.let { board.removeView(it) }
         stage.turnKey(0f)

@@ -28,16 +28,70 @@ import kotlin.math.sin
  */
 class Home(private val ctx: Context, private val stage: Stage, private val board: Board, private val backdrop: Backdrop,
            private val games: Games, private val carts: Carts, private val lookup: Meta, private val actions: Actions) : GamePage.Host {
-    interface Actions { fun play(g: Game); fun allowStorage(); fun openSettings(); fun openMuseum(sys: String?); fun askText(title: String, value: String, then: (String) -> Unit) }
+    interface Actions { fun play(g: Game); fun allowStorage(); fun openSettings(); fun openMuseum(sys: String?); fun askText(title: String, value: String, then: (String) -> Unit)
+        fun openDocument(mimes: Array<String>, then: (android.net.Uri?) -> Unit) }
 
-    private class Slot(val game: Game, var cart: Cart?, var x: Float = ROW_X, var y: Float = 326f, var z: Float = 0f, var px: Float = SMALL, var bright: Float = .72f)
+    private class Slot(val game: Game, var cart: Cart?, var x: Float = ROW_X, var y: Float = 326f, var z: Float = 0f, var px: Float = SMALL, var bright: Float = .72f,
+                       var ry: Float = -.2f, var case: Case? = null)
     private val slots = ArrayList<Slot>()
     /**
      * The row's sizes, in layout pixels: the selected cartridge (BIG at its largest side) sits at ROW_X with its
      * neighbors NEXT away and the rest STEP apart, so half of the one on the left shows (at x 0) and two and a half on
      * the right (the third centered on the screen's edge: ROW_X + NEXT + 2 STEP = 1334).
      */
-    private companion object { const val ROW_X = 370f; const val NEXT = 370f; const val STEP = 297f; const val BIG = 350f; const val SMALL = 245f }
+    companion object {
+        private const val ROW_X = 370f; private const val NEXT = 370f; private const val STEP = 297f; private const val BIG = 350f; private const val SMALL = 245f
+        /** Settings › Home scrolling, in order. */
+        val STYLES = listOf("Classic", "Centered", "Cover flow", "Spines", "Carousel", "Stack")
+        /** A box on Home is a little bigger than a cartridge would be in its place. */
+        private const val BOX = 1.1f
+    }
+
+    /**
+     * Where each game in the row goes, by the scrolling style (Settings › Home scrolling), from `d`: how far it is from
+     * the selected one, in games (fractions while scrolling, so every style glides). x, y, z (toward you), its turn,
+     * its size (its largest side), its brightness.
+     *   Classic     the selected one on the left, the rest in a line to the right (as it always was)
+     *   Centered    the same line with the selected one in the middle
+     *   Cover flow  the selected one faces you in the middle; the others turn toward it, mirrored either side, close together
+     *   Spines      the others turn almost edge on, all the same way, and pack tight (a box shows its spine)
+     *   Carousel    on a wide turntable: the selected one nearest; the others round the curve, turning and growing smaller
+     *   Stack       the others tucked behind the selected one either side, each smaller and dimmer, like a fanned deck
+     */
+    // (+ d * 1.5 in z: half way between two games, the two in the middle would otherwise overlap at one depth and flicker)
+    private fun pose(style: Int, d: Float, chosen: Boolean): FloatArray {
+        val a = abs(d); val sg = sign(d); val near = min(a, 1f); val far = maxOf(0f, a - 1f)
+        return when (style) {
+            1 -> floatArrayOf(667f + d * STEP + sg * near * (NEXT - STEP), if (chosen) 302f else 326f, if (chosen) 40f else 0f, -.2f, if (chosen) BIG else SMALL, if (chosen) 1.02f else .72f)
+            2 -> floatArrayOf(667f + sg * (near * 300f + far * 118f), 316f, 40f - a * 30f + d * 1.5f, -sg * near * .95f, if (chosen) BIG else 280f, 1.02f - near * .26f - far * .04f)
+            // every one turns the same way, so a box's spine (its left side) shows on both sides of the selected one
+            3 -> floatArrayOf(667f + sg * (near * 285f + far * 62f), 316f, 40f - a * 20f + d * 1.5f, -near * 1.38f, if (chosen) BIG else 300f, 1.02f - near * .22f - far * .03f)
+            4 -> { val th = d * .38f; val r = 980f
+                floatArrayOf(667f + r * kotlin.math.sin(th), 318f - (1 - kotlin.math.cos(th)) * 60f, 40f - r * (1 - kotlin.math.cos(th)), th, BIG * (.62f + .38f * kotlin.math.cos(th)) * (if (chosen) 1f else .92f), 1.02f - (1 - kotlin.math.cos(th)) * 1.4f - if (chosen) 0f else .08f) }
+            5 -> floatArrayOf(667f + sg * (near * 190f + far * 72f), 314f + a * 6f, 40f - a * 45f + d * 1.5f, -sg * near * .22f, BIG * maxOf(.55f, 1f - a * .1f) * (if (chosen) 1f else .9f), (1.02f - a * .1f).coerceAtLeast(.4f))
+            else -> floatArrayOf(ROW_X + d * STEP + sg * near * (NEXT - STEP), if (chosen) 302f else 326f, if (chosen) 40f else 0f, -.2f, if (chosen) BIG else SMALL, if (chosen) 1.02f else .72f)
+        }
+    }
+
+    // ---------- boxes on Home (Settings › Home shows) ----------
+
+    private val boxSampler = com.google.android.filament.TextureSampler(com.google.android.filament.TextureSampler.MinFilter.LINEAR_MIPMAP_LINEAR, com.google.android.filament.TextureSampler.MagFilter.LINEAR, com.google.android.filament.TextureSampler.WrapMode.CLAMP_TO_EDGE)
+    /** Each game's closed box, with its box art (front, back and spine), when Home shows boxes; none otherwise. */
+    fun rebox() {
+        for (s in slots) {
+            if (games.homeBoxes && s.case == null) s.case = carts.model("case-${s.game.sys}.glb")?.let { a -> val p = lookup.cached(s.game)?.pics
+                Case(stage, a, s.game.title, boxSampler, p?.get("box")?.let { lookup.bitmap(it, 512) }, p?.get("back")?.let { lookup.bitmap(it, 512) }, p?.get("spine")?.let { lookup.bitmap(it, 256) }) }?.also { it.open = 0f }
+            else if (!games.homeBoxes) { s.case?.destroy(); s.case = null }
+        }
+        layoutText()
+    }
+    /** The game's name and its chips, under the row: left for Classic, in the middle for the centred styles. */
+    private fun layoutText() {
+        val mid = games.homeScroll != 0
+        (title.layoutParams as? android.widget.FrameLayout.LayoutParams)?.let { it.leftMargin = if (mid) 0 else 64; it.width = if (mid) 1334 else 1100; title.layoutParams = it }
+        title.gravity = if (mid) Gravity.CENTER_HORIZONTAL else Gravity.START
+        meta.post { meta.translationX = if (mid) (1334 - meta.width) / 2f - 64f else 0f }
+    }
     private var i = 0
     private var f = 0f
     private var time = 0f
@@ -115,6 +169,8 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     fun takeForLaunch(g: Game): Triple<Cart?, FloatArray, FloatArray> {
         val p = page?.takeIf { it.game.path == g.path }
         val c = p?.cart ?: slots.firstOrNull { it.game.path == g.path }?.cart
+        // from a box on Home: the cartridge comes out of where the box is
+        if (p == null) slots.firstOrNull { it.game.path == g.path }?.let { s -> s.case?.let { b -> c?.placeMatrix(b.mediaMatrix()) } }
         launchingPath = g.path; focusPath = g.path; landedPath = null
         p?.launching = true
         visible = false
@@ -139,9 +195,10 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         val keep = list.take(15)
         page?.let { p -> if (keep.none { it.path == p.game.path }) { p.destroy(); page = null } }   // its game is gone
         val old = slots.associateBy { it.game.path }
-        slots.filter { s -> keep.none { it.path == s.game.path } }.forEach { it.cart?.destroy() }
+        slots.filter { s -> keep.none { it.path == s.game.path } }.forEach { it.cart?.destroy(); it.case?.destroy() }
         slots.clear()
-        for (g in keep) slots.add(old[g.path] ?: Slot(g, carts.make(g.sys, g.title, carts.shellFor(games, g))))
+        for (g in keep) slots.add(old[g.path] ?: Slot(g, carts.make(g.sys, g.title, carts.shellFor(games, g)).also { carts.refinish(it, g.title, games.finishFor(g)) }))
+        rebox()
         i = i.coerceIn(0, maxOf(0, slots.size - 1))
         focusPath?.let { p -> slots.indexOfFirst { it.game.path == p }.takeIf { it >= 0 }?.let { i = it; f = it.toFloat() } }
         // back from playing with a page open: the game moved to the front of the row, so follow it there
@@ -204,20 +261,19 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         for (v in listOf(title, meta, message)) v.alpha = shownK * (1 - pageK)
         dockLabel.alpha = minOf(dockLabel.alpha, shownK)
         backdrop.picVisible = shownK * (1 - pageK)
-        if (!visible && rise == 0f) { slots.forEach { if (it.game.path != launchingPath) it.cart?.place(-2000f, 0f, 0f, 0f, 0f, 1f) }; page?.tick(dt); return }
+        if (!visible && rise == 0f) { slots.forEach { it.case?.hide(); if (it.game.path != launchingPath) it.cart?.place(-2000f, 0f, 0f, 0f, 0f, 1f) }; page?.tick(dt); return }
         if (visible) backdrop.shadows.clear()
         slots.forEachIndexed { k, s ->
-            if (k == i && page != null) return@forEachIndexed   // the page holds this one
-            if (s.game.path == launchingPath) return@forEachIndexed   // the start animation holds this one
+            if (k == i && page != null) { s.case?.hide(); return@forEachIndexed }   // the page holds this one (its own box, too)
+            if (s.game.path == launchingPath) { s.case?.hide(); return@forEachIndexed }   // the start animation holds this one
             val off = k - f; val foc = k == i && picker == null
             val bob = sin(time * .8f + k * 1.7f) * (if (foc) 4f else 3f)
-            val tx = ROW_X + off * STEP + sign(off) * min(abs(off), 1f) * (NEXT - STEP)
-            val ty = (if (k == i) 302f else 326f)
+            val q = pose(games.homeScroll, off, k == i)
             val ease = min(1f, dt * 13f)
-            s.x += (tx - s.x) * ease; s.y += (ty - s.y) * min(1f, dt * 7f)
-            s.z += ((if (k == i) 40f else 0f) - s.z) * ease
-            s.px += ((if (k == i) BIG else SMALL) - s.px) * ease
-            s.bright += ((if (k == i) 1.02f else .72f) - s.bright) * ease
+            s.x += (q[0] - s.x) * ease; s.y += (q[1] - s.y) * min(1f, dt * 7f)
+            s.z += (q[2] - s.z) * ease; s.ry += (q[3] - s.ry) * ease
+            s.px += (q[4] - s.px) * ease
+            s.bright += (q[5] - s.bright) * ease
             val cart = s.cart ?: return@forEachIndexed
             // rising into place, each a moment after the one before
             // arriving: each flies in from far away, quickly, one just after another, overshoots a little and settles
@@ -225,11 +281,21 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
             // while a page is open, the others sink out of the way, each a beat after the one before
             val away = page?.let { Backdrop.ease((pageK * 1.4f - abs(k - i) * .06f).coerceIn(0f, 1f)) } ?: 0f
             val up = rest.coerceAtMost(1f) * (1 - away); val lift = -away * 640f   // a page opening sends the others up and away
-            cart.place(s.x, s.y + bob + lift, s.z, -.2f, -.1f, s.px * rest.coerceAtLeast(.01f))   // never quite 0: a zero-size model has no direction for its light
+            val box = s.case
+            if (box != null) {
+                // Home shows boxes: the closed box in the cartridge's place (the cartridge waits inside it, out of sight)
+                box.open = 0f
+                box.place(s.x, s.y + bob + lift, s.z, s.ry, -.1f, s.px * BOX * rest.coerceAtLeast(.01f))
+                cart.place(-2000f, 0f, 0f, 0f, 0f, 1f)
+                if (s.x > -200 && s.x < 1534) { val big = maxOf(box.half[0], box.half[1])
+                    backdrop.shadows.add(floatArrayOf(s.x, s.y + box.half[1] / big * s.px * BOX / 2 + (if (k == i) 24f else 12f), box.half[0] / big * s.px * BOX * .9f * kotlin.math.abs(kotlin.math.cos(s.ry)).coerceAtLeast(.3f), (if (k == i) 1f else .7f) * up)) }
+                return@forEachIndexed
+            }
+            cart.place(s.x, s.y + bob + lift, s.z, s.ry, -.1f, s.px * rest.coerceAtLeast(.01f))   // never quite 0: a zero-size model has no direction for its light
             cart.brightness(s.bright)
             if (s.x > -200 && s.x < 1534) {
                 val big = maxOf(cart.style.w, cart.style.h)
-                backdrop.shadows.add(floatArrayOf(s.x, s.y + cart.style.h / big * s.px / 2 + (if (k == i) 24f else 12f), cart.style.w / big * s.px * .9f, (if (k == i) 1f else .7f) * up))
+                backdrop.shadows.add(floatArrayOf(s.x, s.y + cart.style.h / big * s.px / 2 + (if (k == i) 24f else 12f), cart.style.w / big * s.px * .9f * kotlin.math.abs(kotlin.math.cos(s.ry)).coerceAtLeast(.3f), (if (k == i) 1f else .7f) * up))
             }
         }
         page?.tick(dt)
@@ -270,7 +336,9 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
             val c = s.cart
             if (c == null || (v.clear != null) != (c.variant.clear != null)) { c?.destroy(); s.cart = carts.make(s.game.sys, s.game.title, v) }
             else if (c.variant != v) c.apply(v)
+            carts.refinish(s.cart, s.game.title, games.finishFor(s.game))
         }
+        rebox()   // Settings › Home shows boxes or cartridges
     }
 
     /** 0 → 1 with a small bounce past 1 at the end (an "ease out back"): about 12% over, then settling. */
@@ -280,7 +348,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
 
     private fun openPage() {
         val s = slots.getOrNull(i) ?: return
-        page = GamePage(ctx, board, backdrop, stage, games, carts, lookup, s.game, s.cart, floatArrayOf(s.x, s.y, s.px), this)
+        page = GamePage(ctx, board, backdrop, stage, games, carts, lookup, s.game, s.cart, floatArrayOf(s.x, s.y, s.px * (if (s.case != null) BOX else 1f), s.ry), this, fromBox = s.case != null)
     }
     /** The right stick, for turning the cartridge on a game's page. */
     fun stick(x: Float, y: Float) { page?.stick(x, y) }
@@ -288,6 +356,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     override fun play(g: Game) = actions.play(g)
     override fun pick(p: Picker) = open(p)
     override fun askText(title: String, value: String, then: (String) -> Unit) = actions.askText(title, value, then)
+    override fun openDocument(mimes: Array<String>, then: (android.net.Uri?) -> Unit) = actions.openDocument(mimes, then)
     override fun cartChanged(g: Game, c: Cart?) { slots.firstOrNull { it.game == g }?.cart = c }
     override fun closed(page: GamePage, homeChanged: Boolean) {
         if (this.page === page) this.page = null

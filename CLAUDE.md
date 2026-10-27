@@ -43,8 +43,9 @@ that we've learned … and make an Android game launcher that's the best it can 
   always shows the cartridge, About as an article (`Article.kt`), the Museum's Cartridge Inside); 0.16 media management (`Media.kt`,
   Game settings › Media, Settings › Media), manuals (`Manual.kt`, a booklet in every box), the DS box wider than tall.
   ScreenScraper waits on Shelf's developer credentials (docs/SCREENSCRAPER.md). 0.17 the user's bugs, launch
-  transitions (`Curtain`), a frame-rate meter and Smoothness, the reader's zoom; the rest of those notes (Home boxes and
-  scroll styles, label finishes, the media folder and backups, inspecting models, choosing the cartridge) come next.
+  transitions (`Curtain`), a frame-rate meter and Smoothness, the reader's zoom; 0.18 the rest: Home boxes and scroll
+  styles (`Home.pose`), label finishes (`Labels`), the media folder Shelf/Media with backups (`Backup`), looking closely
+  at models, choosing the cartridge in the open box. Next: the user's frame-rate readings, then the Library.
   Next: the Library (see DECISIONS.md and ROADMAP.md). The user paused inspecting the rarer shell colors until they can be seen big (0.3 makes that possible).
   Kotlin is compile-checked locally with the Kotlin 2.4 compiler against `android-all` and Filament's AARs.
 - The Android SDK can't be downloaded in Claude's sandbox (dl.google.com is blocked): compile-check the Java against

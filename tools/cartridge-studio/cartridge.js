@@ -93,8 +93,11 @@ export function plasticMaterial(f) {
     clearcoat: f.clearcoat, clearcoatRoughness: f.clearcoatRoughness, envMapIntensity: f.envIntensity ?? 1,
   });
 }
+// The label: paper with a light coat. Its sheen is there but black (none): Shelf Native's label finishes (holo,
+// opalescent) colour it as the cartridge turns, which needs the material to have a sheen at all.
 export function labelMaterial(texture, f = {}) {
-  return new THREE.MeshPhysicalMaterial({ map: texture, metalness: 0, roughness: f.labelRoughness ?? .62, clearcoat: f.labelGloss ?? .08, clearcoatRoughness: .5, envMapIntensity: f.envIntensity ?? 1 });
+  return new THREE.MeshPhysicalMaterial({ map: texture, metalness: 0, roughness: f.labelRoughness ?? .62, clearcoat: f.labelGloss ?? .08, clearcoatRoughness: .5, envMapIntensity: f.envIntensity ?? 1,
+    sheen: 1, sheenColor: new THREE.Color(0, 0, 0), sheenRoughness: .35 });
 }
 
 // ---------- the cartridge ----------

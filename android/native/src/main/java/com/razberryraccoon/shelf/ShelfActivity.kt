@@ -220,8 +220,32 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         catch (e: Exception) { folderThen = null; toast("This handheld has no folder picker") }
     }
     @Deprecated("Deprecated in Java")
+    // Android's own pickers: a file to open (a backup, a picture for a game), or a new file to write (a backup)
+    private var docThen: ((android.net.Uri?) -> Unit)? = null
+    override fun openDocument(mimes: Array<String>, then: (android.net.Uri?) -> Unit) {
+        docThen = then
+        try { startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(if (mimes.size == 1) mimes[0] else "*/*").putExtra(Intent.EXTRA_MIME_TYPES, mimes), PICK_DOC) }
+        catch (e: Exception) { docThen = null; toast("This handheld has no file picker") }
+    }
+    override fun createDocument(name: String, mime: String, then: (android.net.Uri?) -> Unit) {
+        docThen = then
+        try { startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(mime).putExtra(Intent.EXTRA_TITLE, name), MAKE_DOC) }
+        catch (e: Exception) { docThen = null; toast("This handheld has no file picker") }
+    }
+    /** The media folder in Android's Files app (or, failing that, the folder picker opened there). */
+    override fun openMediaFolder() {
+        val doc = android.provider.DocumentsContract.buildDocumentUri("com.android.externalstorage.documents", "primary:Shelf/Media")
+        val view = Intent(Intent.ACTION_VIEW).setDataAndType(doc, android.provider.DocumentsContract.Document.MIME_TYPE_DIR).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        try { startActivity(view) }
+        catch (e: Exception) {
+            try { startActivity(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).putExtra(android.provider.DocumentsContract.EXTRA_INITIAL_URI, doc)) }
+            catch (e2: Exception) { toast("Open a file manager and go to Shelf › Media") }
+        }
+    }
+
     override fun onActivityResult(request: Int, result: Int, data: Intent?) {
         super.onActivityResult(request, result, data)
+        if (request == PICK_DOC || request == MAKE_DOC) { val then = docThen ?: return; docThen = null; then(if (result == RESULT_OK) data?.data else null); return }
         if (request != PICK_FOLDER) return
         val then = folderThen ?: return; folderThen = null
         if (result != RESULT_OK) return
@@ -332,5 +356,5 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         return true
     }
 
-    companion object { private val DIRECTIONS = setOf("up", "down", "left", "right"); private const val PICK_FOLDER = 7 }
+    companion object { private val DIRECTIONS = setOf("up", "down", "left", "right"); private const val PICK_FOLDER = 7; private const val PICK_DOC = 8; private const val MAKE_DOC = 9 }
 }

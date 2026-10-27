@@ -52,6 +52,31 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
+## What's in version 0.18
+
+The rest of the user's notes on 0.16:
+1. **Home shows boxes** (Settings › Home shows): each game as its closed box, art and all. Opening a game's page starts
+   from that closed box and flows to the page's view (it opens, and for the cartridge view the cartridge lifts out and
+   the box slides away); closing goes back into the box. Starting a game from Home, the cartridge comes out of its box.
+2. **Home scrolling** (Settings › Home scrolling): Classic, Centered, Cover flow (the selected game faces you, the
+   others turned toward it, mirrored either side), Spines (the others edge on and close, a box's spine showing),
+   Carousel (round a wide turntable) and Stack (tucked behind either side like a fanned deck). Every style glides as
+   you scroll, with cartridges or boxes; the game's name and chips sit in the middle for the centred styles.
+3. **Label finishes**: Standard, Matte paper, Glossy, Worn (faded, scuffed, creased, a corner torn off), Holo (rainbow
+   bands and sparkle, a sheen that runs through the colours as it turns), Opalescent (milky pastels that drift) and
+   Foil. Each game's Customize shell has a Label finish row (seen live); Settings › Label finish is the default.
+6. **The media folder**: everything lives in Shelf/Media/<console>/<game>/ on storage (moved there from inside the
+   app the first time each game is read): box, back, spine, cartridge, title, screenshot, video, manual and info.json.
+   Settings › Media can open the folder in Android's Files app, back everything up into a zip wherever you choose,
+   and restore a backup. Files you put in a game's folder are picked up by their names (box, front or cover; back;
+   spine; cart, label or disc; title; screen, snap or shot; any video; a PDF), and each tile on a game's media page
+   has "Choose a file…" too. A .nomedia file keeps it all out of the Gallery.
+7. **The cartridge in the open box**: left from the first tile chooses it (lifted a little in its tray); A starts the
+   game. Left again chooses the manual.
+9. **Looking closely**: the cartridge alone or the closed box can be chosen the same way (left from the first tile),
+   and A shows it big in the middle with everything else dimmed: L1 and R1 zoom, the right stick turns it, the d-pad
+   or left stick moves it, B goes back. In the Museum, Y does the same for whatever is showing.
+
 ## What's in version 0.17
 
 The user's bugs and the first of their notes on 0.16:

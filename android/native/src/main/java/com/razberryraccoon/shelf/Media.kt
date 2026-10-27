@@ -366,3 +366,54 @@ object MediaJob {
     fun cancel() { stop = true; status = "Stopping after this one…" }
 }
 
+
+/**
+ * Backups of all media and Shelf's notes on each game (Settings › Media): the whole media folder in one zip, and back.
+ * Each game's info.json names its files relative to its own folder, so a restored backup works wherever it lands, on
+ * this handheld or another, as long as the games' files have the same names.
+ */
+object Backup {
+    /** Writes the media folder into a zip; returns how many files went in. Off the main thread. */
+    fun write(root: File, out: java.io.OutputStream, progress: (Int) -> Unit = {}): Int {
+        var n = 0
+        java.util.zip.ZipOutputStream(java.io.BufferedOutputStream(out)).use { z ->
+            z.setComment("Shelf media backup")
+            root.walkTopDown().filter { it.isFile }.forEach { f ->
+                z.putNextEntry(java.util.zip.ZipEntry(f.relativeTo(root).invariantSeparatorsPath).apply { time = f.lastModified() })
+                f.inputStream().use { it.copyTo(z) }
+                z.closeEntry(); if (++n % 25 == 0) progress(n)
+            }
+        }
+        return n
+    }
+
+    /** Puts a backup's files back in the media folder (replacing any with the same names); returns how many. */
+    fun read(input: java.io.InputStream, root: File, progress: (Int) -> Unit = {}): Int {
+        var n = 0
+        val base = root.canonicalFile
+        java.util.zip.ZipInputStream(java.io.BufferedInputStream(input)).use { z ->
+            while (true) {
+                val e = z.nextEntry ?: break
+                val to = File(base, e.name).canonicalFile
+                if (!to.path.startsWith(base.path + File.separator)) continue   // nothing outside the media folder, whatever the zip says
+                if (e.isDirectory) { to.mkdirs(); continue }
+                to.parentFile?.mkdirs()
+                to.outputStream().use { z.copyTo(it) }
+                if (e.time > 0) to.setLastModified(e.time)
+                if (++n % 25 == 0) progress(n)
+            }
+        }
+        return n
+    }
+
+    /** A file you chose (on the media page) copied into the game's folder as this kind; it's yours from then on. */
+    fun adopt(ctx: android.content.Context, uri: android.net.Uri, g: Game, kind: String, meta: Meta): Boolean {
+        val type = ctx.contentResolver.getType(uri) ?: ""
+        val ext = when { kind == "manual" -> "pdf"; kind == "video" -> when { "matroska" in type -> "mkv"; "webm" in type -> "webm"; else -> "mp4" }; type.endsWith("jpeg") -> "jpg"; else -> type.substringAfter("image/", "png").ifEmpty { "png" } }
+        val dest = meta.mediaFile(g, kind, ext)
+        return try {
+            ctx.contentResolver.openInputStream(uri)?.use { i -> dest.outputStream().use { i.copyTo(it) } } ?: return false
+            meta.post { meta.setMedia(g, kind, dest, null, Meta.YOURS) }; true
+        } catch (e: Exception) { false }
+    }
+}

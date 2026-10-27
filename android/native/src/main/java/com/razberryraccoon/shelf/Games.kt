@@ -66,6 +66,16 @@ class Games(private val ctx: Context) {
     var showFps: Boolean get() = prefs.getBoolean("show-fps", false); set(v) = prefs.edit().putBoolean("show-fps", v).apply()
     /** Settings › Starting a game: how the screen goes to black (Curtain.NAMES; the last is a different one each time). */
     var launchFx: Int get() = prefs.getInt("launch-fx", Curtain.IRIS); set(v) = prefs.edit().putInt("launch-fx", v).apply()
+    /** The label finish for every game that doesn't have its own (Labels.NAMES). */
+    var labelFinish: Int get() = prefs.getInt("label-finish", Labels.STANDARD); set(v) = prefs.edit().putInt("label-finish", v).apply()
+    /** A game's own label finish, or null for the default. */
+    fun ownFinish(g: Game): Int? = prefs.getInt("finish:${g.path}", -1).takeIf { it >= 0 }
+    fun setFinish(g: Game, f: Int?) = prefs.edit().apply { if (f == null) remove("finish:${g.path}") else putInt("finish:${g.path}", f) }.apply()
+    fun finishFor(g: Game) = ownFinish(g) ?: labelFinish
+    /** Settings › Home shows: false the cartridges, true their closed boxes. */
+    var homeBoxes: Boolean get() = prefs.getBoolean("home-boxes", false); set(v) = prefs.edit().putBoolean("home-boxes", v).apply()
+    /** Settings › Home scrolling: Home.STYLES (0 classic, 1 centered, 2 cover flow, 3 spines, 4 carousel, 5 stack). */
+    var homeScroll: Int get() = prefs.getInt("home-scroll", 0); set(v) = prefs.edit().putInt("home-scroll", v).apply()
     var sounds: Boolean get() = prefs.getBoolean("sounds", true); set(v) = prefs.edit().putBoolean("sounds", v).apply()
     var setupDone: Boolean get() = prefs.getBoolean("setup", false); set(v) = prefs.edit().putBoolean("setup", v).apply()
 

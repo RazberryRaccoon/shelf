@@ -116,7 +116,11 @@ class Backdrop(ctx: Context) : View(ctx) {
         }
         p.alpha = 255
         c.restore()
+        // looking closely at a model: everything behind it dims (the model itself is drawn above, by the 3D)
+        if (shade > 0f) { p.color = Color.BLACK; p.alpha = (255 * shade).toInt(); c.drawRect(0f, 0f, width.toFloat(), height.toFloat(), p); p.alpha = 255 }
     }
+    /** How dark everything behind the 3D is (0..1), while a model is looked at closely. */
+    var shade = 0f
 
     private fun planet(c: Canvas) {
         val x = 1190f; val y = -175f; val r = 390f
