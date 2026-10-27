@@ -4,167 +4,204 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.LightingColorFilter
-import android.graphics.Matrix
 import android.graphics.Paint
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffXfermode
-import android.graphics.RadialGradient
 import android.graphics.Shader
-import android.view.View
+import com.google.android.filament.Box
+import com.google.android.filament.EntityManager
+import com.google.android.filament.IndexBuffer
+import com.google.android.filament.Material
+import com.google.android.filament.MaterialInstance
+import com.google.android.filament.RenderableManager
+import com.google.android.filament.Texture
+import com.google.android.filament.TextureSampler
+import com.google.android.filament.VertexBuffer
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import kotlin.math.PI
 import kotlin.math.cos
-import kotlin.math.sin
 import kotlin.random.Random
 
 /**
- * Everything behind the 3D layer, drawn with Android's own canvas in layout pixels: the night sky with a nebula in the
- * selected console's color, stars, the planet up in the top half, Home's picture of the selected game (dark, zoomed in,
- * panning slowly, fading out at the top in a windshield-style dot pattern), and soft shadows under the cartridges.
+ * Everything behind the 3D objects: the night sky with a nebula in the selected console's color, stars, the planet up in
+ * the top half, Home's picture of the selected game (dark, zoomed in, panning slowly, fading out at the top in a
+ * windshield-style dot pattern), and soft shadows under the cartridges. Until 0.20 Android's canvas drew all this, every
+ * frame, in its own layer under the 3D; now the 3D engine draws it first, in the same frame, with one small shader
+ * (materials/backdrop.mat) that does the same math, and the shadows as flat quads over it (materials/shadow.mat).
  */
-class Backdrop(ctx: Context) : View(ctx) {
-    var scale = 1f; var ox = 0f; var oy = 0f
+class Backdrop(ctx: Context, private val stage: Stage) {
+    private val engine = stage.engine
     private var time = 0f
-    private val p = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val stars = Random(7).let { r -> List(240) { floatArrayOf(r.nextFloat() * Stage.W, r.nextFloat() * Stage.H, .5f + r.nextFloat() * 1.2f, r.nextFloat() * 6.3f) } }
+    private val clamp = TextureSampler(TextureSampler.MinFilter.LINEAR, TextureSampler.MagFilter.LINEAR, TextureSampler.WrapMode.CLAMP_TO_EDGE)
+    private val skyMat = material("materials/backdrop.filamat")
+    private val shadowMat = material("materials/shadow.filamat")
+    private val sky = skyMat.createInstance()
+    private val blank = texture(1, 1, Texture.InternalFormat.R8, Texture.Format.R, ByteBuffer.allocateDirect(1), 1)
 
     // the nebula and planet take the selected console's color, easing from one to the next
     private var mood = Theme.accentOf(null); private var moodFrom = mood; private var moodTo = mood; private var moodT = 1f
     fun mood(c: Int) { if (c != moodTo) { moodFrom = mood; moodTo = c; moodT = 0f } }
 
-    // Home's picture: crossfades between games
+    // Home's picture: crossfades between games. Each one goes to the GPU once, when it arrives.
     private var pic: Bitmap? = null; private var picFrom: Bitmap? = null; private var picT = 1f
+    private var picTex: Texture? = null; private var fromTex: Texture? = null
     var picVisible = 1f
-    fun picture(b: Bitmap?) { if (b === pic) return; picFrom?.takeIf { it !== b }?.recycle(); picFrom = pic; pic = b; picT = 0f }
+    fun picture(b: Bitmap?) {
+        if (b === pic) return
+        picFrom?.takeIf { it !== b }?.recycle(); fromTex?.let { engine.destroyTexture(it) }
+        picFrom = pic; fromTex = picTex; pic = b; picTex = b?.let { upload(it) }; picT = 0f
+    }
     // how it's shown (Settings › Home picture): where it starts down the screen, how much of it fades and how, how
     // bright, how fast it pans. The fade's mask is made again only when one of those changes.
     private var picTop = Art.TOP; private val picH get() = Stage.H - picTop
     private var fade = Art.FADE; private var fadeType = Art.DOTS; private var pan = Art.PAN; private var panT = 0f
-    private var dots: Bitmap = fadeMask()
-    private var dim = dimFor(Art.BRIGHT)
+    private var mask = maskTexture()
+    private var dim = Art.BRIGHT
     /** While Settings › Home picture is open, the picture shows over everything else's fading, so changes can be seen. */
     var previewArt = false
     fun art(bright: Float, top: Float, fadeLen: Float, type: Int, speed: Float) {
-        dim = dimFor(bright); pan = speed
+        dim = bright; pan = speed
         if (top != picTop || fadeLen != fade || type != fadeType) {
             picTop = top; fade = fadeLen; fadeType = type
-            dots.recycle(); dots = fadeMask()
-            dotShader = android.graphics.BitmapShader(dots, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply { setLocalMatrix(Matrix().apply { setTranslate(0f, picTop) }) }
+            engine.destroyTexture(mask); mask = maskTexture()
         }
     }
-    /** Dimmed (far in the background) with a little blue, as the prototype's [.2, .21, .26] at the start. */
-    private fun dimFor(b: Float) = LightingColorFilter(Color.rgb((255 * b).toInt().coerceIn(0, 255), (255 * b * 1.06f).toInt().coerceIn(0, 255), (255 * b * 1.29f).toInt().coerceIn(0, 255)), 0)
 
     /** Shadows to draw under the cartridges: x, y (center), width, strength. */
     val shadows = ArrayList<FloatArray>()
+    /** How dark everything behind the 3D is (0..1), while a model is looked at closely. */
+    var shade = 0f
+    /** Lighter drawing (Settings › Smoothness › Smoothest): the stars hold still. */
+    var lite = false
+
+    // the sky: one quad far bigger than any screen, its corners labeled with their layout pixels, so the shader knows
+    // where each pixel is; the stage's camera for the backdrop shows just the screen's part of it
+    private val quad = Quad(-4000f, -4000f, 6000f, 6000f)
+    private val unit = Quad(-1f, -1f, 1f, 1f)
+    private val skyEntity = EntityManager.get().create()
+    private val shadowPool = ArrayList<Pair<Int, MaterialInstance>>()
+
+    init {
+        sky.setParameter("stars", starTexture(), clamp)
+        sky.setParameter("bg", Color.red(Theme.bg) / 255f, Color.green(Theme.bg) / 255f, Color.blue(Theme.bg) / 255f)
+        RenderableManager.Builder(1).boundingBox(Box(1000f, 0f, 0f, 5000f, 5000f, 1f)).culling(false).priority(0)
+            .geometry(0, RenderableManager.PrimitiveType.TRIANGLES, quad.vb, quad.ib).material(0, sky).build(engine, skyEntity)
+        stage.backScene.addEntity(skyEntity)
+        tick(0f)
+    }
 
     fun tick(dt: Float) {
         time += dt
         moodT = minOf(1f, moodT + dt / .8f); mood = blend(moodFrom, moodTo, ease(moodT))
         panT += dt * pan
         picT = minOf(1f, picT + dt / .45f)
-        invalidate()
-    }
-
-    /**
-     * Lighter drawing (Settings › Smoothness › Smoothest): the sky, its stars and the planet are painted once into a
-     * picture (again when the color changes) and that picture is shown each frame; the stars hold still.
-     */
-    var lite = false; set(v) { field = v; litePic?.recycle(); litePic = null }
-    private var litePic: Bitmap? = null; private var liteFor = 0
-
-    override fun onDraw(c: Canvas) {
-        c.drawColor(Theme.bg)
-        c.save(); c.translate(ox, oy); c.scale(scale, scale)
-        if (lite) {
-            if (litePic == null || (liteFor != mood && (moodT >= 1f || time - skyAt > .07f))) {
-                liteFor = mood; skyAt = time; if (skyFor != mood) { skyFor = mood; sky = makeSky(mood) }
-                val b = litePic ?: Bitmap.createBitmap(Stage.W.toInt(), Stage.H.toInt(), Bitmap.Config.ARGB_8888).also { litePic = it }
-                b.eraseColor(Theme.bg); val lc = Canvas(b)
-                p.shader = sky[0]; lc.drawRect(0f, 0f, Stage.W, Stage.H, p); p.shader = sky[1]; lc.drawRect(0f, 0f, Stage.W, Stage.H, p); p.shader = null
-                for (s in stars) { p.color = Color.argb(150, 238, 241, 255); lc.drawCircle(s[0], s[1], s[2], p) }
-                planet(lc)
-            }
-            c.drawBitmap(litePic!!, 0f, 0f, null)
-            drawRest(c); return
-        }
-        // the nebula: two soft glows in the console's color (their gradients made again only when the color changes)
-        // while the color shifts (after each move on Home) the gradients are made again a few times a second, not every
-        // frame: the change is slow and soft, and making them every frame was part of what made moving feel heavy
-        if (skyFor != mood && (moodT >= 1f || time - skyAt > .07f)) { skyFor = mood; skyAt = time; sky = makeSky(mood) }
-        p.shader = sky[0]; c.drawRect(0f, 0f, Stage.W, Stage.H, p)
-        p.shader = sky[1]; c.drawRect(0f, 0f, Stage.W, Stage.H, p); p.shader = null
-        // stars, twinkling slowly
-        for (s in stars) { p.color = Color.argb((90 + 110 * (.5f + .5f * sin(time * .6f + s[3]))).toInt(), 238, 241, 255); c.drawCircle(s[0], s[1], s[2], p) }
-        planet(c)
-        drawRest(c)
-    }
-
-    /** The picture and the shadows, over the sky. */
-    private fun drawRest(c: Canvas) {
-        // the picture, then the shadows on top of it
-        val sweep = .5f - .5f * cos(panT * 2 * PI.toFloat() / 56f)   // there and back, about 28 seconds each way at the usual speed
+        // the sky
+        sky.setParameter("mood", Color.red(mood) / 255f, Color.green(mood) / 255f, Color.blue(mood) / 255f)
+        sky.setParameter("twinkle", if (lite) -1f else time * .6f)
+        sky.setParameter("shade", shade)
+        // the picture, panning diagonally from its top left to its bottom right: there and back, about 28 seconds each
+        // way at the usual speed
+        val sweep = .5f - .5f * cos(panT * 2 * PI.toFloat() / 56f)
         val vis = if (previewArt) 1f else picVisible
-        picFrom?.let { if (picT < 1) drawPicture(c, it, (1 - ease(picT)) * vis, sweep) }
-        pic?.let { drawPicture(c, it, ease(picT) * vis, sweep) }
-        // shadows: one soft round shadow, drawn once, stretched flat under each object
+        val a = if (pic != null) ease(picT) * vis else 0f; val af = if (picFrom != null && picT < 1) (1 - ease(picT)) * vis else 0f
+        sky.setParameter("picA", a, af)
+        place("pic", "picUv", pic, picTex, sweep); place("picFrom", "fromUv", picFrom, fromTex, sweep)
+        // dimmed (far in the background) with a little blue, as the prototype's [.2, .21, .26] at the start
+        sky.setParameter("dim", dim.coerceAtMost(1f), (dim * 1.06f).coerceAtMost(1f), (dim * 1.29f).coerceAtMost(1f))
+        sky.setParameter("picBox", picTop, picH.toInt().coerceAtLeast(8).toFloat())
+        sky.setParameter("mask", mask, clamp)
+        // the shadows: one soft round shadow stretched flat under each object
+        val tm = engine.transformManager; var n = 0
         for (s in shadows) {
             if (s[2] < 2f || s[3] < .01f) continue
-            p.alpha = (255 * s[3]).toInt().coerceIn(0, 255)
-            shadowDst.set(s[0] - s[2] / 2, s[1] - s[2] * .11f, s[0] + s[2] / 2, s[1] + s[2] * .11f)
-            c.drawBitmap(shadowSprite, null, shadowDst, p)
+            if (n == shadowPool.size) shadowPool += newShadow()
+            val (e, mi) = shadowPool[n++]
+            mi.setParameter("strength", s[3].coerceIn(0f, 1f))
+            // flat: as tall as .22 of its width; the backdrop's world has y going up, so layout y is negated
+            val w = s[2] / 2; val h = s[2] * .11f
+            tm.setTransform(tm.getInstance(e), floatArrayOf(w, 0f, 0f, 0f, 0f, h, 0f, 0f, 0f, 0f, 1f, 0f, s[0], -s[1], 0f, 1f))
+            stage.backScene.addEntity(e)
         }
-        p.alpha = 255
-        c.restore()
-        // looking closely at a model: everything behind it dims (the model itself is drawn above, by the 3D)
-        if (shade > 0f) { p.color = Color.BLACK; p.alpha = (255 * shade).toInt(); c.drawRect(0f, 0f, width.toFloat(), height.toFloat(), p); p.alpha = 255 }
-    }
-    /** How dark everything behind the 3D is (0..1), while a model is looked at closely. */
-    var shade = 0f
-
-    private fun planet(c: Canvas) {
-        val x = 1190f; val y = -175f; val r = 390f
-        p.shader = sky[2]; c.drawCircle(x, y, r * 1.18f, p)   // the atmosphere's glow
-        p.shader = sky[3]; c.drawCircle(x, y, r, p)
-        p.shader = null
+        for (i in n until shadowPool.size) stage.backScene.removeEntity(shadowPool[i].first)
     }
 
-    // the sky's gradients for one color: the nebula's two glows, the planet's atmosphere and the planet
-    private var skyFor = 0; private var skyAt = 0f; private var sky: Array<Shader> = makeSky(mood)
-    private fun makeSky(m: Int): Array<Shader> {
-        val x = 1190f; val y = -175f; val r = 390f
-        return arrayOf(
-            RadialGradient(300f, 160f, 700f, Color.argb(70, Color.red(m), Color.green(m), Color.blue(m)), Color.TRANSPARENT, Shader.TileMode.CLAMP),
-            RadialGradient(1100f, 700f, 600f, Color.argb(40, Color.red(m), Color.green(m), Color.blue(m)), Color.TRANSPARENT, Shader.TileMode.CLAMP),
-            RadialGradient(x, y, r * 1.18f, intArrayOf(Color.argb(90, Color.red(m), Color.green(m), Color.blue(m)), Color.TRANSPARENT), floatArrayOf(.82f, 1f), Shader.TileMode.CLAMP),
-            RadialGradient(x - r * .35f, y + r * .55f, r * 1.25f, intArrayOf(blend(m, Color.WHITE, .55f), blend(m, Theme.bg, .45f), Color.rgb(6, 8, 20)), floatArrayOf(0f, .55f, 1f), Shader.TileMode.CLAMP))
-    }
-
-    private val shadowDst = android.graphics.RectF()
-    private val shadowSprite: Bitmap = Bitmap.createBitmap(128, 128, Bitmap.Config.ARGB_8888).also { b ->
-        Canvas(b).drawCircle(64f, 64f, 64f, Paint(Paint.ANTI_ALIAS_FLAG).apply { shader = RadialGradient(64f, 64f, 64f, Color.argb(150, 0, 0, 0), Color.TRANSPARENT, Shader.TileMode.CLAMP) })
-    }
-
-    private var dotShader = android.graphics.BitmapShader(dots, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply { setLocalMatrix(Matrix().apply { setTranslate(0f, picTop) }) }
-    private val picMatrix = Matrix()
-    private var picShaderDots: Shader? = null
-    private val picShaders = java.util.IdentityHashMap<Bitmap, Pair<android.graphics.BitmapShader, Shader>>()
-
-    /** The picture, panning diagonally from its top left to its bottom right, masked by the dots in one step. */
-    private fun drawPicture(c: Canvas, b: Bitmap, a: Float, sweep: Float) {
-        if (a < .01f) return
+    /** One picture's place: zoomed to cover its part of the screen and a bit more, moved along by the sweep. */
+    private fun place(tex: String, uv: String, b: Bitmap?, t: Texture?, sweep: Float) {
+        sky.setParameter(tex, t ?: blank, clamp)
+        if (b == null || t == null) return
         val zoom = 1.3f; val k = maxOf(Stage.W / b.width, picH / b.height) * zoom
         val ySlack = b.height * k - picH
-        picMatrix.setScale(k, k); picMatrix.postTranslate(-(b.width * k - Stage.W) * sweep, picTop - ySlack * (.15f + .7f * sweep))
-        // its shaders are made once per picture (and fade style), and only moved each frame
-        if (picShaderDots !== dotShader) { picShaders.clear(); picShaderDots = dotShader }
-        picShaders.keys.retainAll { it === pic || it === picFrom }   // the two pictures crossfading, at most
-        val (bs, cs) = picShaders.getOrPut(b) { android.graphics.BitmapShader(b, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).let { it to android.graphics.ComposeShader(it, dotShader, PorterDuff.Mode.DST_IN) } }   // the picture where the dots are
-        bs.setLocalMatrix(picMatrix)
-        p.shader = cs
-        p.colorFilter = dim; p.alpha = (255 * a).toInt()
-        c.drawRect(0f, picTop, Stage.W, Stage.H, p)
-        p.shader = null; p.colorFilter = null; p.alpha = 255
+        val tx = -(b.width * k - Stage.W) * sweep; val ty = picTop - ySlack * (.15f + .7f * sweep)
+        sky.setParameter(uv, 1f / (k * b.width), -tx / (k * b.width), 1f / (k * b.height), -ty / (k * b.height))
+    }
+
+    private fun newShadow(): Pair<Int, MaterialInstance> {
+        val e = EntityManager.get().create(); val mi = shadowMat.createInstance()
+        RenderableManager.Builder(1).boundingBox(Box(0f, 0f, 0f, 1f, 1f, 1f)).culling(false).priority(1)
+            .geometry(0, RenderableManager.PrimitiveType.TRIANGLES, unit.vb, unit.ib).material(0, mi).build(engine, e)
+        return e to mi
+    }
+
+    private fun material(path: String): Material {
+        val b = stage.readAsset(path)
+        return Material.Builder().payload(b, b.remaining()).build(engine)
+    }
+
+    /** A texture filled from raw bytes, rows `stride` pixels apart. */
+    private fun texture(w: Int, h: Int, f: Texture.InternalFormat, pf: Texture.Format, data: ByteBuffer, stride: Int): Texture {
+        val t = Texture.Builder().width(w).height(h).levels(1).sampler(Texture.Sampler.SAMPLER_2D).format(f).build(engine)
+        t.setImage(engine, 0, Texture.PixelBufferDescriptor(data, pf, Texture.Type.UBYTE, 1, 0, 0, stride, null, null))
+        return t
+    }
+
+    /** A picture's pixels, copied once to the GPU (as they are: the shader works in the same sRGB values the canvas did). */
+    private fun upload(b: Bitmap): Texture {
+        val src = if (b.config == Bitmap.Config.ARGB_8888) b else b.copy(Bitmap.Config.ARGB_8888, false)
+        val buf = ByteBuffer.allocateDirect(src.byteCount).order(ByteOrder.nativeOrder())
+        src.copyPixelsToBuffer(buf); buf.flip()
+        if (src !== b) src.recycle()
+        return texture(b.width, b.height, Texture.InternalFormat.RGBA8, Texture.Format.RGBA, buf, b.width)
+    }
+
+    /** The stars, drawn once: each one's coverage (red) and its twinkle's phase (green, a little wider than the star). */
+    private fun starTexture(): Texture {
+        val w = Stage.W.toInt(); val h = Stage.H.toInt()
+        val cover = Bitmap.createBitmap(w, h, Bitmap.Config.ALPHA_8); val phase = Bitmap.createBitmap(w, h, Bitmap.Config.ALPHA_8)
+        val cc = Canvas(cover); val pc = Canvas(phase)
+        val q = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }; val qp = Paint()
+        Random(7).let { r -> repeat(240) {
+            val x = r.nextFloat() * Stage.W; val y = r.nextFloat() * Stage.H; val rad = .5f + r.nextFloat() * 1.2f; val ph = r.nextFloat() * 6.3f
+            cc.drawCircle(x, y, rad, q)
+            qp.color = Color.argb((ph / 6.3f * 255).toInt().coerceIn(0, 255), 255, 255, 255); pc.drawCircle(x, y, rad + 2f, qp)
+        } }
+        val a = ByteBuffer.allocate(cover.rowBytes * h); cover.copyPixelsToBuffer(a)
+        val b = ByteBuffer.allocate(phase.rowBytes * h); phase.copyPixelsToBuffer(b)
+        val out = ByteBuffer.allocateDirect(w * h * 2)
+        for (y in 0 until h) for (x in 0 until w) { out.put(a.get(y * cover.rowBytes + x)); out.put(b.get(y * phase.rowBytes + x)) }
+        out.flip(); cover.recycle(); phase.recycle()
+        return texture(w, h, Texture.InternalFormat.RG8, Texture.Format.RG, out, w)
+    }
+
+    /** The fade's mask as a texture, one byte a pixel. */
+    private fun maskTexture(): Texture {
+        val m = fadeMask(); val buf = ByteBuffer.allocateDirect(m.rowBytes * m.height); m.copyPixelsToBuffer(buf); buf.flip()
+        val t = texture(m.width, m.height, Texture.InternalFormat.R8, Texture.Format.R, buf, m.rowBytes)
+        m.recycle(); return t
+    }
+
+    /** A flat rectangle, its corners' texture coordinates the same as their positions (y taken as down, as in the layout). */
+    private inner class Quad(x0: Float, y0: Float, x1: Float, y1: Float) {
+        val vb: VertexBuffer = VertexBuffer.Builder().bufferCount(1).vertexCount(4)
+            .attribute(VertexBuffer.VertexAttribute.POSITION, 0, VertexBuffer.AttributeType.FLOAT3, 0, 20)
+            .attribute(VertexBuffer.VertexAttribute.UV0, 0, VertexBuffer.AttributeType.FLOAT2, 12, 20).build(engine)
+        val ib: IndexBuffer = IndexBuffer.Builder().indexCount(6).bufferType(IndexBuffer.Builder.IndexType.USHORT).build(engine)
+        init {
+            val v = ByteBuffer.allocateDirect(80).order(ByteOrder.nativeOrder())
+            for ((x, y) in listOf(x0 to y0, x1 to y0, x0 to y1, x1 to y1)) { v.putFloat(x); v.putFloat(-y); v.putFloat(0f); v.putFloat(x); v.putFloat(y) }
+            v.flip(); vb.setBufferAt(engine, 0, v)
+            val i = ByteBuffer.allocateDirect(12).order(ByteOrder.nativeOrder())
+            for (n in shortArrayOf(0, 1, 2, 2, 1, 3)) i.putShort(n)
+            i.flip(); ib.setBuffer(engine, i)
+        }
     }
 
     /**

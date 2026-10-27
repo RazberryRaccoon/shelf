@@ -301,7 +301,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
             }
         }
         page?.tick(dt)
-        if (picTimer > 0) { picTimer -= dt; if (picTimer <= 0) current().let { g -> if (g != picFor) { picFor = g; showPicture(g) } } }
+        if (picTimer > 0) { picTimer -= dt; if (picTimer <= 0) current().let { g -> if (g != picFor) { picFor = g; showPicture(g) }; if (g != null) GamePage.prepare(lookup, g) } }
         if (toastLeft > 0) { toastLeft = (toastUntil - android.os.SystemClock.uptimeMillis()) / 1000f; toast.alpha = min(1f, toastLeft / .3f).coerceAtLeast(0f) }
         clockLeft -= dt; if (clockLeft <= 0) clockTick()
     }

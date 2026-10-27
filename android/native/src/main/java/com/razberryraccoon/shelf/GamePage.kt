@@ -40,6 +40,34 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
                private val from: FloatArray, private val host: Host,
                /** Opened from a box on Home: it starts as that closed box, and goes back into it closing. */
                private val fromBox: Boolean = false) {
+    companion object {
+        // The box's pictures for the game Home has settled on, read from their files ahead of time on another thread, so
+        // opening its page doesn't wait on them (they were most of the pause when a page opened)
+        private val early = java.util.concurrent.Executors.newSingleThreadExecutor()
+        private var ahead: Pair<String, java.util.concurrent.Future<Array<Bitmap?>>>? = null
+
+        private fun read(meta: Meta, g: Game): Array<Bitmap?> {
+            val pics = meta.cached(g)?.pics
+            return arrayOf(pics?.get("box")?.let { meta.bitmap(it, 512) }, pics?.get("back")?.let { meta.bitmap(it, 512) }, pics?.get("spine")?.let { meta.bitmap(it, 256) })
+        }
+
+        /** Home calls this when the selection settles on a game. */
+        fun prepare(meta: Meta, g: Game) {
+            if (ahead?.first == g.path) return
+            drop()
+            ahead = g.path to early.submit(java.util.concurrent.Callable { read(meta, g) })
+        }
+
+        private fun drop() { ahead?.second?.let { f -> early.execute { try { f.get().forEach { it?.recycle() } } catch (_: Exception) { } } }; ahead = null }
+
+        /** The box's pictures: the ones read ahead if they're for this game (waiting for them if still reading), else read now. */
+        fun boxArt(meta: Meta, g: Game): Array<Bitmap?> {
+            val a = ahead
+            if (a?.first == g.path) { ahead = null; try { return a.second.get() } catch (_: Exception) { } }
+            return read(meta, g)
+        }
+    }
+
     interface Host {
         fun play(g: Game)
         fun pick(p: Picker)
@@ -65,13 +93,14 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     // open box slides in from the left, the cartridge slots into its tray, the cover swings shut; and back the same way.
     private var view = games.pageView
     private val sampler = com.google.android.filament.TextureSampler(com.google.android.filament.TextureSampler.MinFilter.LINEAR_MIPMAP_LINEAR, com.google.android.filament.TextureSampler.MagFilter.LINEAR, com.google.android.filament.TextureSampler.WrapMode.CLAMP_TO_EDGE)
-    private val case: Case? = carts.model("case-${game.sys}.glb")?.let { val pics = meta.cached(game)?.pics
-        Case(stage, it, game.title, sampler, pics?.get("box")?.let { f -> meta.bitmap(f, 512) }, pics?.get("back")?.let { f -> meta.bitmap(f, 512) }, pics?.get("spine")?.let { f -> meta.bitmap(f, 256) }) }?.also { it.hide() }
+    private val case: Case? = carts.model("case-${game.sys}.glb")?.let { val art = boxArt(meta, game)
+        Case(stage, it, game.title, sampler, art[0], art[1], art[2]) }?.also { it.hide() }
     private val flow = BoxFlow()
     private val fromRy = from.getOrElse(3) { -.2f }   // how it was turned in Home's row
     // Game settings takes the cartridge apart on a surface (Cart.teardown), with a screwdriver beside it: how far, 0..1
     private var tk = 0f
-    private val tool: Model? = carts.model("screwdriver.glb")?.let { Model(stage, it) }?.also { it.hide() }
+    // loaded the first time the cartridge comes apart, not with every page
+    private var tool: Model? = null; private var toolTried = false
     private val tearing get() = mode == Mode.SETTINGS && cart?.canOpen == true
     /** Starting the game: the start animation has the cartridge, and the page fades out of its way (and back after). */
     var launching = false
@@ -191,7 +220,12 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         // pictures: the box, title screen and a screenshot, as they arrive
         if (shotsFor !== i || i == null) {
             shotKinds = i?.let { Meta.pictures(game.sys).filter { (k, _) -> i.pics[k] != null }.map { it.first } } ?: emptyList()
-            shots.set(if (i == null) null else Meta.pictures(game.sys).mapNotNull { (k, name) -> i.pics[k]?.let { f2 -> (if (k == "video") videoFrame(f2) else meta.bitmap(f2, 360))?.let { name to it } } })
+            shots.set(null)
+            // read from their files off the main thread (a video's frame especially is slow to get), then shown
+            if (i != null) Thread {
+                val list = Meta.pictures(game.sys).mapNotNull { (k, name) -> i.pics[k]?.let { f2 -> (if (k == "video") videoFrame(f2) else meta.bitmap(f2, 360))?.let { name to it } } }
+                board.post { if (closing || shotsFor !== i) list.forEach { it.second.recycle() } else shots.set(list) }
+            }.start()
         }
         shotsFor = i
         about.text = f["description"] ?: when {
@@ -297,6 +331,8 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         if (was < 3f && flow.s >= 3f) Sounds.play(Sounds.CLOSE)        // the cover shuts
         cart?.teardown(tk)
         val spot = cart?.toolSpot(tk)
+        if (tk > 0f && !toolTried) { toolTried = true; tool = carts.model("screwdriver.glb")?.let { Model(stage, it) }?.also { it.hide() } }
+        val tool = tool
         if (tool != null) { if (spot != null && tk > .66f && !launching) tool.placeMatrix(FloatArray(16).also { android.opengl.Matrix.multiplyMM(it, 0, cart!!.placed, 0, spot, 0) }) else tool.hide() }
         placeBox(x, y, ry, rx, ik)
         if (flow.s > .001f) placeManual(dt)

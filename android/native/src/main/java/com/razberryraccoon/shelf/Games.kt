@@ -61,7 +61,8 @@ class Games(private val ctx: Context) {
         (p[0].toIntOrNull() ?: 0) to p.getOrElse(1) { "" }.split(",").mapNotNull { it.toIntOrNull() } }
     fun setManualPlace(g: Game, at: Int, marks: List<Int>) = prefs.edit().putString("manual:${g.path}", "$at|" + marks.joinToString(",")).apply()
     /** Settings › Smoothness: 0 best looks, 1 balanced, 2 smoothest (Stage.quality, Backdrop.lite). */
-    var smoothness: Int get() = prefs.getInt("smoothness", 0); set(v) = prefs.edit().putInt("smoothness", v).apply()
+    // a new key in 0.20, when Balanced became the default: everyone starts there once with the new drawing
+    var smoothness: Int get() = prefs.getInt("smoothness2", 1); set(v) = prefs.edit().putInt("smoothness2", v).apply()
     /** Settings › Show frame rate: the meter in the top left corner. */
     var showFps: Boolean get() = prefs.getBoolean("show-fps", false); set(v) = prefs.edit().putBoolean("show-fps", v).apply()
     /** Settings › Starting a game: how the screen goes to black (Curtain.NAMES; the last is a different one each time). */

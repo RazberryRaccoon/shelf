@@ -292,6 +292,11 @@ Summarized from the first part of the conversation; the full transcript is kept 
   further up, pan speed); Inside closer, and "as [clipping] starts to happen, the shell pieces float away from the
   board". The user thought the DS box should be a little wider than tall; the measured case (Wikipedia's keep-case
   table, retail cases) is a little taller than wide, so the box follows the measurements and box art is cropped to fill.
+- After 0.19 (the user's readings): Android's "send" 14–16 ms a frame, half the frames late, 100–200+ ms spikes
+  opening a game's page. The user chose "Rebuild the drawing": the background, its picture and the shadows drawn by
+  the 3D engine, the 3D straight to the screen, the panels as they are, everything looking the same, and 2× smoothing
+  by default. The foil: "show the effect, but not be overwhelmed by the effect", tuned by rendering and comparing
+  with the plain label until it held.
 - After 0.16 (the user's notes, a week of testing): Home made of boxes as an option, flowing into the page's
   default view; more Home scrolling styles in one horizontal row (Centered; Cover flow with the sides angled in mirror;
   the user also chose Spines, Carousel and Stack), for cartridges and boxes; label finishes (worn, matte paper, holo,

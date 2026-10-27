@@ -407,7 +407,10 @@ object Labels {
     val LOOKS = listOf(
         floatArrayOf(.62f, 0f, .08f, .5f, 0f, 0f), floatArrayOf(.95f, 0f, 0f, .9f, 0f, 0f), floatArrayOf(.16f, 0f, 1f, .04f, 0f, 0f),
         floatArrayOf(.86f, 0f, 0f, .9f, 0f, 0f), floatArrayOf(.22f, .55f, .7f, .08f, 1f, .75f), floatArrayOf(.3f, .12f, 1f, .1f, .8f, .32f),
-        floatArrayOf(.3f, .6f, .45f, .12f, 0f, 0f))   // foil: metallic enough to flash as it turns, not so much it reflects only the dark
+        // foil: tuned against the plain label under the app's own light (tools: a render of both at the page's and Home's
+        // angles, measured): as bright at rest, about twice as bright turned into the light. More metal than this reflects
+        // the dark of the studio at rest and goes nearly black
+        floatArrayOf(.32f, .28f, .65f, .07f, 0f, 0f))
 
     /** The label's picture with the finish baked in (a new picture; `plain` is recycled). */
     fun bake(plain: Bitmap, f: Int, seed: Int): Bitmap {
@@ -462,8 +465,8 @@ object Labels {
             6 -> {   // foil: a brushed, gold-and-silver light over it (the metal does the rest)
                 p.xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.OVERLAY)
                 p.shader = android.graphics.LinearGradient(0f, 0f, w, h, intArrayOf(0xfff2d58a.toInt(), 0xffffffff.toInt(), 0xffc9cdd6.toInt(), 0xfff2d58a.toInt()), null, android.graphics.Shader.TileMode.CLAMP)
-                p.alpha = 150; c.drawRect(0f, 0f, w, h, p); p.shader = null
-                p.alpha = 30; p.color = android.graphics.Color.WHITE; var y = 0f; while (y < h) { c.drawLine(0f, y, w, y, p); y += 2f }
+                p.alpha = 140; c.drawRect(0f, 0f, w, h, p); p.shader = null
+                p.alpha = 26; p.color = android.graphics.Color.WHITE; var y = 0f; while (y < h) { c.drawLine(0f, y, w, y, p); y += 2f }
                 p.xfermode = null
             }
         }
