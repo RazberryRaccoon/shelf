@@ -581,3 +581,10 @@ holo and opalescent bake their pattern into the label and drive the sheen's colo
 material now always has a sheen, black by default). Media moved to Shelf/Media with relative paths in each info.json,
 so a backup restores anywhere; the restore refuses zip entries that climb out of the folder (tested). Checked: renders
 of the Home styles, a backup round trip and file-name detection on the JVM; compile-checked. Not checked on a device.
+
+**0.19: spacing and the meter's first readings.** The user's readings: 50–60 fps whatever was on screen, 1–5 skipped,
+slowest 33 ms, Shelf's own work under 5 ms and the 3D under 1 ms, and it still felt laggy. So the time goes after
+Shelf's work: Android combining the layers (the canvas backdrop, the TextureView of the 3D, the panels) on the GPU. The
+meter now adds FrameMetrics to confirm it before the bigger change (the backdrop inside Filament, drawn straight to
+the screen). The Spines style's earlier render had shown a grey edge taken for the spine; the user saw it was the
+opening edge, and a coloured test spine in the new render confirms the fix.

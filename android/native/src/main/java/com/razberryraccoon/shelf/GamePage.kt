@@ -222,6 +222,11 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     // ---------- every frame ----------
 
     fun stick(x: Float, y: Float) { stickX = x; stickY = y; reader?.stick(x, y) }
+    // the left stick, while looking closely: it moves the model smoothly (the d-pad still steps)
+    private var leftX = 0f; private var leftY = 0f
+    fun leftStick(x: Float, y: Float): Boolean { leftX = x; leftY = y; return inspecting }
+    /** How far the looking-closely view has come in (0..1), for Home's top bar. */
+    val inspectK get() = Backdrop.ease(inspK)
 
     fun tick(dt: Float) {
         time += dt
@@ -240,7 +245,11 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         inspK = if (inspecting) min(1f, inspK + dt / .4f) else maxOf(0f, inspK - dt / .35f)
         val ik = Backdrop.ease(inspK)
         inspZoom += (inspZoomTo * (if (inspecting) 1f else 1f) - inspZoom) * min(1f, dt * 8f)
-        panX += ((if (inspecting) panToX else 0f) - panX) * min(1f, dt * 8f); panY += ((if (inspecting) panToY else 0f) - panY) * min(1f, dt * 8f)
+        if (inspecting) {   // the left stick glides it (as the right stick turns it); the d-pad's steps ease the same way
+            panToX -= dead(leftX) * 700f * dt; panToY -= dead(leftY) * 700f * dt
+            val lim = 260f * inspZoomTo; panToX = panToX.coerceIn(-lim, lim); panToY = panToY.coerceIn(-lim * .7f, lim * .7f)
+        }
+        panX += ((if (inspecting) panToX else 0f) - panX) * min(1f, dt * 10f); panY += ((if (inspecting) panToY else 0f) - panY) * min(1f, dt * 10f)
         backdrop.shade = ik * .75f
         pickFocus += ((if (zone == Zone.BOX && pick == 0 && !inspecting) 1f else 0f) - pickFocus) * min(1f, dt * 10f)
         panel.alpha = pk * (1 - sk) * lk * mk * (1 - ik); panel.translationX = (1 - pk) * 70f - sk * 40f

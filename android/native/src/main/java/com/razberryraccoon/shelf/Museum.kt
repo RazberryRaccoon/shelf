@@ -201,6 +201,11 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
     // ---------- every frame ----------
 
     fun stick(x: Float, y: Float) { stickX = x; stickY = y }
+    private var leftX = 0f; private var leftY = 0f
+    /** The left stick: while looking closely it moves the model smoothly (true: taken, not a D-pad). */
+    fun leftStick(x: Float, y: Float): Boolean { leftX = x; leftY = y; return inspecting }
+    /** How far the looking-closely view has come in (0..1), so Home's top bar can step out of the way. */
+    val lookK get() = Backdrop.ease(inspK)
 
     /**
      * Each view's resting angle. Home consoles (and the DS, which lies open on a table) are seen from a little above, so
@@ -229,7 +234,12 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         inspK = if (inspecting) min(1f, inspK + dt / .4f) else maxOf(0f, inspK - dt / .35f)
         val ik = Backdrop.ease(inspK)
         inspZoom += (inspZoomTo - inspZoom) * min(1f, dt * 8f)
-        panX += ((if (inspecting) panToX else 0f) - panX) * min(1f, dt * 8f); panY += ((if (inspecting) panToY else 0f) - panY) * min(1f, dt * 8f)
+        if (inspecting) {
+            fun dz(v: Float) = if (abs(v) < .15f) 0f else v
+            panToX -= dz(leftX) * 700f * dt; panToY -= dz(leftY) * 700f * dt
+            val lim = 260f * inspZoomTo; panToX = panToX.coerceIn(-lim, lim); panToY = panToY.coerceIn(-lim * .7f, lim * .7f)
+        }
+        panX += ((if (inspecting) panToX else 0f) - panX) * min(1f, dt * 10f); panY += ((if (inspecting) panToY else 0f) - panY) * min(1f, dt * 10f)
         backdrop.shade = ik * .75f
         panel.alpha = sk * (1 - ik); panel.translationX = (1 - sk) * 70f; timeline.alpha = sk * (1 - ik); hint.alpha = sk * (1 - ik); lookHint.alpha = sk * ik
         fun ease(cur: Float, want: Float, rate: Float) = cur + (want - cur) * min(1f, dt * rate)

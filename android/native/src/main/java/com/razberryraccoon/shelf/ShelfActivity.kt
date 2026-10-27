@@ -82,7 +82,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
             val s = minOf((r - l) / Stage.W, (b - t) / Stage.H); val ox = ((r - l) - Stage.W * s) / 2; val oy = ((b - t) - Stage.H * s) / 2
             board.fit(s, ox, oy); backdrop.scale = s; backdrop.ox = ox; backdrop.oy = oy
         }
-        stage.onFrame = { dt -> home.tick(dt); setup?.tick(dt); museum?.tick(dt); launch?.tick(dt); backdrop.tick(dt); if (++frames == 90) booting.delete()   // started fine
+        stage.onFrame = { dt -> home.lookK = museum?.lookK ?: 0f; home.tick(dt); setup?.tick(dt); museum?.tick(dt); launch?.tick(dt); backdrop.tick(dt); if (++frames == 90) booting.delete()   // started fine
             meterLeft -= dt; if (meterLeft <= 0) { meterLeft = .5f; showMeter() } }
     }
 
@@ -276,13 +276,39 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
     // Settings › Show frame rate: the meter, over everything in the top left corner
     private var meterLeft = 0f
     private var meter: android.widget.TextView? = null
+    // Android's own timings for each frame it puts together (the panels, the backdrop and the 3D layer combined):
+    // what the meter's own numbers can't see. Gathered on their own thread, summed each half second.
+    private val fmThread by lazy { android.os.HandlerThread("Shelf frame metrics").also { it.start() } }
+    private var fmOn = false
+    private val fm = LongArray(6)   // frames, total ns, draw ns, issue ns, swap ns, frames over 16.7 ms
+    private var fmWorst = 0L
+    private val fmListener = android.view.Window.OnFrameMetricsAvailableListener { _, m, _ ->
+        val total = m.getMetric(android.view.FrameMetrics.TOTAL_DURATION)
+        synchronized(fm) {
+            fm[0]++; fm[1] += total; fm[2] += m.getMetric(android.view.FrameMetrics.DRAW_DURATION)
+            fm[3] += m.getMetric(android.view.FrameMetrics.COMMAND_ISSUE_DURATION); fm[4] += m.getMetric(android.view.FrameMetrics.SWAP_BUFFERS_DURATION)
+            if (total > 16_700_000L) fm[5]++; fmWorst = maxOf(fmWorst, total)
+        }
+    }
+    private fun androidStats(): String = synchronized(fm) {
+        if (fm[0] == 0L) return "Android: no frames this half second"
+        val n = fm[0].toFloat()
+        val s = "Android %.1f ms a frame (draw %.1f · send %.1f · swap %.1f)  ·  %d over 16.7  ·  worst %.0f ms".format(fm[1] / n / 1e6f, fm[2] / n / 1e6f, fm[3] / n / 1e6f, fm[4] / n / 1e6f, fm[5], fmWorst / 1e6f)
+        fm.fill(0L); fmWorst = 0L; s
+    }
+
     private fun showMeter() {
-        if (!games.showFps) { meter?.let { board.removeView(it); meter = null }; return }
+        if (!games.showFps) {
+            meter?.let { board.removeView(it); meter = null }
+            if (fmOn) { try { window.removeOnFrameMetricsAvailableListener(fmListener) } catch (_: Exception) { }; fmOn = false }
+            return
+        }
+        if (!fmOn) { try { window.addOnFrameMetricsAvailableListener(fmListener, android.os.Handler(fmThread.looper)); fmOn = true } catch (_: Exception) { } }
         val m = meter ?: android.widget.TextView(this).apply {
             setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, 17f); typeface = android.graphics.Typeface.MONOSPACE; setTextColor(Theme.fg)
             setBackgroundColor(android.graphics.Color.argb(170, 5, 8, 22)); setPadding(12, 8, 12, 8)
         }.also { meter = it; board.put(it, 8, 8) }
-        m.text = stage.stats; m.bringToFront()
+        m.text = stage.stats + "\n" + androidStats(); m.bringToFront()
     }
 
     override fun start(l: Launch): String = games.launch(l.game)
@@ -345,9 +371,12 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         if (!pad || e.action != MotionEvent.ACTION_MOVE) return super.onGenericMotionEvent(e)
         // the right stick turns the cartridge on a game's page
         if (!safeMode && launch == null) { val x = e.getAxisValue(MotionEvent.AXIS_Z); val y = e.getAxisValue(MotionEvent.AXIS_RZ); museum?.stick(x, y) ?: home.stick(x, y) }
+        // the left stick moves a model smoothly while you look at it closely (and isn't a D-pad then)
+        val lx = e.getAxisValue(MotionEvent.AXIS_X); val ly = e.getAxisValue(MotionEvent.AXIS_Y)
+        val analog = !safeMode && launch == null && (museum?.leftStick(lx, ly) ?: home.leftStick(lx, ly))
         // the left stick, or a D-pad that reports itself as a hat
         var x = e.getAxisValue(MotionEvent.AXIS_HAT_X); var y = e.getAxisValue(MotionEvent.AXIS_HAT_Y)
-        if (abs(x) < .5f && abs(y) < .5f) { x = e.getAxisValue(MotionEvent.AXIS_X); y = e.getAxisValue(MotionEvent.AXIS_Y) }
+        if (abs(x) < .5f && abs(y) < .5f && !analog) { x = lx; y = ly }
         val dir = if (abs(x) > .55f || abs(y) > .55f) (if (abs(x) > abs(y)) (if (x > 0) "right" else "left") else (if (y > 0) "down" else "up")) else null
         if (dir != held) {
             held = dir; ui.removeCallbacks(repeat)
