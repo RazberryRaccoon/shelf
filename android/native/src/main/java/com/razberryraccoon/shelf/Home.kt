@@ -54,7 +54,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
      *   Classic     the selected one on the left, the rest in a line to the right (as it always was)
      *   Centered    the same line with the selected one in the middle
      *   Cover flow  the selected one faces you in the middle; the others turn toward it, mirrored either side, close together
-     *   Spines      the others turn almost edge on, all the same way, and pack tight (a box shows its spine)
+     *   Spines      the others turn almost edge on, all the same way, close together, a box's spine (its left side) toward you
      *   Carousel    on a wide turntable: the selected one nearest; the others round the curve, turning and growing smaller
      *   Stack       the others tucked behind the selected one either side, each smaller and dimmer, like a fanned deck
      */
@@ -63,12 +63,12 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         val a = abs(d); val sg = sign(d); val near = min(a, 1f); val far = maxOf(0f, a - 1f)
         return when (style) {
             1 -> floatArrayOf(667f + d * STEP + sg * near * (NEXT - STEP), if (chosen) 302f else 326f, if (chosen) 40f else 0f, -.2f, if (chosen) BIG else SMALL, if (chosen) 1.02f else .72f)
-            2 -> floatArrayOf(667f + sg * (near * 300f + far * 118f), 316f, 40f - a * 30f + d * 1.5f, -sg * near * .95f, if (chosen) BIG else 280f, 1.02f - near * .26f - far * .04f)
+            2 -> floatArrayOf(667f + sg * (near * 350f + far * 250f), 316f, 40f - a * 30f + d * 1.5f, -sg * near * .8f, if (chosen) BIG else 270f, 1.02f - near * .26f - far * .04f)
             // every one turns the same way, so a box's spine (its left side) shows on both sides of the selected one
-            3 -> floatArrayOf(667f + sg * (near * 285f + far * 62f), 316f, 40f - a * 20f + d * 1.5f, -near * 1.38f, if (chosen) BIG else 300f, 1.02f - near * .22f - far * .03f)
-            4 -> { val th = d * .38f; val r = 980f
+            3 -> floatArrayOf(667f + sg * (near * 330f + far * 150f), 316f, 40f - a * 20f + d * 1.5f, near * 1.38f, if (chosen) BIG else 300f, 1.02f - near * .22f - far * .03f)
+            4 -> { val th = d * .44f; val r = 1000f
                 floatArrayOf(667f + r * kotlin.math.sin(th), 318f - (1 - kotlin.math.cos(th)) * 60f, 40f - r * (1 - kotlin.math.cos(th)), th, BIG * (.62f + .38f * kotlin.math.cos(th)) * (if (chosen) 1f else .92f), 1.02f - (1 - kotlin.math.cos(th)) * 1.4f - if (chosen) 0f else .08f) }
-            5 -> floatArrayOf(667f + sg * (near * 190f + far * 72f), 314f + a * 6f, 40f - a * 45f + d * 1.5f, -sg * near * .22f, BIG * maxOf(.55f, 1f - a * .1f) * (if (chosen) 1f else .9f), (1.02f - a * .1f).coerceAtLeast(.4f))
+            5 -> floatArrayOf(667f + sg * (near * 290f + far * 170f), 314f + a * 6f, 40f - a * 45f + d * 1.5f, -sg * near * .22f, BIG * maxOf(.55f, 1f - a * .12f) * (if (chosen) 1f else .9f), (1.02f - a * .12f).coerceAtLeast(.4f))
             else -> floatArrayOf(ROW_X + d * STEP + sg * near * (NEXT - STEP), if (chosen) 302f else 326f, if (chosen) 40f else 0f, -.2f, if (chosen) BIG else SMALL, if (chosen) 1.02f else .72f)
         }
     }
@@ -257,7 +257,9 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         if (visible) riseT += dt
         val shownK = Backdrop.ease(min(1f, rise * 2f))
         val pageK = page?.shownK ?: 0f
-        for (v in listOf(clock, battery, profile) + dock) v.alpha = shownK
+        // looking closely at a model (on a page or in the Museum): the top bar goes, it can't be reached from there
+        val topK = shownK * (1 - maxOf(page?.inspectK ?: 0f, lookK))
+        for (v in listOf(clock, battery, profile) + dock) v.alpha = topK
         for (v in listOf(title, meta, message)) v.alpha = shownK * (1 - pageK)
         dockLabel.alpha = minOf(dockLabel.alpha, shownK)
         backdrop.picVisible = shownK * (1 - pageK)
@@ -352,6 +354,10 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     }
     /** The right stick, for turning the cartridge on a game's page. */
     fun stick(x: Float, y: Float) { page?.stick(x, y) }
+    /** The left stick: taken (true) while a model on the page is being looked at closely, where it moves it. */
+    fun leftStick(x: Float, y: Float): Boolean = page?.leftStick(x, y) ?: false
+    /** Set by the Museum: how far its looking-closely view has come in (the top bar steps out of the way). */
+    var lookK = 0f
 
     override fun play(g: Game) = actions.play(g)
     override fun pick(p: Picker) = open(p)

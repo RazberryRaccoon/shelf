@@ -52,6 +52,18 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
+## What's in version 0.19
+
+The user's five notes on 0.18:
+1. Home's scrolling styles are roomier (about as many in view as Classic): Cover flow, Spines, Carousel and Stack
+   spread out. Spines turns the other way, so a box's real spine (its left side, where the art is) faces you.
+2. The foil finish is less metallic, so at rest it isn't almost black (it still flashes as it turns).
+3. Coming back from a game is simply out of black: the chosen transition only plays going in.
+4. The frame-rate meter adds Android's own timings for each frame (drawing, sending to the graphics chip, swapping,
+   and how many took over 16.7 ms), which the first meter couldn't see.
+5. Looking closely: the left stick moves the model smoothly (as the right stick turns it); the d-pad still steps. The
+   top bar (profile, Library, Apps, Museum) goes away while you look, on a page and in the Museum.
+
 ## What's in version 0.18
 
 The rest of the user's notes on 0.16:

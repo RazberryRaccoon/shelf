@@ -83,6 +83,7 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
     fun back() {
         if (phase != Phase.PLAYING) return
         phase = Phase.OUT; t = 0f; sounded.clear()
+        black.kind = Curtain.FADE   // coming back: simply out of black (the transition is only for going in)
     }
 
     fun tick(dt: Float) {
@@ -208,7 +209,7 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
  * over everything, the letterbox included; `k` is how much is covered, 0 to 1. The ideas come from film and video
  * transitions: an iris, wipes, blinds, a clock wipe, a dissolve of dots, a plain fade.
  */
-class Curtain(ctx: Context, private val kind: Int) : View(ctx) {
+class Curtain(ctx: Context, var kind: Int) : View(ctx) {
     var k = 0f; set(v) { field = v; invalidate() }
     private var fx = Stage.W / 2; private var fy = Stage.H / 2
     fun focus(x: Float, y: Float) { fx = x; fy = y }
