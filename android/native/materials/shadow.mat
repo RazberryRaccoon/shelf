@@ -1,0 +1,23 @@
+// One soft round shadow under an object, stretched flat: black, 150/255 at the middle fading to nothing at the edge, as
+// Backdrop.kt's canvas sprite was. Drawn over the backdrop by the same view. Compile with build.sh.
+material {
+    name : shadow,
+    shadingModel : unlit,
+    blending : transparent,
+    culling : none,
+    depthWrite : false,
+    depthCulling : false,
+    flipUV : false,
+    requires : [ uv0 ],
+    parameters : [
+        { type : float, name : strength }
+    ]
+}
+
+fragment {
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        float a = clamp(1.0 - length(getUV0()), 0.0, 1.0) * (150.0 / 255.0) * materialParams.strength;
+        material.baseColor = vec4(0.0, 0.0, 0.0, a);
+    }
+}

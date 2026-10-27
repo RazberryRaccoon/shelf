@@ -45,7 +45,9 @@ that we've learned … and make an Android game launcher that's the best it can 
   ScreenScraper waits on Shelf's developer credentials (docs/SCREENSCRAPER.md). 0.17 the user's bugs, launch
   transitions (`Curtain`), a frame-rate meter and Smoothness, the reader's zoom; 0.18 the rest: Home boxes and scroll
   styles (`Home.pose`), label finishes (`Labels`), the media folder Shelf/Media with backups (`Backup`), looking closely
-  at models, choosing the cartridge in the open box. Next: the user's frame-rate readings, then the Library.
+  at models, choosing the cartridge in the open box; 0.19 roomier styles and Android's frame timings; 0.20 the drawing
+  rebuilt: the backdrop drawn by Filament (`materials/backdrop.mat`, compiled with matc 1.75.1 by `materials/build.sh`)
+  straight to a SurfaceView, the page opening without decoding on the main thread. Next: the user's readings on 0.20, then the Library.
   Next: the Library (see DECISIONS.md and ROADMAP.md). The user paused inspecting the rarer shell colors until they can be seen big (0.3 makes that possible).
   Kotlin is compile-checked locally with the Kotlin 2.4 compiler against `android-all` and Filament's AARs.
 - The Android SDK can't be downloaded in Claude's sandbox (dl.google.com is blocked): compile-check the Java against

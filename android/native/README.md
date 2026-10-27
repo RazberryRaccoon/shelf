@@ -52,6 +52,28 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
+## What's in version 0.20
+
+The user's two notes on 0.19:
+1. **Smoother: the drawing is rebuilt.** The meter showed Android spending 14–16 ms of every frame passing the picture
+   along, and about half the frames running late. Two things caused it: the starry background was repainted by Android's
+   canvas every frame, in its own full-screen layer, and the 3D went through an extra copy (a TextureView) before reaching
+   the screen. Now the 3D engine draws the background itself, first, in the same frame (one small shader,
+   `materials/backdrop.mat`, doing the canvas's own math; the shadows are flat shapes over it), and draws straight to the
+   screen (a SurfaceView). Only the panels are left to Android. Checked against the old drawing: the same within one or
+   two shades out of 255. Smoothness now starts at Balanced (2× smoothing) for everyone, once.
+2. **Opening a game's page doesn't pause.** The box's pictures are read ahead while you rest on a game in Home, the
+   pictures in the panel are read on another thread (they appear a moment later), and the screwdriver is only loaded when
+   a cartridge first comes apart.
+3. **The foil finish, tuned by measuring.** Rendered under the app's own lighting next to the plain label: at rest it is
+   as bright as the plain label, and turned into the light about twice as bright. Its brushed lines are a little fainter.
+
+The meter's second line is now "Panels": since the 3D and the background no longer go through Android, it times the
+panels alone.
+
+To change the shaders: edit `android/native/materials/*.mat` and run `materials/build.sh` with Filament's `matc` 1.75.1
+(from the Filament release on GitHub); it writes the compiled `.filamat` files into the app's assets.
+
 ## What's in version 0.19
 
 The user's five notes on 0.18:

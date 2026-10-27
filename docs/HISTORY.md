@@ -588,3 +588,16 @@ Shelf's work: Android combining the layers (the canvas backdrop, the TextureView
 meter now adds FrameMetrics to confirm it before the bigger change (the backdrop inside Filament, drawn straight to
 the screen). The Spines style's earlier render had shown a grey edge taken for the spine; the user saw it was the
 opening edge, and a coloured test spine in the new render confirms the fix.
+
+**0.20: the drawing rebuilt.** The readings that settled it: Android's "send" step 14–16 ms of every frame, about half
+the frames over 16.7 ms, the worst 21–64 ms, and 100–200+ ms when a game's page opened, while Shelf's own work stayed
+under 5 ms. The backdrop moved into Filament as a second view drawn before the 3D (no tone mapping, an orthographic
+camera in layout pixels, one quad far bigger than the screen whose texture coordinates are layout pixels), with a
+custom material compiled by matc 1.75.1; the shadows are quads with their own material. The stage moved from a
+transparent TextureView to a SurfaceView. Tested by porting the shader to WebGL and diffing it against a canvas copy of
+the old drawing (Android's gradients interpolate unpremultiplied, so they fade through black; emulated with many
+stops): mean difference 0.6/255, 99.9% of pixels within 2. Not tested: Filament's real composition on the device.
+The page-open pause: box pictures, thumbnails and a video frame were decoded on the main thread, and the screwdriver
+model loaded every time; now read ahead, on another thread, and lazily. The foil was tuned in a three.js rig matched to
+the app's lighting, measuring the label's brightness against the plain label (38 vs 62 before; now 65 at rest, 118
+turned).

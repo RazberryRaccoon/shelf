@@ -12,15 +12,15 @@ import android.provider.Settings
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
-import android.view.TextureView
+import android.view.SurfaceView
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.widget.FrameLayout
 import kotlin.math.abs
 
 /**
- * Shelf Native's one screen, in three layers: the backdrop (Android canvas), the 3D objects (Filament, in a transparent
- * TextureView) and the interface (Android views, laid out at 1334 × 750 and scaled to fit). Controller buttons come in
+ * Shelf Native's one screen, in two layers: the backdrop and the 3D objects (both drawn by Filament, straight to the
+ * screen in a SurfaceView) and the interface (Android views, laid out at 1334 × 750 and scaled to fit). Controller buttons come in
  * here and go to the screen that's showing.
  */
 class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.Host {
@@ -57,16 +57,15 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         StrictMode.setVmPolicy(StrictMode.VmPolicy.Builder().build())
         Fonts.load(this)
         val root = FrameLayout(this)
-        backdrop = Backdrop(this)
-        val surface = TextureView(this).apply { isOpaque = false }
+        val surface = SurfaceView(this)
         board = Board(this)
-        root.addView(backdrop, FrameLayout.LayoutParams(-1, -1))
         root.addView(surface, FrameLayout.LayoutParams(-1, -1))
         root.addView(board, FrameLayout.LayoutParams(Stage.W.toInt(), Stage.H.toInt()))
         setContentView(root)
         immersive()
 
         stage = Stage(this, surface)
+        backdrop = Backdrop(this, stage)
         games = Games(this)
         stage.setLook(games.lightEnv, games.lightExposure, games.lightKey)
         stage.quality(games.smoothness); backdrop.lite = games.smoothness == 2
@@ -77,10 +76,10 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         home = Home(this, stage, board, backdrop, games, carts, meta, this)
         home.refreshPicture()   // Home picture's look from Settings
         if (!games.setupDone) openSetup(settings = false)
-        // the interface and backdrop follow the 3D layer's fit, so all three line up
+        // the interface follows the 3D layer's fit, so the two line up
         root.addOnLayoutChangeListener { _, l, t, r, b, _, _, _, _ ->
             val s = minOf((r - l) / Stage.W, (b - t) / Stage.H); val ox = ((r - l) - Stage.W * s) / 2; val oy = ((b - t) - Stage.H * s) / 2
-            board.fit(s, ox, oy); backdrop.scale = s; backdrop.ox = ox; backdrop.oy = oy
+            board.fit(s, ox, oy)
         }
         stage.onFrame = { dt -> home.lookK = museum?.lookK ?: 0f; home.tick(dt); setup?.tick(dt); museum?.tick(dt); launch?.tick(dt); backdrop.tick(dt); if (++frames == 90) booting.delete()   // started fine
             meterLeft -= dt; if (meterLeft <= 0) { meterLeft = .5f; showMeter() } }
@@ -276,7 +275,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
     // Settings › Show frame rate: the meter, over everything in the top left corner
     private var meterLeft = 0f
     private var meter: android.widget.TextView? = null
-    // Android's own timings for each frame it puts together (the panels, the backdrop and the 3D layer combined):
+    // Android's own timings for each frame it puts together (since 0.20 only the panels; the backdrop and the 3D go straight to the screen):
     // what the meter's own numbers can't see. Gathered on their own thread, summed each half second.
     private val fmThread by lazy { android.os.HandlerThread("Shelf frame metrics").also { it.start() } }
     private var fmOn = false
@@ -291,9 +290,10 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         }
     }
     private fun androidStats(): String = synchronized(fm) {
-        if (fm[0] == 0L) return "Android: no frames this half second"
+        // since 0.20 the 3D and the backdrop go straight to the screen, so these are the panels alone (text, menus, the meter)
+        if (fm[0] == 0L) return "Panels: nothing to redraw this half second"
         val n = fm[0].toFloat()
-        val s = "Android %.1f ms a frame (draw %.1f · send %.1f · swap %.1f)  ·  %d over 16.7  ·  worst %.0f ms".format(fm[1] / n / 1e6f, fm[2] / n / 1e6f, fm[3] / n / 1e6f, fm[4] / n / 1e6f, fm[5], fmWorst / 1e6f)
+        val s = "Panels %.1f ms a frame (draw %.1f · send %.1f · swap %.1f)  ·  %d over 16.7  ·  worst %.0f ms".format(fm[1] / n / 1e6f, fm[2] / n / 1e6f, fm[3] / n / 1e6f, fm[4] / n / 1e6f, fm[5], fmWorst / 1e6f)
         fm.fill(0L); fmWorst = 0L; s
     }
 

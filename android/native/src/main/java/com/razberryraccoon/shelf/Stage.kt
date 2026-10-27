@@ -3,7 +3,7 @@ package com.razberryraccoon.shelf
 import android.content.Context
 import android.view.Choreographer
 import android.view.Surface
-import android.view.TextureView
+import android.view.SurfaceView
 import com.google.android.filament.Camera
 import com.google.android.filament.ColorGrading
 import com.google.android.filament.Engine
@@ -31,12 +31,14 @@ import java.nio.ByteOrder
 import kotlin.math.tan
 
 /**
- * Shelf's 3D layer: Filament drawing into a transparent TextureView, so the space backdrop shows through behind the
- * objects and the text sits on top. Lit like the Cartridge Studio: a studio HDR as image-based light, one soft key light,
+ * Shelf's 3D layer: Filament drawing straight to the screen (a SurfaceView, under the interface's panels), two views a
+ * frame: first the space backdrop (Backdrop, flat, no tone mapping), then the 3D objects blended over it. Until 0.20 the
+ * 3D drew into a transparent TextureView over a canvas-drawn backdrop, which cost Android an extra copy and a full-screen
+ * repaint every frame. Lit like the Cartridge Studio: a studio HDR as image-based light, one soft key light,
  * ACES filmic tone mapping. The camera is a long lens looking at Shelf's 1334 × 750 layout, so a point at depth 0 lands
  * on exactly that pixel of the layout (y measured down from the top, as in the prototype).
  */
-class Stage(private val ctx: Context, private val surface: TextureView) : Choreographer.FrameCallback {
+class Stage(private val ctx: Context, private val surface: SurfaceView) : Choreographer.FrameCallback {
     companion object {
         init { Filament.init(); Gltfio.init(); Utils.init() }
         const val W = 1334f
@@ -50,6 +52,10 @@ class Stage(private val ctx: Context, private val surface: TextureView) : Choreo
     private val renderer: Renderer = engine.createRenderer()
     private val view: View = engine.createView()
     private val camera: Camera = engine.createCamera(EntityManager.get().create())
+    /** The backdrop's own scene, view and camera: flat, in layout pixels (y up, so layout y is negated), no lights. */
+    val backScene: Scene = engine.createScene()
+    private val backView: View = engine.createView()
+    private val backCamera: Camera = engine.createCamera(EntityManager.get().create())
     private val ui = UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK)
     private val display = DisplayHelper(ctx)
     private var swapChain: SwapChain? = null
@@ -70,9 +76,17 @@ class Stage(private val ctx: Context, private val surface: TextureView) : Choreo
     init {
         view.scene = scene
         view.camera = camera
-        view.blendMode = View.BlendMode.TRANSLUCENT   // keeps the backdrop visible through the empty parts
-        renderer.clearOptions = renderer.clearOptions.apply { clear = true; clearColor = doubleArrayOf(0.0, 0.0, 0.0, 0.0) }
-        view.multiSampleAntiAliasingOptions = view.multiSampleAntiAliasingOptions.apply { enabled = true; sampleCount = 4 }
+        view.blendMode = View.BlendMode.TRANSLUCENT   // blended over the backdrop, drawn just before it
+        // the backdrop: no tone mapping or other finishing, so its colors reach the screen exactly as its shader works
+        // them out (the same values Android's canvas drew), and a plain camera that leaves them alone
+        backView.scene = backScene; backView.camera = backCamera
+        backView.isPostProcessingEnabled = false
+        backView.setShadowingEnabled(false)
+        backCamera.setExposure(1f)
+        val bg = Theme.bg
+        renderer.clearOptions = renderer.clearOptions.apply {
+            clear = true; clearColor = doubleArrayOf(android.graphics.Color.red(bg) / 255.0, android.graphics.Color.green(bg) / 255.0, android.graphics.Color.blue(bg) / 255.0, 1.0) }
+        view.multiSampleAntiAliasingOptions = view.multiSampleAntiAliasingOptions.apply { enabled = true; sampleCount = 2 }
         // nothing on screen bends light through itself any more (see-through shells are blended), but the disc's clear hub
         // would still switch on a whole extra copy of the frame for refraction whenever it's on screen
         view.setScreenSpaceRefractionEnabled(false)
@@ -84,7 +98,6 @@ class Stage(private val ctx: Context, private val surface: TextureView) : Choreo
         scene.addEntity(sun)
         loadEnvironment()
 
-        ui.isOpaque = false
         ui.renderCallback = object : UiHelper.RendererCallback {
             override fun onNativeWindowChanged(s: Surface) {
                 swapChain?.let { engine.destroySwapChain(it) }
@@ -148,6 +161,11 @@ class Stage(private val ctx: Context, private val surface: TextureView) : Choreo
         ox = (width - W * scale) / 2; oy = (height - H * scale) / 2
         // Filament's viewport counts up from the bottom
         view.viewport = Viewport(ox.toInt(), (height - oy - H * scale).toInt(), (W * scale).toInt(), (H * scale).toInt())
+        // the backdrop fills the whole screen, the layout's part of it lined up with the 3D
+        backView.viewport = Viewport(0, 0, width, height)
+        backCamera.setProjection(Camera.Projection.ORTHO, (-ox / scale).toDouble(), ((width - ox) / scale).toDouble(),
+            (-(height - oy) / scale).toDouble(), (oy / scale).toDouble(), 0.0, 10.0)
+        backCamera.lookAt(0.0, 0.0, 5.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
         camera.setProjection(FOV, (W / H).toDouble(), 50.0, (DIST * 3).toDouble(), Camera.Fov.VERTICAL)
         camera.lookAt(W / 2.0, H / 2.0, DIST.toDouble(), W / 2.0, H / 2.0, 0.0, 0.0, 1.0, 0.0)
     }
@@ -165,7 +183,7 @@ class Stage(private val ctx: Context, private val surface: TextureView) : Choreo
         val t1 = System.nanoTime()
         val sc = swapChain ?: return
         // the GPU still busy with an earlier frame: Filament skips this one (it shows as a skipped frame in the meter)
-        if (ui.isReadyToRender && renderer.beginFrame(sc, now)) { renderer.render(view); renderer.endFrame(); drawn++ } else skipped++
+        if (ui.isReadyToRender && renderer.beginFrame(sc, now)) { renderer.render(backView); renderer.render(view); renderer.endFrame(); drawn++ } else skipped++
         // the meter (Settings › Show frame rate): each half second, how many frames came and how long each part took
         ticks++; uiNs += t1 - t0; drawNs += System.nanoTime() - t1; worst = maxOf(worst, dt)
         if (statFrom == 0L) statFrom = now
@@ -181,7 +199,7 @@ class Stage(private val ctx: Context, private val surface: TextureView) : Choreo
 
     /**
      * How much smoothing the 3D gets (Settings › Smoothness): 0 best looks (4× multisampling), 1 balanced (2×),
-     * 2 smoothest (no multisampling; FXAA, a cheap edge blur, instead).
+     * 2 smoothest (no multisampling; FXAA, a cheap edge blur, instead). Balanced is the default since 0.20.
      */
     fun quality(q: Int) {
         view.multiSampleAntiAliasingOptions = view.multiSampleAntiAliasingOptions.apply { enabled = q < 2; sampleCount = if (q == 0) 4 else 2 }
@@ -195,7 +213,8 @@ class Stage(private val ctx: Context, private val surface: TextureView) : Choreo
         ibl?.let { engine.destroyIndirectLight(it) }
         engine.destroyEntity(sun)
         engine.destroyRenderer(renderer); engine.destroyView(view); engine.destroyScene(scene)
-        engine.destroyCameraComponent(camera.entity)
+        engine.destroyView(backView); engine.destroyScene(backScene)
+        engine.destroyCameraComponent(camera.entity); engine.destroyCameraComponent(backCamera.entity)
         engine.destroy()
     }
 }

@@ -1,0 +1,82 @@
+// Shelf Native's backdrop, drawn by the 3D engine in one pass under the 3D objects: the night sky with the nebula in the
+// selected console's color, the stars, the planet, and Home's picture of the selected game with its fading top. It
+// copies what Android's canvas used to draw (Backdrop.kt before 0.20) step for step, in the same color math: values stay
+// in sRGB as the canvas keeps them, gradients fade toward transparent black as Android's do, and the view that draws this
+// has no tone mapping, so the numbers land on the screen as they are. Compile with build.sh (Filament's matc 1.75.1).
+material {
+    name : backdrop,
+    shadingModel : unlit,
+    blending : opaque,
+    culling : none,
+    depthWrite : false,
+    depthCulling : false,
+    flipUV : false,
+    requires : [ uv0 ],
+    parameters : [
+        { type : float3, name : mood },      // the console's color
+        { type : float3, name : bg },        // the theme's background
+        { type : float, name : twinkle },    // the stars' clock (seconds × .6); stars hold still below zero
+        { type : float, name : shade },      // how dark everything is, while a model is looked at closely
+        { type : sampler2d, name : stars },  // red: each star's coverage; green: its twinkle phase
+        { type : sampler2d, name : pic },
+        { type : sampler2d, name : picFrom },
+        { type : sampler2d, name : mask },   // where the picture shows: solid at the bottom, fading toward the top
+        { type : float4, name : picUv },     // layout pixels to the picture's texture: u = x·[0] + [1], v = y·[2] + [3]
+        { type : float4, name : fromUv },
+        { type : float2, name : picA },      // how much of the picture, and of the one it's crossfading from
+        { type : float3, name : dim },       // the picture's darkening, per channel
+        { type : float2, name : picBox }     // the picture's top and height, in layout pixels
+    ]
+}
+
+fragment {
+    // a canvas gradient from `c` at alpha `a` to transparent, `t` of the way: Android interpolates without
+    // premultiplying, so the color darkens toward black as it fades; then drawn over `d`
+    vec3 over(vec3 d, vec3 c, float a) { return mix(d, c, clamp(a, 0.0, 1.0)); }
+    vec3 glow(vec3 d, vec3 c, float a, float t) { t = clamp(t, 0.0, 1.0); return over(d, c * (1.0 - t), a * (1.0 - t)); }
+
+    // a picture's pixel (premultiplied, as Android keeps them), darkened, drawn over `d` at `a`
+    vec3 picture(vec3 d, vec4 t, float a) { return d * (1.0 - a * t.a) + t.rgb * materialParams.dim * a; }
+
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        highp vec2 p = getUV0();   // layout pixels, y down
+        vec3 m = materialParams.mood;
+        vec3 c = materialParams.bg;
+        bool inside = p.x >= 0.0 && p.x <= 1334.0 && p.y >= 0.0 && p.y <= 750.0;
+        if (inside) {
+            // the nebula: two soft glows
+            c = glow(c, m, 70.0 / 255.0, length(p - vec2(300.0, 160.0)) / 700.0);
+            c = glow(c, m, 40.0 / 255.0, length(p - vec2(1100.0, 700.0)) / 600.0);
+            // stars
+            vec2 s = texture(materialParams_stars, p / vec2(1334.0, 750.0)).rg;
+            float tw = materialParams.twinkle;
+            float sa = tw < 0.0 ? 150.0 / 255.0 : (90.0 + 110.0 * (0.5 + 0.5 * sin(tw + s.g * 6.3))) / 255.0;
+            c = over(c, vec3(238.0, 241.0, 255.0) / 255.0, sa * s.r);
+        }
+        // the planet, up past the top right: its atmosphere's glow, then the planet
+        highp vec2 pc = vec2(1190.0, -175.0);
+        float r = 390.0;
+        highp float d = length(p - pc);
+        float R = r * 1.18;
+        float t = d / R;
+        float f = clamp((t - 0.82) / 0.18, 0.0, 1.0);
+        c = mix(c, over(c, m * (1.0 - f), 90.0 / 255.0 * (1.0 - f)), clamp(R - d + 0.5, 0.0, 1.0));
+        float u = length(p - (pc + vec2(-0.35 * r, 0.55 * r))) / (r * 1.25);
+        vec3 c0 = mix(m, vec3(1.0), 0.55);
+        vec3 c1 = mix(m, materialParams.bg, 0.45);
+        vec3 c2 = vec3(6.0, 8.0, 20.0) / 255.0;
+        vec3 planet = u < 0.55 ? mix(c0, c1, u / 0.55) : mix(c1, c2, clamp((u - 0.55) / 0.45, 0.0, 1.0));
+        c = mix(c, planet, clamp(r - d + 0.5, 0.0, 1.0));
+        // Home's picture, crossfading from the last one
+        vec2 a = materialParams.picA;
+        if (inside && (a.x > 0.004 || a.y > 0.004) && p.y >= materialParams.picBox.x) {
+            float k = texture(materialParams_mask, vec2(p.x / 1334.0, (p.y - materialParams.picBox.x) / materialParams.picBox.y)).r;
+            vec4 q = materialParams.fromUv;
+            if (a.y > 0.004) c = picture(c, texture(materialParams_picFrom, vec2(p.x * q.x + q.y, p.y * q.z + q.w)), k * a.y);
+            q = materialParams.picUv;
+            if (a.x > 0.004) c = picture(c, texture(materialParams_pic, vec2(p.x * q.x + q.y, p.y * q.z + q.w)), k * a.x);
+        }
+        material.baseColor = vec4(c * (1.0 - materialParams.shade), 1.0);
+    }
+}
