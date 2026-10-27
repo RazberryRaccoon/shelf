@@ -33,6 +33,9 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
     private var setup: Setup? = null
     private var museum: Museum? = null
     private var launch: Launch? = null   // a game starting, being played, or coming back
+    private var library: Library? = null
+    private var fromLibrary = false        // the game playing now was started from the Library (it comes back there)
+    private lateinit var cols: Collections
     private lateinit var meta: Meta
     private lateinit var consoles: Consoles
     private val ui = Handler(Looper.getMainLooper())
@@ -73,6 +76,8 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         carts = Carts(stage, Shells(this))
         meta = Meta(this, games)
         consoles = Consoles(this, stage)
+        cols = Collections(this, games) { meta.root.takeIf { it.isDirectory || it.mkdirs() } }
+        Overlays.board = board
         home = Home(this, stage, board, backdrop, games, carts, meta, this)
         home.refreshPicture()   // Home picture's look from Settings
         if (!games.setupDone) openSetup(settings = false)
@@ -81,7 +86,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
             val s = minOf((r - l) / Stage.W, (b - t) / Stage.H); val ox = ((r - l) - Stage.W * s) / 2; val oy = ((b - t) - Stage.H * s) / 2
             board.fit(s, ox, oy)
         }
-        stage.onFrame = { dt -> home.lookK = museum?.lookK ?: 0f; home.tick(dt); setup?.tick(dt); museum?.tick(dt); launch?.tick(dt); backdrop.tick(dt); if (++frames == 90) booting.delete()   // started fine
+        stage.onFrame = { dt -> home.lookK = museum?.lookK ?: 0f; home.tick(dt); setup?.tick(dt); museum?.tick(dt); library?.tick(dt); launch?.tick(dt); backdrop.tick(dt); if (++frames == 90) booting.delete()   // started fine
             meterLeft -= dt; if (meterLeft <= 0) { meterLeft = .5f; showMeter() } }
     }
 
@@ -193,6 +198,29 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         museum = Museum(this, stage, board, backdrop, games, carts, this, sys)
     }
     override fun pick(p: Picker) = home.pick(p)   // over the Museum too: input goes to a message first
+
+    // ---------- the Library ----------
+
+    override fun openLibrary() {
+        if (library != null) return
+        home.visible = false
+        library = Library(this, stage, board, backdrop, games, carts, meta, cols, object : Library.Host {
+            override fun play(g: Game) = this@ShelfActivity.play(g)
+            override fun pick(p: Picker) = home.pick(p)
+            override fun askText(title: String, value: String, then: (String) -> Unit) = this@ShelfActivity.askText(title, value, then)
+            override fun openDocument(mimes: Array<String>, then: (android.net.Uri?) -> Unit) = this@ShelfActivity.openDocument(mimes, then)
+            override fun show(msg: String) = home.show(msg)
+            override fun closed(library: Library, changed: Boolean) {
+                if (this@ShelfActivity.library === library) this@ShelfActivity.library = null
+                if (changed) home.setGames(games.recent())   // hidden games, plays
+                home.visible = true
+            }
+        })
+    }
+    override fun collectionsCard(g: Game, changed: (Boolean) -> Unit) = GameCard.show(this, games, cols, g, ::askText, home::show, changed)
+    override fun hideGame(g: Game, then: () -> Unit) = GameCard.hide(this, cols, g, home::show, then)
+    override fun collectionNames(g: Game) = cols.of(g).map { it.name }
+    override fun collections() = cols
     override fun closed(museum: Museum, shellsChanged: Boolean) {
         this.museum = null
         if (shellsChanged) home.reshell()
@@ -269,7 +297,9 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
     /** Play: the start animation, which starts the game at its end (start), and plays the way back when Shelf returns. */
     override fun play(g: Game) {
         if (launch != null) return
-        val (cart, from, back) = home.takeForLaunch(g)
+        val fromLib = library?.takeForLaunch(g)
+        fromLibrary = fromLib != null
+        val (cart, from, back) = fromLib ?: home.takeForLaunch(g)
         launch = Launch(this, stage, board, backdrop, carts, consoles, games, meta, g, cart, from, this, back)
     }
     // Settings › Show frame rate: the meter, over everything in the top left corner
@@ -314,7 +344,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
     override fun start(l: Launch): String = games.launch(l.game)
     override fun done(l: Launch) {
         launch = null
-        home.landed(l.game)
+        if (fromLibrary) { fromLibrary = false; library?.landed(l.game) } else home.landed(l.game)
         if (l.problem.isNotEmpty()) home.show(l.problem)
     }
 
@@ -344,7 +374,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
     private var lastRepeat = 0L
     private val repeat = object : Runnable { override fun run() { held?.let { input(it); ui.postDelayed(this, 95) } } }
     /** Buttons go to whichever screen is showing. */
-    private fun input(a: String) { if (safeMode) return safeInput(a); launch?.let { return it.input(a) }; if (home.picker != null) home.input(a) else museum?.input(a) ?: setup?.input(a) ?: home.input(a) }   // a game starting takes every button (any one skips); then a message over everything
+    private fun input(a: String) { if (safeMode) return safeInput(a); launch?.let { return it.input(a) }; if (Overlays.input(a)) return; if (home.picker != null) home.input(a) else museum?.input(a) ?: library?.input(a) ?: setup?.input(a) ?: home.input(a) }   // a game starting takes every button (any one skips); then a message over everything
 
     private fun actionFor(code: Int) = when (code) {
         KeyEvent.KEYCODE_DPAD_UP -> "up"; KeyEvent.KEYCODE_DPAD_DOWN -> "down"
@@ -354,6 +384,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         KeyEvent.KEYCODE_BUTTON_X -> "x"; KeyEvent.KEYCODE_BUTTON_Y -> "y"
         KeyEvent.KEYCODE_BUTTON_L1 -> "lb"; KeyEvent.KEYCODE_BUTTON_R1 -> "rb"
         KeyEvent.KEYCODE_BUTTON_L2 -> "lt"; KeyEvent.KEYCODE_BUTTON_R2 -> "rt"
+        KeyEvent.KEYCODE_BUTTON_START -> "start"; KeyEvent.KEYCODE_BUTTON_SELECT -> "select"
         else -> null
     }
 
@@ -370,10 +401,10 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         val pad = e.source and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK || e.source and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD
         if (!pad || e.action != MotionEvent.ACTION_MOVE) return super.onGenericMotionEvent(e)
         // the right stick turns the cartridge on a game's page
-        if (!safeMode && launch == null) { val x = e.getAxisValue(MotionEvent.AXIS_Z); val y = e.getAxisValue(MotionEvent.AXIS_RZ); museum?.stick(x, y) ?: home.stick(x, y) }
+        if (!safeMode && launch == null) { val x = e.getAxisValue(MotionEvent.AXIS_Z); val y = e.getAxisValue(MotionEvent.AXIS_RZ); museum?.stick(x, y) ?: library?.stick(x, y) ?: home.stick(x, y) }
         // the left stick moves a model smoothly while you look at it closely (and isn't a D-pad then)
         val lx = e.getAxisValue(MotionEvent.AXIS_X); val ly = e.getAxisValue(MotionEvent.AXIS_Y)
-        val analog = !safeMode && launch == null && (museum?.leftStick(lx, ly) ?: home.leftStick(lx, ly))
+        val analog = !safeMode && launch == null && (museum?.leftStick(lx, ly) ?: library?.leftStick(lx, ly) ?: home.leftStick(lx, ly))
         // the left stick, or a D-pad that reports itself as a hat
         var x = e.getAxisValue(MotionEvent.AXIS_HAT_X); var y = e.getAxisValue(MotionEvent.AXIS_HAT_Y)
         if (abs(x) < .5f && abs(y) < .5f && !analog) { x = lx; y = ly }

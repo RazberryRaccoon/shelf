@@ -36,9 +36,11 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         fun finished(setup: Setup)
         /** Settings › Home picture changed something: show it now, behind the page. */
         fun artChanged()
+        /** Your collections and hidden games (Settings › Library). */
+        fun collections(): Collections
     }
 
-    private enum class Step { WELCOME, WHO, GAMES, EMUS, DONE, HOME, PAGES, LIGHT, MEDIA, SOURCE, SAVED, SYSTEM }
+    private enum class Step { WELCOME, WHO, GAMES, EMUS, DONE, HOME, LIBRARY, PAGES, LIGHT, MEDIA, SOURCE, SAVED, SYSTEM }
     private var step = if (settings) Step.WHO else Step.WELCOME
     private val flow = listOf(Step.WELCOME, Step.WHO, Step.GAMES, Step.EMUS, Step.DONE)
 
@@ -46,7 +48,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
     // change as you move down the sections (nothing replaces the whole screen). First-run setup uses the right pane alone.
     private class Section(val step: Step, val name: String)
     private val sections = listOf(Section(Step.WHO, "You"), Section(Step.GAMES, "Games"), Section(Step.EMUS, "Emulators"),
-        Section(Step.HOME, "Home"), Section(Step.PAGES, "Game pages"), Section(Step.LIGHT, "Lighting"), Section(Step.MEDIA, "Media"),
+        Section(Step.HOME, "Home"), Section(Step.LIBRARY, "Library"), Section(Step.PAGES, "Game pages"), Section(Step.LIGHT, "Lighting"), Section(Step.MEDIA, "Media"),
         Section(Step.SAVED, "Saved colors"), Section(Step.SYSTEM, "System"))
     private val frame = android.widget.LinearLayout(ctx).apply { orientation = android.widget.LinearLayout.HORIZONTAL; background = round(Theme.panel, 33f, Theme.line)
         setPadding(if (settings) 30 else 48, 40, 48, 26); clipToPadding = false }
@@ -209,6 +211,17 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                 rows += Options.Row("art", "Pan speed", value = if (games.artPan == 0f) "Still" else "${"%.2g".format(games.artPan)}×", sub = "How fast it drifts across", tag = "pan")
                 rows += Options.Row("art-reset", "Back to the starting look")
             }
+            Step.LIBRARY -> {
+                val cols = host.collections()
+                page("Settings", "Library", "Lists that fill themselves, and the games you've hidden.")
+                rows += Options.Row("smart", "Automatic collections", value = if (cols.smartOn) "On" else "Off", sub = "Recently added, Not played yet and Most played, in the Library's list")
+                rows += Options.Row(Options.HEAD, "Hidden games")
+                val n = games.all.count { cols.hidden(it) }
+                rows += Options.Row("none", "Hidden", value = "$n ${if (n == 1) "game" else "games"}", sub = "Hide one with X on it, or in its Game settings; Library › Hidden shows them")
+                rows += Options.Row("hiddenentry", "Hidden in the Library's list", value = if (cols.hiddenEntry) "Shown" else "Not shown", sub = "Not shown: press Select on the Library's list, then your code")
+                if (cols.hasCode) rows += Options.Row("changecode", "Change the code", sub = "Asks for the one you have now")
+                rows += Options.Row("resetcode", if (cols.hasCode) "Reset the code" else "Choose a code", sub = if (cols.hasCode) "A new one, without the old one (in case you forget it)" else "Four presses of the d-pad and A, B, X, Y")
+            }
             Step.PAGES -> {
                 page("Settings", "Game pages", "How a game’s page first shows it, how labels look, and how starting a game ends.")
                 rows += Options.Row("pageview", "A page opens on", value = "‹  ${PAGE_VIEWS[games.pageView]}  ›", sub = "On the page itself, L2 and R2 go through all three")
@@ -365,12 +378,16 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                 host.toast("Restoring…")
                 Thread {
                     val r = try { ctx.contentResolver.openInputStream(uri)?.use { i -> "Restored ${Backup.read(i, meta.root)} files" } ?: "Couldn’t read that file" } catch (e: Exception) { "That backup couldn’t be read: ${e.message}" }
-                    board.post { meta.reload(); count(); host.toast(r) }
+                    board.post { meta.reload(); host.collections().restored(); count(); host.toast(r) }
                 }.start()
             }
             "del-shell" -> (r.tag as Shell).let { s -> confirmDelete(s.name) { carts.shells.delete(s.id) } }
             "del-look" -> (r.tag as ConsoleLook).let { l -> confirmDelete(l.name) { l.custom?.let { looks.delete(it) } } }
             "fps" -> { games.showFps = !games.showFps; fill() }
+            "smart" -> { host.collections().let { it.smartOn = !it.smartOn }; fill() }
+            "hiddenentry" -> { host.collections().let { it.hiddenEntry = !it.hiddenEntry }; fill() }
+            "changecode" -> host.collections().let { c -> GameCard.askCode(ctx, c) { GameCard.chooseCode(ctx, c, "Choose a new code", "Four presses of the d-pad and A, B, X, Y.") { host.toast("Code changed"); fill() } } }
+            "resetcode" -> host.collections().let { c -> GameCard.chooseCode(ctx, c, "Choose a new code", "Four presses of the d-pad and A, B, X, Y.") { host.toast("Code set"); fill() } }
             "sounds" -> { games.sounds = !games.sounds; Sounds.enabled = games.sounds; Sounds.play(Sounds.PICK); fill() }
             "art-reset" -> { games.artKind = "shot"; games.artBright = Art.BRIGHT; games.artTop = Art.TOP; games.artFade = Art.FADE; games.artFadeType = Art.DOTS; games.artPan = Art.PAN; host.artChanged(); fill() }
             "light-reset" -> { games.lightEnv = Look.ENV; games.lightBright = Look.BRIGHT; games.lightKey = Look.KEY; applyLight(); fill() }
@@ -549,7 +566,9 @@ class Options(ctx: Context) : View(ctx) {
             r.dot?.let { p.color = it; c.drawCircle(x + 6, y + (if (r.sub.isNullOrEmpty()) rh / 2 else 30f), 6.5f, p); x += 24 }
             val fg = if (r.primary) Theme.selFg else if (keep && k != i) Theme.fg2 else Theme.fg
             p.typeface = Fonts.bold; p.textSize = if (compact) 22f else 23f; p.color = fg
-            c.drawText(r.label + if (r.check) "  ✓" else "", x, y + (if (r.sub.isNullOrEmpty()) rh / 2 + 8 else 38f), p)
+            // a long name gives way to the value on the right (cut short with an ellipsis)
+            val room = width - 54f - x - (r.value?.let { v -> p.textSize = 21f; p.measureText(v) + 14f } ?: 0f); p.textSize = if (compact) 22f else 23f
+            c.drawText(TextUtils.ellipsize(r.label + if (r.check) "  ✓" else "", android.text.TextPaint(p), room, TextUtils.TruncateAt.END).toString(), x, y + (if (r.sub.isNullOrEmpty()) rh / 2 + 8 else 38f), p)
             r.value?.let { p.typeface = Fonts.bold; p.textSize = 21f; p.color = if (r.primary) fg else Theme.fg2; p.textAlign = Paint.Align.RIGHT; c.drawText(it, width - 54f, y + (if (r.sub.isNullOrEmpty()) rh / 2 + 8 else 38f), p); p.textAlign = Paint.Align.LEFT }
             r.sub?.takeIf { it.isNotEmpty() }?.let { p.typeface = Fonts.body; p.textSize = 18f
                 p.color = if (r.primary) Color.argb(200, Color.red(Theme.selFg), Color.green(Theme.selFg), Color.blue(Theme.selFg)) else Theme.fg2   // dark on the light button

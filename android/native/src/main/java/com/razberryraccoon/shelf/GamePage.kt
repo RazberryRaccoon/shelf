@@ -77,6 +77,12 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         fun closed(page: GamePage, homeChanged: Boolean)
         /** Android's file picker, for a file of your own on the media page. */
         fun openDocument(mimes: Array<String>, then: (android.net.Uri?) -> Unit)
+        /** The game's collections card (the Collections tile); `changed` true if it was hidden. */
+        fun collectionsCard(g: Game, changed: (Boolean) -> Unit)
+        /** Hides the game (Game settings), choosing a code first if there isn't one. */
+        fun hideGame(g: Game, then: () -> Unit)
+        /** The names of your collections the game is in. */
+        fun collectionNames(g: Game): List<String>
     }
 
     private var t = 0f                  // 0 = in the row, 1 = open
@@ -241,13 +247,19 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
 
     private fun emuName(e: String) = if (e.startsWith(Games.RA)) e.removePrefix(Games.RA) + ", in RetroArch" else e
 
+    /** The Collections tile's line: which collections it's in, or what the tile does. */
+    private fun collectionsNote(): String {
+        val names = (if (games.favorite(game)) listOf("Favorites") else emptyList()) + host.collectionNames(game)
+        return if (names.isEmpty()) "Put it in your collections, or start a new one. (Y makes it a favorite.)" else "In " + names.joinToString(", ") + "."
+    }
+
     private fun refreshNote() {
         val emu = games.emulatorFor(game)?.let { emuName(it) }
         note.text = when (tiles.at) {
             0 -> if (emu == null) "Choose an emulator, then it starts." else "Starts it in $emu."
             1 -> if (games.ownEmulator(game) != null) "Plays with $emu, chosen for this game." else "Plays with $emu. Choose one just for this game."
             2 -> "Its shell: the real colors, or your own from the Studio."
-            3 -> if (games.favorite(game)) "Remove it from your favorites." else "Add it to your favorites. (Y does this too.)"
+            3 -> collectionsNote()
             4 -> "Its emulator, shell color, whether it shows on Home, and which game it is."
             else -> "Put it back on Home."
         }
@@ -380,7 +392,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
                     0 -> play()
                     1 -> chooseEmulator(then = false)
                     2 -> startColors(Mode.PAGE)
-                    3 -> toggleFavorite()
+                    3 -> host.collectionsCard(game) { hidden -> if (hidden) { homeChanged = true; close() } else { tiles.fav = games.favorite(game); tiles.invalidate(); refreshNote() } }
                     4 -> startSettings()
                     else -> close()
                 }
@@ -775,7 +787,8 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val rows = listOf(
             Options.Row("emu", "Plays with", value = own?.let { emuName(it).substringBefore(",") } ?: "Same as $console", sub = games.emulatorFor(game)?.let { emuName(it) } ?: "Nothing chosen yet"),
             carts.variantFor(game.sys, carts.shellFor(games, game)).let { v -> Options.Row("shell", "Customize shell", value = v?.name ?: "", dot = v?.color) },
-            Options.Row("home", "Show on Home", value = if (games.onHome(game)) "Yes" else "No", sub = "Hidden games stay in the Library"),
+            Options.Row("home", "Show on Home", value = if (games.onHome(game)) "Yes" else "No", sub = "Off: it stays in the Library, out of your recent games"),
+            Options.Row("hidegame", "Hide this game", sub = "Gone from Home and the Library until you open Library › Hidden with your code"),
             Options.Row("media", "Media", value = Media.kindsFor(game.sys).count { !Media.has(info, it.id) }.let { if (it == 0) "Complete" else "$it missing" },
                 sub = "Box art, pictures, video, details and manual, and where they’re from"),
             Options.Row("done", "Done", primary = true))
@@ -795,6 +808,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
                 "emu" -> { Sounds.play(Sounds.PICK); chooseEmulator(then = false) }
                 "shell" -> { hideList(); startColors(Mode.SETTINGS) }
                 "home" -> { games.setOnHome(game, !games.onHome(game)); homeChanged = true; Sounds.play(Sounds.PICK); fillSettings() }
+                "hidegame" -> host.hideGame(game) { homeChanged = true; close() }
                 "media" -> openMedia()
                 "done" -> { Sounds.play(Sounds.CLOSE); hideList() }
             }
@@ -931,7 +945,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
  */
 class Tiles(ctx: Context) : View(ctx) {
     companion object { const val INSET = 10; const val HEIGHT = 138; private const val SIZE = 76f; private const val TOP = 12f }
-    private val names = listOf("Play", "Emulator", "Customize", "Favorite", "Settings", "Back")
+    private val names = listOf("Play", "Emulator", "Customize", "Collections", "Settings", "Back")
     var at = 0; private set
     var active = true
     var fav = false
@@ -976,9 +990,14 @@ class Tiles(ctx: Context) : View(ctx) {
                 p.style = Paint.Style.FILL; c.drawCircle(22f, 16f, 2.2f, p); c.drawCircle(26.5f, 20f, 2.2f, p) }
             2 -> { p.style = Paint.Style.FILL; p.color = swatch; c.drawCircle(17f, 17f, 12f, p)
                 p.style = Paint.Style.STROKE; p.color = ink; c.drawCircle(17f, 17f, 13.5f, p) }
-            3 -> { val heart = Path().apply { moveTo(17f, 29f); cubicTo(2f, 19f, 3f, 6f, 11f, 6f); cubicTo(14.5f, 6f, 16.5f, 8.5f, 17f, 11f)
-                    cubicTo(17.5f, 8.5f, 19.5f, 6f, 23f, 6f); cubicTo(31f, 6f, 32f, 19f, 17f, 29f); close() }
-                p.style = if (fav) Paint.Style.FILL else Paint.Style.STROKE; c.drawPath(heart, p) }
+            3 -> {   // collections: three cards fanned, the front one with a heart when it's a favorite
+                p.style = Paint.Style.STROKE
+                c.save(); c.rotate(-12f, 17f, 30f); c.drawRoundRect(RectF(7f, 6f, 23f, 28f), 3f, 3f, p); c.restore()
+                c.save(); c.rotate(12f, 17f, 30f); c.drawRoundRect(RectF(11f, 6f, 27f, 28f), 3f, 3f, p); c.restore()
+                p.style = Paint.Style.FILL; p.color = if (k == at && active) Theme.sel else Theme.chip; c.drawRoundRect(RectF(9f, 5f, 25f, 29f), 3f, 3f, p)
+                p.color = ink; p.style = Paint.Style.STROKE; c.drawRoundRect(RectF(9f, 5f, 25f, 29f), 3f, 3f, p)
+                if (fav) { p.style = Paint.Style.FILL; c.drawPath(Path().apply { moveTo(17f, 22f); cubicTo(10f, 17f, 11f, 11f, 14.5f, 11f); cubicTo(16f, 11f, 17f, 12.5f, 17f, 13.5f)
+                    cubicTo(17f, 12.5f, 18f, 11f, 19.5f, 11f); cubicTo(23f, 11f, 24f, 17f, 17f, 22f); close() }, p) } }
             4 -> { p.style = Paint.Style.STROKE   // three sliders
                 for ((j, kx) in listOf(10f, 22f, 14f).withIndex()) { val y = 9f + j * 8; c.drawLine(4f, y, 30f, y, p); p.style = Paint.Style.FILL; c.drawCircle(kx, y, 3.4f, p); p.style = Paint.Style.STROKE } }
             else -> { p.style = Paint.Style.STROKE; c.drawLine(8f, 17f, 27f, 17f, p); c.drawLine(8f, 17f, 15f, 10f, p); c.drawLine(8f, 17f, 15f, 24f, p) }

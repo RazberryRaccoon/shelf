@@ -29,7 +29,12 @@ import kotlin.math.sin
 class Home(private val ctx: Context, private val stage: Stage, private val board: Board, private val backdrop: Backdrop,
            private val games: Games, private val carts: Carts, private val lookup: Meta, private val actions: Actions) : GamePage.Host {
     interface Actions { fun play(g: Game); fun allowStorage(); fun openSettings(); fun openMuseum(sys: String?); fun askText(title: String, value: String, then: (String) -> Unit)
-        fun openDocument(mimes: Array<String>, then: (android.net.Uri?) -> Unit) }
+        fun openDocument(mimes: Array<String>, then: (android.net.Uri?) -> Unit)
+        fun openLibrary()
+        /** The collections card for a game; `changed` true if it was hidden. */
+        fun collectionsCard(g: Game, changed: (Boolean) -> Unit)
+        fun hideGame(g: Game, then: () -> Unit)
+        fun collectionNames(g: Game): List<String> }
 
     private class Slot(val game: Game, var cart: Cart?, var x: Float = ROW_X, var y: Float = 326f, var z: Float = 0f, var px: Float = SMALL, var bright: Float = .72f,
                        var ry: Float = -.2f, var case: Case? = null)
@@ -321,12 +326,13 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
                 "down" -> openPage()
                 "a" -> current()?.let { g -> Sounds.play(Sounds.PICK); if (games.emulatorFor(g) == null) chooseEmulator(g, then = true) else actions.play(g) }
                 "y" -> if (current() != null) { openPage(); page?.customize() }   // straight to Customize shell
+                "x" -> current()?.let { g -> actions.collectionsCard(g) { hidden -> if (hidden) setGames(games.recent()) } }
             }
             "top" -> when (a) {
                 "left" -> if (topI > 0) { topI--; refreshTop(); Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
                 "right" -> if (topI < dock.size) { topI++; refreshTop(); Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
                 "down", "b" -> { zone = "row"; refreshTop(); Sounds.play(Sounds.MOVE) }
-                "a" -> if (topI == 0 || topI == dock.size) actions.openSettings() else if (topI == 3) actions.openMuseum(current()?.sys) else show("${dockNames[topI - 1]} comes to Shelf Native in a later version. The web Shelf has it today.")
+                "a" -> if (topI == 0 || topI == dock.size) actions.openSettings() else if (topI == 3) actions.openMuseum(current()?.sys) else if (topI == 1) actions.openLibrary() else show("${dockNames[topI - 1]} comes to Shelf Native in a later version. The web Shelf has it today.")
             }
         }
     }
@@ -364,6 +370,9 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     override fun askText(title: String, value: String, then: (String) -> Unit) = actions.askText(title, value, then)
     override fun openDocument(mimes: Array<String>, then: (android.net.Uri?) -> Unit) = actions.openDocument(mimes, then)
     override fun cartChanged(g: Game, c: Cart?) { slots.firstOrNull { it.game == g }?.cart = c }
+    override fun collectionsCard(g: Game, changed: (Boolean) -> Unit) = actions.collectionsCard(g, changed)
+    override fun hideGame(g: Game, then: () -> Unit) = actions.hideGame(g, then)
+    override fun collectionNames(g: Game) = actions.collectionNames(g)
     override fun closed(page: GamePage, homeChanged: Boolean) {
         if (this.page === page) this.page = null
         slots.firstOrNull { it.game == page.game }?.let { it.cart?.brightness(it.bright) }

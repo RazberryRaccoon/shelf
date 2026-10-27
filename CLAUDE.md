@@ -50,8 +50,10 @@ that we've learned … and make an Android game launcher that's the best it can 
   straight to a SurfaceView, the page opening without decoding on the main thread; 0.21 the lighting measured with
   Filament's own web build (`tools/lighting-rig`; PBR Neutral, a real key light), the chosen object's glow (`Outline.kt`,
   stencil), Settings in two panes; 0.22 the glow rebuilt (one silhouette drawn into a texture by a view of its own, blurred through its
-  mipmaps, in the console's color: `Outline.kt`, `materials/glow.mat`). Next: the user's notes on 0.22, then the next big
-  feature set (the Library).
+  mipmaps, in the console's color: `Outline.kt`, `materials/glow.mat`). 0.23 the Library (`Library.kt`: two panes,
+  covers in console sections; `Collections.kt`: collections, automatic ones, hidden games with a button code; `Cards.kt`:
+  the collections card, the code pad, `Overlays`). Next: the user's notes on 0.23; pinned collections on Home (place
+  undecided); Spines view once spine art exists; then Apps.
   Next: the Library (see DECISIONS.md and ROADMAP.md). The user paused inspecting the rarer shell colors until they can be seen big (0.3 makes that possible).
   Kotlin is compile-checked locally with the Kotlin 2.4 compiler against `android-all` and Filament's AARs.
 - The Android SDK can't be downloaded in Claude's sandbox (dl.google.com is blocked): compile-check the Java against

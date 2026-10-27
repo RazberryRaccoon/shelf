@@ -91,21 +91,35 @@ The on-screen keyboard is **QWERTY**, with staggered rows like a real keyboard.
 
 ## 6. Library: the shelf of boxes
 
-- **Grid:** 5 columns of closed boxes in a framed panel, with a rail on the left (All games, each console,
-  then Collections: Favorites, In progress, and the user's own). Sort: Recently played, A to Z, Release year.
-- **True relative sizes:** all boxes share one scale, so an N64 box is visibly bigger than a GBA box. Each
-  box is turned slightly so its spine shows.
-- **Flat camera, no perspective.** On the TV, perspective made items near the edges drift and overlap the
-  frame, and the user asked for it to go.
-- **Rows:** the first row starts at the top of the frame. As you move down, the current row centers, with
-  half of the rows above and below visible, faded at the frame's edges. The last row settles near the
-  bottom, leaving room for its title.
-- **Selection:** a soft glow ring that hugs the box's outline and moves with it, brighter toward the
-  top-left light and slowly breathing as a whole. The selected box floats higher above its shadow. Title and
-  details appear under the selected box only. Nothing shows while you're in the rail.
-- **Custom collections:** "+ New collection" with an on-screen keyboard (a physical keyboard also types into
-  it). Y on a collection in the rail offers Rename and Delete. Games are added from the open box with "Add to collection."
-- Y on any box toggles Favorite.
+Built in Shelf Native 0.23 (`Library.kt`, `Collections.kt`, `Cards.kt`), from the vision talked through with the user.
+
+- **Two panes, like Settings.** Left: All games, Favorites, Recently added, Not played yet, Most played (these three
+  fill themselves; Settings › Library turns them off), then Collections (yours, each with its color and count, and
+  "+ New collection"), then Consoles, then Hidden. Moving down the list changes the right pane at once; Right or A goes
+  into it, Left or B comes back, B on the list closes the Library.
+- **Covers (the default view):** the closed boxes, four across, every box at one scale (1.2 layout px per mm), so
+  sizes are true to each other; each turned a little so its spine shows. A heading per console (its color's dot, its
+  name, how many), its games after it: a collection of one series reads console by console. Each console's games in
+  the list's order: A to Z, Recently played, Most played, Release year, or (your collections) Your order. Spines come
+  as a second view once spine art is in.
+- **The chosen box** lifts toward you, turns to face you a little more, glows in its console's color (the 0.22 glow)
+  and the sky's nebula takes that color; its name and when you last played it show under it, nothing under the others.
+  A opens it (the Library slides away and the page opens from the box; back, the Library returns), X its collections
+  card, Y favorite, L1/R1 the previous or next console.
+- **Collections:** a name, a color (eight to choose from), any games; a game can be in many. Adding and taking out:
+  X on any game (Home, the Library) or the Collections tile on its page brings up a card with Favorites and every
+  collection, each with a tick (A ticks, the card stays), "New collection…" and Hide this game. For many at once, Y on a
+  collection › Add games: every game with ticks on the ones in it, A toggles, L1/R1 jump consoles, B done. A new
+  collection goes straight into Add games. Y on a collection also: Arrange (your own order: A picks a game up, the
+  d-pad moves it within its console, A puts it down), Order, Rename, Color, Move up/down the list, Delete (asks; the
+  games stay). Saved in the preferences and in Shelf/Media/collections.json (backups carry it; games are matched by
+  file, or by console and name on another handheld).
+- **Hidden games:** any game can be hidden (its card, or Game settings › Hide this game); it's gone from Home, the
+  Library and every collection. Library › Hidden asks for a code: four presses of the d-pad and A, B, X, Y (dots, never
+  the buttons; Start or Select cancels; a wrong code empties softly). Open until you leave the Library. The first hide
+  chooses the code (twice). Settings › Library: change it (asks for the old one), reset it (doesn't: against snooping,
+  not security), and take Hidden off the Library's list (then Select on the list, then the code).
+- Pinned collections on Home: wanted, place not decided yet.
 
 ## 7. Opening a box: the game page
 

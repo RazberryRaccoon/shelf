@@ -172,6 +172,21 @@ Filament.init(['ibl/ibl_ibl.ktx', 'glow.filamat'], async () => {
     Filament.RenderableManager.Builder(1).boundingBox({ center: [cx, H - cy, 0], halfExtent: [hw, hh, 1] }).culling(false).priority(7).material(0, mi)
       .geometry(0, Filament.RenderableManager$PrimitiveType.TRIANGLES, vb, ib).build(engine, quad);
     scene.addEntity(quad);
+  } else if (SCENE === 'library') {   // Library.kt's grid: a collection with a heading per console, four across, 1 px per mm
+    const BOX = { gba: [123, 123], snes: [174, 121], genesis: [128, 197], gb: [123, 123], gbc: [123, 123], n64: [174, 121], ds: [135, 122] };
+    const list = (q.get('list') ?? 'gba:5,gbc:2,snes:3').split(',').map(t => t.split(':'));
+    const SC = 1.2, GX = 360, CW = 236, TOP = 154, HEAD = 58, UNDER = 66, RY = .2; let y = 0; const heads = [], cellsOut = [];
+    for (const [sys, n] of list) {
+      heads.push([sys, +n, y]); y += HEAD; const [w, h] = BOX[sys].map(v => v * SC);
+      for (let i = 0; i < +n; i += 4) { for (let c = 0; c < Math.min(4, +n - i); c++) cellsOut.push([sys, GX + CW / 2 + c * CW, y + h / 2, w, h]); y += h + UNDER; }
+      y += 14;
+    }
+    let k = 0;
+    for (const [sys, x, cy, w, h] of cellsOut) {
+      const a = await load(`case-${sys}.glb`); const chosen = k === +(q.get('sel') ?? 1);
+      placeModel(a, x, TOP + cy - (chosen ? 14 : 0), RY * (chosen ? .5 : 1), -.06, Math.max(w, h) * (chosen ? 1.06 : 1), false); k++;
+    }
+    window.libHeads = heads.map(([sys, n, hy]) => [sys, n, TOP + hy + 34]); window.libCells = cellsOut.map(c => [c[1], TOP + c[2], c[4]]);
   } else if (SCENE === 'none') {
   } else if (SCENE === 'consoles') {
     const list = ORDER.slice(0, 10);
