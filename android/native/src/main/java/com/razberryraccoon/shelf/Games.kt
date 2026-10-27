@@ -102,7 +102,7 @@ class Games(private val ctx: Context) {
     }
 
     /** Home's row: what you played most recently first, then everything else by name (minus games you hid from Home). */
-    fun recent(): List<Game> = all.filter { onHome(it) }.sortedWith(compareByDescending<Game> { lastPlayed(it) }.thenBy { it.title.lowercase() })
+    fun recent(): List<Game> = all.filter { onHome(it) && !prefs.getBoolean("hidden:" + it.path, false) }.sortedWith(compareByDescending<Game> { lastPlayed(it) }.thenBy { it.title.lowercase() })
 
     fun lastPlayed(g: Game) = prefs.getLong("played:" + g.path, 0L)
     fun timesPlayed(g: Game) = prefs.getInt("plays:" + g.path, 0)

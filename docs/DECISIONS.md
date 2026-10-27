@@ -292,6 +292,15 @@ Summarized from the first part of the conversation; the full transcript is kept 
   further up, pan speed); Inside closer, and "as [clipping] starts to happen, the shell pieces float away from the
   board". The user thought the DS box should be a little wider than tall; the measured case (Wikipedia's keep-case
   table, retail cases) is a little taller than wide, so the box follows the measurements and box art is cropped to fill.
+- The Library (the user, before 0.23): collections "need to work really well… easy to add or remove games to a
+  collection, games can be in multiple collections, custom collection names"; hide any game behind "a 4 digit password
+  lock… it should use the 4 dpad buttons and 4 face buttons… reset this password in settings without putting in the
+  password; this isn't meant to be really secure, just prevent snooping"; the web Library "feels like a local minima".
+  Claude proposed two panes like Settings, X for a game's collections card, Add games for many at once, automatic
+  collections, Covers and Spines views. The user: Covers by default ("spines will be more interesting once I have
+  proper spine art"); X card plus "a button on the per game page"; pinned collections on Home "somewhere", place not
+  decided; Hidden listed by default, "hiding the hidden" optional and off; automatic collections "a great idea"; and
+  "within a collection, I want it to be sorted by platform", a header per console.
 - After 0.21 (the user): "All of the new lighting looks GREAT!", "The settings revamp is excellent too"; the selection
   outline "is really ugly. It looks like its made up of layers of glowing paper": "spend this whole next pass reworking
   just that feature/visual effect and make it look good. Add charm and details, like it glowing the console's color."

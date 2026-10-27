@@ -52,6 +52,29 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
+## What's in version 0.23
+
+**The Library**, as talked through with the user (SPEC §6):
+- **Two panes:** your lists on the left (All games, Favorites, Recently added, Not played yet, Most played, your
+  collections, each console, Hidden); the chosen list's boxes on the right, four across at their real relative sizes.
+  There's a heading per console with its games after it, in the list's order (A to Z, recently played, most played,
+  release year, or your own).
+- **The chosen box** lifts, turns toward you and glows in its console's color, and the sky takes that color; its name
+  and when you last played it show under it. A opens its page from the box; X brings up its collections card; Y makes
+  it a favorite; L1/R1 jump a console.
+- **Collections:**
+  - X on any game (Home or the Library), or the new Collections tile on a game's page (where Favorite was; Y still
+    makes it a favorite), ticks it in and out of Favorites and each collection, or starts a new one.
+  - Y on a collection: Add games (every game, A ticks), Arrange (pick a game up and move it), Order, Rename, Color
+    (eight), Move, Delete.
+  - A new collection goes straight into Add games.
+  - Collections go into media backups.
+- **Hidden games:** hide any game (its card, or Game settings); Library › Hidden opens with a four-press code of the
+  d-pad and A, B, X, Y. Settings › Library changes or resets the code, can take Hidden off the list (then Select on the
+  list opens it), and turns the automatic collections off.
+- **Small touches:** boxes arrive with a little rise as they load in; the ticks pop as you tap them; a wrong code fades
+  out softly instead of shaking.
+
 ## What's in version 0.22
 
 The user's note on 0.21: the lighting and Settings are great, but the glow around what's chosen "looks like its made up of

@@ -589,6 +589,21 @@ meter now adds FrameMetrics to confirm it before the bigger change (the backdrop
 the screen). The Spines style's earlier render had shown a grey edge taken for the spine; the user saw it was the
 opening edge, and a coloured test spine in the new render confirms the fix.
 
+**0.23: the Library.** Built from the talked-through vision (SPEC §6). Choices along the way:
+- Boxes are made only near the screen: art read on a background thread, at most one box built per frame, and let go
+  well off screen. Each one rises in as it arrives.
+- One shared overlay stack (`Overlays`) for the new cards and the code pad, so they work over Home, the Library and a
+  game's page alike.
+- Hidden games are a separate preference from "Show on Home", and hidden ones are kept out of Home's row.
+- Collections are mirrored into Shelf/Media so the media backup carries them. Entries keep the console and title too,
+  for restoring on another handheld.
+- A preview in the lighting rig (the `library` scene: the real case models at the Library's sizes and spacing) showed
+  1 px/mm left the small boxes lost in their columns, so 1.2.
+- Options learned to cut long names short before a count.
+
+Not tested on the device: building a box per frame may still hitch on the Retroid. If so, instanced models are the
+next step.
+
 **0.22: the glow rebuilt.** The user: the stencil outline "looks like its made up of layers of glowing paper". The cause:
 the grown copy of the model was every part of it (shell halves, board, chips, label), each translucent, each grown from
 the box's centre, all drawn without a depth test, so every part added its own sheet of glow with its own edges. Now
