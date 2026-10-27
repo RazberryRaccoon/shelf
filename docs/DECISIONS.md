@@ -292,6 +292,13 @@ Summarized from the first part of the conversation; the full transcript is kept 
   further up, pan speed); Inside closer, and "as [clipping] starts to happen, the shell pieces float away from the
   board". The user thought the DS box should be a little wider than tall; the measured case (Wikipedia's keep-case
   table, retail cases) is a little taller than wide, so the box follows the measurements and box art is cropped to fill.
+- After 0.20 (the user): "Goddamn, whatever you did worked incredibly!"; "the lighting feels better", so "do a pass
+  of that through all the models and pick whatever values for the light angle and brightness and stuff looks best"
+  ("make it shine. Check all materials"); when choosing the cartridge or manual, "some sort of additional outline or
+  selector that highlights the selection" on top of the lift ("both of those are good"); Settings with "the
+  categories/submenus on the left while the individual settings appear on the right, rather than clicking into a menu
+  and it fully replaces the previous screen". "We're getting really close to moving on to the next big feature set
+  from the proof of concept."
 - After 0.19 (the user's readings): Android's "send" 14–16 ms a frame, half the frames late, 100–200+ ms spikes
   opening a game's page. The user chose "Rebuild the drawing": the background, its picture and the shadows drawn by
   the 3D engine, the 3D straight to the screen, the panels as they are, everything looking the same, and 2× smoothing

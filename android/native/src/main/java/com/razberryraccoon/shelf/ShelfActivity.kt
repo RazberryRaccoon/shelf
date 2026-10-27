@@ -67,7 +67,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         stage = Stage(this, surface)
         backdrop = Backdrop(this, stage)
         games = Games(this)
-        stage.setLook(games.lightEnv, games.lightExposure, games.lightKey)
+        stage.setLook(games.lightEnv, games.lightBright, games.lightKey)
         stage.quality(games.smoothness); backdrop.lite = games.smoothness == 2
         Sounds.init(this, games.sounds)
         carts = Carts(stage, Shells(this))

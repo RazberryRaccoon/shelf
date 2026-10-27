@@ -38,13 +38,27 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         fun artChanged()
     }
 
-    private enum class Step { WELCOME, WHO, GAMES, EMUS, DONE, MENU, LIGHT, SAVED, ART, MEDIA, SOURCE }
-    private var step = if (settings) Step.MENU else Step.WELCOME
+    private enum class Step { WELCOME, WHO, GAMES, EMUS, DONE, HOME, PAGES, LIGHT, MEDIA, SOURCE, SAVED, SYSTEM }
+    private var step = if (settings) Step.WHO else Step.WELCOME
     private val flow = listOf(Step.WELCOME, Step.WHO, Step.GAMES, Step.EMUS, Step.DONE)
 
-    // the panel stacks its parts top to bottom, so a long line of text pushes the list down instead of covering it
-    private val panel = android.widget.LinearLayout(ctx).apply { orientation = android.widget.LinearLayout.VERTICAL; background = round(Theme.panel, 33f, Theme.line); setPadding(48, 40, 48, 26)
-        clipToPadding = false }   // the list reaches into the side padding, so its focus ring isn't cut off
+    // Settings is two panes in one frame: its sections down the left, the chosen section's settings on the right, which
+    // change as you move down the sections (nothing replaces the whole screen). First-run setup uses the right pane alone.
+    private class Section(val step: Step, val name: String)
+    private val sections = listOf(Section(Step.WHO, "You"), Section(Step.GAMES, "Games"), Section(Step.EMUS, "Emulators"),
+        Section(Step.HOME, "Home"), Section(Step.PAGES, "Game pages"), Section(Step.LIGHT, "Lighting"), Section(Step.MEDIA, "Media"),
+        Section(Step.SAVED, "Saved colors"), Section(Step.SYSTEM, "System"))
+    private val frame = android.widget.LinearLayout(ctx).apply { orientation = android.widget.LinearLayout.HORIZONTAL; background = round(Theme.panel, 33f, Theme.line)
+        setPadding(if (settings) 30 else 48, 40, 48, 26); clipToPadding = false }
+    private val side = android.widget.LinearLayout(ctx).apply { orientation = android.widget.LinearLayout.VERTICAL; clipToPadding = false }
+    private val sideTitle = text(20f, Fonts.bold, Theme.accentOf(null)).apply { letterSpacing = .08f; text = "SETTINGS" }
+    private val cats = Options(ctx).apply { compact = true; keep = true }
+    private val divider = View(ctx).apply { setBackgroundColor(Theme.line) }
+    /** Which pane has the focus in Settings: the sections (left) or the settings (right). */
+    private var inSide = settings
+    // the right pane stacks its parts top to bottom, so a long line of text pushes the list down instead of covering it
+    private val panel = android.widget.LinearLayout(ctx).apply { orientation = android.widget.LinearLayout.VERTICAL
+        clipToPadding = false; clipChildren = false }   // the list reaches into the side padding, so its focus ring isn't cut off
     private val label = text(20f, Fonts.bold, Theme.accentOf(null)).apply { letterSpacing = .08f }
     private val title = text(44f, Fonts.display, Theme.fg)
     private val lead = text(23f, Fonts.body, Theme.fg2).apply { setLineSpacing(0f, 1.3f); maxLines = 4; ellipsize = TextUtils.TruncateAt.END }
@@ -60,8 +74,9 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
     private var cycle = 0f
     private var time = 0f
     // the panel fills the left, a little in from the edges; the cartridge floats in the middle of what's left
-    private val PX = 34; private val PY = 34; private val PW = 812; private val PH = 682
+    private val PX = 34; private val PY = 34; private val PW = if (settings) 930 else 812; private val PH = 682
     private val cx = (PX + PW + Stage.W) / 2f; private val cy = Stage.H / 2f - 20f
+    private val cartSize = if (settings) 235f else 300f
     private val order = listOf("gba", "snes", "n64", "gb", "nes", "ds", "genesis", "gbc", "psp", "ps1", "android")
     private var shownCount = 0f   // the found-games count, counting up
     // Settings › Media: the source being set up, and how many games are missing each kind (counted when Media opens)
@@ -70,7 +85,17 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
     private val looks = ConsoleLooks(ctx)   // your console colors (Your saved colors): above init, which fills the menu with their count
 
     init {
-        board.put(panel, PX, PY, PW, PH)
+        board.put(frame, PX, PY, PW, PH)
+        frame.clipChildren = false
+        if (settings) {
+            side.addView(sideTitle, android.widget.LinearLayout.LayoutParams(-1, -2).apply { leftMargin = 12 })
+            side.addView(cats, android.widget.LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = 26; leftMargin = -30; rightMargin = -30 })
+            frame.addView(side, android.widget.LinearLayout.LayoutParams(232, -1))
+            frame.addView(divider, android.widget.LinearLayout.LayoutParams(2, -1).apply { leftMargin = 22; rightMargin = 34; topMargin = 6; bottomMargin = 10 })
+            cats.rows = sections.map { Options.Row("section", it.name, tag = it.step) }
+            cats.onFocus = { val st = cats.current()?.tag as? Step; if (st != null && st != step) { Sounds.play(Sounds.MOVE); show(st, quick = true) } }
+        }
+        frame.addView(panel, android.widget.LinearLayout.LayoutParams(0, -1, 1f))
         val lp = { top: Int -> android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = top } }
         panel.addView(label, lp(0))
         panel.addView(title, lp(8))
@@ -78,23 +103,35 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         panel.addView(options, android.widget.LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = 18; leftMargin = -30; rightMargin = -30 })   // the list fills what's left
         panel.addView(dots, android.widget.LinearLayout.LayoutParams(-1, 20).apply { topMargin = 6 })
         title.maxLines = 1; title.ellipsize = TextUtils.TruncateAt.END
-        options.onFocus = { refreshShowcase() }
+        options.onFocus = { refreshShowcase(); preview() }
         show(step)
+        focusSide(settings)
     }
+
+    /** Moves the focus between Settings' two panes. */
+    private fun focusSide(on: Boolean) {
+        inSide = on
+        cats.active = on; options.active = !on || !settings
+        cats.invalidate(); options.invalidate(); preview()
+    }
+
+    /** While the Home picture's settings are chosen, the picture shows over everything else's fading, so changes can be seen. */
+    private fun preview() { backdrop.previewArt = step == Step.HOME && !inSide && options.current()?.key?.startsWith("art") == true }
 
     // ---------- pages ----------
 
-    private fun show(s: Step) {
+    private fun show(s: Step, quick: Boolean = false) {
         step = s
-        backdrop.previewArt = s == Step.ART
         if (s == Step.MEDIA) { count(); MediaJob.onChange = { if (step == Step.MEDIA) { if (!MediaJob.running) count(); fill() } } }
         options.reset()
         fill()
-        dots.visibility = if (settings) View.INVISIBLE else View.VISIBLE
+        dots.visibility = if (settings) View.GONE else View.VISIBLE
         dots.at = flow.indexOf(s); dots.invalidate()
-        // the page rises in: label, title, text, then the options, a beat apart
-        views.forEachIndexed { k, v -> v.alpha = 0f; v.translationY = 18f; v.animate().alpha(1f).translationY(0f).setStartDelay(k * 70L).setDuration(420).setInterpolator(DecelerateInterpolator(1.6f)).start() }
-        refreshShowcase()
+        // the page rises in: label, title, text, then the options, a beat apart; moving down Settings' sections, the right
+        // pane changes with a shorter, quieter version of it, so it keeps up with the d-pad
+        views.forEachIndexed { k, v -> v.animate().cancel(); v.alpha = 0f; v.translationY = if (quick) 8f else 18f
+            v.animate().alpha(1f).translationY(0f).setStartDelay(k * (if (quick) 25L else 70L)).setDuration(if (quick) 220 else 420).setInterpolator(DecelerateInterpolator(1.6f)).start() }
+        refreshShowcase(); preview()
     }
 
     private fun page(l: String, t: String, d: String) {
@@ -119,17 +156,16 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                 page(if (settings) "Settings" else "Step 1 of 3", "Who’s playing?", "Your name and color show at the top of the screen.")
                 rows += Options.Row("name", "Your name", value = games.name.ifEmpty { "Choose" })
                 Theme.profile.forEachIndexed { k, _ -> rows += Options.Row("color", Theme.profileNames[k], avatar = k, check = games.color == k, tag = k) }
-                rows += Options.Row("next", done, primary = true)
-                if (!settings) rows += Options.Row("back", "Back")
+                if (!settings) { rows += Options.Row("next", done, primary = true); rows += Options.Row("back", "Back") }
             }
             Step.GAMES -> if (!host.hasStorage()) {
                 page(if (settings) "Settings" else "Step 2 of 3", "Let Shelf find your games", "Android asks you to allow access to all files. Switch it on for Shelf Native, then come back here.")
                 rows += Options.Row("storage", "Allow access to my files", primary = true)
                 if (!settings) { rows += Options.Row("next", "Skip for now"); rows += Options.Row("back", "Back") }
             } else {
-                page(if (settings) "Games folders" else "Step 2 of 3", "Found ${shownCount.toInt()} ${if (n == 1) "game" else "games"}",
+                page(if (settings) "Settings" else "Step 2 of 3", "Found ${shownCount.toInt()} ${if (n == 1) "game" else "games"}",
                     "Shelf looks in ROMs folders on internal storage and SD cards. Pick the folder for any console it missed, or the one folder they’re all in.")
-                rows += Options.Row("next", done, primary = true)
+                if (!settings) rows += Options.Row("next", done, primary = true)
                 val roots = games.roots
                 rows += Options.Row("root", "My main games folder", value = if (roots.isEmpty()) "Choose" else "Change", sub = roots.firstOrNull()?.let { prettyPath(it) } ?: "One folder with a folder for each console inside")
                 val counts = games.counts()
@@ -143,10 +179,10 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             Step.EMUS -> {
                 val counts = games.counts()
                 val list = Games.NAMES.keys.filter { (counts[it] ?: 0) > 0 }.ifEmpty { Games.NAMES.keys.toList() }
-                page(if (settings) "Emulators" else "Step 3 of 3", "How your games start",
+                page(if (settings) "Settings" else "Step 3 of 3", "How your games start",
                     if (games.installed.isEmpty()) "No emulators found yet. RetroArch, from the Play Store, plays most of these consoles; you can choose here any time."
                     else "Each console’s games open in an emulator. Shelf chose from what’s installed; press A to change one.")
-                rows += Options.Row("next", done, primary = true)
+                if (!settings) rows += Options.Row("next", done, primary = true)
                 for (k in list) {
                     val chosen = games.emulator(k); val e = chosen ?: games.suggestion(k)
                     rows += Options.Row("emu", Games.NAMES[k] ?: k, value = e ?: "Choose", sub = when { e == null -> "Nothing installed for it yet"; chosen == null -> "Suggested"; else -> "" }, tag = k, dot = Theme.accentOf(k))
@@ -160,41 +196,11 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                 rows += Options.Row("finish", "Let’s play", primary = true)
                 rows += Options.Row("back", "Back")
             }
-            Step.MENU -> {
-                page("Settings", "Settings", "More settings come over from Shelf as the native app grows.")
-                rows += Options.Row("go", "Games folders", value = "${games.all.size} games", tag = Step.GAMES)
-                rows += Options.Row("go", "Emulators", tag = Step.EMUS)
-                rows += Options.Row("go", "Your name and color", value = games.name, tag = Step.WHO)
-                rows += Options.Row("go", "Lighting", value = "Brightness of the 3D", tag = Step.LIGHT)
-                rows += Options.Row("go", "Home picture", value = Art.KINDS.firstOrNull { it.first == games.artKind }?.second ?: "", sub = "The picture of the selected game behind Home", tag = Step.ART)
-                rows += Options.Row("go", "Media", value = Media.SOURCES.count { Media.connected(it.id, games.artKeys) }.let { "$it of ${Media.SOURCES.size} sources" },
-                    sub = "Where box art, pictures, videos, details and manuals come from; what’s missing", tag = Step.MEDIA)
-                rows += Options.Row("go", "Your saved colors", value = "${carts.shells.all.size + looks.count()}", sub = "Shells and console colors you’ve made, to delete", tag = Step.SAVED)
-                rows += Options.Row("pageview", "A game’s page opens on", value = "‹  ${PAGE_VIEWS[games.pageView]}  ›", sub = "On the page itself, L2 and R2 go through all three")
-                rows += Options.Row("homeboxes", "Home shows", value = "‹  ${if (games.homeBoxes) "Boxes" else "Cartridges"}  ›", sub = "Your games on Home as cartridges, or as their closed boxes")
-                rows += Options.Row("homescroll", "Home scrolling", value = "‹  ${Home.STYLES[games.homeScroll.coerceIn(0, Home.STYLES.size - 1)]}  ›", sub = SCROLL_SUB[games.homeScroll.coerceIn(0, SCROLL_SUB.size - 1)])
-                rows += Options.Row("labelfinish", "Label finish", value = "‹  ${Labels.NAMES[games.labelFinish]}  ›", sub = "Every game's label, unless one has its own (in its Customize shell)")
-                rows += Options.Row("launchfx", "Starting a game ends with", value = "‹  ${Curtain.NAMES[games.launchFx.coerceIn(0, Curtain.NAMES.size - 1)]}  ›", sub = "How the screen goes to black after the game goes in (and opens again when you come back)")
-                rows += Options.Row("smooth", "Smoothness", value = "‹  ${SMOOTH[games.smoothness]}  ›", sub = SMOOTH_SUB[games.smoothness])
-                rows += Options.Row("fps", "Show frame rate", value = if (games.showFps) "On" else "Off", sub = "A small meter in the top left: frames per second, and which part is slow")
-                rows += Options.Row("sounds", "Sounds", value = if (games.sounds) "On" else "Off", sub = "Soft clicks and chimes as you move around")
-                rows += Options.Row("again", "Run first-time setup again")
-                rows += Options.Row("close", "Done", primary = true)
-            }
-            Step.SAVED -> {
-                page("Settings", "Your saved colors", "The shells and console colors you’ve made. A deletes one; cartridges and consoles wearing it go back to their standard colors.")
-                rows += Options.Row("close-saved", "Done", primary = true)
-                val shells = carts.shells.all
-                if (shells.isNotEmpty()) rows += Options.Row(Options.HEAD, "Cartridge shells")
-                shells.forEach { rows += Options.Row("del-shell", it.name, sub = Materials.of(it.material).name, dot = it.color, tag = it) }
-                val mine = Games.NAMES.keys.flatMap { sys -> looks.all(sys).map { sys to it } }
-                if (mine.isNotEmpty()) rows += Options.Row(Options.HEAD, "Console colors")
-                mine.forEach { (sys, l) -> rows += Options.Row("del-look", l.name, sub = Games.NAMES[sys] ?: sys, dot = l.parts["shell"]?.color, tag = l) }
-                if (shells.isEmpty() && mine.isEmpty()) rows += Options.Row("none", "Nothing saved yet", sub = "Make shells in a game’s Customize, console colors in the Museum")
-            }
-            Step.ART -> {
-                page("Settings", "Home picture", "Left and right change a value; it shows behind this page as you go.")
-                rows += Options.Row("close-art", "Done", primary = true)
+            Step.HOME -> {
+                page("Settings", "Home", "How your games line up, and the picture behind them. Left and right change a value; the picture shows behind as you go.")
+                rows += Options.Row("homeboxes", "Home shows", value = "‹  ${if (games.homeBoxes) "Boxes" else "Cartridges"}  ›", sub = "Your games as cartridges, or as their closed boxes")
+                rows += Options.Row("homescroll", "Scrolling", value = "‹  ${Home.STYLES[games.homeScroll.coerceIn(0, Home.STYLES.size - 1)]}  ›", sub = SCROLL_SUB[games.homeScroll.coerceIn(0, SCROLL_SUB.size - 1)])
+                rows += Options.Row(Options.HEAD, "The picture behind")
                 rows += Options.Row("art", "Picture", value = "‹  ${Art.KINDS.firstOrNull { it.first == games.artKind }?.second}  ›", sub = "Which picture of the selected game (another if it doesn’t have that one)", tag = "kind")
                 rows += Options.Row("art", "Brightness", value = "${(games.artBright * 100).roundToInt()}%", sub = "How bright it is, behind everything", tag = "bright")
                 rows += Options.Row("art", "Height", value = "${((Stage.H - games.artTop) / Stage.H * 100).roundToInt()}% of the screen", sub = "How far up the screen it reaches", tag = "top")
@@ -203,9 +209,32 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                 rows += Options.Row("art", "Pan speed", value = if (games.artPan == 0f) "Still" else "${"%.2g".format(games.artPan)}×", sub = "How fast it drifts across", tag = "pan")
                 rows += Options.Row("art-reset", "Back to the starting look")
             }
+            Step.PAGES -> {
+                page("Settings", "Game pages", "How a game’s page first shows it, how labels look, and how starting a game ends.")
+                rows += Options.Row("pageview", "A page opens on", value = "‹  ${PAGE_VIEWS[games.pageView]}  ›", sub = "On the page itself, L2 and R2 go through all three")
+                rows += Options.Row("labelfinish", "Label finish", value = "‹  ${Labels.NAMES[games.labelFinish]}  ›", sub = "Every game's label, unless one has its own (in its Customize shell)")
+                rows += Options.Row("launchfx", "Starting a game ends with", value = "‹  ${Curtain.NAMES[games.launchFx.coerceIn(0, Curtain.NAMES.size - 1)]}  ›", sub = "How the screen goes to black after the game goes in")
+            }
+            Step.SYSTEM -> {
+                page("Settings", "System", "How smooth it runs, how it sounds, and starting over.")
+                rows += Options.Row("smooth", "Smoothness", value = "‹  ${SMOOTH[games.smoothness]}  ›", sub = SMOOTH_SUB[games.smoothness])
+                rows += Options.Row("fps", "Show frame rate", value = if (games.showFps) "On" else "Off", sub = "A small meter in the top left: frames per second, and which part is slow")
+                rows += Options.Row("sounds", "Sounds", value = if (games.sounds) "On" else "Off", sub = "Soft clicks and chimes as you move around")
+                rows += Options.Row("again", "Run first-time setup again")
+                rows += Options.Row("none", "Version", value = try { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName } catch (e: Exception) { "" })
+            }
+            Step.SAVED -> {
+                page("Settings", "Your saved colors", "The shells and console colors you’ve made. A deletes one; cartridges and consoles wearing it go back to their standard colors.")
+                val shells = carts.shells.all
+                if (shells.isNotEmpty()) rows += Options.Row(Options.HEAD, "Cartridge shells")
+                shells.forEach { rows += Options.Row("del-shell", it.name, sub = Materials.of(it.material).name, dot = it.color, tag = it) }
+                val mine = Games.NAMES.keys.flatMap { sys -> looks.all(sys).map { sys to it } }
+                if (mine.isNotEmpty()) rows += Options.Row(Options.HEAD, "Console colors")
+                mine.forEach { (sys, l) -> rows += Options.Row("del-look", l.name, sub = Games.NAMES[sys] ?: sys, dot = l.parts["shell"]?.color, tag = l) }
+                if (shells.isEmpty() && mine.isEmpty()) rows += Options.Row("none", "Nothing saved yet", sub = "Make shells in a game’s Customize, console colors in the Museum")
+            }
             Step.MEDIA -> {
                 page("Settings", "Media", "Where Shelf finds each game’s box art, pictures, video, details and manual. The free sources are always on; the others need a free account or key, and each one shows how to get it.")
-                rows += Options.Row("close-media", "Done", primary = true)
                 rows += Options.Row(Options.HEAD, "Your games")
                 val job = MediaJob
                 rows += if (job.running) Options.Row("media-stop", "Finding missing media…", value = "Stop", sub = job.status)
@@ -227,7 +256,6 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             Step.SOURCE -> {
                 val s = Media.source(srcId)
                 page("Settings › Media", s.name, s.steps.mapIndexed { i, t -> if (s.steps.size > 1) "${i + 1}.  $t" else t }.joinToString("\n"))
-                rows += Options.Row("close-source", "Done", primary = true)
                 val mine = games.artKeys.optJSONObject(s.id) ?: org.json.JSONObject()
                 for (f in s.fields) {
                     val v = mine.optString(f.key)
@@ -237,14 +265,13 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             }
             Step.LIGHT -> {
             page("Settings", "Lighting", "Press left or right to change a value, and watch the cartridge. Your choice is saved.")
-            rows += Options.Row("close-light", "Done", primary = true)
             rows += Options.Row("light", "Environment", value = "%.2f".format(games.lightEnv), sub = "The studio around the cartridges: reflections and fill light", tag = "env")
-            rows += Options.Row("light", "Exposure", value = "%.2f".format(games.lightExposure), sub = "Everything brighter or darker", tag = "exposure")
-            rows += Options.Row("light", "Key light", value = "%.2f".format(games.lightKey), sub = "The light from the upper left that makes highlights", tag = "key")
-            rows += Options.Row("light-reset", "Back to the starting values", value = "%.2f · %.2f · %.2f".format(Look.ENV, Look.EXPOSURE, Look.KEY))
+            rows += Options.Row("light", "Brightness", value = "%.2f".format(games.lightBright), sub = "Everything brighter or darker", tag = "bright")
+            rows += Options.Row("light", "Key light", value = "%.1f".format(games.lightKey), sub = "The light from the upper left that shapes things and makes highlights", tag = "key")
+            rows += Options.Row("light-reset", "Back to the starting values", value = "%.2f · %.2f · %.1f".format(Look.ENV, Look.BRIGHT, Look.KEY))
             }
         }
-        if (step != Step.WELCOME) title.setTextSize(TypedValue.COMPLEX_UNIT_PX, 44f)
+        if (step != Step.WELCOME) title.setTextSize(TypedValue.COMPLEX_UNIT_PX, if (settings) 38f else 44f)
         options.rows = rows
         options.invalidate()
     }
@@ -253,6 +280,13 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
 
     fun input(a: String) {
         picker?.let { it.input(a); return }
+        if (settings && inSide) return when (a) {
+            "up" -> { if (!cats.move(-1)) Sounds.play(Sounds.BUMP); Unit }
+            "down" -> { if (!cats.move(1)) Sounds.play(Sounds.BUMP); Unit }
+            "right", "a" -> if (options.rows.any { it.key != Options.HEAD }) { Sounds.play(Sounds.PICK); focusSide(false) } else Sounds.play(Sounds.BUMP)
+            "b" -> back()
+            else -> Unit
+        }
         val r = options.current()
         if (r?.key == "light" && (a == "left" || a == "right")) return adjustLight(r.tag as String, if (a == "left") -1 else 1)
         if (r?.key == "art" && (a == "left" || a == "right" || a == "a")) return adjustArt(r.tag as String, if (a == "left") -1 else 1)
@@ -275,18 +309,20 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         when (a) {
             "up" -> Sounds.play(if (options.move(-1)) Sounds.MOVE else Sounds.BUMP)
             "down" -> Sounds.play(if (options.move(1)) Sounds.MOVE else Sounds.BUMP)
+            "left" -> if (settings) back()
             "b" -> back()
             "a" -> { val r = options.current() ?: return; Sounds.play(Sounds.PICK); act(r) }
         }
     }
 
     private fun back() = when {
-        settings && step != Step.MENU -> show(Step.MENU)
+        settings && step == Step.SOURCE -> { show(Step.MEDIA); options.focus(options.rows.indexOfFirst { it.key == "source" && it.tag == srcId }) }
+        settings && !inSide -> { Sounds.play(Sounds.CLOSE); focusSide(true) }
         settings -> host.finished(this)
         flow.indexOf(step) > 0 -> show(flow[flow.indexOf(step) - 1])
         else -> Unit
     }
-    private fun next() { if (settings) show(Step.MENU) else show(flow[flow.indexOf(step) + 1]) }
+    private fun next() { if (!settings) show(flow[flow.indexOf(step) + 1]) }
 
     private fun act(r: Options.Row) {
         when (r.key) {
@@ -305,11 +341,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             } }
             "emu" -> chooseEmulator(r.tag as String)
             "finish" -> { keepSuggestions(); games.setupDone = true; host.finished(this) }
-            "go" -> show(r.tag as Step)
             "again" -> { games.setupDone = false; host.finished(this) }
-            "close" -> host.finished(this)
-            "close-light", "close-saved", "close-art", "close-media" -> show(Step.MENU)
-            "close-source" -> show(Step.MEDIA)
             "source" -> { srcId = r.tag as String; show(Step.SOURCE) }
             "field" -> (r.tag as Media.Field).let { f ->
                 val all = games.artKeys; val mine = all.optJSONObject(srcId) ?: org.json.JSONObject().also { all.put(srcId, it) }
@@ -341,7 +373,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             "fps" -> { games.showFps = !games.showFps; fill() }
             "sounds" -> { games.sounds = !games.sounds; Sounds.enabled = games.sounds; Sounds.play(Sounds.PICK); fill() }
             "art-reset" -> { games.artKind = "shot"; games.artBright = Art.BRIGHT; games.artTop = Art.TOP; games.artFade = Art.FADE; games.artFadeType = Art.DOTS; games.artPan = Art.PAN; host.artChanged(); fill() }
-            "light-reset" -> { games.lightEnv = Look.ENV; games.lightExposure = Look.EXPOSURE; games.lightKey = Look.KEY; applyLight(); fill() }
+            "light-reset" -> { games.lightEnv = Look.ENV; games.lightBright = Look.BRIGHT; games.lightKey = Look.KEY; applyLight(); fill() }
         }
     }
 
@@ -361,12 +393,12 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         val step = .05f * d
         when (which) {
             "env" -> games.lightEnv = (games.lightEnv + step).coerceIn(0f, 3f)
-            "exposure" -> games.lightExposure = (games.lightExposure + step).coerceIn(.05f, 3f)
-            "key" -> games.lightKey = (games.lightKey + step).coerceIn(0f, 4f)
+            "bright" -> games.lightBright = (games.lightBright + step).coerceIn(.2f, 3f)
+            "key" -> games.lightKey = (games.lightKey + step * 2).coerceIn(0f, 10f)
         }
         applyLight(); fill()
     }
-    private fun applyLight() = stage.setLook(games.lightEnv, games.lightExposure, games.lightKey)
+    private fun applyLight() = stage.setLook(games.lightEnv, games.lightBright, games.lightKey)
 
     private fun askName(then: () -> Unit) = host.askText("Your name", games.name) { v -> if (v.isNotBlank()) games.name = v.trim().take(24); then() }
 
@@ -439,10 +471,10 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         if (swapK == 0f) { showcase[shown]?.place(-2000f, 0f, 0f, 0f, 0f, 1f); shown = want; backdrop.mood(Theme.accentOf(want)) }
         val cart = shown?.let { s -> showcase.getOrPut(s) { carts.make(s, Games.NAMES[s] ?: "Android games", null).also { carts.refinish(it, Games.NAMES[s] ?: "Android games", games.labelFinish) } } }
         val k = Backdrop.ease(swapK)
-        cart?.place(cx, cy + sin(time * .8f) * 4f, 30f, time * .5f, -.12f, 300f * (.6f + .4f * k))
+        cart?.place(cx, cy + sin(time * .8f) * 4f, 30f, time * .5f, -.12f, cartSize * (.6f + .4f * k))
         cart?.brightness(.4f + .6f * k)
         backdrop.shadows.clear()
-        cart?.let { backdrop.shadows.add(floatArrayOf(cx, cy + 170f, 260f * k, .8f * k)) }
+        cart?.let { backdrop.shadows.add(floatArrayOf(cx, cy + 170f * cartSize / 300f, 260f * cartSize / 300f * k, .8f * k)) }
     }
 
     private fun refreshShowcase() {
@@ -452,7 +484,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
 
     fun destroy() {
         backdrop.previewArt = false
-        board.removeView(panel); picker?.let { board.removeView(it) }
+        board.removeView(frame); picker?.let { board.removeView(it) }
         showcase.values.forEach { it?.destroy() }; showcase.clear()
         backdrop.shadows.clear()
     }
@@ -470,10 +502,14 @@ class Options(ctx: Context) : View(ctx) {
     var onFocus: (() -> Unit)? = null
     /** False while the focus is elsewhere on the screen: the row stays chosen but isn't ringed. */
     var active = true
+    /** Shorter rows (Settings' sections). */
+    var compact = false
+    /** The chosen row stays marked while the focus is elsewhere (Settings' sections, while you're in one). */
+    var keep = false
     private var i = 0
     private var top = 0f
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
-    private fun h(r: Row) = if (r.key == HEAD) 46f else if (r.sub.isNullOrEmpty()) 64f else 80f
+    private fun h(r: Row) = if (r.key == HEAD) 46f else if (compact) 54f else if (r.sub.isNullOrEmpty()) 64f else 80f
     companion object { /** A row that's a section heading: drawn small and skipped over. */ const val HEAD = "head" }
 
     fun reset() { i = rows.indexOfFirst { it.key != HEAD }.coerceAtLeast(0); top = 0f }
@@ -503,13 +539,16 @@ class Options(ctx: Context) : View(ctx) {
                 y += rh + 8; return@forEachIndexed
             }
             p.style = Paint.Style.FILL
-            p.color = when { r.primary -> Theme.accentOf(null); on -> Theme.chip; else -> Color.TRANSPARENT }; c.drawRoundRect(box, 22f, 22f, p)
+            val kept = keep && !active && k == i
+            p.color = when { r.primary -> Theme.accentOf(null); on || kept -> Theme.chip; else -> Color.TRANSPARENT }; c.drawRoundRect(box, 22f, 22f, p)
+            // the section you're in: a short bar in the accent color at its left edge
+            if (kept) { p.color = Theme.accentOf(null); c.drawRoundRect(RectF(box.left + 10, box.top + 15, box.left + 15, box.bottom - 15), 2.5f, 2.5f, p) }
             if (on) { p.style = Paint.Style.STROKE; p.strokeWidth = 2.5f; p.color = Theme.sel; c.drawRoundRect(RectF(box.left - 3, box.top - 3, box.right + 3, box.bottom + 3), 25f, 25f, p); p.style = Paint.Style.FILL }
             var x = 54f
             r.avatar?.let { Theme.drawAvatar(c, x + 16, y + rh / 2, 16f, it); x += 46 }
             r.dot?.let { p.color = it; c.drawCircle(x + 6, y + (if (r.sub.isNullOrEmpty()) rh / 2 else 30f), 6.5f, p); x += 24 }
-            val fg = if (r.primary) Theme.selFg else Theme.fg
-            p.typeface = Fonts.bold; p.textSize = 23f; p.color = fg
+            val fg = if (r.primary) Theme.selFg else if (keep && k != i) Theme.fg2 else Theme.fg
+            p.typeface = Fonts.bold; p.textSize = if (compact) 22f else 23f; p.color = fg
             c.drawText(r.label + if (r.check) "  ✓" else "", x, y + (if (r.sub.isNullOrEmpty()) rh / 2 + 8 else 38f), p)
             r.value?.let { p.typeface = Fonts.bold; p.textSize = 21f; p.color = if (r.primary) fg else Theme.fg2; p.textAlign = Paint.Align.RIGHT; c.drawText(it, width - 54f, y + (if (r.sub.isNullOrEmpty()) rh / 2 + 8 else 38f), p); p.textAlign = Paint.Align.LEFT }
             r.sub?.takeIf { it.isNotEmpty() }?.let { p.typeface = Fonts.body; p.textSize = 18f

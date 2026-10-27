@@ -336,6 +336,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         if (tool != null) { if (spot != null && tk > .66f && !launching) tool.placeMatrix(FloatArray(16).also { android.opengl.Matrix.multiplyMM(it, 0, cart!!.placed, 0, spot, 0) }) else tool.hide() }
         placeBox(x, y, ry, rx, ik)
         if (flow.s > .001f) placeManual(dt)
+        glows(dt)
         cart?.brightness(lerp(1.02f, 1f, k) + .14f * pickFocus * (if (view != 2) 1f else 0f))   // chosen: a little brighter
         if (!launching) cart?.let { c ->
             val big = maxOf(c.style.w, c.style.h)
@@ -555,6 +556,36 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val v = Manual(ctx, f, title.text.toString(), at, marks) { s, m -> games.setManualPlace(game, s, m) }
         v.onClose = { board.removeView(v); if (reader === v) reader = null; if (manualStage == 3) manualStage = 4 }
         reader = v; board.put(v, 0, 0, 1334, 750)
+    }
+
+    // The glow around what's chosen in the box view (Outline): the cartridge, the closed box or the manual. Made the
+    // first time something is chosen, not with every page
+    private var cartGlow: Outline? = null; private var boxGlow: Outline? = null; private var manualGlow: Outline? = null
+    private var glowsMade = false; private var markedCart: Cart? = null
+
+    private fun glows(dt: Float) {
+        val choosing = zone == Zone.BOX && canPick() && !inspecting && !launching && !closing
+        if (choosing && !glowsMade) {
+            glowsMade = true
+            cartGlow = try { Outline.of(stage, carts.file("cart-${game.sys}.glb"), Outline.CART) } catch (e: java.io.IOException) { null }
+            case?.let { c ->
+                boxGlow = try { Outline.of(stage, carts.file("case-${game.sys}.glb"), Outline.BOX) } catch (e: java.io.IOException) { null }
+                Outline.mark(stage, c.asset.entities, Outline.BOX)
+                if (c.hasManual) {
+                    Outline.mark(stage, intArrayOf(c.manualEntity), Outline.MANUAL)
+                    val ms = c.manualSize
+                    manualGlow = Outline.box(stage, Outline.MANUAL).also { it.size(floatArrayOf(0f, 0f, 0f), floatArrayOf(ms[0] / 2, ms[1] / 2, .9f)) }
+                }
+            }
+        }
+        if (!glowsMade) return
+        val ct = cart
+        if (ct !== markedCart) { markedCart?.let { Outline.mark(stage, it.asset.entities, 0) }; ct?.let { Outline.mark(stage, it.asset.entities, Outline.CART) }; markedCart = ct }
+        if (ct != null) cartGlow?.place(ct.current(), choosing && pick == 0 && view != 2, dt) else cartGlow?.hide()
+        case?.let { c ->
+            boxGlow?.place(c.current(), choosing && pick == 0 && view == 2, dt)
+            if (c.hasManual) manualGlow?.place(c.manualNow(), choosing && pick == 1, dt, width = 11f)
+        }
     }
 
     /** The manual's place each frame: in the cover (lifted while chosen), or on its way out to you and back. */
@@ -876,6 +907,8 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
 
     fun destroy() {
         backdrop.shade = 0f
+        cartGlow?.destroy(); boxGlow?.destroy(); manualGlow?.destroy()
+        markedCart?.let { Outline.mark(stage, it.asset.entities, 0) }   // the cartridge goes back to Home
         case?.destroy(); tool?.destroy()
         board.removeView(panel); board.removeView(hint); board.removeView(studioPanel); viewer?.let { board.removeView(it) }; article?.let { board.removeView(it) }; media?.let { board.removeView(it) }; player?.let { board.removeView(it) }; reader?.let { board.removeView(it) }
         stage.turnKey(0f)

@@ -1,0 +1,33 @@
+// The glow around the chosen object on a game's page (Outline.kt): a copy of the object a little bigger in every direction,
+// drawn only where the object itself isn't (the stencil), so it shows as a ring that hugs its outline. Bright and crisp at
+// the object's edge, fading out over `width` layout pixels. Compile with build.sh.
+material {
+    name : outline,
+    shadingModel : unlit,
+    blending : transparent,
+    culling : back,
+    depthWrite : false,
+    depthCulling : false,
+    parameters : [
+        { type : float4, name : color },   // the ring's color, alpha its strength
+        { type : mat4, name : toBox },     // the world to the object's own box: centred, its axes, in layout pixels
+        { type : float3, name : extent },    // the box's half size, in layout pixels
+        { type : float, name : width }     // how far the glow reaches out, in layout pixels
+    ]
+}
+
+fragment {
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        highp vec3 q = (materialParams.toBox * vec4(getUserWorldPosition(), 1.0)).xyz;
+        highp vec3 o = abs(q) - materialParams.extent;
+        // how far outside the object's outline this point is, across its face (not in depth: the copy's front is `width`
+        // in front of the object everywhere, which would read as all the way out)
+        float d = max(o.x, o.y);
+        float e = clamp(d / materialParams.width, 0.0, 1.0);
+        float line = 1.0 - smoothstep(0.1, 0.2, e);          // a crisp line at the edge, about two pixels
+        float glow = (1.0 - e) * (1.0 - e) * (1.0 - e) * 0.3;  // then a soft halo, fading out
+        float a = max(line, glow) * materialParams.color.a;
+        material.baseColor = vec4(materialParams.color.rgb * a, a);
+    }
+}

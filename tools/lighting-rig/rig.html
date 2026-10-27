@@ -1,0 +1,180 @@
+<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;background:#000}canvas{display:block;background:transparent}#bg{position:absolute;left:0;top:0}</style></head><body>
+<div style="position:relative;width:1334px;height:750px"><canvas id=bg width=1334 height=750></canvas><canvas id=c width=1334 height=750 style="position:absolute;left:0;top:0"></canvas></div>
+<script src="filament.js"></script><script>
+// Shelf Native's 3D, rendered by the same Filament (1.75.1, web build) with the app's camera, light and tone mapping.
+const q = new URLSearchParams(location.search);
+const W = 1334, H = 750, FOV = 14, DIST = (H / 2) / Math.tan(FOV / 2 * Math.PI / 180);
+const ENV = +(q.get('env') ?? .5), EXPO = +(q.get('exp') ?? 1), KEY = +(q.get('key') ?? 3.4);
+const KEY_DIR = JSON.parse(q.get('dir') ?? '[0.4,-0.52,-0.75]'); const RIG_YAW = +(q.get('yaw') ?? -.48), RIG_PITCH = +(q.get('pitch') ?? -.2);
+const SCENE = q.get('scene') ?? 'carts';
+const OV = JSON.parse(q.get('ov') ?? '{}');   // material overrides per style key: {rough, coat, coatRough}
+// the backdrop, roughly (its sky's base and the nebula's glow), so contrast against it reads as in the app
+{ const b = document.getElementById('bg').getContext('2d'); b.fillStyle = '#070b1e'; b.fillRect(0, 0, W, H);
+  const g = b.createRadialGradient(300, 160, 0, 300, 160, 700); g.addColorStop(0, 'rgba(160,140,255,.2)'); g.addColorStop(1, 'rgba(0,0,0,0)'); b.fillStyle = g; b.fillRect(0, 0, W, H); }
+function mul(a, b) { const o = new Float32Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + r] * b[c * 4 + k]; o[c * 4 + r] = s; } return o; }
+function ident() { const m = new Float32Array(16); m[0] = m[5] = m[10] = m[15] = 1; return m; }
+function trans(x, y, z) { const m = ident(); m[12] = x; m[13] = y; m[14] = z; return m; }
+function scale(s, t = s, u = s) { const m = ident(); m[0] = s; m[5] = t; m[10] = u; return m; }
+function rotX(a) { const m = ident(), c = Math.cos(a), s = Math.sin(a); m[5] = c; m[6] = s; m[9] = -s; m[10] = c; return m; }
+function rotY(a) { const m = ident(), c = Math.cos(a), s = Math.sin(a); m[0] = c; m[2] = -s; m[8] = s; m[10] = c; return m; }
+const lin = (v) => v <= .04045 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4);
+const hex = (h) => [1, 3, 5].map(i => lin(parseInt(h.slice(i, i + 2), 16) / 255));
+Filament.init(['ibl/ibl_ibl.ktx', 'outline.filamat'], async () => {
+  const canvas = document.getElementById('c');
+  canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: true, stencil: true });
+  const engine = Filament.Engine.create(canvas);
+  const scene = engine.createScene(), renderer = engine.createRenderer(), view = engine.createView(), swap = engine.createSwapChain();
+  const camera = engine.createCamera(Filament.EntityManager.get().create());
+  view.setCamera(camera); view.setScene(scene); view.setViewport([0, 0, W, H]);
+  view.setBlendMode(Filament.View$BlendMode.TRANSLUCENT);
+  view.setMultiSampleAntiAliasingOptions({ enabled: true, sampleCount: 2 });
+  const TONE = q.get('tone') ?? 'LINEAR', LIN = TONE !== 'ACES_LEGACY';
+  // LINEAR: no tone curve, a quarter of the exposure (nothing clips); tonemap.py applies the curve afterwards
+  view.setColorGrading(Filament.ColorGrading.Builder().toneMapping(LIN ? Filament.ColorGrading$ToneMapping.LINEAR : Filament.ColorGrading$ToneMapping.ACES_LEGACY).build(engine));
+  if (LIN && SCENE !== 'none') { document.getElementById('bg').style.display = 'none'; document.body.style.background = 'transparent'; }
+  view.setStencilBufferEnabled(true);
+  renderer.setClearOptions({ clearColor: [0, 0, 0, 0], clear: true });
+  camera.setProjectionFov(FOV, W / H, 50, DIST * 3, Filament.Camera$Fov.VERTICAL);
+  camera.lookAt([W / 2, H / 2, DIST], [W / 2, H / 2, 0], [0, 1, 0]);
+  // the app: Camera.setExposure(e), which (in Filament) brightens by 1/e. BRIGHT is that brightness; LINEAR renders a
+  // quarter of it, and tonemap.py multiplies it back
+  const BRIGHT = q.has('bright') ? +q.get('bright') : 1 / EXPO;
+  camera.setExposureDirect(1 / (LIN ? BRIGHT / 4 : BRIGHT));
+  // the light rig, turned as Stage.turnKey(0) turns it
+  const yaw = RIG_YAW, cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(RIG_PITCH), sp = Math.sin(RIG_PITCH);
+  const m = [cy, 0, -sy, sy * sp, cp, cy * sp, sy * cp, -sp, cy * cp];
+  const reflections = engine.createTextureFromKtx1('ibl/ibl_ibl.ktx');
+  const ibl = Filament.IndirectLight.Builder().reflections(reflections).intensity(ENV).build(engine);
+  ibl.setRotation(m); scene.setIndirectLight(ibl);
+  const [x, y, z] = KEY_DIR; const d = [m[0] * x + m[3] * y + m[6] * z, m[1] * x + m[4] * y + m[7] * z, m[2] * x + m[5] * y + m[8] * z];
+  const sun = Filament.EntityManager.get().create();
+  Filament.LightManager.Builder(Filament.LightManager$Type.DIRECTIONAL).color([1, 1, 1]).intensity(KEY).direction(d).castShadows(false).build(engine, sun);
+  scene.addEntity(sun);
+  const loader = engine.createAssetLoader(), rm = engine.getRenderableManager(), tm = engine.getTransformManager();
+  const styles = await (await fetch('models/cartridges.json')).json();
+  const sampler = new Filament.TextureSampler(Filament.MinFilter.LINEAR, Filament.MagFilter.LINEAR, Filament.WrapMode.CLAMP_TO_EDGE);
+  async function load(name) {
+    const buf = new Uint8Array(await (await fetch('models/' + name)).arrayBuffer());
+    const a = loader.createAsset(buf); await new Promise(r => a.loadResources(r, null, null, null)); scene.addEntities(a.getEntities()); return a;
+  }
+  function mis(a, name) { return a.getEntitiesByName(name).map(e => { const i = rm.getInstance(e); return i.getId && i.getId() === 0 ? null : rm.getMaterialInstanceAt(i, 0); }).filter(Boolean); }
+  // a label picture like the app's paintings: a gradient, a disc, a title
+  function labelTexture(hue, title) {
+    const w = 512, h = 400, c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d');
+    if (typeof hue === 'string') { x.fillStyle = hue; x.fillRect(0, 0, w, h); } else {
+    const g = x.createLinearGradient(0, 0, w, h); g.addColorStop(0, `hsl(${hue},55%,22%)`); g.addColorStop(1, `hsl(${(hue + 50) % 360},60%,42%)`); x.fillStyle = g; x.fillRect(0, 0, w, h);
+    x.globalAlpha = .86; x.fillStyle = `hsl(${(hue + 160) % 360},70%,80%)`; x.beginPath(); x.arc(w * .72, h * .4, Math.min(w, h) * .24, 0, 7); x.fill(); x.globalAlpha = 1;
+    x.fillStyle = '#fff'; x.font = 'bold 50px sans-serif'; x.fillText(title, w * .07, h * .9); }
+    const img = x.getImageData(0, 0, w, h).data, flip = new Uint8Array(w * h * 4);
+    for (let r = 0; r < h; r++) flip.set(img.subarray((h - 1 - r) * w * 4, (h - r) * w * 4), r * w * 4);   // bottom row first, as the app uploads it
+    const t = Filament.Texture.Builder().width(w).height(h).levels(1).sampler(Filament.Texture$Sampler.SAMPLER_2D).format(Filament.Texture$InternalFormat.SRGB8_A8)
+      .build(engine);
+    t.setImage(engine, 0, Filament.PixelBuffer(flip, Filament.PixelDataFormat.RGBA, Filament.PixelDataType.UBYTE)); return t;
+  }
+  // a cartridge as Carts.make + Cart.apply(variant) + finish(standard) leave it
+  async function cart(sys, variant, hue, title) {
+    const st = styles[sys]; const a = await load(`cart-${sys}.glb`);
+    const v = variant ?? st.variants[0]; const f = { ...st.finish, ...(OV[sys] || {}), ...(OV.all || {}) };
+    const GOLD = JSON.parse(q.get('gold') ?? '[0.85,0.6,0.22]'), SILVER = JSON.parse(q.get('silver') ?? '[0.9,0.89,0.86]');
+    const base = v.sheen ? (parseInt(v.color.slice(1, 3), 16) - parseInt(v.color.slice(5, 7), 16) > 60 ? GOLD : SILVER) : hex(v.color);
+    for (const mi of mis(a, 'body')) {
+      mi.setFloat4Parameter('baseColorFactor', [...base, 1]);
+      mi.setFloatParameter('roughnessFactor', v.sheen ? .28 : f.roughness);
+      mi.setFloatParameter('metallicFactor', v.sheen ? 1 : 0);
+      mi.setFloatParameter('clearCoatFactor', v.sheen ? .5 : f.clearcoat);
+      mi.setFloatParameter('clearCoatRoughnessFactor', f.clearcoatRoughness);
+    }
+    const L = (OV.label || [.62, 0, .08, .5]);
+    for (const mi of mis(a, 'label')) {
+      try { mi.setTextureParameter('baseColorMap', labelTexture(hue, title), sampler); } catch (e) { console.error('LABEL', String(e)); }
+      mi.setFloatParameter('roughnessFactor', L[0]); mi.setFloatParameter('metallicFactor', L[1]); mi.setFloatParameter('clearCoatFactor', L[2]); mi.setFloatParameter('clearCoatRoughnessFactor', L[3]);
+    }
+    return { a, st };
+  }
+  function place(a, w, h, x, y, ry, rx, px, held = false) {
+    const s = px / Math.max(w, h);
+    let M = trans(x, H - y, 0);
+    if (held) M = mul(M, rotX(rx)); M = mul(M, rotY(ry)); if (!held) M = mul(M, rotX(rx));
+    M = mul(M, scale(s));
+    tm.setTransform(tm.getInstance(a.getRoot()), M);
+  }
+  function placeModel(a, x, y, ry, rx, px, held = true) {   // Model.place: centred on its box
+    const bb = a.getBoundingBox(); const c = [0, 1, 2].map(i => (bb.min[i] + bb.max[i]) / 2), hh = [0, 1, 2].map(i => (bb.max[i] - bb.min[i]) / 2);
+    const s = px / (2 * Math.max(hh[0], hh[1]));
+    let M = trans(x, H - y, 0); if (held) M = mul(M, rotX(rx)); M = mul(M, rotY(ry)); if (!held) M = mul(M, rotX(rx));
+    M = mul(M, scale(s)); M = mul(M, trans(-c[0], -c[1], -c[2]));
+    tm.setTransform(tm.getInstance(a.getRoot()), M);
+  }
+  const ORDER = ['gba', 'snes', 'n64', 'gb', 'nes', 'ds', 'genesis', 'gbc', 'psp', 'ps1', 'android'];
+  if (SCENE === 'carts') {   // every cartridge at Home's resting turn, standard color
+    for (let i = 0; i < ORDER.length; i++) {
+      const sys = ORDER[i]; const { a, st } = await cart(sys, null, (i * 47) % 360, sys.toUpperCase());
+      const col = i % 6, row = i / 6 | 0;
+      place(a, st.size[0], st.size[1], 130 + col * 215, 200 + row * 330, -.2, -.1, 185);
+    }
+  } else if (SCENE === 'colors') {   // one cartridge in every color it comes in
+    const sys = q.get('sys') ?? 'gb'; const st = styles[sys]; const vs = st.variants;
+    for (let i = 0; i < Math.min(vs.length, 12); i++) {
+      const { a } = await cart(sys, vs[i], 200, vs[i].name);
+      const col = i % 6, row = i / 6 | 0;
+      place(a, st.size[0], st.size[1], 130 + col * 215, 200 + row * 330, -.2, -.1, 185);
+    }
+  } else if (SCENE === 'calib') {   // flat grey labels and shells from white to black, at Home's resting turn
+    const shells = ['#e6e6e6', '#9a9a9a', '#5a5a5a', '#2a2a2a', '#121212'];
+    for (let i = 0; i < shells.length; i++) {
+      const { a, st } = await cart('ds', { name: 'c', color: shells[i] }, '#808080', '');
+      place(a, st.size[0], st.size[1], 140 + i * 262, 230, -.2, -.1, 230);
+      const b = await cart('ds', { name: 'c', color: shells[i] }, ['#ffffff', '#c0c0c0', '#808080', '#404040', '#202020'][i], '');
+      place(b.a, b.st.size[0], b.st.size[1], 140 + i * 262, 540, -.2, -.1, 230);
+    }
+  } else if (SCENE === 'page') {   // the game page: one big cartridge at the page's turn
+    const sys = q.get('sys') ?? 'gba'; const { a, st } = await cart(sys, null, 205, 'Star Voyage');
+    place(a, st.size[0], st.size[1], 380, 380, +(q.get('ry') ?? -.28), +(q.get('rx') ?? -.1), 420, true);
+  } else if (SCENE === 'cases') {
+    for (let i = 0; i < ORDER.length; i++) {
+      const a = await load(`case-${ORDER[i]}.glb`); const col = i % 6, row = i / 6 | 0;
+      placeModel(a, 130 + col * 215, 200 + row * 330, -.2, -.1, 190, false);
+    }
+  } else if (SCENE === 'outline') {   // Outline.kt: the chosen cartridge in front of its box, ringed
+    const SC = Filament.StencilFace ? Filament.StencilFace.FRONT_AND_BACK : undefined;
+    function mark(a, ref) { for (const e of a.getRenderableEntities()) { const i = rm.getInstance(e); for (let p = 0; p < rm.getPrimitiveCount(i); p++) { const mi = rm.getMaterialInstanceAt(i, p);
+      mi.setStencilWrite(true); mi.setStencilCompareFunction(Filament.CompareFunc.ALWAYS); mi.setStencilOpDepthStencilPass(Filament.StencilOperation.REPLACE); mi.setStencilReferenceValue(ref); } } }
+    const box = await load('case-gba.glb'); placeModel(box, 520, 390, -.28, -.1, 470, true); mark(box, 2);
+    const { a, st } = await cart('gba', null, 205, 'Star Voyage');
+    const M0 = (() => { const s = 300 / Math.max(st.size[0], st.size[1]); let M = trans(560, H - 400, 40); M = mul(M, rotX(-.1)); M = mul(M, rotY(-.28)); return mul(M, scale(s)); })();
+    tm.setTransform(tm.getInstance(a.getRoot()), M0); mark(a, 1);
+    // the glow: a copy of the cartridge, grown by `width` on every side, drawn only where the cartridge isn't
+    const mat = engine.createMaterial('outline.filamat'); const mi = mat.createInstance();
+    mi.setStencilCompareFunction(Filament.CompareFunc.NOT_EQUAL); mi.setStencilReferenceValue(1); mi.setStencilWrite(false);
+    const copy = await load('cart-gba.glb');
+    for (const e of copy.getRenderableEntities()) { const i = rm.getInstance(e); for (let p = 0; p < rm.getPrimitiveCount(i); p++) rm.setMaterialInstanceAt(i, p, mi); rm.setPriority(i, 7); }
+    const bb = copy.getBoundingBox(); const c = [0, 1, 2].map(i => (bb.min[i] + bb.max[i]) / 2), hh = [0, 1, 2].map(i => (bb.max[i] - bb.min[i]) / 2);
+    const width = +(q.get('w') ?? 11), sc = Math.hypot(M0[0], M0[1], M0[2]);
+    let Hm = mul(M0, trans(c[0], c[1], c[2])); Hm = mul(Hm, scale(1 + width / (hh[0] * sc), 1 + width / (hh[1] * sc), 1 + width / (hh[2] * sc))); Hm = mul(Hm, trans(-c[0], -c[1], -c[2]));
+    tm.setTransform(tm.getInstance(copy.getRoot()), Hm);
+    let B = mul(M0, trans(c[0], c[1], c[2])); B = mul(B, scale(1 / sc));
+    function inv(m) { // general 4x4 inverse
+      const a = m, o = new Float32Array(16);
+      const b00 = a[0]*a[5]-a[1]*a[4], b01 = a[0]*a[6]-a[2]*a[4], b02 = a[0]*a[7]-a[3]*a[4], b03 = a[1]*a[6]-a[2]*a[5], b04 = a[1]*a[7]-a[3]*a[5], b05 = a[2]*a[7]-a[3]*a[6];
+      const b06 = a[8]*a[13]-a[9]*a[12], b07 = a[8]*a[14]-a[10]*a[12], b08 = a[8]*a[15]-a[11]*a[12], b09 = a[9]*a[14]-a[10]*a[13], b10 = a[9]*a[15]-a[11]*a[13], b11 = a[10]*a[15]-a[11]*a[14];
+      const d = 1 / (b00*b11 - b01*b10 + b02*b09 + b03*b08 - b04*b07 + b05*b06);
+      o[0]=(a[5]*b11-a[6]*b10+a[7]*b09)*d; o[1]=(a[2]*b10-a[1]*b11-a[3]*b09)*d; o[2]=(a[13]*b05-a[14]*b04+a[15]*b03)*d; o[3]=(a[10]*b04-a[9]*b05-a[11]*b03)*d;
+      o[4]=(a[6]*b08-a[4]*b11-a[7]*b07)*d; o[5]=(a[0]*b11-a[2]*b08+a[3]*b07)*d; o[6]=(a[14]*b02-a[12]*b05-a[15]*b01)*d; o[7]=(a[8]*b05-a[10]*b02+a[11]*b01)*d;
+      o[8]=(a[4]*b10-a[5]*b08+a[7]*b06)*d; o[9]=(a[1]*b08-a[0]*b10-a[3]*b06)*d; o[10]=(a[12]*b04-a[13]*b02+a[15]*b00)*d; o[11]=(a[9]*b02-a[8]*b04-a[11]*b00)*d;
+      o[12]=(a[5]*b07-a[4]*b09-a[6]*b06)*d; o[13]=(a[0]*b09-a[1]*b07+a[2]*b06)*d; o[14]=(a[13]*b01-a[12]*b03-a[14]*b00)*d; o[15]=(a[8]*b03-a[9]*b01+a[10]*b00)*d; return o; }
+    mi.setMat4Parameter('toBox', Array.from(inv(B))); mi.setFloat3Parameter('extent', [hh[0] * sc, hh[1] * sc, hh[2] * sc]); mi.setFloatParameter('width', width);
+    { const oc = JSON.parse(q.get('oc') ?? '[1.3,1.36,1.6,1]'); const f = LIN ? .25 : 1; mi.setFloat4Parameter('color', [oc[0] * f, oc[1] * f, oc[2] * f, oc[3]]); }   // unlit: exposure doesn't touch it
+  } else if (SCENE === 'none') {
+  } else if (SCENE === 'consoles') {
+    const list = ORDER.slice(0, 10);
+    for (let i = 0; i < list.length; i++) {
+      const a = await load(`console-${list[i]}.glb`); const col = i % 5, row = i / 5 | 0;
+      placeModel(a, 150 + col * 258, 200 + row * 340, -.25, -.15, 230, false);
+    }
+  }
+  for (let k = 0; k < 4; k++) renderer.render(swap, view);
+  await new Promise(r => setTimeout(r, 300));
+  for (let k = 0; k < 2; k++) renderer.render(swap, view);
+  window.done = true;
+});
+</script></body></html>

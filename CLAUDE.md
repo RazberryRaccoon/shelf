@@ -47,7 +47,9 @@ that we've learned … and make an Android game launcher that's the best it can 
   styles (`Home.pose`), label finishes (`Labels`), the media folder Shelf/Media with backups (`Backup`), looking closely
   at models, choosing the cartridge in the open box; 0.19 roomier styles and Android's frame timings; 0.20 the drawing
   rebuilt: the backdrop drawn by Filament (`materials/backdrop.mat`, compiled with matc 1.75.1 by `materials/build.sh`)
-  straight to a SurfaceView, the page opening without decoding on the main thread. Next: the user's readings on 0.20, then the Library.
+  straight to a SurfaceView, the page opening without decoding on the main thread; 0.21 the lighting measured with
+  Filament's own web build (`tools/lighting-rig`; PBR Neutral, a real key light), the chosen object's glow (`Outline.kt`,
+  stencil), Settings in two panes. Next: the user's notes on 0.21, then the next big feature set (the Library).
   Next: the Library (see DECISIONS.md and ROADMAP.md). The user paused inspecting the rarer shell colors until they can be seen big (0.3 makes that possible).
   Kotlin is compile-checked locally with the Kotlin 2.4 compiler against `android-all` and Filament's AARs.
 - The Android SDK can't be downloaded in Claude's sandbox (dl.google.com is blocked): compile-check the Java against

@@ -53,6 +53,8 @@ open class Model(protected val stage: Stage, val asset: FilamentAsset) {
     }
     /** Places it by a whole transform. */
     fun placeMatrix(t: FloatArray) = tm.setTransform(tm.getInstance(asset.root), t)
+    /** Where it is now, however it was put there. */
+    fun current(): FloatArray = FloatArray(16).also { tm.getTransform(tm.getInstance(asset.root), it) }
     /** Out of sight, without unloading it. */
     fun hide() = place(-4000f, 0f, 0f, 0f, 0f, 1f)
 
@@ -125,6 +127,11 @@ class Case(stage: Stage, asset: FilamentAsset, title: String, private val sample
         val out = FloatArray(16); Matrix.multiplyMM(out, 0, coverRest, 0, m, 0)
         tm.setTransform(tm.getInstance(cover), out)
     }
+
+    /** The manual itself (its entity), for the glow when it's chosen; 0 without one. */
+    val manualEntity get() = manual
+    /** Where the manual is now, in the world (its centre). */
+    fun manualNow(): FloatArray = FloatArray(16).also { tm.getWorldTransform(tm.getInstance(manual), it) }
 
     /** The manual's own cover art (its PDF's first page), on a case whose booklet is its own. */
     fun manualArt(b: Bitmap) { if (jewel) b.recycle() else art("manual-art", b) }
