@@ -208,7 +208,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
 
     // ---------- every frame ----------
 
-    fun stick(x: Float, y: Float) { stickX = x; stickY = y }
+    fun stick(x: Float, y: Float) { stickX = x; stickY = y; reader?.stick(x, y) }
 
     fun tick(dt: Float) {
         time += dt

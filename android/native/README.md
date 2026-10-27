@@ -52,6 +52,24 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
+## What's in version 0.17
+
+The user's bugs and the first of their notes on 0.16:
+- PlayStation manuals show: a jewel case's booklet now has an inside, seen through the open lid (its art faced away).
+- The battery: Shelf listens to Android's battery news (level and charger, the moment either changes) instead of
+  asking every 20 seconds, so the bolt shows while plugged in and the level is right at once.
+- The console Studio's "B to leave without saving" is dark on its light button.
+- Starting a game no longer zooms in on the screen or power light: it ends with a transition to black, chosen in
+  Settings › Starting a game ends with: Fade, Iris (closing on the power light or screen), Wipe down, Diagonal sweep,
+  Blinds, Clock, Dots, Shutter, or a different one each time. Coming back opens the same way.
+- Frame rate: Shelf already draws with the screen's refresh (60 a second); Settings › Show frame rate puts a meter in
+  the corner (frames per second, frames drawn and skipped, how long the screens and the 3D take, the slowest frame),
+  and Settings › Smoothness trades looks for speed (Best looks: 4× smoothing; Balanced: 2×; Smoothest: a cheaper edge
+  blur and a sky painted once). The background picture's shaders are no longer made again every frame.
+- The manual reader: a line along the bottom fills as you read (bookmarks marked on it), L1 and R1 zoom (the pages
+  drawn again sharper), the right stick moves around a zoomed page, the buttons are named along the bottom; L2 and R2
+  now jump between bookmarks.
+
 ## What's in version 0.16.1
 
 - Reading a manual closed the app. Carrying the booklet out of the box re-attached it to its cover each frame with

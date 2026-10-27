@@ -565,3 +565,10 @@ was native: `TransformManager.getParent` returns an entity and `setParent` takes
 re-attached each frame with the entity. Lesson: in Filament's Java API check `@Entity` against `@EntityInstance` (the
 annotations are in the bytecode: `javap -v`), and prefer placing a node relative to its parent over re-parenting.
 Native crashes now show on the next start (`ApplicationExitInfo`, Android 11+).
+
+**0.17 (late October 2026): bugs, transitions, a frame-rate meter.** PlayStation manuals were invisible: a jewel case's
+booklet was its front art alone, single-sided and facing away when the lid lies open. The battery asked BatteryManager
+every 20 seconds, and `isCharging` lags (or reads false when full on the charger); Android's sticky
+`ACTION_BATTERY_CHANGED` gives level and plug state at once. The user felt the app "a little slow" although it already
+ran at the display's refresh: likely skipped frames, so this round measures (the meter shows drawn against skipped
+frames and where the time goes) before changing the renderer. Not checked on a device.

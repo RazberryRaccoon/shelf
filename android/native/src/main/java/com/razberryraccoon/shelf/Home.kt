@@ -66,6 +66,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     private val toast = text(23f, Fonts.bold, Theme.fg).apply { background = round(Theme.panel, 27f, Theme.line); setPadding(30, 14, 30, 14); alpha = 0f }
     private val clock = text(24.5f, Fonts.bold, Theme.fg2)
     private val battery = Battery(ctx)
+    private var pct = 100; private var plugged = false   // above init: the battery's news arrives while it runs
     private val profile = Chip(ctx)
     private val dock = listOf("library", "apps", "museum", "settings").map { DockButton(ctx, it) }
     private val dockNames = listOf("Library", "Apps", "Museum", "Settings")
@@ -78,9 +79,11 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         board.put(dockLabel, 0, 96, 1334)
         board.put(clock, 1334 - 36 - 260, 38, 260); clock.gravity = Gravity.END
         board.put(battery, 1334 - 36 - 260, 40, 44, 24)
-        ctx.registerReceiver(object : android.content.BroadcastReceiver() {   // plugged in or out: show it straight away
-            override fun onReceive(c: Context, i: android.content.Intent) = clockTick()
-        }, android.content.IntentFilter().apply { addAction(android.content.Intent.ACTION_POWER_CONNECTED); addAction(android.content.Intent.ACTION_POWER_DISCONNECTED) })
+        // Android tells every change in the battery (its level, and whether a charger is plugged in) the moment it
+        // happens, and answers straight away with the latest; asking BatteryManager instead lagged behind after plugging in
+        ctx.registerReceiver(object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: Context, i: android.content.Intent) = batteryFrom(i)
+        }, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED))?.let { batteryFrom(it) }
         // the selected game's details, under the row
         board.put(title, 64, 520, 1100)
         title.maxLines = 1; title.ellipsize = TextUtils.TruncateAt.END
@@ -329,11 +332,16 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     override fun show(msg: String) { toast.text = msg; toast.alpha = 1f; toastLeft = 2.5f; toastUntil = android.os.SystemClock.uptimeMillis() + 2500; toast.bringToFront() }
 
     private var clockLeft = 0f
+    /** The battery's level and whether it's plugged in, from Android's battery news. */
+    private fun batteryFrom(i: android.content.Intent) {
+        val level = i.getIntExtra(BatteryManager.EXTRA_LEVEL, -1); val scale = i.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
+        if (level >= 0 && scale > 0) pct = level * 100 / scale
+        plugged = i.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0   // charging, or full and still on the charger
+        clockTick()
+    }
     private fun clockTick() {
         clockLeft = 20f
-        val pct = (ctx.getSystemService(Context.BATTERY_SERVICE) as BatteryManager).getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-        val bm = ctx.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
-        battery.set(pct, bm.isCharging)
+        battery.set(pct, plugged)
         clock.text = "$pct%   ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date())}"
         // the battery icon sits just left of the percentage
         val w = clock.paint.measureText(clock.text.toString()); battery.translationX = 260f - w - 52f

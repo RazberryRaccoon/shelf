@@ -60,6 +60,12 @@ class Games(private val ctx: Context) {
     fun manualPlace(g: Game): Pair<Int, List<Int>> = (prefs.getString("manual:${g.path}", null) ?: "0|").split("|").let { p ->
         (p[0].toIntOrNull() ?: 0) to p.getOrElse(1) { "" }.split(",").mapNotNull { it.toIntOrNull() } }
     fun setManualPlace(g: Game, at: Int, marks: List<Int>) = prefs.edit().putString("manual:${g.path}", "$at|" + marks.joinToString(",")).apply()
+    /** Settings › Smoothness: 0 best looks, 1 balanced, 2 smoothest (Stage.quality, Backdrop.lite). */
+    var smoothness: Int get() = prefs.getInt("smoothness", 0); set(v) = prefs.edit().putInt("smoothness", v).apply()
+    /** Settings › Show frame rate: the meter in the top left corner. */
+    var showFps: Boolean get() = prefs.getBoolean("show-fps", false); set(v) = prefs.edit().putBoolean("show-fps", v).apply()
+    /** Settings › Starting a game: how the screen goes to black (Curtain.NAMES; the last is a different one each time). */
+    var launchFx: Int get() = prefs.getInt("launch-fx", Curtain.IRIS); set(v) = prefs.edit().putInt("launch-fx", v).apply()
     var sounds: Boolean get() = prefs.getBoolean("sounds", true); set(v) = prefs.edit().putBoolean("sounds", v).apply()
     var setupDone: Boolean get() = prefs.getBoolean("setup", false); set(v) = prefs.edit().putBoolean("setup", v).apply()
 

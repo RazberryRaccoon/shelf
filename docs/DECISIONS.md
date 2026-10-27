@@ -292,6 +292,16 @@ Summarized from the first part of the conversation; the full transcript is kept 
   further up, pan speed); Inside closer, and "as [clipping] starts to happen, the shell pieces float away from the
   board". The user thought the DS box should be a little wider than tall; the measured case (Wikipedia's keep-case
   table, retail cases) is a little taller than wide, so the box follows the measurements and box art is cropped to fill.
+- After 0.16 (the user's notes, a week of testing): Home made of boxes as an option, flowing into the page's
+  default view; more Home scrolling styles in one horizontal row (Centered; Cover flow with the sides angled in mirror;
+  the user also chose Spines, Carousel and Stack), for cartridges and boxes; label finishes (worn, matte paper, holo,
+  shiny, opalescent…) chosen per game with a default; the launch ends with a chosen transition to black instead of
+  zooming in ("look at video transition effects"); "make sure that it's at least targeting 60fps" (the user chose:
+  measure first with a meter and a Smoothness setting, then fix the real bottleneck); a backup zip of all media and
+  metadata, restorable, and media kept where you can add your own (the user chose Shelf/Media on storage); choosing
+  the cartridge in the open box starts the game; the manual reader gets a progress line, zoom on the shoulders and
+  panning on the right stick, with the buttons named on screen; a closed box or cartridge (and any Museum model) can be
+  chosen and looked at closely (dimmed around it, zoom, turn, move). Label finishes: per game plus a default.
 - After 0.15 (the user's notes): media management is "a must" and "high priority": a page of its own for each game
   (not more rows in Game settings) and one in Settings; first match the ROM to a standard name, then each kind
   (box front, box spine, cartridge art, box back, details, description, title screen, screenshot, video) fetched

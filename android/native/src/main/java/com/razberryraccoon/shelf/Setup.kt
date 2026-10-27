@@ -168,6 +168,9 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                     sub = "Where box art, pictures, videos, details and manuals come from; what’s missing", tag = Step.MEDIA)
                 rows += Options.Row("go", "Your saved colors", value = "${carts.shells.all.size + looks.count()}", sub = "Shells and console colors you’ve made, to delete", tag = Step.SAVED)
                 rows += Options.Row("pageview", "A game’s page opens on", value = "‹  ${PAGE_VIEWS[games.pageView]}  ›", sub = "On the page itself, L2 and R2 go through all three")
+                rows += Options.Row("launchfx", "Starting a game ends with", value = "‹  ${Curtain.NAMES[games.launchFx.coerceIn(0, Curtain.NAMES.size - 1)]}  ›", sub = "How the screen goes to black after the game goes in (and opens again when you come back)")
+                rows += Options.Row("smooth", "Smoothness", value = "‹  ${SMOOTH[games.smoothness]}  ›", sub = SMOOTH_SUB[games.smoothness])
+                rows += Options.Row("fps", "Show frame rate", value = if (games.showFps) "On" else "Off", sub = "A small meter in the top left: frames per second, and which part is slow")
                 rows += Options.Row("sounds", "Sounds", value = if (games.sounds) "On" else "Off", sub = "Soft clicks and chimes as you move around")
                 rows += Options.Row("again", "Run first-time setup again")
                 rows += Options.Row("close", "Done", primary = true)
@@ -242,6 +245,13 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         val r = options.current()
         if (r?.key == "light" && (a == "left" || a == "right")) return adjustLight(r.tag as String, if (a == "left") -1 else 1)
         if (r?.key == "art" && (a == "left" || a == "right" || a == "a")) return adjustArt(r.tag as String, if (a == "left") -1 else 1)
+        if (r?.key == "launchfx" && (a == "left" || a == "right" || a == "a")) {
+            val n = Curtain.NAMES.size; games.launchFx = (games.launchFx + (if (a == "left") n - 1 else 1)) % n; Sounds.play(Sounds.MOVE); return fill()
+        }
+        if (r?.key == "smooth" && (a == "left" || a == "right" || a == "a")) {
+            games.smoothness = (games.smoothness + (if (a == "left") 2 else 1)) % 3
+            stage.quality(games.smoothness); backdrop.lite = games.smoothness == 2; Sounds.play(Sounds.MOVE); return fill()
+        }
         if (r?.key == "pageview" && (a == "left" || a == "right" || a == "a")) { games.pageView = (games.pageView + (if (a == "left") 2 else 1)) % 3; Sounds.play(Sounds.MOVE); return fill() }
         when (a) {
             "up" -> Sounds.play(if (options.move(-1)) Sounds.MOVE else Sounds.BUMP)
@@ -292,6 +302,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             "media-stop" -> { MediaJob.cancel(); fill() }
             "del-shell" -> (r.tag as Shell).let { s -> confirmDelete(s.name) { carts.shells.delete(s.id) } }
             "del-look" -> (r.tag as ConsoleLook).let { l -> confirmDelete(l.name) { l.custom?.let { looks.delete(it) } } }
+            "fps" -> { games.showFps = !games.showFps; fill() }
             "sounds" -> { games.sounds = !games.sounds; Sounds.enabled = games.sounds; Sounds.play(Sounds.PICK); fill() }
             "art-reset" -> { games.artKind = "shot"; games.artBright = Art.BRIGHT; games.artTop = Art.TOP; games.artFade = Art.FADE; games.artFadeType = Art.DOTS; games.artPan = Art.PAN; host.artChanged(); fill() }
             "light-reset" -> { games.lightEnv = Look.ENV; games.lightExposure = Look.EXPOSURE; games.lightKey = Look.KEY; applyLight(); fill() }
@@ -465,7 +476,8 @@ class Options(ctx: Context) : View(ctx) {
             p.typeface = Fonts.bold; p.textSize = 23f; p.color = fg
             c.drawText(r.label + if (r.check) "  ✓" else "", x, y + (if (r.sub.isNullOrEmpty()) rh / 2 + 8 else 38f), p)
             r.value?.let { p.typeface = Fonts.bold; p.textSize = 21f; p.color = if (r.primary) fg else Theme.fg2; p.textAlign = Paint.Align.RIGHT; c.drawText(it, width - 54f, y + (if (r.sub.isNullOrEmpty()) rh / 2 + 8 else 38f), p); p.textAlign = Paint.Align.LEFT }
-            r.sub?.takeIf { it.isNotEmpty() }?.let { p.typeface = Fonts.body; p.textSize = 18f; p.color = Theme.fg2
+            r.sub?.takeIf { it.isNotEmpty() }?.let { p.typeface = Fonts.body; p.textSize = 18f
+                p.color = if (r.primary) Color.argb(200, Color.red(Theme.selFg), Color.green(Theme.selFg), Color.blue(Theme.selFg)) else Theme.fg2   // dark on the light button
                 c.drawText(TextUtils.ellipsize(it, android.text.TextPaint(p), width - x - 60, TextUtils.TruncateAt.START).toString(), x, y + 64f, p) }
             y += rh + 8
         }
@@ -487,3 +499,7 @@ class Dots(ctx: Context) : View(ctx) {
 
 /** The game page's three views, in order (Games.pageView). */
 val PAGE_VIEWS = listOf("Cartridge", "Open box", "Closed box")
+
+private val SMOOTH = listOf("Best looks", "Balanced", "Smoothest")
+private val SMOOTH_SUB = listOf("The smoothest edges; the most work for the handheld", "Softer edges, less work for the 3D",
+    "Lightest: the sky's stars hold still, edges smoothed more cheaply")

@@ -69,6 +69,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         stage = Stage(this, surface)
         games = Games(this)
         stage.setLook(games.lightEnv, games.lightExposure, games.lightKey)
+        stage.quality(games.smoothness); backdrop.lite = games.smoothness == 2
         Sounds.init(this, games.sounds)
         carts = Carts(stage, Shells(this))
         meta = Meta(this, games)
@@ -81,7 +82,8 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
             val s = minOf((r - l) / Stage.W, (b - t) / Stage.H); val ox = ((r - l) - Stage.W * s) / 2; val oy = ((b - t) - Stage.H * s) / 2
             board.fit(s, ox, oy); backdrop.scale = s; backdrop.ox = ox; backdrop.oy = oy
         }
-        stage.onFrame = { dt -> home.tick(dt); setup?.tick(dt); museum?.tick(dt); launch?.tick(dt); backdrop.tick(dt); if (++frames == 90) booting.delete() }   // started fine
+        stage.onFrame = { dt -> home.tick(dt); setup?.tick(dt); museum?.tick(dt); launch?.tick(dt); backdrop.tick(dt); if (++frames == 90) booting.delete()   // started fine
+            meterLeft -= dt; if (meterLeft <= 0) { meterLeft = .5f; showMeter() } }
     }
 
     // ---------- when the last start went wrong ----------
@@ -247,6 +249,18 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         val (cart, from, back) = home.takeForLaunch(g)
         launch = Launch(this, stage, board, backdrop, carts, consoles, games, meta, g, cart, from, this, back)
     }
+    // Settings › Show frame rate: the meter, over everything in the top left corner
+    private var meterLeft = 0f
+    private var meter: android.widget.TextView? = null
+    private fun showMeter() {
+        if (!games.showFps) { meter?.let { board.removeView(it); meter = null }; return }
+        val m = meter ?: android.widget.TextView(this).apply {
+            setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, 17f); typeface = android.graphics.Typeface.MONOSPACE; setTextColor(Theme.fg)
+            setBackgroundColor(android.graphics.Color.argb(170, 5, 8, 22)); setPadding(12, 8, 12, 8)
+        }.also { meter = it; board.put(it, 8, 8) }
+        m.text = stage.stats; m.bringToFront()
+    }
+
     override fun start(l: Launch): String = games.launch(l.game)
     override fun done(l: Launch) {
         launch = null
