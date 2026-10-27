@@ -51,7 +51,7 @@ class Stage(private val ctx: Context, private val surface: SurfaceView) : Choreo
     val scene: Scene = engine.createScene()
     private val renderer: Renderer = engine.createRenderer()
     private val view: View = engine.createView()
-    private val camera: Camera = engine.createCamera(EntityManager.get().create())
+    val camera: Camera = engine.createCamera(EntityManager.get().create())
     /** The backdrop's own scene, view and camera: flat, in layout pixels (y up, so layout y is negated), no lights. */
     val backScene: Scene = engine.createScene()
     private val backView: View = engine.createView()
@@ -65,6 +65,11 @@ class Stage(private val ctx: Context, private val surface: SurfaceView) : Choreo
     private var ibl: IndirectLight? = null
     private val sun = EntityManager.get().create()
     var onFrame: ((Float) -> Unit)? = null   // seconds since the last frame; the screens animate here
+    /** A view drawn into its own texture before the screen's views each frame (Outline), and what to do right after. */
+    var preView: View? = null
+    var afterPre: (() -> Unit)? = null
+    /** The 3D's size on the screen, in pixels (for views drawn to match it). */
+    var pixels = intArrayOf(W.toInt(), H.toInt()); private set
     private var last = 0L
     private var running = false
 
@@ -83,9 +88,9 @@ class Stage(private val ctx: Context, private val surface: SurfaceView) : Choreo
         backView.isPostProcessingEnabled = false
         backView.setShadowingEnabled(false)
         backCamera.setExposure(1f)
-        val bg = Theme.bg
-        renderer.clearOptions = renderer.clearOptions.apply {
-            clear = true; clearColor = doubleArrayOf(android.graphics.Color.red(bg) / 255.0, android.graphics.Color.green(bg) / 255.0, android.graphics.Color.blue(bg) / 255.0, 1.0) }
+        // cleared to nothing: the backdrop covers the whole screen anyway, and the glow's silhouette texture (Outline),
+        // cleared the same way, needs to start empty each frame
+        renderer.clearOptions = renderer.clearOptions.apply { clear = true; clearColor = doubleArrayOf(0.0, 0.0, 0.0, 0.0) }
         view.multiSampleAntiAliasingOptions = view.multiSampleAntiAliasingOptions.apply { enabled = true; sampleCount = 2 }
         // nothing on screen bends light through itself any more (see-through shells are blended), but the disc's clear hub
         // would still switch on a whole extra copy of the frame for refraction whenever it's on screen
@@ -169,6 +174,7 @@ class Stage(private val ctx: Context, private val surface: SurfaceView) : Choreo
         ox = (width - W * scale) / 2; oy = (height - H * scale) / 2
         // Filament's viewport counts up from the bottom
         view.viewport = Viewport(ox.toInt(), (height - oy - H * scale).toInt(), (W * scale).toInt(), (H * scale).toInt())
+        pixels = intArrayOf((W * scale).toInt().coerceAtLeast(2), (H * scale).toInt().coerceAtLeast(2))
         // the backdrop fills the whole screen, the layout's part of it lined up with the 3D
         backView.viewport = Viewport(0, 0, width, height)
         backCamera.setProjection(Camera.Projection.ORTHO, (-ox / scale).toDouble(), ((width - ox) / scale).toDouble(),
@@ -191,7 +197,11 @@ class Stage(private val ctx: Context, private val surface: SurfaceView) : Choreo
         val t1 = System.nanoTime()
         val sc = swapChain ?: return
         // the GPU still busy with an earlier frame: Filament skips this one (it shows as a skipped frame in the meter)
-        if (ui.isReadyToRender && renderer.beginFrame(sc, now)) { renderer.render(backView); renderer.render(view); renderer.endFrame(); drawn++ } else skipped++
+        if (ui.isReadyToRender && renderer.beginFrame(sc, now)) {
+            // a view drawn into a texture first, when something needs one (the glow's silhouette, Outline)
+            preView?.let { renderer.render(it); afterPre?.invoke() }
+            renderer.render(backView); renderer.render(view); renderer.endFrame(); drawn++
+        } else skipped++
         // the meter (Settings › Show frame rate): each half second, how many frames came and how long each part took
         ticks++; uiNs += t1 - t0; drawNs += System.nanoTime() - t1; worst = maxOf(worst, dt)
         if (statFrom == 0L) statFrom = now

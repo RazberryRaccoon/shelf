@@ -19,7 +19,7 @@ function rotX(a) { const m = ident(), c = Math.cos(a), s = Math.sin(a); m[5] = c
 function rotY(a) { const m = ident(), c = Math.cos(a), s = Math.sin(a); m[0] = c; m[2] = -s; m[8] = s; m[10] = c; return m; }
 const lin = (v) => v <= .04045 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4);
 const hex = (h) => [1, 3, 5].map(i => lin(parseInt(h.slice(i, i + 2), 16) / 255));
-Filament.init(['ibl/ibl_ibl.ktx', 'outline.filamat'], async () => {
+Filament.init(['ibl/ibl_ibl.ktx', 'glow.filamat'], async () => {
   const canvas = document.getElementById('c');
   canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: true, stencil: true });
   const engine = Filament.Engine.create(canvas);
@@ -135,35 +135,43 @@ Filament.init(['ibl/ibl_ibl.ktx', 'outline.filamat'], async () => {
       const a = await load(`case-${ORDER[i]}.glb`); const col = i % 6, row = i / 6 | 0;
       placeModel(a, 130 + col * 215, 200 + row * 330, -.2, -.1, 190, false);
     }
-  } else if (SCENE === 'outline') {   // Outline.kt: the chosen cartridge in front of its box, ringed
-    const SC = Filament.StencilFace ? Filament.StencilFace.FRONT_AND_BACK : undefined;
-    function mark(a, ref) { for (const e of a.getRenderableEntities()) { const i = rm.getInstance(e); for (let p = 0; p < rm.getPrimitiveCount(i); p++) { const mi = rm.getMaterialInstanceAt(i, p);
-      mi.setStencilWrite(true); mi.setStencilCompareFunction(Filament.CompareFunc.ALWAYS); mi.setStencilOpDepthStencilPass(Filament.StencilOperation.REPLACE); mi.setStencilReferenceValue(ref); } } }
-    const box = await load('case-gba.glb'); placeModel(box, 520, 390, -.28, -.1, 470, true); mark(box, 2);
-    const { a, st } = await cart('gba', null, 205, 'Star Voyage');
-    const M0 = (() => { const s = 300 / Math.max(st.size[0], st.size[1]); let M = trans(560, H - 400, 40); M = mul(M, rotX(-.1)); M = mul(M, rotY(-.28)); return mul(M, scale(s)); })();
+  } else if (SCENE === 'glow') {   // Outline.kt: the chosen object, ringed with a glow in its console's color
+    const sys = q.get('sys') ?? 'gba', what = q.get('what') ?? 'cart';
+    function eachMi(a, f) { for (const e of a.getRenderableEntities()) { const i = rm.getInstance(e); for (let p = 0; p < rm.getPrimitiveCount(i); p++) f(rm.getMaterialInstanceAt(i, p), i); } }
+    function mark(a, ref) { eachMi(a, mi => { mi.setStencilWrite(true); mi.setStencilCompareFunction(Filament.CompareFunc.ALWAYS); mi.setStencilOpDepthStencilPass(Filament.StencilOperation.REPLACE); mi.setStencilReferenceValue(ref); }); }
+    const box = await load(`case-${sys}.glb`); placeModel(box, q.has('nobox') ? -3000 : 520, 390, -.28, -.1, 470, true); mark(box, 2);
+    const { a, st } = await cart(sys, null, 205, 'Star Voyage');
+    const s0 = 300 / Math.max(st.size[0], st.size[1]); let M0 = trans(560, H - 400, 40); M0 = mul(M0, rotX(-.1)); M0 = mul(M0, rotY(+(q.get('ry') ?? -.28))); M0 = mul(M0, scale(s0));
     tm.setTransform(tm.getInstance(a.getRoot()), M0); mark(a, 1);
-    // the glow: a copy of the cartridge, grown by `width` on every side, drawn only where the cartridge isn't
-    const mat = engine.createMaterial('outline.filamat'); const mi = mat.createInstance();
-    mi.setStencilCompareFunction(Filament.CompareFunc.NOT_EQUAL); mi.setStencilReferenceValue(1); mi.setStencilWrite(false);
-    const copy = await load('cart-gba.glb');
-    for (const e of copy.getRenderableEntities()) { const i = rm.getInstance(e); for (let p = 0; p < rm.getPrimitiveCount(i); p++) rm.setMaterialInstanceAt(i, p, mi); rm.setPriority(i, 7); }
-    const bb = copy.getBoundingBox(); const c = [0, 1, 2].map(i => (bb.min[i] + bb.max[i]) / 2), hh = [0, 1, 2].map(i => (bb.max[i] - bb.min[i]) / 2);
-    const width = +(q.get('w') ?? 11), sc = Math.hypot(M0[0], M0[1], M0[2]);
-    let Hm = mul(M0, trans(c[0], c[1], c[2])); Hm = mul(Hm, scale(1 + width / (hh[0] * sc), 1 + width / (hh[1] * sc), 1 + width / (hh[2] * sc))); Hm = mul(Hm, trans(-c[0], -c[1], -c[2]));
-    tm.setTransform(tm.getInstance(copy.getRoot()), Hm);
-    let B = mul(M0, trans(c[0], c[1], c[2])); B = mul(B, scale(1 / sc));
-    function inv(m) { // general 4x4 inverse
-      const a = m, o = new Float32Array(16);
-      const b00 = a[0]*a[5]-a[1]*a[4], b01 = a[0]*a[6]-a[2]*a[4], b02 = a[0]*a[7]-a[3]*a[4], b03 = a[1]*a[6]-a[2]*a[5], b04 = a[1]*a[7]-a[3]*a[5], b05 = a[2]*a[7]-a[3]*a[6];
-      const b06 = a[8]*a[13]-a[9]*a[12], b07 = a[8]*a[14]-a[10]*a[12], b08 = a[8]*a[15]-a[11]*a[12], b09 = a[9]*a[14]-a[10]*a[13], b10 = a[9]*a[15]-a[11]*a[13], b11 = a[10]*a[15]-a[11]*a[14];
-      const d = 1 / (b00*b11 - b01*b10 + b02*b09 + b03*b08 - b04*b07 + b05*b06);
-      o[0]=(a[5]*b11-a[6]*b10+a[7]*b09)*d; o[1]=(a[2]*b10-a[1]*b11-a[3]*b09)*d; o[2]=(a[13]*b05-a[14]*b04+a[15]*b03)*d; o[3]=(a[10]*b04-a[9]*b05-a[11]*b03)*d;
-      o[4]=(a[6]*b08-a[4]*b11-a[7]*b07)*d; o[5]=(a[0]*b11-a[2]*b08+a[3]*b07)*d; o[6]=(a[14]*b02-a[12]*b05-a[15]*b01)*d; o[7]=(a[8]*b05-a[10]*b02+a[11]*b01)*d;
-      o[8]=(a[4]*b10-a[5]*b08+a[7]*b06)*d; o[9]=(a[1]*b08-a[0]*b10-a[3]*b06)*d; o[10]=(a[12]*b04-a[13]*b02+a[15]*b00)*d; o[11]=(a[9]*b02-a[8]*b04-a[11]*b00)*d;
-      o[12]=(a[5]*b07-a[4]*b09-a[6]*b06)*d; o[13]=(a[0]*b09-a[1]*b07+a[2]*b06)*d; o[14]=(a[13]*b01-a[12]*b03-a[14]*b00)*d; o[15]=(a[8]*b03-a[9]*b01+a[10]*b00)*d; return o; }
-    mi.setMat4Parameter('toBox', Array.from(inv(B))); mi.setFloat3Parameter('extent', [hh[0] * sc, hh[1] * sc, hh[2] * sc]); mi.setFloatParameter('width', width);
-    { const oc = JSON.parse(q.get('oc') ?? '[1.3,1.36,1.6,1]'); const f = LIN ? .25 : 1; mi.setFloat4Parameter('color', [oc[0] * f, oc[1] * f, oc[2] * f, oc[3]]); }   // unlit: exposure doesn't touch it
+    window.moveTest = () => tm.setTransform(tm.getInstance(a.getRoot()), mul(trans(0, 150, 0), M0));
+    const target = what === 'box' ? box : a, ref = what === 'box' ? 2 : 1;
+    // the silhouette: the chosen object alone (its own layer), at half size, into a texture
+    eachMi(target, (mi, i) => rm.setLayerMask(i, 0xff, 0x3));
+    const MW = W / 2, MH = H / 2;
+    const LV = 1 + Math.floor(Math.log2(Math.max(MW, MH)));
+    const maskTex = Filament.Texture.Builder().width(MW).height(MH).levels(LV).sampler(Filament.Texture$Sampler.SAMPLER_2D)
+      .format(Filament.Texture$InternalFormat.RGBA8).usage(1 | 16 | 512).build(engine);
+    const rt = Filament.RenderTarget.Builder().texture(Filament.RenderTarget$AttachmentPoint.COLOR, maskTex).build(engine);
+    const maskView = engine.createView(); maskView.setCamera(camera); maskView.setScene(scene); maskView.setPostProcessingEnabled(false);
+    maskView.setViewport([0, 0, MW, MH]); maskView.setRenderTarget(rt); maskView.setVisibleLayers(0xff, 0x2);
+    window.preViews = [maskView]; window.afterPre = () => maskTex.generateMipmaps(engine);
+    // the panel the glow is drawn on: around the object, never on it (the stencil)
+    const mat = engine.createMaterial('glow.filamat'); const mi = mat.createInstance();
+    mi.setStencilCompareFunction(Filament.CompareFunc.NOT_EQUAL); mi.setStencilReferenceValue(ref); mi.setStencilWrite(false);
+    mi.setTextureParameter('mask', maskTex, new Filament.TextureSampler(Filament.MinFilter.LINEAR_MIPMAP_LINEAR, Filament.MagFilter.LINEAR, Filament.WrapMode.CLAMP_TO_EDGE));
+    const R = +(q.get('r') ?? 14);
+    mi.setFloat2Parameter('texel', [1 / MW, 1 / MH]); mi.setFloatParameter('radius', R); mi.setFloatParameter('lod', Math.max(0, Math.log2(R / 4)));
+    const acc = hex(q.get('acc') ?? '#8f7dff'), f = LIN ? .25 : 1, G = +(q.get('gk') ?? 1.4), E = +(q.get('ek') ?? 1.4);
+    mi.setFloat3Parameter('glow', acc.map(v => v * G * f)); const eacc = hex(q.get('eacc') ?? q.get('acc') ?? '#8f7dff'); mi.setFloat3Parameter('edge', eacc.map(v => (v * .7 + .3) * E * f));
+    mi.setFloatParameter('strength', +(q.get('k') ?? 1)); mi.setFloat2Parameter('center', [560 / W, 1 - 400 / H]); mi.setFloatParameter('aspect', W / H); mi.setFloatParameter('orbit', +(q.get('orbit') ?? 2.3));
+    const cx = what === 'box' ? 520 : 560, cy = what === 'box' ? 390 : 400, hw = what === 'box' ? 300 : 230, hh = what === 'box' ? 300 : 170;
+    const vb = Filament.VertexBuffer.Builder().vertexCount(4).bufferCount(1).attribute(Filament.VertexAttribute.POSITION, 0, Filament.VertexBuffer$AttributeType.FLOAT3, 0, 12).build(engine);
+    vb.setBufferAt(engine, 0, new Float32Array([cx - hw, H - cy - hh, 0, cx + hw, H - cy - hh, 0, cx - hw, H - cy + hh, 0, cx + hw, H - cy + hh, 0]));
+    const ib = Filament.IndexBuffer.Builder().indexCount(6).bufferType(Filament.IndexBuffer$IndexType.USHORT).build(engine); ib.setBuffer(engine, new Uint16Array([0, 1, 2, 2, 1, 3]));
+    const quad = Filament.EntityManager.get().create();
+    Filament.RenderableManager.Builder(1).boundingBox({ center: [cx, H - cy, 0], halfExtent: [hw, hh, 1] }).culling(false).priority(7).material(0, mi)
+      .geometry(0, Filament.RenderableManager$PrimitiveType.TRIANGLES, vb, ib).build(engine, quad);
+    scene.addEntity(quad);
   } else if (SCENE === 'none') {
   } else if (SCENE === 'consoles') {
     const list = ORDER.slice(0, 10);
@@ -172,9 +180,12 @@ Filament.init(['ibl/ibl_ibl.ktx', 'outline.filamat'], async () => {
       placeModel(a, 150 + col * 258, 200 + row * 340, -.25, -.15, 230, false);
     }
   }
-  for (let k = 0; k < 4; k++) renderer.render(swap, view);
+  // the views drawn before the main one each frame (the glow's silhouette)
+  function frame() { if (renderer.beginFrame(swap)) { for (const v of (window.preViews ?? [])) renderer.renderView(v); window.afterPre?.(); renderer.renderView(view); renderer.endFrame(); } }
+  for (let k = 0; k < 4; k++) frame();
   await new Promise(r => setTimeout(r, 300));
-  for (let k = 0; k < 2; k++) renderer.render(swap, view);
+  for (let k = 0; k < 2; k++) frame();
+  if (q.has('moveTest')) { window.moveTest?.(); for (let k = 0; k < 3; k++) frame(); }
   window.done = true;
 });
 </script></body></html>

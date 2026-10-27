@@ -52,6 +52,23 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
+## What's in version 0.22
+
+The user's note on 0.21: the lighting and Settings are great, but the glow around what's chosen "looks like its made up of
+layers of glowing paper". It was a grown copy of the whole model, and every part of it (both halves, the board, the
+label) glowed on its own, overlapping. Rebuilt from scratch:
+- **One silhouette.** A view of its own draws only the chosen object into a half-size picture each frame. The glow is
+  that silhouette blurred through the picture's smaller, pre-blurred copies (mipmaps), so it's one smooth shape, with
+  no rings. The object's own outline still cuts it off crisply, and it never covers the object.
+- **The console's color.** The halo is a richer version of the console's accent: violet for the GBA, amber for the N64,
+  coral for the DS, lime for the Game Boy. A thin bright line hugs the edge in a lighter tint of it, with a faint wide
+  aura further out.
+- **Charm.** It swells a little as something is chosen, then breathes slowly. A soft light travels round it about once
+  every eleven seconds. Moving between the cartridge, the manual and the box, the glow fades off one and swells onto
+  the next.
+
+Tuned in the lighting rig with Filament's own renderer, on light and dark backgrounds and in several consoles' colors.
+
 ## What's in version 0.21
 
 The user's notes on 0.20 (a cleanup pass before the next big feature set):

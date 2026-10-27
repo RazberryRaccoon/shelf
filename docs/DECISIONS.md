@@ -292,6 +292,9 @@ Summarized from the first part of the conversation; the full transcript is kept 
   further up, pan speed); Inside closer, and "as [clipping] starts to happen, the shell pieces float away from the
   board". The user thought the DS box should be a little wider than tall; the measured case (Wikipedia's keep-case
   table, retail cases) is a little taller than wide, so the box follows the measurements and box art is cropped to fill.
+- After 0.21 (the user): "All of the new lighting looks GREAT!", "The settings revamp is excellent too"; the selection
+  outline "is really ugly. It looks like its made up of layers of glowing paper": "spend this whole next pass reworking
+  just that feature/visual effect and make it look good. Add charm and details, like it glowing the console's color."
 - After 0.20 (the user): "Goddamn, whatever you did worked incredibly!"; "the lighting feels better", so "do a pass
   of that through all the models and pick whatever values for the light angle and brightness and stuff looks best"
   ("make it shine. Check all materials"); when choosing the cartridge or manual, "some sort of additional outline or

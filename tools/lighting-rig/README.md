@@ -25,7 +25,9 @@ python3 calmeasure.py out.png                         # with scene=calib: grey s
 
 Scenes: `carts` (every cartridge at Home's turn), `colors&sys=nes` (one cartridge in each of its colors), `page&sys=gba`
 (one big cartridge at the page's turn; `ry`, `rx` turn it), `cases`, `consoles`, `calib` (flat greys, for measuring),
-`outline` (the selection glow around a cartridge over its box).
+`glow` (the selection glow, Outline.kt: `what=box` for the closed box, `nobox` on the dark backdrop, `acc`/`eacc` the
+glow's and line's colors, `r` its reach, `orbit` where the travelling light is, `moveTest` checks the silhouette clears
+when the object moves).
 
 Lighting parameters (the app's defaults when left out): `env` (studio), `key`, `exp` (Filament's direct exposure:
 it brightens by 1/exp), `bright` (the brightness itself; overrides exp), `dir` (key light direction), `yaw`/`pitch`

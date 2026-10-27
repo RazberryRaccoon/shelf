@@ -1,0 +1,61 @@
+// The glow around the chosen object on a game's page (Outline.kt). A view of its own draws only that object, at half
+// size, into `mask` (its silhouette in the alpha); this panel, drawn over everything around the object and never on it
+// (the stencil), blurs that silhouette into one soft glow in the console's color, with a thin brighter line right at the
+// edge, and a light that slowly travels round it. One silhouette, so the glow is one smooth shape whatever the object is
+// made of. Compile with build.sh.
+material {
+    name : glow,
+    shadingModel : unlit,
+    blending : transparent,
+    culling : none,
+    depthWrite : false,
+    depthCulling : false,
+    parameters : [
+        { type : sampler2d, name : mask },  // the silhouette, in alpha
+        { type : float2, name : texel },    // one pixel of the mask, in its coordinates
+        { type : float, name : radius },    // how far the glow reaches, in mask pixels
+        { type : float, name : lod },       // the mask's smaller copy (mipmap) that's already about that blurred
+        { type : float3, name : glow },     // its color (linear, a little over white for the tone curve)
+        { type : float3, name : edge },     // the line's color
+        { type : float, name : strength },  // 0 hidden .. 1 shown (a little over while it swells in)
+        { type : float2, name : center },   // the object's middle, in the view's 0..1 coordinates
+        { type : float, name : aspect },    // the view's width over its height
+        { type : float, name : orbit }      // where the travelling light is, as an angle
+    ]
+}
+
+fragment {
+    float cover(vec2 uv) { return smoothstep(0.0, 0.4, textureLod(materialParams_mask, uv, 0.0).a); }
+
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        highp vec2 uv = getNormalizedViewportCoord().xy;
+        vec2 t = materialParams.texel;
+        // the line: the silhouette softened by about a pixel, so just outside the edge it's still there
+        float near = 0.25 * (cover(uv + vec2(t.x, 0.0)) + cover(uv - vec2(t.x, 0.0)) + cover(uv + vec2(0.0, t.y)) + cover(uv - vec2(0.0, t.y)));
+        // the glow: the silhouette blurred wide, read from its smaller copies (mipmaps), which are already blurred
+        // smoothly, so a few taps give a soft halo with no rings
+        float L = materialParams.lod;
+        float far = 0.0;
+        for (int i = 0; i < 8; i++) {
+            float a = float(i) * 0.7853982 + 0.39;
+            vec2 d = vec2(cos(a), sin(a)) * t * materialParams.radius;
+            far += 0.5 * textureLod(materialParams_mask, uv + d * 0.5, L).a + 0.5 * textureLod(materialParams_mask, uv + d, L + 0.8).a;
+        }
+        far /= 8.0;
+        // the travelling light: brighter where it is, round the object's middle
+        vec2 p = (uv - materialParams.center) * vec2(materialParams.aspect, 1.0);
+        float lit = pow(max(0.0, cos(atan(p.y, p.x) - materialParams.orbit)), 8.0);
+        float g = clamp(far * 2.2, 0.0, 1.0);
+        // and a faint wide aura in the same color, further out still
+        float aura = clamp(textureLod(materialParams_mask, uv, L + 2.2).a * 2.0, 0.0, 1.0);
+        float ga = pow(g, 1.4) * (0.7 + 0.6 * lit) + aura * aura * 0.3;
+        float la = smoothstep(0.08, 0.5, near) * (0.7 + 0.5 * lit);
+        // never on the object itself, even where something else is in front of it (the stencil only knows what's
+        // nearest); the stencil gives the crisp edge, this keeps it out of the middle
+        float k = materialParams.strength * (1.0 - smoothstep(0.55, 0.95, cover(uv)));
+        vec3 rgb = (materialParams.glow * ga + materialParams.edge * la) * k;
+        float alpha = clamp((ga * 0.6 + la * 0.85) * k, 0.0, 1.0);
+        material.baseColor = vec4(rgb, alpha);
+    }
+}
