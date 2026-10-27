@@ -589,6 +589,21 @@ meter now adds FrameMetrics to confirm it before the bigger change (the backdrop
 the screen). The Spines style's earlier render had shown a grey edge taken for the spine; the user saw it was the
 opening edge, and a coloured test spine in the new render confirms the fix.
 
+**0.22: the glow rebuilt.** The user: the stencil outline "looks like its made up of layers of glowing paper". The cause:
+the grown copy of the model was every part of it (shell halves, board, chips, label), each translucent, each grown from
+the box's centre, all drawn without a depth test, so every part added its own sheet of glow with its own edges. Now
+there's one silhouette per frame:
+- A second Filament view, layer 0x2 only, draws the object into a half-size RGBA texture. The renderer's clear is now
+  transparent, so the texture starts empty each frame (checked: no trail when the object moves).
+- Its mipmaps are regenerated after it's drawn (`Stage.afterPre`).
+- One panel around the object reads it: a 1-pixel blur for the line, mip-level taps for the halo and aura.
+
+Two rounds in the rig fixed the rest:
+- Two rings of taps at full resolution showed stair steps; the mipmaps fixed that.
+- The stencil alone let the glow paint over another object in front of the chosen one; the silhouette now also keeps it
+  out of the middle.
+- The theme's console colors are pastels, which the tone curve whitened, so the halo uses them 45% more saturated.
+
 **0.21: lighting measured, a glow, Settings in two panes.** The user, on 0.20: smooth now ("over 16.7" at 0, 60 fps),
 then "do a pass of that through all the models and pick whatever values for the light angle and brightness and stuff
 looks best"; a visible selector for the cartridge and manual; Settings with sections on the left. The three.js rig used

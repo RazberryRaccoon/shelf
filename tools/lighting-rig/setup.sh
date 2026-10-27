@@ -7,5 +7,5 @@ V=v1.75.1
 curl -sSL -o web.tgz https://github.com/google/filament/releases/download/$V/filament-$V-web.tgz && tar xzf web.tgz && rm web.tgz
 curl -sSL -o linux.tgz https://github.com/google/filament/releases/download/$V/filament-$V-linux.tgz && tar xzf linux.tgz filament/bin/cmgen && rm linux.tgz
 filament/bin/cmgen -q -x ibl --format=ktx --size=256 ../../android/native/src/main/assets/env/studio.hdr
-cp ../../android/native/src/main/assets/materials/outline.filamat .
+cp ../../android/native/src/main/assets/materials/glow.filamat .
 ln -sfn ../../android/native/src/main/assets/models models

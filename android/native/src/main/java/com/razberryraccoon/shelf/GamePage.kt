@@ -558,33 +558,26 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         reader = v; board.put(v, 0, 0, 1334, 750)
     }
 
-    // The glow around what's chosen in the box view (Outline): the cartridge, the closed box or the manual. Made the
-    // first time something is chosen, not with every page
-    private var cartGlow: Outline? = null; private var boxGlow: Outline? = null; private var manualGlow: Outline? = null
-    private var glowsMade = false; private var markedCart: Cart? = null
+    // The glow around what's chosen in the box view (Outline): the cartridge, the closed box or the manual, in the
+    // console's color. Made the first time something is chosen, not with every page
+    private var glow: Outline? = null; private var markedCart: Cart? = null; private var boxMarked = false
 
     private fun glows(dt: Float) {
         val choosing = zone == Zone.BOX && canPick() && !inspecting && !launching && !closing
-        if (choosing && !glowsMade) {
-            glowsMade = true
-            cartGlow = try { Outline.of(stage, carts.file("cart-${game.sys}.glb"), Outline.CART) } catch (e: java.io.IOException) { null }
-            case?.let { c ->
-                boxGlow = try { Outline.of(stage, carts.file("case-${game.sys}.glb"), Outline.BOX) } catch (e: java.io.IOException) { null }
-                Outline.mark(stage, c.asset.entities, Outline.BOX)
-                if (c.hasManual) {
-                    Outline.mark(stage, intArrayOf(c.manualEntity), Outline.MANUAL)
-                    val ms = c.manualSize
-                    manualGlow = Outline.box(stage, Outline.MANUAL).also { it.size(floatArrayOf(0f, 0f, 0f), floatArrayOf(ms[0] / 2, ms[1] / 2, .9f)) }
-                }
-            }
-        }
-        if (!glowsMade) return
+        if (choosing && glow == null) glow = Outline(stage)
+        val g = glow ?: return
+        // each object marks its own pixels, so the glow's inner edge is its real outline
         val ct = cart
         if (ct !== markedCart) { markedCart?.let { Outline.mark(stage, it.asset.entities, 0) }; ct?.let { Outline.mark(stage, it.asset.entities, Outline.CART) }; markedCart = ct }
-        if (ct != null) cartGlow?.place(ct.current(), choosing && pick == 0 && view != 2, dt) else cartGlow?.hide()
-        case?.let { c ->
-            boxGlow?.place(c.current(), choosing && pick == 0 && view == 2, dt)
-            if (c.hasManual) manualGlow?.place(c.manualNow(), choosing && pick == 1, dt, width = 11f)
+        val c = case
+        if (c != null && !boxMarked) { boxMarked = true; Outline.mark(stage, c.asset.entities, Outline.BOX); if (c.hasManual) Outline.mark(stage, intArrayOf(c.manualEntity), Outline.MANUAL) }
+        when {
+            !choosing -> g.frame(dt, null, 0, null, null, null, null)
+            pick == 1 && c != null && c.hasManual -> { val ms = c.manualSize
+                g.frame(dt, intArrayOf(c.manualEntity), Outline.MANUAL, game.sys, c.manualNow(), floatArrayOf(0f, 0f, 0f), floatArrayOf(ms[0] / 2, ms[1] / 2, .9f)) }
+            view == 2 && c != null -> g.frame(dt, c.asset.entities, Outline.BOX, game.sys, c.current(), c.center, c.half)
+            ct != null -> { val bb = ct.asset.boundingBox; g.frame(dt, ct.asset.entities, Outline.CART, game.sys, ct.current(), bb.center, bb.halfExtent) }
+            else -> g.frame(dt, null, 0, null, null, null, null)
         }
     }
 
@@ -907,7 +900,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
 
     fun destroy() {
         backdrop.shade = 0f
-        cartGlow?.destroy(); boxGlow?.destroy(); manualGlow?.destroy()
+        glow?.destroy()
         markedCart?.let { Outline.mark(stage, it.asset.entities, 0) }   // the cartridge goes back to Home
         case?.destroy(); tool?.destroy()
         board.removeView(panel); board.removeView(hint); board.removeView(studioPanel); viewer?.let { board.removeView(it) }; article?.let { board.removeView(it) }; media?.let { board.removeView(it) }; player?.let { board.removeView(it) }; reader?.let { board.removeView(it) }

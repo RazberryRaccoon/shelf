@@ -49,7 +49,9 @@ that we've learned … and make an Android game launcher that's the best it can 
   rebuilt: the backdrop drawn by Filament (`materials/backdrop.mat`, compiled with matc 1.75.1 by `materials/build.sh`)
   straight to a SurfaceView, the page opening without decoding on the main thread; 0.21 the lighting measured with
   Filament's own web build (`tools/lighting-rig`; PBR Neutral, a real key light), the chosen object's glow (`Outline.kt`,
-  stencil), Settings in two panes. Next: the user's notes on 0.21, then the next big feature set (the Library).
+  stencil), Settings in two panes; 0.22 the glow rebuilt (one silhouette drawn into a texture by a view of its own, blurred through its
+  mipmaps, in the console's color: `Outline.kt`, `materials/glow.mat`). Next: the user's notes on 0.22, then the next big
+  feature set (the Library).
   Next: the Library (see DECISIONS.md and ROADMAP.md). The user paused inspecting the rarer shell colors until they can be seen big (0.3 makes that possible).
   Kotlin is compile-checked locally with the Kotlin 2.4 compiler against `android-all` and Filament's AARs.
 - The Android SDK can't be downloaded in Claude's sandbox (dl.google.com is blocked): compile-check the Java against

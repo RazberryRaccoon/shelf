@@ -14,4 +14,4 @@ tools/lighting-rig/filament.d.ts
 tools/lighting-rig/filament/
 tools/lighting-rig/ibl/
 tools/lighting-rig/models
-tools/lighting-rig/outline.filamat
+tools/lighting-rig/glow.filamat
