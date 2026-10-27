@@ -33,6 +33,8 @@ class MediaPage(ctx: Context, private val game: Game, private val title: String,
                 private val cache: File, private val host: Host) : View(ctx) {
     interface Host {
         fun changeMatch()
+        /** A file of your own for this kind, from Android's file picker; `then` hears whether it was kept. */
+        fun chooseFile(kind: String, then: (Boolean) -> Unit)
         fun show(msg: String)
         /** Something was kept or removed: the page shows it. */
         fun changed()
@@ -155,7 +157,7 @@ class MediaPage(ctx: Context, private val game: Game, private val title: String,
     }
 
     private fun chooseInput(c: Choosing, a: String) {
-        val n = (c.list?.size ?: 0) + (if (Media.has(info, c.kind)) 1 else 0)   // the last: remove what it has
+        val n = (c.list?.size ?: 0) + extras(c.kind).size   // after the sources' choices: a file of your own, and removing it
         val cols = if (wide(c.kind)) 1 else CCOLS
         when (a) {
             "left" -> if (cols > 1 && c.k % cols > 0) { c.k--; Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
@@ -166,7 +168,12 @@ class MediaPage(ctx: Context, private val game: Game, private val title: String,
             "a" -> {
                 val list = c.list ?: return
                 if (c.saving || n == 0) return Sounds.play(Sounds.BUMP)
-                if (c.k == list.size) {   // remove it
+                if (c.k >= list.size && extras(c.kind)[c.k - list.size] == CHOOSE) {   // a file of your own, from Android's picker
+                    Sounds.play(Sounds.PICK)
+                    host.chooseFile(c.kind) { ok -> if (ok) { close(c); refreshAll(); host.show("Kept your file") } else host.show("That file couldn’t be used") }
+                    return
+                }
+                if (c.k >= list.size) {   // remove it
                     if (Media.kind(c.kind).text) meta.clearText(game, c.kind) else meta.setMedia(game, c.kind, null, null, null)
                     Sounds.play(Sounds.PICK); close(c); refreshAll(); host.show("Removed"); return
                 }
@@ -179,6 +186,8 @@ class MediaPage(ctx: Context, private val game: Game, private val title: String,
         }
     }
     private fun close(c: Choosing) { c.thumbs.values.forEach { it?.recycle() }; if (choosing === c) choosing = null }
+    /** The choices after the sources' own: a file of your own (pictures, video, manual), and removing what it has. */
+    private fun extras(kind: String) = listOfNotNull(CHOOSE.takeIf { !Media.kind(kind).text }, "Remove it".takeIf { Media.has(info, kind) })
     private fun wide(kind: String) = Media.kind(kind).text || kind == "video" || kind == "manual"
 
     fun tick(dt: Float) {
@@ -247,7 +256,7 @@ class MediaPage(ctx: Context, private val game: Game, private val title: String,
         text(c, if (list == null) "Searching " + from.joinToString(", ") + "…" else if (list.isEmpty()) "Nothing found on " + from.joinToString(", ") + ". Settings › Media connects more sources."
             else "${list.size} from " + list.map { it.source }.distinct().joinToString(", ") + if (ch.saving) " · keeping it…" else "", x + 44, y + 98, 20f, Fonts.body, if (ch.saving) accent else Theme.fg2, a, w - 88)
         if (list == null) return
-        val items = list.size + (if (Media.has(info, ch.kind)) 1 else 0)
+        val ex = extras(ch.kind); val items = list.size + ex.size
         c.save(); c.clipRect(x + 20, y + 120, x + w - 20, y + h - 20)
         if (wide(ch.kind)) {
             val rh = 96f; val top = (ch.k - 3).coerceAtLeast(0)
@@ -256,7 +265,7 @@ class MediaPage(ctx: Context, private val game: Game, private val title: String,
                 val r = RectF(x + 40, ry, x + w - 40, ry + rh); val on = i == ch.k
                 p.color = Theme.chip; p.alpha = a * (if (on) 40 else 20) / 255; c.drawRoundRect(r, 20f, 20f, p); p.alpha = 255
                 if (on) ring(c, r, a)
-                if (i == list.size) { text(c, "Remove it", r.left + 26, r.centerY() + 8, 22f, Fonts.bold, Theme.fg, a, 600f); continue }
+                if (i >= list.size) { text(c, ex[i - list.size], r.left + 26, r.centerY() + 8, 22f, Fonts.bold, Theme.fg, a, 600f); continue }
                 val o = list[i]
                 text(c, o.source, r.left + 26, r.top + 36, 21f, Fonts.bold, Theme.fg, a, 300f)
                 text(c, o.game, r.left + 330, r.top + 36, 19f, Fonts.body, Theme.fg2, a, r.width() - 360)
@@ -269,7 +278,7 @@ class MediaPage(ctx: Context, private val game: Game, private val title: String,
                 val cx = x + 40 + (i % CCOLS) * (cw + 22); val cy = y + 132 + (i / CCOLS - row0) * rowH; if (cy > y + h) break
                 val r = RectF(cx, cy, cx + cw, cy + chh); val on = i == ch.k
                 p.color = Theme.chip; p.alpha = a * 26 / 255; c.drawRoundRect(r, 16f, 16f, p); p.alpha = 255
-                if (i == list.size) text(c, "Remove it", r.centerX(), r.centerY() + 8, 22f, Fonts.bold, Theme.fg, a, 0f, center = true)
+                if (i >= list.size) text(c, ex[i - list.size], r.centerX(), r.centerY() + 8, 22f, Fonts.bold, Theme.fg, a, 0f, center = true)
                 else {
                     ch.thumbs[i]?.let { contain(c, it, r, a) } ?: text(c, if (ch.thumbs.containsKey(i)) "No picture" else "…", r.centerX(), r.centerY() + 7, 19f, Fonts.body, Theme.fg3, a, 0f, center = true)
                     text(c, list[i].source, cx + 2, cy + chh + 28, 19f, Fonts.bold, if (on) Theme.fg else Theme.fg2, a, cw)
@@ -319,6 +328,7 @@ class MediaPage(ctx: Context, private val game: Game, private val title: String,
 
     companion object {
         private const val COLS = 5; private const val CCOLS = 4
+        private const val CHOOSE = "Choose a file…"
         private const val TW = 204f; private const val TH = 150f; private const val GAP = 34f
 
         /** A PDF's first page, about `w` wide (a manual's cover). */

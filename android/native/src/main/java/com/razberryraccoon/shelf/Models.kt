@@ -78,10 +78,10 @@ class Case(stage: Stage, asset: FilamentAsset, title: String, private val sample
     private val manualRest = FloatArray(16)
     private var manualParent = 0   // the entity it hangs from (the cover); it always stays there, see manualAt
     val hasManual get() = manual != 0
-    /** A jewel case's booklet is its front art; the others have a booklet of their own inside the cover. */
+    /** A booklet without an inside face of its own (a case exported before 0.16.2). */
     val jewel get() = asset.getFirstEntityByName("manual-art") == 0
-    /** The booklet's width and height, in millimetres. */
-    val manualSize get() = if (jewel) floatArrayOf(2 * half[0] - 4, 2 * half[1] - 4) else floatArrayOf(2 * half[0] - 16, 2 * half[1] - 18)
+    /** The booklet's width and height, in millimetres: a jewel case's (its clear lid) is nearly the whole case. */
+    val manualSize get() = if (asset.getFirstEntityByName("clear") != 0) floatArrayOf(2 * half[0] - 4, 2 * half[1] - 4) else floatArrayOf(2 * half[0] - 16, 2 * half[1] - 18)
 
     init {
         if (cover != 0) tm.getTransform(tm.getInstance(cover), coverRest)

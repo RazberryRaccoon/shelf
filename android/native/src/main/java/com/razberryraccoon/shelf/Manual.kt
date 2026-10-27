@@ -20,8 +20,10 @@ import kotlin.math.min
 
 /**
  * A game's manual, read like the booklet it is (as in the prototype's reader): the cover on its own, then two pages
- * side by side, a page folding over at the spine as you turn. Left and right turn pages, Y bookmarks the spread you're
- * on (a ribbon hangs from it), L1 and R1 jump between bookmarks, B closes. Your place and bookmarks are kept.
+ * side by side, a page folding over at the spine as you turn. Left and right turn pages, L1 and R1 zoom out and in
+ * (the pages drawn again sharper), the right stick moves around a zoomed page, Y bookmarks the spread you're on (a
+ * ribbon hangs from it), L2 and R2 jump between bookmarks, B closes. A line along the bottom fills as you read, and
+ * the buttons are named under it. Your place and bookmarks are kept.
  * The pages are drawn from the PDF on their own thread, the spreads either side made ready ahead.
  */
 class Manual(ctx: Context, file: File, private val title: String, start: Int, marks: List<Int>, private val save: (Int, List<Int>) -> Unit) : View(ctx) {
@@ -34,7 +36,12 @@ class Manual(ctx: Context, file: File, private val title: String, start: Int, ma
     private var failed = false
     private var turn = 0f; private var turnDir = 0; private var from = 0   // a page turning: 0..1, which way, from which spread
     private val bitmaps = HashMap<Int, Bitmap>()
-    private val asked = HashSet<Int>()
+    private val asked = HashMap<Int, Float>()            // each page's detail asked for (1 = the reader's size)
+    private val sizes = HashMap<Int, Pair<Float, Float>>()   // each page's size on screen, at zoom 1
+    // zooming in (L1/R1) and looking around a zoomed page (the right stick)
+    private var zoom = 1f; private var zoomTo = 1f; private var panX = 0f; private var panY = 0f
+    private var stickX = 0f; private var stickY = 0f
+    fun stick(x: Float, y: Float) { stickX = x; stickY = y }
     private val work = Executors.newSingleThreadExecutor()   // PdfRenderer is used from this one thread only
     private val ui = Handler(Looper.getMainLooper())
     private var pdf: PdfRenderer? = null; private var fd: ParcelFileDescriptor? = null
@@ -58,16 +65,28 @@ class Manual(ctx: Context, file: File, private val title: String, start: Int, ma
     private fun want() {
         val keep = (at - 1..at + 1).flatMap { pagesOf(it.coerceIn(0, spreads() - 1)) }.toSet()
         bitmaps.keys.filter { it !in keep }.forEach { bitmaps.remove(it)?.recycle(); asked.remove(it) }
-        for (pg in pagesOf(at) + keep) if (asked.add(pg)) work.execute {
-            val b = try {
-                pdf!!.openPage(pg).use { page ->
-                    // as tall as the reader allows, but never wider than half of it (a scan of two pages side by side)
-                    val s = min(PAGE_H / page.height, PAGE_MAX_W / page.width)
-                    val w = (page.width * s).toInt().coerceAtLeast(1); val h = (page.height * s).toInt().coerceAtLeast(1)
-                    Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also { it.eraseColor(Color.WHITE); page.render(it, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY) }
+        val now = pagesOf(at)
+        for (pg in now + keep) {
+            // the pages in view are drawn again in more detail when zoomed in (up to 2.5 times), so the text stays sharp
+            val detail = if (pg in now) zoomTo.coerceIn(1f, 2.5f) else 1f
+            if ((asked[pg] ?: 0f) >= detail) continue
+            asked[pg] = detail
+            work.execute {
+                var size: Pair<Float, Float>? = null
+                val b = try {
+                    pdf!!.openPage(pg).use { page ->
+                        // as tall as the reader allows, but never wider than half of it (a scan of two pages side by side)
+                        val s = min(PAGE_H / page.height, PAGE_MAX_W / page.width)
+                        size = page.width * s to page.height * s
+                        val w = (page.width * s * detail).toInt().coerceAtLeast(1); val h = (page.height * s * detail).toInt().coerceAtLeast(1)
+                        Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also { it.eraseColor(Color.WHITE); page.render(it, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY) }
+                    }
+                } catch (e: Throwable) { null }
+                ui.post {
+                    if (b == null) return@post
+                    if (closing || pg !in asked) b.recycle() else { size?.let { sizes[pg] = it }; bitmaps.put(pg, b)?.recycle(); invalidate() }
                 }
-            } catch (e: Throwable) { null }
-            ui.post { if (b == null) return@post; if (closing || pg !in asked) b.recycle() else { bitmaps[pg] = b; invalidate() } }
+            }
         }
     }
 
@@ -77,12 +96,19 @@ class Manual(ctx: Context, file: File, private val title: String, start: Int, ma
         when (a) {
             "left" -> go(at - 1)
             "right" -> go(at + 1)
+            "rb" -> setZoom(zoomTo + .5f)
+            "lb" -> setZoom(zoomTo - .5f)
             "y" -> { if (!marks.remove(at)) { marks += at; marks.sort(); say("Bookmarked") } else say("Bookmark removed"); Sounds.play(Sounds.PICK); save(at, marks) }
-            "lb" -> marks.lastOrNull { it < at }?.let { go(it) } ?: say(if (marks.isEmpty()) "Y bookmarks a page" else "No bookmarks before this")
-            "rb" -> marks.firstOrNull { it > at }?.let { go(it) } ?: say(if (marks.isEmpty()) "Y bookmarks a page" else "No more bookmarks ahead")
+            "lt" -> marks.lastOrNull { it < at }?.let { go(it) } ?: say(if (marks.isEmpty()) "Y bookmarks a page" else "No bookmarks before this")
+            "rt" -> marks.firstOrNull { it > at }?.let { go(it) } ?: say(if (marks.isEmpty()) "Y bookmarks a page" else "No more bookmarks ahead")
             "b", "a" -> close()
         }
         invalidate(); return true
+    }
+    private fun setZoom(z: Float) {
+        val to = z.coerceIn(1f, 3f)
+        if (to == zoomTo) return Sounds.play(Sounds.BUMP)
+        zoomTo = to; Sounds.play(Sounds.MOVE); want()
     }
     private fun say(s: String) { note = s; noteT = 1.6f }
     private fun go(s: Int) {
@@ -96,6 +122,13 @@ class Manual(ctx: Context, file: File, private val title: String, start: Int, ma
     fun tick(dt: Float) {
         shown = if (closing) maxOf(0f, shown - dt / .25f) else min(1f, shown + dt / .3f)
         if (turnDir != 0) { turn += dt / .5f; if (turn >= 1f) { turn = 0f; turnDir = 0 } }
+        zoom += (zoomTo - zoom) * min(1f, dt * 9f)
+        // the stick moves your view over the page (as far as its edges allow); zoomed out, it drifts back to the middle
+        fun dead(v: Float) = if (kotlin.math.abs(v) < .15f) 0f else v
+        panX -= dead(stickX) * 900f * dt; panY -= dead(stickY) * 900f * dt
+        val spanX = (spreadW() * zoom - Stage.W + 120f).coerceAtLeast(0f) / 2; val spanY = (PAGE_H * zoom - PAGE_H).coerceAtLeast(0f) / 2 + 20f * (zoom - 1)
+        panX = panX.coerceIn(-spanX, spanX); panY = panY.coerceIn(-spanY, spanY)
+        if (zoomTo <= 1f) { panX *= 1 - min(1f, dt * 9f); panY *= 1 - min(1f, dt * 9f) }
         if (noteT > 0) noteT -= dt
         if (closing && shown == 0f) {
             work.execute { try { pdf?.close(); fd?.close() } catch (e: Throwable) { } }; work.shutdown()
@@ -111,6 +144,9 @@ class Manual(ctx: Context, file: File, private val title: String, start: Int, ma
         p.color = Color.argb((236 * k).toInt(), 5, 8, 22); c.drawRect(0f, 0f, Stage.W, Stage.H, p)
         val cx = Stage.W / 2; val top = 50f + (1 - k) * 24f
         if (pages == 0) { label(c, if (failed) "This manual couldn’t be opened" else "Opening the manual…", cx, Stage.H / 2, 24f, Theme.fg2, a); return }
+        // zoomed: the pages grow around the middle of the reading area, moved by the stick
+        c.save(); c.clipRect(0f, 0f, Stage.W, Stage.H - 66f)   // clear of the line and labels below
+        c.translate(cx + panX, top + PAGE_H / 2 + panY); c.scale(zoom, zoom); c.translate(-cx, -(top + PAGE_H / 2))
         if (turnDir == 0) spread(c, at, cx, top, a)
         else {
             // a page folding over at the spine: under it, the spread it uncovers on one side and the one it leaves on the other
@@ -128,10 +164,19 @@ class Manual(ctx: Context, file: File, private val title: String, start: Int, ma
                 else fold(c, if (at == 0) now[0] else now.getOrNull(1), cx, top, left = false, 2 * e - 1, a)
             }
         }
-        // where you are
+        c.restore()
+        // where you are: a line along the bottom that fills as you read (as in About's article), the pages, the buttons
         val ps = pagesOf(at)
-        label(c, if (at == 0) "$title · cover" else "Pages ${ps.first() + 1}${if (ps.size > 1) "–" + (ps.last() + 1) else ""} of $pages", cx, Stage.H - 24f, 20f, Theme.fg2, a)
-        if (noteT > 0) label(c, note, cx, Stage.H - 58f, 21f, Theme.fg, (a * min(1f, noteT / .3f)).toInt())
+        val bx = 160f; val bw = Stage.W - 320f; val by = Stage.H - 52f
+        p.color = Theme.line; p.alpha = a * 60 / 255; c.drawRoundRect(RectF(bx, by, bx + bw, by + 4), 2f, 2f, p)
+        p.color = Theme.accentOf(null); p.alpha = a
+        val done = if (pages <= 1) 1f else (ps.last() + 1f) / pages
+        c.drawRoundRect(RectF(bx, by, bx + bw * done.coerceAtLeast(.02f), by + 4), 2f, 2f, p)
+        for (m in marks) { val mx = bx + bw * (pagesOf(m).last() + 1f) / pages; c.drawCircle(mx, by + 2, 4.5f, p) }   // the bookmarks, on the line
+        p.alpha = 255
+        label(c, if (at == 0) "$title · cover" else "Pages ${ps.first() + 1}${if (ps.size > 1) "–" + (ps.last() + 1) else ""} of $pages", bx, Stage.H - 18f, 19f, Theme.fg2, a, left = true)
+        label(c, "Left Right turn   L1 R1 zoom${if (zoomTo > 1f) "   R move" else ""}   Y bookmark   L2 R2 bookmarks   B close", bx + bw, Stage.H - 18f, 17f, Theme.fg3, a, right = true)
+        if (noteT > 0) label(c, note, cx, Stage.H - 74f, 21f, Theme.fg, (a * min(1f, noteT / .3f)).toInt())
     }
 
     /** One spread at rest: the cover alone, in the middle; pages either side of the spine. */
@@ -143,8 +188,9 @@ class Manual(ctx: Context, file: File, private val title: String, start: Int, ma
         if (s in marks) ribbon(c, cx + 60f + pageW(ps.getOrNull(1) ?: ps[0]) * .62f, top, a)
     }
 
-    private fun pageW(pg: Int?) = pg?.let { bitmaps[it]?.width?.toFloat() } ?: PAGE_H * .72f
-    private fun pageH(pg: Int?) = pg?.let { bitmaps[it]?.height?.toFloat() } ?: PAGE_H
+    private fun pageW(pg: Int?) = pg?.let { sizes[it]?.first } ?: PAGE_H * .72f
+    private fun pageH(pg: Int?) = pg?.let { sizes[it]?.second } ?: PAGE_H
+    private fun spreadW() = pagesOf(at).sumOf { pageW(it).toDouble() }.toFloat()
 
     /** A page beside the spine (or the cover, centred), with a soft shadow, the fold darkening toward the spine. */
     private fun side(c: Canvas, pg: Int?, cx: Float, top: Float, left: Boolean, a: Int, single: Boolean = false) {
@@ -180,8 +226,9 @@ class Manual(ctx: Context, file: File, private val title: String, start: Int, ma
         c.drawPath(path, p); p.alpha = 255
     }
 
-    private fun label(c: Canvas, s: String, x: Float, y: Float, size: Float, color: Int, a: Int) {
-        p.typeface = Fonts.body; p.textSize = size; p.color = color; p.alpha = a; p.textAlign = Paint.Align.CENTER
+    private fun label(c: Canvas, s: String, x: Float, y: Float, size: Float, color: Int, a: Int, left: Boolean = false, right: Boolean = false) {
+        p.typeface = Fonts.body; p.textSize = size; p.color = color; p.alpha = a * Color.alpha(color) / 255
+        p.textAlign = if (left) Paint.Align.LEFT else if (right) Paint.Align.RIGHT else Paint.Align.CENTER
         c.drawText(s, x, y, p); p.textAlign = Paint.Align.LEFT; p.alpha = 255
     }
 

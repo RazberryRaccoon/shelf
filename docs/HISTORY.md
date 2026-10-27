@@ -565,3 +565,19 @@ was native: `TransformManager.getParent` returns an entity and `setParent` takes
 re-attached each frame with the entity. Lesson: in Filament's Java API check `@Entity` against `@EntityInstance` (the
 annotations are in the bytecode: `javap -v`), and prefer placing a node relative to its parent over re-parenting.
 Native crashes now show on the next start (`ApplicationExitInfo`, Android 11+).
+
+**0.17 (late October 2026): bugs, transitions, a frame-rate meter.** PlayStation manuals were invisible: a jewel case's
+booklet was its front art alone, single-sided and facing away when the lid lies open. The battery asked BatteryManager
+every 20 seconds, and `isCharging` lags (or reads false when full on the charger); Android's sticky
+`ACTION_BATTERY_CHANGED` gives level and plug state at once. The user felt the app "a little slow" although it already
+ran at the display's refresh: likely skipped frames, so this round measures (the meter shows drawn against skipped
+frames and where the time goes) before changing the renderer. Not checked on a device.
+
+**0.18: the rest of those notes.** Home's row became a function of each game's distance from the selected one
+(`Home.pose`), so every scrolling style glides; renders of all six with cartridges and boxes found the Spines style
+showing the boxes' opening edge on one side (all now turn one way) and two items overlapping at one depth half way
+through a scroll (a small depth offset settles it). Label finishes: Filament's glTF materials have no iridescence, so
+holo and opalescent bake their pattern into the label and drive the sheen's colour from the viewing angle (the label
+material now always has a sheen, black by default). Media moved to Shelf/Media with relative paths in each info.json,
+so a backup restores anywhere; the restore refuses zip entries that climb out of the folder (tested). Checked: renders
+of the Home styles, a backup round trip and file-name detection on the JVM; compile-checked. Not checked on a device.

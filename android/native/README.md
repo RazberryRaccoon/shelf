@@ -52,6 +52,49 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
+## What's in version 0.18
+
+The rest of the user's notes on 0.16:
+1. **Home shows boxes** (Settings › Home shows): each game as its closed box, art and all. Opening a game's page starts
+   from that closed box and flows to the page's view (it opens, and for the cartridge view the cartridge lifts out and
+   the box slides away); closing goes back into the box. Starting a game from Home, the cartridge comes out of its box.
+2. **Home scrolling** (Settings › Home scrolling): Classic, Centered, Cover flow (the selected game faces you, the
+   others turned toward it, mirrored either side), Spines (the others edge on and close, a box's spine showing),
+   Carousel (round a wide turntable) and Stack (tucked behind either side like a fanned deck). Every style glides as
+   you scroll, with cartridges or boxes; the game's name and chips sit in the middle for the centred styles.
+3. **Label finishes**: Standard, Matte paper, Glossy, Worn (faded, scuffed, creased, a corner torn off), Holo (rainbow
+   bands and sparkle, a sheen that runs through the colours as it turns), Opalescent (milky pastels that drift) and
+   Foil. Each game's Customize shell has a Label finish row (seen live); Settings › Label finish is the default.
+6. **The media folder**: everything lives in Shelf/Media/<console>/<game>/ on storage (moved there from inside the
+   app the first time each game is read): box, back, spine, cartridge, title, screenshot, video, manual and info.json.
+   Settings › Media can open the folder in Android's Files app, back everything up into a zip wherever you choose,
+   and restore a backup. Files you put in a game's folder are picked up by their names (box, front or cover; back;
+   spine; cart, label or disc; title; screen, snap or shot; any video; a PDF), and each tile on a game's media page
+   has "Choose a file…" too. A .nomedia file keeps it all out of the Gallery.
+7. **The cartridge in the open box**: left from the first tile chooses it (lifted a little in its tray); A starts the
+   game. Left again chooses the manual.
+9. **Looking closely**: the cartridge alone or the closed box can be chosen the same way (left from the first tile),
+   and A shows it big in the middle with everything else dimmed: L1 and R1 zoom, the right stick turns it, the d-pad
+   or left stick moves it, B goes back. In the Museum, Y does the same for whatever is showing.
+
+## What's in version 0.17
+
+The user's bugs and the first of their notes on 0.16:
+- PlayStation manuals show: a jewel case's booklet now has an inside, seen through the open lid (its art faced away).
+- The battery: Shelf listens to Android's battery news (level and charger, the moment either changes) instead of
+  asking every 20 seconds, so the bolt shows while plugged in and the level is right at once.
+- The console Studio's "B to leave without saving" is dark on its light button.
+- Starting a game no longer zooms in on the screen or power light: it ends with a transition to black, chosen in
+  Settings › Starting a game ends with: Fade, Iris (closing on the power light or screen), Wipe down, Diagonal sweep,
+  Blinds, Clock, Dots, Shutter, or a different one each time. Coming back opens the same way.
+- Frame rate: Shelf already draws with the screen's refresh (60 a second); Settings › Show frame rate puts a meter in
+  the corner (frames per second, frames drawn and skipped, how long the screens and the 3D take, the slowest frame),
+  and Settings › Smoothness trades looks for speed (Best looks: 4× smoothing; Balanced: 2×; Smoothest: a cheaper edge
+  blur and a sky painted once). The background picture's shaders are no longer made again every frame.
+- The manual reader: a line along the bottom fills as you read (bookmarks marked on it), L1 and R1 zoom (the pages
+  drawn again sharper), the right stick moves around a zoomed page, the buttons are named along the bottom; L2 and R2
+  now jump between bookmarks.
+
 ## What's in version 0.16.1
 
 - Reading a manual closed the app. Carrying the booklet out of the box re-attached it to its cover each frame with

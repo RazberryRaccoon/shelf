@@ -99,6 +99,9 @@ class Carts(private val stage: Stage, val shells: Shells) {
         pictureTexture(stage, b).also { b.recycle() }
     }
 
+    /** Gives a cartridge's label this finish (if it hasn't it already), its picture drawn again for it. */
+    fun refinish(c: Cart?, title: String, f: Int) { if (c != null && c.finish != f) c.finish(f, labelBitmap(c.style, title)) }
+
     /** Until art downloads come to the native app: Shelf's own label, sized to this cartridge's label window. */
     private fun labelBitmap(style: CartStyle, title: String) =
         Paintings.label(512, (512 / style.labelAspect).toInt().coerceIn(128, 1024), title)
@@ -127,13 +130,35 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
     /** Where it is now, however it was put there (place or placeMatrix). */
     fun current(): FloatArray = FloatArray(16).also { tm.getTransform(tm.getInstance(asset.root), it) }
 
-    init {
-        // Filament reads a texture from the bottom row up, so the label goes in flipped, or it shows upside down
-        val upright = Bitmap.createBitmap(label, 0, 0, label.width, label.height, android.graphics.Matrix().apply { preScale(1f, -1f) }, false)
+    /** Its label's finish (Labels): standard, matte paper, glossy, worn, holo, opalescent or foil. */
+    var finish = Labels.STANDARD; private set
+
+    /** Puts a label picture on (as big as the one it was made with): Filament reads from the bottom row up, so flipped. */
+    private fun upload(label: Bitmap) {
+        val fit = if (label.width == labelTex.getWidth(0) && label.height == labelTex.getHeight(0)) label else Bitmap.createScaledBitmap(label, labelTex.getWidth(0), labelTex.getHeight(0), true)
+        val upright = Bitmap.createBitmap(fit, 0, 0, fit.width, fit.height, android.graphics.Matrix().apply { preScale(1f, -1f) }, false)
         TextureHelper.setBitmap(stage.engine, labelTex, 0, upright)
-        if (upright !== label) upright.recycle()
+        if (upright !== fit) upright.recycle()
+        if (fit !== label) fit.recycle()
         labelTex.generateMipmaps(stage.engine)
         label.recycle()
+    }
+
+    /**
+     * Gives the label a finish: its picture (drawn again with the finish's wear or sheen baked in) and the paper's
+     * material. Holo and opalescent also shimmer as the cartridge turns (see place).
+     */
+    fun finish(f: Int, plain: Bitmap) {
+        finish = f
+        upload(Labels.bake(plain, f, style.sys.hashCode()))
+        val m = labelMat ?: return
+        val l = Labels.LOOKS[f]
+        m.set("roughnessFactor", l[0]); m.set("metallicFactor", l[1]); m.set("clearCoatFactor", l[2]); m.set("clearCoatRoughnessFactor", l[3])
+        if (l[4] == 0f) m.set("sheenColorFactor", 0f, 0f, 0f)
+    }
+
+    init {
+        upload(label)
         labelMat?.takeIf { m -> m.material.parameters.any { it.name == "baseColorMap" && it.type == Material.Parameter.Type.SAMPLER_2D } }?.setParameter("baseColorMap", labelTex, sampler)
         // the board's printed back: the face whose material is named pcb-print (the box's sixth face, -z, if names are missing)
         val pcb = asset.getFirstEntityByName("pcb").takeIf { it != 0 }?.let { rm.getInstance(it) }?.takeIf { it != 0 }
@@ -280,6 +305,15 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
         if (!held) Matrix.rotateM(m, 0, Math.toDegrees(rx.toDouble()).toFloat(), 1f, 0f, 0f)
         Matrix.scaleM(m, 0, s, s, s)
         tm.setTransform(tm.getInstance(asset.root), m)
+        if (Labels.LOOKS[finish][4] > 0f) shimmer(ry + rx * .7f)
+    }
+
+    /** Holo and opalescent: the sheen's colour follows how the label faces you, through the rainbow (or pastels). */
+    private fun shimmer(a: Float) {
+        val l = Labels.LOOKS[finish]
+        val c = android.graphics.Color.HSVToColor(floatArrayOf(((a * 140f) % 360f + 360f) % 360f, l[5], 1f))
+        labelMat?.set("sheenColorFactor", android.graphics.Color.red(c) / 255f * l[4], android.graphics.Color.green(c) / 255f * l[4], android.graphics.Color.blue(c) / 255f * l[4])
+        labelMat?.set("sheenRoughnessFactor", .3f)
     }
 
     fun destroy() {
@@ -354,3 +388,86 @@ fun metalColor(lin: FloatArray, color: Int, m: Finish): FloatArray {
 
 
 fun srgbToLinear(c: Float) = if (c <= .04045f) c / 12.92f else ((c + .055f) / 1.055f).pow(2.4f)
+
+/**
+ * Label finishes (Customize shell, per game; a default in Settings). Each is the paper's material and a little baked
+ * into the picture:
+ *   standard     the light-coated paper of a real label
+ *   matte paper  uncoated, soft
+ *   glossy       a thick clear coat, sharp reflections
+ *   worn         faded, scuffed, a crease, a corner torn off, edges rubbed white
+ *   holo         a trading-card hologram: rainbow bands and sparkle in the picture, a sheen that runs through the colours as it turns
+ *   opalescent   milky, pastel, pearly: soft colours that drift as it turns
+ *   foil         metallic, like a foil-stamped special edition
+ */
+object Labels {
+    const val STANDARD = 0
+    val NAMES = listOf("Standard", "Matte paper", "Glossy", "Worn", "Holo", "Opalescent", "Foil")
+    // roughness, metallic, clear coat, clear coat roughness, sheen strength (0 none), sheen colour's saturation
+    val LOOKS = listOf(
+        floatArrayOf(.62f, 0f, .08f, .5f, 0f, 0f), floatArrayOf(.95f, 0f, 0f, .9f, 0f, 0f), floatArrayOf(.16f, 0f, 1f, .04f, 0f, 0f),
+        floatArrayOf(.86f, 0f, 0f, .9f, 0f, 0f), floatArrayOf(.22f, .55f, .7f, .08f, 1f, .75f), floatArrayOf(.3f, .12f, 1f, .1f, .8f, .32f),
+        floatArrayOf(.24f, .9f, .45f, .12f, 0f, 0f))
+
+    /** The label's picture with the finish baked in (a new picture; `plain` is recycled). */
+    fun bake(plain: Bitmap, f: Int, seed: Int): Bitmap {
+        if (f !in 3..6) return plain
+        val b = plain.copy(Bitmap.Config.ARGB_8888, true).also { plain.recycle() }
+        val c = android.graphics.Canvas(b); val w = b.width.toFloat(); val h = b.height.toFloat()
+        val r = java.util.Random(seed.toLong() * 31 + f)
+        val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+        when (f) {
+            3 -> {   // worn
+                p.colorFilter = android.graphics.ColorMatrixColorFilter(android.graphics.ColorMatrix().apply { setSaturation(.7f) })
+                b.copy(Bitmap.Config.ARGB_8888, false).also { c.drawBitmap(it, 0f, 0f, p) }.recycle(); p.colorFilter = null
+                p.color = android.graphics.Color.argb(40, 245, 238, 220); c.drawRect(0f, 0f, w, h, p)   // sun-faded
+                p.style = android.graphics.Paint.Style.STROKE
+                repeat(26) {   // scuffs
+                    p.strokeWidth = .8f + r.nextFloat() * 1.8f; p.color = android.graphics.Color.argb(50 + r.nextInt(90), 250, 248, 240)
+                    val x = r.nextFloat() * w; val y = r.nextFloat() * h; val l = 10f + r.nextFloat() * w * .25f; val a = (r.nextFloat() - .5f) * .8f
+                    c.drawLine(x, y, x + l * kotlin.math.cos(a), y + l * kotlin.math.sin(a), p)
+                }
+                // a crease across it: a pale line with a shadow beside it
+                val cy = h * (.3f + r.nextFloat() * .4f)
+                p.strokeWidth = 2.2f; p.color = android.graphics.Color.argb(110, 255, 255, 250); c.drawLine(0f, cy, w, cy + h * .08f, p)
+                p.strokeWidth = 1.6f; p.color = android.graphics.Color.argb(70, 0, 0, 0); c.drawLine(0f, cy + 3f, w, cy + h * .08f + 3f, p)
+                // edges rubbed back to the paper, and a corner torn off
+                p.style = android.graphics.Paint.Style.FILL; p.color = android.graphics.Color.argb(140, 238, 232, 218)
+                repeat(70) { val t = r.nextFloat(); val e = r.nextInt(4); val rr = 1.5f + r.nextFloat() * 5f
+                    val (x, y) = when (e) { 0 -> t * w to r.nextFloat() * 6f; 1 -> t * w to h - r.nextFloat() * 6f; 2 -> r.nextFloat() * 6f to t * h; else -> w - r.nextFloat() * 6f to t * h }
+                    c.drawCircle(x, y, rr, p) }
+                val tear = android.graphics.Path().apply { moveTo(w, 0f); lineTo(w - w * .16f, 0f)
+                    var x = w - w * .16f; var y = 0f; while (x < w) { x += w * .02f + r.nextFloat() * w * .02f; y += h * .02f + r.nextFloat() * h * .03f; lineTo(minOf(x, w), y) }; lineTo(w, 0f); close() }
+                p.color = android.graphics.Color.rgb(233, 227, 212); c.drawPath(tear, p)
+            }
+            4 -> {   // holo: rainbow bands on a slant, fine lines and sparkle, laid over in Screen (lightening, like light off foil)
+                p.xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SCREEN)
+                val cols = intArrayOf(0xffff5ea8.toInt(), 0xffffd25e.toInt(), 0xff6dff9b.toInt(), 0xff5ed8ff.toInt(), 0xffa77bff.toInt(), 0xffff5ea8.toInt())
+                p.shader = android.graphics.LinearGradient(0f, 0f, w * .45f, h * .45f, cols, null, android.graphics.Shader.TileMode.MIRROR); p.alpha = 95
+                c.drawRect(0f, 0f, w, h, p); p.shader = null
+                p.alpha = 40; p.color = android.graphics.Color.WHITE; p.strokeWidth = 1f
+                var x = -h; while (x < w) { c.drawLine(x, 0f, x + h, h, p); x += 5f }
+                repeat(90) { p.alpha = 80 + r.nextInt(150); c.drawCircle(r.nextFloat() * w, r.nextFloat() * h, .6f + r.nextFloat() * 1.6f, p) }
+                p.xfermode = null
+            }
+            5 -> {   // opalescent: milky, with soft pastel clouds
+                p.color = android.graphics.Color.argb(46, 255, 255, 255); c.drawRect(0f, 0f, w, h, p)
+                p.xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SCREEN)
+                val pastels = intArrayOf(0xffffc6e0.toInt(), 0xffc6e7ff.toInt(), 0xffd8ffd0.toInt(), 0xfffff1c6.toInt(), 0xffe4d0ff.toInt())
+                repeat(9) { val cx = r.nextFloat() * w; val cy = r.nextFloat() * h; val rad = w * (.2f + r.nextFloat() * .3f)
+                    p.shader = android.graphics.RadialGradient(cx, cy, rad, pastels[r.nextInt(pastels.size)] and 0x80ffffff.toInt(), 0, android.graphics.Shader.TileMode.CLAMP)
+                    c.drawCircle(cx, cy, rad, p) }
+                p.shader = null; p.xfermode = null
+            }
+            6 -> {   // foil: a brushed, gold-and-silver light over it (the metal does the rest)
+                p.xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.OVERLAY)
+                p.shader = android.graphics.LinearGradient(0f, 0f, w, h, intArrayOf(0xfff2d58a.toInt(), 0xffffffff.toInt(), 0xffc9cdd6.toInt(), 0xfff2d58a.toInt()), null, android.graphics.Shader.TileMode.CLAMP)
+                p.alpha = 150; c.drawRect(0f, 0f, w, h, p); p.shader = null
+                p.alpha = 30; p.color = android.graphics.Color.WHITE; var y = 0f; while (y < h) { c.drawLine(0f, y, w, y, p); y += 2f }
+                p.xfermode = null
+            }
+        }
+        return b
+    }
+}
+

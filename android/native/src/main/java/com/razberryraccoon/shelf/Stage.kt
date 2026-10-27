@@ -160,9 +160,32 @@ class Stage(private val ctx: Context, private val surface: TextureView) : Choreo
         Choreographer.getInstance().postFrameCallback(this)
         val dt = if (last == 0L) 1 / 60f else ((now - last) / 1e9f).coerceIn(0f, .1f)
         last = now
+        val t0 = System.nanoTime()
         onFrame?.invoke(dt)
+        val t1 = System.nanoTime()
         val sc = swapChain ?: return
-        if (ui.isReadyToRender && renderer.beginFrame(sc, now)) { renderer.render(view); renderer.endFrame() }
+        // the GPU still busy with an earlier frame: Filament skips this one (it shows as a skipped frame in the meter)
+        if (ui.isReadyToRender && renderer.beginFrame(sc, now)) { renderer.render(view); renderer.endFrame(); drawn++ } else skipped++
+        // the meter (Settings › Show frame rate): each half second, how many frames came and how long each part took
+        ticks++; uiNs += t1 - t0; drawNs += System.nanoTime() - t1; worst = maxOf(worst, dt)
+        if (statFrom == 0L) statFrom = now
+        if (now - statFrom >= 500_000_000L) {
+            val s = (now - statFrom) / 1e9f
+            stats = "%.0f fps  ·  %.0f drawn  ·  %d skipped\nscreens %.1f ms  ·  3D %.1f ms  ·  slowest %.0f ms".format(ticks / s, drawn / s, skipped, uiNs / 1e6f / ticks, drawNs / 1e6f / ticks, worst * 1000)
+            ticks = 0; drawn = 0; skipped = 0; uiNs = 0; drawNs = 0; worst = 0f; statFrom = now
+        }
+    }
+    private var ticks = 0; private var drawn = 0; private var skipped = 0; private var uiNs = 0L; private var drawNs = 0L; private var worst = 0f; private var statFrom = 0L
+    /** The last half second's frame rate and timings, for the meter. */
+    var stats = ""; private set
+
+    /**
+     * How much smoothing the 3D gets (Settings › Smoothness): 0 best looks (4× multisampling), 1 balanced (2×),
+     * 2 smoothest (no multisampling; FXAA, a cheap edge blur, instead).
+     */
+    fun quality(q: Int) {
+        view.multiSampleAntiAliasingOptions = view.multiSampleAntiAliasingOptions.apply { enabled = q < 2; sampleCount = if (q == 0) 4 else 2 }
+        view.antiAliasing = if (q == 2) View.AntiAliasing.FXAA else View.AntiAliasing.NONE
     }
 
     fun destroy() {

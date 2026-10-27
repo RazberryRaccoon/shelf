@@ -69,6 +69,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         stage = Stage(this, surface)
         games = Games(this)
         stage.setLook(games.lightEnv, games.lightExposure, games.lightKey)
+        stage.quality(games.smoothness); backdrop.lite = games.smoothness == 2
         Sounds.init(this, games.sounds)
         carts = Carts(stage, Shells(this))
         meta = Meta(this, games)
@@ -81,7 +82,8 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
             val s = minOf((r - l) / Stage.W, (b - t) / Stage.H); val ox = ((r - l) - Stage.W * s) / 2; val oy = ((b - t) - Stage.H * s) / 2
             board.fit(s, ox, oy); backdrop.scale = s; backdrop.ox = ox; backdrop.oy = oy
         }
-        stage.onFrame = { dt -> home.tick(dt); setup?.tick(dt); museum?.tick(dt); launch?.tick(dt); backdrop.tick(dt); if (++frames == 90) booting.delete() }   // started fine
+        stage.onFrame = { dt -> home.tick(dt); setup?.tick(dt); museum?.tick(dt); launch?.tick(dt); backdrop.tick(dt); if (++frames == 90) booting.delete()   // started fine
+            meterLeft -= dt; if (meterLeft <= 0) { meterLeft = .5f; showMeter() } }
     }
 
     // ---------- when the last start went wrong ----------
@@ -218,8 +220,32 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         catch (e: Exception) { folderThen = null; toast("This handheld has no folder picker") }
     }
     @Deprecated("Deprecated in Java")
+    // Android's own pickers: a file to open (a backup, a picture for a game), or a new file to write (a backup)
+    private var docThen: ((android.net.Uri?) -> Unit)? = null
+    override fun openDocument(mimes: Array<String>, then: (android.net.Uri?) -> Unit) {
+        docThen = then
+        try { startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(if (mimes.size == 1) mimes[0] else "*/*").putExtra(Intent.EXTRA_MIME_TYPES, mimes), PICK_DOC) }
+        catch (e: Exception) { docThen = null; toast("This handheld has no file picker") }
+    }
+    override fun createDocument(name: String, mime: String, then: (android.net.Uri?) -> Unit) {
+        docThen = then
+        try { startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(mime).putExtra(Intent.EXTRA_TITLE, name), MAKE_DOC) }
+        catch (e: Exception) { docThen = null; toast("This handheld has no file picker") }
+    }
+    /** The media folder in Android's Files app (or, failing that, the folder picker opened there). */
+    override fun openMediaFolder() {
+        val doc = android.provider.DocumentsContract.buildDocumentUri("com.android.externalstorage.documents", "primary:Shelf/Media")
+        val view = Intent(Intent.ACTION_VIEW).setDataAndType(doc, android.provider.DocumentsContract.Document.MIME_TYPE_DIR).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        try { startActivity(view) }
+        catch (e: Exception) {
+            try { startActivity(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).putExtra(android.provider.DocumentsContract.EXTRA_INITIAL_URI, doc)) }
+            catch (e2: Exception) { toast("Open a file manager and go to Shelf › Media") }
+        }
+    }
+
     override fun onActivityResult(request: Int, result: Int, data: Intent?) {
         super.onActivityResult(request, result, data)
+        if (request == PICK_DOC || request == MAKE_DOC) { val then = docThen ?: return; docThen = null; then(if (result == RESULT_OK) data?.data else null); return }
         if (request != PICK_FOLDER) return
         val then = folderThen ?: return; folderThen = null
         if (result != RESULT_OK) return
@@ -247,6 +273,18 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         val (cart, from, back) = home.takeForLaunch(g)
         launch = Launch(this, stage, board, backdrop, carts, consoles, games, meta, g, cart, from, this, back)
     }
+    // Settings › Show frame rate: the meter, over everything in the top left corner
+    private var meterLeft = 0f
+    private var meter: android.widget.TextView? = null
+    private fun showMeter() {
+        if (!games.showFps) { meter?.let { board.removeView(it); meter = null }; return }
+        val m = meter ?: android.widget.TextView(this).apply {
+            setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, 17f); typeface = android.graphics.Typeface.MONOSPACE; setTextColor(Theme.fg)
+            setBackgroundColor(android.graphics.Color.argb(170, 5, 8, 22)); setPadding(12, 8, 12, 8)
+        }.also { meter = it; board.put(it, 8, 8) }
+        m.text = stage.stats; m.bringToFront()
+    }
+
     override fun start(l: Launch): String = games.launch(l.game)
     override fun done(l: Launch) {
         launch = null
@@ -318,5 +356,5 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         return true
     }
 
-    companion object { private val DIRECTIONS = setOf("up", "down", "left", "right"); private const val PICK_FOLDER = 7 }
+    companion object { private val DIRECTIONS = setOf("up", "down", "left", "right"); private const val PICK_FOLDER = 7; private const val PICK_DOC = 8; private const val MAKE_DOC = 9 }
 }

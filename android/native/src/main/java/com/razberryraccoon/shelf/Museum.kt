@@ -64,6 +64,10 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
     private val flow = BoxFlow(); private var inside = 0f; private var cartInside = 0f
     private var time = 0f; private var closing = false; private var shown = 0f
     private var stickX = 0f; private var stickY = 0f
+    // Y: looking closely at whatever is showing, big in the middle with everything else dimmed (as on a game's page)
+    private var inspecting = false
+    private var inspK = 0f; private var inspZoom = 1f; private var inspZoomTo = 1f
+    private var panX = 0f; private var panY = 0f; private var panToX = 0f; private var panToY = 0f
     private var yaw = -.4f; private var pitch = -.2f; private var vYaw = 0f; private var vPitch = 0f; private var idle = 9f
     private var flipped = false
 
@@ -82,6 +86,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
     private val list = Options(ctx).apply { visibility = View.GONE }
     private val timeline = Timeline(ctx)
     private val hint = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; alpha = 0f }
+    private val lookHint = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; alpha = 0f }   // while looking closely
 
     private enum class Zone { ROWS, FACTS, SHELLS, LOOKS, PARTS, PAINT }
     private var zone = Zone.ROWS
@@ -113,7 +118,11 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         board.put(panel, 704, 104, 596, 618)
         board.put(timeline, 40, 590, 640, 70)
         hint.addView(key("L", "Previous console")); hint.addView(key("R", "Next console").apply { setPadding(24, 0, 0, 0) }); hint.addView(key("X", "Flip it over").apply { setPadding(24, 0, 0, 0) })
+        hint.addView(key("Y", "Look closer").apply { setPadding(24, 0, 0, 0) })
         board.put(hint, 40, 676, 640)
+        lookHint.addView(key("L1 R1", "Zoom")); lookHint.addView(key("R", "Turn").apply { setPadding(24, 0, 0, 0) })
+        lookHint.addView(key("L", "Move").apply { setPadding(24, 0, 0, 0) }); lookHint.addView(key("B", "Back").apply { setPadding(24, 0, 0, 0) })
+        board.put(lookHint, 0, 690, 1334)
         timeline.names = exhibits.map { it.year.toString() }
         show(exhibits.indexOfFirst { it.sys == startSys }.coerceAtLeast(0))   // opens on the console of the game you were on
         Sounds.play(Sounds.OPEN)
@@ -159,7 +168,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
     private fun load(e: Exhibit) = loaded.getOrPut(e.sys) {
         val look = consoles.lookFor(e.sys, games.consoleLook(e.sys))
         Loaded(consoleModel(e.sys, look?.seeThrough() == true)?.apply { look?.let { paint(it.parts) } }, carts.model("case-${e.sys}.glb")?.let { Case(stage, it, e.example, sampler) },
-            carts.make(e.sys, e.example, games.defaultShell(e.sys))).also { it.console?.hide(); it.case?.hide(); it.cart?.place(-4000f, 0f, 0f, 0f, 0f, 1f) }
+            carts.make(e.sys, e.example, games.defaultShell(e.sys)).also { carts.refinish(it, e.example, games.labelFinish) }).also { it.console?.hide(); it.case?.hide(); it.cart?.place(-4000f, 0f, 0f, 0f, 0f, 1f) }
     }
 
     /** A console's model: the see-through one (its shell blended, for clear, frosted and smoke shells) or the solid one. */
@@ -217,7 +226,12 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         time += dt
         shown = if (closing) maxOf(0f, shown - dt / .35f) else min(1f, shown + dt / .45f)
         val sk = Backdrop.ease(shown)
-        panel.alpha = sk; panel.translationX = (1 - sk) * 70f; timeline.alpha = sk; hint.alpha = sk
+        inspK = if (inspecting) min(1f, inspK + dt / .4f) else maxOf(0f, inspK - dt / .35f)
+        val ik = Backdrop.ease(inspK)
+        inspZoom += (inspZoomTo - inspZoom) * min(1f, dt * 8f)
+        panX += ((if (inspecting) panToX else 0f) - panX) * min(1f, dt * 8f); panY += ((if (inspecting) panToY else 0f) - panY) * min(1f, dt * 8f)
+        backdrop.shade = ik * .75f
+        panel.alpha = sk * (1 - ik); panel.translationX = (1 - sk) * 70f; timeline.alpha = sk * (1 - ik); hint.alpha = sk * (1 - ik); lookHint.alpha = sk * ik
         fun ease(cur: Float, want: Float, rate: Float) = cur + (want - cur) * min(1f, dt * rate)
         // switching consoles: the exhibit slides off to the side, the next one slides in from the other
         slideX = ease(slideX, slideTo, 14f)
@@ -252,6 +266,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         if (!closing && (sx != 0f || sy != 0f)) { vYaw += (sx * 3.4f - vYaw) * min(1f, dt * 8f); vPitch += (sy * 2.6f - vPitch) * min(1f, dt * 8f); idle = 0f }
         else { vYaw *= exp(-dt * 1.7f); vPitch *= exp(-dt * 2.4f); idle += dt }
         yaw += vYaw * dt; pitch = (pitch + vPitch * dt).coerceIn(-1.35f, 1.35f)
+        if (inspecting) idle = 0f   // looking closely: it stays as you turned it
         if (idle > 1.2f) {
             val target = r[0] + (2 * PI.toFloat()) * ((yaw - r[0]) / (2 * PI)).roundToLong()
             val k = min(1f, dt * 3f); yaw += (target - yaw) * k; pitch += (r[1] - pitch) * k
@@ -262,7 +277,9 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
 
     private fun place(sk: Float) {
         backdrop.shadows.clear()
-        val cx = 360f + slideX; val cy = 330f + sin(time * .8f) * 4f
+        // looking closely: whatever is showing moves to the middle of the screen and grows (L1/R1 zoom, the d-pad moves)
+        val look = Backdrop.ease(inspK); val grow = lerp(1f, 1.5f * inspZoom, look)
+        val cx = lerp(360f + slideX, Stage.W / 2 + panX, look); val cy = lerp(330f + sin(time * .8f) * 4f, Stage.H / 2 - 10f + panY, look)
         // the console, sized by its whole depth too, so deep ones (seen from above) fit as well as flat ones
         // Its board shows through a see-through shell, and Inside the console comes apart like an exploded drawing: as it
         // turns to the Inside angle, its halves slide away from the board, which stays in the middle. There the stick turns
@@ -275,7 +292,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
             else {
                 val diag = kotlin.math.sqrt(m.half[0] * m.half[0] + m.half[1] * m.half[1] + m.half[2] * m.half[2])
                 val cyaw = yaw + wrap(ir[0] - yaw) * ik; val cpitch = pitch + (ir[1] - pitch) * ik
-                m.place(cx, y, 30f, cyaw, cpitch, 2 * 215f * maxOf(m.half[0], m.half[1]) / diag * (1 - .08f * ik))
+                m.place(cx, y, 30f, cyaw, cpitch, 2 * 215f * maxOf(m.half[0], m.half[1]) / diag * (1 - .08f * ik) * grow)
                 val apart = consoles.info[ex().sys]?.explode
                 m.explode(ik, apart, if (b != null && apart != null) reach(b, apart.axis, cyaw, cpitch) else 0f)
                 if (b != null) { if (ik < .002f) b.follow(m.matrix) else b.turnIn(m, yaw, pitch) }
@@ -295,7 +312,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
                 val caseS = lerp(open, maxOf(open, min(470f / (2 * c.half[1]), 420f / (2 * c.half[0]))), flow.closed)
                 val shift = maxOf(0f, -kotlin.math.cos(PI.toFloat() * .97f * c.open)) * c.half[0] * caseS * kotlin.math.cos(yaw)
                 val at = cx + shift
-                c.place(at - (1 - inK) * (at + 4 * c.half[0] * caseS + 40f), gy, 20f, yaw, pitch, caseS * big)
+                c.place(at - (1 - inK) * (at + 4 * c.half[0] * caseS + 40f), gy, 20f, yaw, pitch, caseS * big * grow)
             }
         }
         // the cartridge: free in the middle, then just over the tray as the box comes in, then down into it
@@ -308,7 +325,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         val cyaw = yaw + wrap(CART_REST[0] - yaw) * ck; val cpitch = pitch + (CART_REST[1] - pitch) * ck
         val spread = run { val st = ct.style; val d = st.depth * 3.8f + 48f
             (maxOf(st.w, st.h) * 1.12f / (st.w * abs(kotlin.math.cos(CART_REST[0])) + d * abs(sin(CART_REST[0])))).coerceAtMost(1f) }
-        val free = FloatArray(16).also { freeMatrix(it, ct, cx, gy, lerp(1f, spread, ck), cyaw, cpitch) }
+        val free = FloatArray(16).also { freeMatrix(it, ct, cx, gy, lerp(1f, spread, ck) * grow, cyaw, cpitch) }
         if (ct.canOpen) {
             if (ck < .001f) ct.inside(0f)
             else {
@@ -366,6 +383,18 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
 
     fun input(a: String) {
         if (closing) return
+        if (inspecting) {
+            when (a) {
+                "rb" -> if (inspZoomTo < 3f) { inspZoomTo += .5f; Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
+                "lb" -> if (inspZoomTo > 1f) { inspZoomTo -= .5f; Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
+                "left" -> panToX += 90f; "right" -> panToX -= 90f; "up" -> panToY += 90f; "down" -> panToY -= 90f
+                "b", "y", "a" -> { inspecting = false; Sounds.play(Sounds.CLOSE) }
+                "x" -> { flipped = !flipped; vYaw = 0f; idle = 9f; Sounds.play(Sounds.TURN) }
+            }
+            val lim = 260f * inspZoomTo; panToX = panToX.coerceIn(-lim, lim); panToY = panToY.coerceIn(-lim * .7f, lim * .7f)
+            return
+        }
+        if (a == "y" && (zone == Zone.ROWS || zone == Zone.FACTS) && leaving < 0) { inspecting = true; inspZoomTo = 1f; panToX = 0f; panToY = 0f; Sounds.play(Sounds.OPEN); return }
         when (a) {
             "lb", "rb" -> return if (zone != Zone.ROWS && zone != Zone.FACTS) Sounds.play(Sounds.BUMP) else switchTo(at + if (a == "lb") -1 else 1)   // a list is about this console
             "x" -> { flipped = !flipped; vYaw = 0f; idle = 9f; Sounds.play(Sounds.TURN); return }
@@ -437,7 +466,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         val key = list.current()?.tag as? String ?: return
         val e = ex(); val v = carts.variantFor(e.sys, key) ?: return
         val c = cart
-        if (c == null || (v.clear != null) != (c.variant.clear != null)) { c?.destroy(); cart = carts.make(e.sys, e.example, v); loaded[e.sys]?.cart = cart } else c.apply(v)
+        if (c == null || (v.clear != null) != (c.variant.clear != null)) { c?.destroy(); cart = carts.make(e.sys, e.example, v); carts.refinish(cart, e.example, games.labelFinish); loaded[e.sys]?.cart = cart } else c.apply(v)
     }
 
     private fun shellsInput(a: String) {
@@ -456,7 +485,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
     }
     private fun previewTo(v: Variant) {
         val e = ex(); val c = cart
-        if (c == null || (v.clear != null) != (c.variant.clear != null)) { c?.destroy(); cart = carts.make(e.sys, e.example, v); loaded[e.sys]?.cart = cart } else c.apply(v)
+        if (c == null || (v.clear != null) != (c.variant.clear != null)) { c?.destroy(); cart = carts.make(e.sys, e.example, v); carts.refinish(cart, e.example, games.labelFinish); loaded[e.sys]?.cart = cart } else c.apply(v)
     }
     private fun endShells() = endList()
 
@@ -609,7 +638,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
 
     fun destroy() {
         unload(); backdrop.shadows.clear(); stage.turnKey(0f)
-        board.removeView(panel); board.removeView(timeline); board.removeView(hint)
+        board.removeView(panel); board.removeView(timeline); board.removeView(hint); board.removeView(lookHint); backdrop.shade = 0f
     }
 
     // ---------- helpers ----------

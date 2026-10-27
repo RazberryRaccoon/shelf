@@ -66,9 +66,28 @@ class Backdrop(ctx: Context) : View(ctx) {
         invalidate()
     }
 
+    /**
+     * Lighter drawing (Settings › Smoothness › Smoothest): the sky, its stars and the planet are painted once into a
+     * picture (again when the color changes) and that picture is shown each frame; the stars hold still.
+     */
+    var lite = false; set(v) { field = v; litePic?.recycle(); litePic = null }
+    private var litePic: Bitmap? = null; private var liteFor = 0
+
     override fun onDraw(c: Canvas) {
         c.drawColor(Theme.bg)
         c.save(); c.translate(ox, oy); c.scale(scale, scale)
+        if (lite) {
+            if (litePic == null || (liteFor != mood && (moodT >= 1f || time - skyAt > .07f))) {
+                liteFor = mood; skyAt = time; if (skyFor != mood) { skyFor = mood; sky = makeSky(mood) }
+                val b = litePic ?: Bitmap.createBitmap(Stage.W.toInt(), Stage.H.toInt(), Bitmap.Config.ARGB_8888).also { litePic = it }
+                b.eraseColor(Theme.bg); val lc = Canvas(b)
+                p.shader = sky[0]; lc.drawRect(0f, 0f, Stage.W, Stage.H, p); p.shader = sky[1]; lc.drawRect(0f, 0f, Stage.W, Stage.H, p); p.shader = null
+                for (s in stars) { p.color = Color.argb(150, 238, 241, 255); lc.drawCircle(s[0], s[1], s[2], p) }
+                planet(lc)
+            }
+            c.drawBitmap(litePic!!, 0f, 0f, null)
+            drawRest(c); return
+        }
         // the nebula: two soft glows in the console's color (their gradients made again only when the color changes)
         // while the color shifts (after each move on Home) the gradients are made again a few times a second, not every
         // frame: the change is slow and soft, and making them every frame was part of what made moving feel heavy
@@ -78,6 +97,11 @@ class Backdrop(ctx: Context) : View(ctx) {
         // stars, twinkling slowly
         for (s in stars) { p.color = Color.argb((90 + 110 * (.5f + .5f * sin(time * .6f + s[3]))).toInt(), 238, 241, 255); c.drawCircle(s[0], s[1], s[2], p) }
         planet(c)
+        drawRest(c)
+    }
+
+    /** The picture and the shadows, over the sky. */
+    private fun drawRest(c: Canvas) {
         // the picture, then the shadows on top of it
         val sweep = .5f - .5f * cos(panT * 2 * PI.toFloat() / 56f)   // there and back, about 28 seconds each way at the usual speed
         val vis = if (previewArt) 1f else picVisible
@@ -92,7 +116,11 @@ class Backdrop(ctx: Context) : View(ctx) {
         }
         p.alpha = 255
         c.restore()
+        // looking closely at a model: everything behind it dims (the model itself is drawn above, by the 3D)
+        if (shade > 0f) { p.color = Color.BLACK; p.alpha = (255 * shade).toInt(); c.drawRect(0f, 0f, width.toFloat(), height.toFloat(), p); p.alpha = 255 }
     }
+    /** How dark everything behind the 3D is (0..1), while a model is looked at closely. */
+    var shade = 0f
 
     private fun planet(c: Canvas) {
         val x = 1190f; val y = -175f; val r = 390f
@@ -119,6 +147,8 @@ class Backdrop(ctx: Context) : View(ctx) {
 
     private var dotShader = android.graphics.BitmapShader(dots, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply { setLocalMatrix(Matrix().apply { setTranslate(0f, picTop) }) }
     private val picMatrix = Matrix()
+    private var picShaderDots: Shader? = null
+    private val picShaders = java.util.IdentityHashMap<Bitmap, Pair<android.graphics.BitmapShader, Shader>>()
 
     /** The picture, panning diagonally from its top left to its bottom right, masked by the dots in one step. */
     private fun drawPicture(c: Canvas, b: Bitmap, a: Float, sweep: Float) {
@@ -126,8 +156,12 @@ class Backdrop(ctx: Context) : View(ctx) {
         val zoom = 1.3f; val k = maxOf(Stage.W / b.width, picH / b.height) * zoom
         val ySlack = b.height * k - picH
         picMatrix.setScale(k, k); picMatrix.postTranslate(-(b.width * k - Stage.W) * sweep, picTop - ySlack * (.15f + .7f * sweep))
-        val pic = android.graphics.BitmapShader(b, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply { setLocalMatrix(picMatrix) }
-        p.shader = android.graphics.ComposeShader(pic, dotShader, PorterDuff.Mode.DST_IN)   // the picture where the dots are
+        // its shaders are made once per picture (and fade style), and only moved each frame
+        if (picShaderDots !== dotShader) { picShaders.clear(); picShaderDots = dotShader }
+        picShaders.keys.retainAll { it === pic || it === picFrom }   // the two pictures crossfading, at most
+        val (bs, cs) = picShaders.getOrPut(b) { android.graphics.BitmapShader(b, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).let { it to android.graphics.ComposeShader(it, dotShader, PorterDuff.Mode.DST_IN) } }   // the picture where the dots are
+        bs.setLocalMatrix(picMatrix)
+        p.shader = cs
         p.colorFilter = dim; p.alpha = (255 * a).toInt()
         c.drawRect(0f, picTop, Stage.W, Stage.H, p)
         p.shader = null; p.colorFilter = null; p.alpha = 255

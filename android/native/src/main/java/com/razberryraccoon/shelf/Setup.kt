@@ -28,6 +28,9 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         fun allowStorage()
         fun pickFolder(then: (String?) -> Unit)
         fun askText(title: String, value: String, then: (String) -> Unit)
+        fun openDocument(mimes: Array<String>, then: (android.net.Uri?) -> Unit)
+        fun createDocument(name: String, mime: String, then: (android.net.Uri?) -> Unit)
+        fun openMediaFolder()
         fun rescan(then: () -> Unit)
         fun toast(msg: String)
         fun finished(setup: Setup)
@@ -168,6 +171,12 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                     sub = "Where box art, pictures, videos, details and manuals come from; what’s missing", tag = Step.MEDIA)
                 rows += Options.Row("go", "Your saved colors", value = "${carts.shells.all.size + looks.count()}", sub = "Shells and console colors you’ve made, to delete", tag = Step.SAVED)
                 rows += Options.Row("pageview", "A game’s page opens on", value = "‹  ${PAGE_VIEWS[games.pageView]}  ›", sub = "On the page itself, L2 and R2 go through all three")
+                rows += Options.Row("homeboxes", "Home shows", value = "‹  ${if (games.homeBoxes) "Boxes" else "Cartridges"}  ›", sub = "Your games on Home as cartridges, or as their closed boxes")
+                rows += Options.Row("homescroll", "Home scrolling", value = "‹  ${Home.STYLES[games.homeScroll.coerceIn(0, Home.STYLES.size - 1)]}  ›", sub = SCROLL_SUB[games.homeScroll.coerceIn(0, SCROLL_SUB.size - 1)])
+                rows += Options.Row("labelfinish", "Label finish", value = "‹  ${Labels.NAMES[games.labelFinish]}  ›", sub = "Every game's label, unless one has its own (in its Customize shell)")
+                rows += Options.Row("launchfx", "Starting a game ends with", value = "‹  ${Curtain.NAMES[games.launchFx.coerceIn(0, Curtain.NAMES.size - 1)]}  ›", sub = "How the screen goes to black after the game goes in (and opens again when you come back)")
+                rows += Options.Row("smooth", "Smoothness", value = "‹  ${SMOOTH[games.smoothness]}  ›", sub = SMOOTH_SUB[games.smoothness])
+                rows += Options.Row("fps", "Show frame rate", value = if (games.showFps) "On" else "Off", sub = "A small meter in the top left: frames per second, and which part is slow")
                 rows += Options.Row("sounds", "Sounds", value = if (games.sounds) "On" else "Off", sub = "Soft clicks and chimes as you move around")
                 rows += Options.Row("again", "Run first-time setup again")
                 rows += Options.Row("close", "Done", primary = true)
@@ -206,6 +215,11 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                     val n = missing?.get(k.id)
                     rows += Options.Row("media-kind", k.name, value = when { n == null -> "…"; n == 0 -> "All found"; else -> "$n missing" }, sub = if ((n ?: 0) > 0 && !job.running) "A finds them" else null, tag = k.id)
                 }
+                rows += Options.Row(Options.HEAD, "Your media folder")
+                rows += Options.Row("media-open", "Open the media folder", value = if (host.hasStorage()) "Shelf › Media" else "Inside Shelf",
+                    sub = "Add your own pictures, videos and manuals to a game's folder: named box, back, spine, cartridge, title, screenshot (any picture type), a video, a PDF")
+                rows += Options.Row("media-backup", "Back up all media", sub = "Every game's pictures, videos, manuals and details, in one zip, where you choose")
+                rows += Options.Row("media-restore", "Restore a backup", sub = "Puts a backup's media back for every game it has (by the games' file names)")
                 rows += Options.Row(Options.HEAD, "Sources")
                 for (s in Media.SOURCES) rows += Options.Row("source", s.name, value = Media.status(s.id, games.artKeys),
                     sub = s.kinds.joinToString(", ") { Media.kind(it).name.lowercase() }.replaceFirstChar { it.uppercase() }, tag = s.id)
@@ -242,6 +256,21 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         val r = options.current()
         if (r?.key == "light" && (a == "left" || a == "right")) return adjustLight(r.tag as String, if (a == "left") -1 else 1)
         if (r?.key == "art" && (a == "left" || a == "right" || a == "a")) return adjustArt(r.tag as String, if (a == "left") -1 else 1)
+        if (r?.key == "homeboxes" && (a == "left" || a == "right" || a == "a")) { games.homeBoxes = !games.homeBoxes; Sounds.play(Sounds.MOVE); return fill() }
+        if (r?.key == "homescroll" && (a == "left" || a == "right" || a == "a")) {
+            val n = Home.STYLES.size; games.homeScroll = (games.homeScroll + (if (a == "left") n - 1 else 1)) % n; Sounds.play(Sounds.MOVE); return fill()
+        }
+        if (r?.key == "labelfinish" && (a == "left" || a == "right" || a == "a")) {
+            val n = Labels.NAMES.size; games.labelFinish = (games.labelFinish + (if (a == "left") n - 1 else 1)) % n
+            showcase.forEach { (sys, c) -> carts.refinish(c, Games.NAMES[sys] ?: "Android games", games.labelFinish) }; Sounds.play(Sounds.MOVE); return fill()
+        }
+        if (r?.key == "launchfx" && (a == "left" || a == "right" || a == "a")) {
+            val n = Curtain.NAMES.size; games.launchFx = (games.launchFx + (if (a == "left") n - 1 else 1)) % n; Sounds.play(Sounds.MOVE); return fill()
+        }
+        if (r?.key == "smooth" && (a == "left" || a == "right" || a == "a")) {
+            games.smoothness = (games.smoothness + (if (a == "left") 2 else 1)) % 3
+            stage.quality(games.smoothness); backdrop.lite = games.smoothness == 2; Sounds.play(Sounds.MOVE); return fill()
+        }
         if (r?.key == "pageview" && (a == "left" || a == "right" || a == "a")) { games.pageView = (games.pageView + (if (a == "left") 2 else 1)) % 3; Sounds.play(Sounds.MOVE); return fill() }
         when (a) {
             "up" -> Sounds.play(if (options.move(-1)) Sounds.MOVE else Sounds.BUMP)
@@ -290,8 +319,26 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             "media-all" -> findAll(null)
             "media-kind" -> findAll(setOf(r.tag as String))
             "media-stop" -> { MediaJob.cancel(); fill() }
+            "media-open" -> if (host.hasStorage()) host.openMediaFolder() else host.toast("Shelf needs access to your files to keep media where you can see it: Settings › Games folders")
+            "media-backup" -> host.createDocument("Shelf media backup " + java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date()) + ".zip", "application/zip") { uri ->
+                if (uri == null) return@createDocument
+                host.toast("Backing up…")
+                Thread {
+                    val r = try { ctx.contentResolver.openOutputStream(uri)?.use { out -> "Backed up ${Backup.write(meta.root, out)} files" } ?: "Couldn’t write there" } catch (e: Exception) { "The backup didn’t finish: ${e.message}" }
+                    board.post { host.toast(r) }
+                }.start()
+            }
+            "media-restore" -> host.openDocument(arrayOf("application/zip", "application/x-zip-compressed")) { uri ->
+                if (uri == null) return@openDocument
+                host.toast("Restoring…")
+                Thread {
+                    val r = try { ctx.contentResolver.openInputStream(uri)?.use { i -> "Restored ${Backup.read(i, meta.root)} files" } ?: "Couldn’t read that file" } catch (e: Exception) { "That backup couldn’t be read: ${e.message}" }
+                    board.post { meta.reload(); count(); host.toast(r) }
+                }.start()
+            }
             "del-shell" -> (r.tag as Shell).let { s -> confirmDelete(s.name) { carts.shells.delete(s.id) } }
             "del-look" -> (r.tag as ConsoleLook).let { l -> confirmDelete(l.name) { l.custom?.let { looks.delete(it) } } }
+            "fps" -> { games.showFps = !games.showFps; fill() }
             "sounds" -> { games.sounds = !games.sounds; Sounds.enabled = games.sounds; Sounds.play(Sounds.PICK); fill() }
             "art-reset" -> { games.artKind = "shot"; games.artBright = Art.BRIGHT; games.artTop = Art.TOP; games.artFade = Art.FADE; games.artFadeType = Art.DOTS; games.artPan = Art.PAN; host.artChanged(); fill() }
             "light-reset" -> { games.lightEnv = Look.ENV; games.lightExposure = Look.EXPOSURE; games.lightKey = Look.KEY; applyLight(); fill() }
@@ -390,7 +437,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         if (options.current()?.tag !in Games.NAMES.keys) { cycle += dt; if (cycle > 4.5f) { cycle = 0f; want = order[(order.indexOf(want) + 1) % order.size] } }
         if (want != shown) swapK = maxOf(0f, swapK - dt / .28f) else swapK = min(1f, swapK + dt / .4f)
         if (swapK == 0f) { showcase[shown]?.place(-2000f, 0f, 0f, 0f, 0f, 1f); shown = want; backdrop.mood(Theme.accentOf(want)) }
-        val cart = shown?.let { s -> showcase.getOrPut(s) { carts.make(s, Games.NAMES[s] ?: "Android games", null) } }
+        val cart = shown?.let { s -> showcase.getOrPut(s) { carts.make(s, Games.NAMES[s] ?: "Android games", null).also { carts.refinish(it, Games.NAMES[s] ?: "Android games", games.labelFinish) } } }
         val k = Backdrop.ease(swapK)
         cart?.place(cx, cy + sin(time * .8f) * 4f, 30f, time * .5f, -.12f, 300f * (.6f + .4f * k))
         cart?.brightness(.4f + .6f * k)
@@ -465,7 +512,8 @@ class Options(ctx: Context) : View(ctx) {
             p.typeface = Fonts.bold; p.textSize = 23f; p.color = fg
             c.drawText(r.label + if (r.check) "  ✓" else "", x, y + (if (r.sub.isNullOrEmpty()) rh / 2 + 8 else 38f), p)
             r.value?.let { p.typeface = Fonts.bold; p.textSize = 21f; p.color = if (r.primary) fg else Theme.fg2; p.textAlign = Paint.Align.RIGHT; c.drawText(it, width - 54f, y + (if (r.sub.isNullOrEmpty()) rh / 2 + 8 else 38f), p); p.textAlign = Paint.Align.LEFT }
-            r.sub?.takeIf { it.isNotEmpty() }?.let { p.typeface = Fonts.body; p.textSize = 18f; p.color = Theme.fg2
+            r.sub?.takeIf { it.isNotEmpty() }?.let { p.typeface = Fonts.body; p.textSize = 18f
+                p.color = if (r.primary) Color.argb(200, Color.red(Theme.selFg), Color.green(Theme.selFg), Color.blue(Theme.selFg)) else Theme.fg2   // dark on the light button
                 c.drawText(TextUtils.ellipsize(it, android.text.TextPaint(p), width - x - 60, TextUtils.TruncateAt.START).toString(), x, y + 64f, p) }
             y += rh + 8
         }
@@ -487,3 +535,10 @@ class Dots(ctx: Context) : View(ctx) {
 
 /** The game page's three views, in order (Games.pageView). */
 val PAGE_VIEWS = listOf("Cartridge", "Open box", "Closed box")
+
+private val SMOOTH = listOf("Best looks", "Balanced", "Smoothest")
+private val SMOOTH_SUB = listOf("The smoothest edges; the most work for the handheld", "Softer edges, less work for the 3D",
+    "Lightest: the sky's stars hold still, edges smoothed more cheaply")
+private val SCROLL_SUB = listOf("The selected game on the left, the rest in a line", "The same line, the selected game in the middle",
+    "The selected game faces you; the others turn toward it either side", "The others turn almost edge on, packed close (boxes show their spines)",
+    "Round a wide turntable, the selected game nearest", "The others tucked behind either side, like a fanned deck")

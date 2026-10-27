@@ -84,6 +84,8 @@ export function buildCase(sys, mediaSize, opts) {
   front.position.z = jewel ? top + .3 : D / 2 + .3;
   if (jewel) {   // a jewel case's front art is its booklet: the manual slides out from behind the clear cover
     const book = new THREE.Group(); book.name = 'manual'; book.position.z = front.position.z; front.position.z = 0; book.add(front); shell.add(book);
+    // its inside, seen through the lid when the case lies open (the art is single-sided, so the front alone vanished)
+    const inside = artPlane(W - 4, H - 4, Math.max(.4, r - 2.8), art('manual-art'), 'manual-art'); inside.rotation.y = Math.PI; inside.position.z = -.25; book.add(inside);
   } else shell.add(front);
   const lining = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(rrect(W - 5, H - 5, Math.max(.4, r - 2.5)).map(p => new THREE.Vector2(p[0], p[1]))), 8).rotateY(Math.PI).translate(0, 0, top - .3), inner);
   lining.name = 'inner'; if (!jewel) shell.add(lining);
