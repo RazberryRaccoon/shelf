@@ -90,8 +90,12 @@ class Stage(private val ctx: Context, private val surface: SurfaceView) : Choreo
         // nothing on screen bends light through itself any more (see-through shells are blended), but the disc's clear hub
         // would still switch on a whole extra copy of the frame for refraction whenever it's on screen
         view.setScreenSpaceRefractionEnabled(false)
-        view.colorGrading = ColorGrading.Builder().toneMapper(ToneMapper.ACESLegacy()).build(engine)
-        camera.setExposure(Look.EXPOSURE)
+        // the glow around what's chosen on a game's page draws only around it (Outline): the chosen object marks its pixels
+        view.setStencilBufferEnabled(true)
+        // PBR Neutral (Khronos): colors and label art come out as they are, and only bright highlights roll off. ACES, before
+        // 0.21, darkened everything (a mid grey came out at half its brightness) and crushed dark plastics toward black
+        view.colorGrading = ColorGrading.Builder().toneMapper(ToneMapper.PBRNeutralToneMapper()).build(engine)
+        camera.setExposure(1f / Look.BRIGHT)
         LightManager.Builder(LightManager.Type.DIRECTIONAL)
             .color(1f, 1f, 1f).intensity(Look.KEY).direction(KEY_DIR[0], KEY_DIR[1], KEY_DIR[2]).castShadows(false)
             .build(engine, sun)
@@ -129,10 +133,14 @@ class Stage(private val ctx: Context, private val surface: SurfaceView) : Choreo
         specular.destroy(); toCube.destroy(); context.destroy()
     }
 
-    /** The lighting, live: the studio environment's strength, the exposure, and the key light (Settings › Lighting). */
-    fun setLook(env: Float, exposure: Float, key: Float) {
+    /**
+     * The lighting, live: the studio environment's strength, the brightness, and the key light (Settings › Lighting).
+     * Filament's direct exposure brightens by its inverse (setExposure(e) multiplies the light by 1/e), so the
+     * brightness goes in as 1 / brightness; before 0.21 the Exposure setting worked backwards because of it.
+     */
+    fun setLook(env: Float, bright: Float, key: Float) {
         ibl?.setIntensity(env)
-        camera.setExposure(exposure)
+        camera.setExposure(1f / bright.coerceAtLeast(.01f))
         engine.lightManager.let { it.setIntensity(it.getInstance(sun), key) }
     }
 
@@ -220,17 +228,13 @@ class Stage(private val ctx: Context, private val surface: SurfaceView) : Choreo
 }
 
 /**
- * Starting values for the lighting. On the Retroid, the Studio's own values (environment .85, exposure .72, key light 1)
- * came out much brighter than in the Studio, washing dark plastic out to light grey, so these start well below them;
- * Settings › Lighting tunes them on the device.
+ * Where the key light shines from: the upper left, about 55° off straight on (after the rig's turn, below). Before 0.21
+ * it came from almost edge on to the cartridges' fronts and gave them less than a fifth of its light, so the lighting was
+ * nearly all the studio environment, flat, with dark plastic close to black. Now it lights a resting front at about half
+ * strength and shapes the sides, while its mirror angle stays about 44° away from the fronts, so they keep their real
+ * color (the problem the 0.4 move fixed: gold read tan when the highlight sat on the whole front).
  */
-/**
- * Where the key light shines from: high on the upper left, and more from the side than from in front. It used to come
- * from just over your left shoulder, which on Home's slight up-and-left turn is almost the mirror angle for the
- * cartridges' flat fronts, so the whole front caught the highlight and read pale (gold as tan). From here its mirror
- * angle is about 45° away from the fronts: they show their real color, and the highlight sweeps across only as you turn.
- */
-private val KEY_DIR = floatArrayOf(.55f, -.72f, -.42f)
+private val KEY_DIR = floatArrayOf(.4f, -.52f, -.75f)
 
 /**
  * The whole lighting is turned to match the cartridges' resting angle. The user (after 0.4): gold looks tan at the
@@ -241,4 +245,10 @@ private val KEY_DIR = floatArrayOf(.55f, -.72f, -.42f)
 private const val RIG_YAW = -.48f
 private const val RIG_PITCH = -.2f
 
-object Look { const val ENV = .1f; const val EXPOSURE = .3f; const val KEY = .2f }
+/**
+ * Starting values for the lighting (0.21), tuned by rendering every model with this same Filament (its web build) and
+ * measuring: with PBR Neutral, a flat grey label at rest comes out within a few shades of its own value (128 → 124,
+ * white 255 → 237; ACES had them at 67 and 167), shells within a couple, about half the light from the studio and half
+ * from the key. Settings › Lighting still tunes them on the device.
+ */
+object Look { const val ENV = .5f; const val BRIGHT = 1f; const val KEY = 3.4f }

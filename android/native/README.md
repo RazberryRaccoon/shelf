@@ -52,6 +52,32 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
+## What's in version 0.21
+
+The user's notes on 0.20 (a cleanup pass before the next big feature set):
+1. **The lighting, redone and measured.** Every model was rendered with the app's own 3D engine (Filament 1.75.1's web
+   build, in `tools/lighting-rig`) and its numbers measured. Three findings:
+   - The tone curve (ACES) darkened everything: a mid-grey label came out at half its brightness, and dark plastic
+     sank toward black.
+   - The key light reached the cartridges' fronts almost edge-on, so it added nearly nothing.
+   - Filament's exposure works as its inverse, so Settings › Lighting's Exposure was backwards.
+
+   Now:
+   - **Tone curve:** PBR Neutral, which keeps colors true and only rolls off bright highlights.
+   - **Key light:** from the upper left, lighting the fronts at about half strength, with its reflection kept off them.
+   - **Balance:** about half studio light and half key light.
+   - **Result:** a grey label comes out within a few shades of its own value (128 → 124, where it was 67), shells
+     within a couple. Gold is a deeper gold.
+   - **Settings:** Settings › Lighting has Brightness in place of Exposure, and everyone starts from the new values once.
+2. **A glow around what's chosen.** On a game's page, the chosen cartridge, closed box or manual gets a crisp
+   white-blue line along its edge, fading into a soft halo, breathing slowly, on top of lifting a little. It hugs the
+   object's real outline. It's drawn only where the object isn't, so the box's tray can't hide it and it never covers
+   the object (`Outline.kt`, `materials/outline.mat`).
+3. **Settings in two panes.** Its sections (You, Games, Emulators, Home, Game pages, Lighting, Media, Saved colors,
+   System) run down the left. The chosen one's settings show on the right and change as you move down. Right or A goes
+   in; left or B comes back out. A media source's page still opens in the right pane. Home's picture settings are part
+   of Home; System has Smoothness, the frame-rate meter, Sounds, setup again and the version.
+
 ## What's in version 0.20
 
 The user's two notes on 0.19:

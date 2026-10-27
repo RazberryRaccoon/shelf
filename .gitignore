@@ -6,3 +6,12 @@ android/build/
 android/app/build/
 android/local.properties
 android/app/src/main/assets/index.html
+
+# the lighting rig's downloads (tools/lighting-rig/setup.sh)
+tools/lighting-rig/filament.js
+tools/lighting-rig/filament.wasm
+tools/lighting-rig/filament.d.ts
+tools/lighting-rig/filament/
+tools/lighting-rig/ibl/
+tools/lighting-rig/models
+tools/lighting-rig/outline.filamat

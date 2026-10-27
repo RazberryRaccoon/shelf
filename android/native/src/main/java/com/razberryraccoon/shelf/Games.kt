@@ -49,9 +49,10 @@ class Games(private val ctx: Context) {
 
     var name: String get() = prefs.getString("name", "") ?: ""; set(v) = prefs.edit().putString("name", v).apply()
     var color: Int get() = prefs.getInt("color", 0); set(v) = prefs.edit().putInt("color", v).apply()
-    var lightEnv: Float get() = prefs.getFloat("light:env", Look.ENV); set(v) = prefs.edit().putFloat("light:env", v).apply()
-    var lightExposure: Float get() = prefs.getFloat("light:exposure", Look.EXPOSURE); set(v) = prefs.edit().putFloat("light:exposure", v).apply()
-    var lightKey: Float get() = prefs.getFloat("light:key", Look.KEY); set(v) = prefs.edit().putFloat("light:key", v).apply()
+    // new keys in 0.21, with the new lighting (different scales; Exposure became Brightness): everyone starts from it once
+    var lightEnv: Float get() = prefs.getFloat("light2:env", Look.ENV); set(v) = prefs.edit().putFloat("light2:env", v).apply()
+    var lightBright: Float get() = prefs.getFloat("light2:bright", Look.BRIGHT); set(v) = prefs.edit().putFloat("light2:bright", v).apply()
+    var lightKey: Float get() = prefs.getFloat("light2:key", Look.KEY); set(v) = prefs.edit().putFloat("light2:key", v).apply()
     /** The accounts and keys for the media sources (Settings › Media), as ArtSources reads them: {ss: {user, …}, tgdb: {key}, …}. */
     var artKeys: JSONObject
         get() = try { JSONObject(prefs.getString("art-keys", "{}") ?: "{}") } catch (e: Exception) { JSONObject() }

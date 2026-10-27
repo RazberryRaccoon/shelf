@@ -589,6 +589,23 @@ meter now adds FrameMetrics to confirm it before the bigger change (the backdrop
 the screen). The Spines style's earlier render had shown a grey edge taken for the spine; the user saw it was the
 opening edge, and a coloured test spine in the new render confirms the fix.
 
+**0.21: lighting measured, a glow, Settings in two panes.** The user, on 0.20: smooth now ("over 16.7" at 0, 60 fps),
+then "do a pass of that through all the models and pick whatever values for the light angle and brightness and stuff
+looks best"; a visible selector for the cartridge and manual; Settings with sections on the left. The three.js rig used
+for the foil wasn't Filament, so a new rig (`tools/lighting-rig`) renders with Filament 1.75.1's web build: the app's
+models, `cmgen`'s IBL from the same HDR, the same camera and rig turn. What it found:
+- The key light (.2) was negligible next to the environment: with the key off, the render barely changed.
+- Its direction, after the rig's turn, was almost edge-on to the fronts (it lit them at 0.18).
+- ACES Legacy rendered a grey card at about half its value and crushed darks.
+- `Camera.setExposure(e)` multiplies the light by 1/e. The web binding's `setExposureDirect` showed it: lower values were
+  brighter. That made the Exposure setting backwards.
+- The web build's color grading has no PBR Neutral, so the rig renders linear at a quarter of the light and applies
+  the curve in Python. Unlit materials (the outline) ignore exposure and had to be scaled to match.
+
+The outline uses the stencil: the object writes its own number, and a copy of its model, grown by the ring's width on
+each axis, draws only where the number isn't. The first version measured distance in depth too, and the copy's front
+is the full width in front, so the whole ring read as "fully out". Distance across the face fixed it.
+
 **0.20: the drawing rebuilt.** The readings that settled it: Android's "send" step 14–16 ms of every frame, about half
 the frames over 16.7 ms, the worst 21–64 ms, and 100–200+ ms when a game's page opened, while Shelf's own work stayed
 under 5 ms. The backdrop moved into Filament as a second view drawn before the 3D (no tone mapping, an orthographic

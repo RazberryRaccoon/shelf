@@ -69,7 +69,7 @@ class Carts(private val stage: Stage, val shells: Shells) {
         val bytes = ByteArray(len); b.position(20); b.get(bytes); JSONObject(String(bytes, Charsets.UTF_8))
     } catch (e: Exception) { null }
 
-    private fun file(name: String) = files.getOrPut(name) { stage.readAsset("models/$name").let { if (name.endsWith("-clear.glb")) seeThrough(it) else it } }
+    fun file(name: String) = files.getOrPut(name) { stage.readAsset("models/$name").let { if (name.endsWith("-clear.glb")) seeThrough(it) else it } }
 
 
     /** A cartridge for this game, in its chosen shell color, with a label drawn for it. */
@@ -182,8 +182,9 @@ class Cart(private val stage: Stage, val asset: FilamentAsset, val style: CartSt
         val lin = intArrayOf(Color.red(v.color), Color.green(v.color), Color.blue(v.color)).map { srgbToLinear(it / 255f) }.toFloatArray()
         base = when {
             v.clear != null -> lin   // see-through now (seeThrough), so no white mixed in
-            // metal's color is what it reflects: measured gold and silver (Filament's metal table), not the paint swatch
-            v.sheen -> if (Color.red(v.color) - Color.blue(v.color) > 60) floatArrayOf(1f, .766f, .336f) else floatArrayOf(.972f, .96f, .915f)
+            // metal's color is what it reflects, not the paint swatch: Filament's measured gold and silver, a little deeper
+            // (0.21: under the brighter, truer lighting pure gold read pale cream, more like brass than a gold cartridge)
+            v.sheen -> if (Color.red(v.color) - Color.blue(v.color) > 60) floatArrayOf(.85f, .6f, .22f) else floatArrayOf(.9f, .89f, .86f)
             else -> lin
         }
         if (plastics.isEmpty()) return
