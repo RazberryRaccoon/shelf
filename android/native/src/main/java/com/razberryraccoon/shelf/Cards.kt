@@ -190,7 +190,10 @@ object Overlays {
         val v = o as View; val b = board ?: return
         if (stack.isEmpty()) Sounds.play(Sounds.OPEN)
         val then = o.onClose
-        o.onClose = { b.removeView(v); stack.remove(o); then?.invoke() }
+        // taken off after the frame that finished it, not in the middle of drawing it (a card closing over another,
+        // like a filter's choices over the Filters card, was taken out while the board was still drawing its cards)
+        var gone = false
+        o.onClose = { if (!gone) { gone = true; stack.remove(o); b.post { b.removeView(v) }; then?.invoke() } }
         stack += o; b.put(v, 0, 0, 1334, 750)
     }
     fun input(a: String): Boolean = stack.lastOrNull()?.input(a) != null

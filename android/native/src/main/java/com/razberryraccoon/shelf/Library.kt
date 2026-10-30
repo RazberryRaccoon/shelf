@@ -323,7 +323,7 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
         when (p.key) {
             "sort" -> chooseSort(sh)
             "filter" -> filterCard(sh)
-            "clear" -> { filterOf(sh)?.let { it.clear(); saveFilter(sh, it) }; Sounds.play(Sounds.CLICK); refresh() }
+            "clear" -> { filterOf(sh)?.let { it.clear(); saveFilter(sh, it) }; Sounds.play(Sounds.CLICK); refresh(); toTop() }
             "save" -> host.askText("Name the collection", "") { name ->
                 if (name.isBlank()) return@askText
                 val c = cols.createLive(name.trim().take(40), sortOf(sh), cols.filterFor("all")); changed = true
@@ -458,7 +458,8 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
             "right", "a" -> when {
                 r?.key == "new" -> if (a == "a") newCollection() else Sounds.play(Sounds.BUMP)
                 r?.tag == "hidden" && !unlocked -> if (a == "a") unlock() else Sounds.play(Sounds.BUMP)
-                cells.isNotEmpty() -> { Sounds.play(Sounds.PICK); focusOn("grid") }
+                // A starts from the top (a quick way back up from deep in a list); right goes back to where you were
+                cells.isNotEmpty() -> { Sounds.play(Sounds.PICK); if (a == "a") toTop(); focusOn("grid") }
                 pills().isNotEmpty() -> { Sounds.play(Sounds.PICK); pillAt = 0; focusOn("pills") }
                 else -> Sounds.play(Sounds.BUMP)
             }
@@ -537,6 +538,15 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
         sel = to; Sounds.play(Sounds.MOVE)
     }
 
+    /**
+     * Back to the first game (a new order or new filters, or A on the list you're in): straight to the top, the boxes
+     * there settling in as they do when a list opens, rather than a long slide past everything in between.
+     */
+    private fun toTop() {
+        sel = 0; scroll = 0f; scrollTo = 0f
+        cells.forEach { it.arrive = 0f }
+    }
+
     /** After something changed (a favorite, a collection, a hidden game): the counts and the list shown again. */
     private fun refresh() { fillList(); shelf?.let { open(it, quick = true) } }
 
@@ -595,7 +605,7 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
         if (options.isEmpty()) return Sounds.play(Sounds.BUMP)
         Overlays.show(ListCard(ctx, "Order", if (byConsole(sh)) "Within each console" else null, { options.map { ListCard.Row(Sorts.NAMES[it], check = sortOf(sh) == it, tag = it) } },
             start = options.indexOf(sortOf(sh)).coerceAtLeast(0)) { _, r ->
-            setSort(sh, r.tag as Int); open(sh, quick = true); true
+            setSort(sh, r.tag as Int); open(sh, quick = true); toTop(); true
         })
     }
 
@@ -605,7 +615,7 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
      */
     private fun filterCard(sh: Shelf) {
         val f = filterOf(sh) ?: return
-        fun apply() { saveFilter(sh, f); fillList(); open(sh, quick = true) }
+        fun apply() { saveFilter(sh, f); fillList(); open(sh, quick = true); toTop() }
         fun note(set: Collection<Any>, name: (Any) -> String) = when (set.size) { 0 -> "Any"; 1 -> name(set.first()); else -> "${set.size} chosen" }
         val all = cols.visible()
         lateinit var card: ListCard
