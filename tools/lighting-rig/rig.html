@@ -1,5 +1,5 @@
 <!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;background:#000}canvas{display:block;background:transparent}#bg{position:absolute;left:0;top:0}</style></head><body>
-<div style="position:relative;width:1334px;height:750px"><canvas id=bg width=1334 height=750></canvas><canvas id=c width=1334 height=750 style="position:absolute;left:0;top:0"></canvas></div>
+<div style="position:relative;width:1334px;height:750px"><canvas id=bg width=1334 height=750></canvas><canvas id=c width=1334 height=750 style="position:absolute;left:0;top:0"></canvas><canvas id=fx width=1334 height=750 style="position:absolute;left:0;top:0"></canvas></div>
 <script src="filament.js"></script><script>
 // Shelf Native's 3D, rendered by the same Filament (1.75.1, web build) with the app's camera, light and tone mapping.
 const q = new URLSearchParams(location.search);
@@ -250,7 +250,7 @@ Filament.init(['ibl/ibl_ibl.ktx', 'glow.filamat'], async () => {
     function rotQ([x, y, z, w]) { const m = ident(); m[0] = 1 - 2 * (y * y + z * z); m[1] = 2 * (x * y + z * w); m[2] = 2 * (x * z - y * w); m[4] = 2 * (x * y - z * w); m[5] = 1 - 2 * (x * x + z * z); m[6] = 2 * (y * z + x * w); m[8] = 2 * (x * z + y * w); m[9] = 2 * (y * z - x * w); m[10] = 1 - 2 * (x * x + y * y); return m; }
     function blend(a, b, k) { const sa = sc(a), sb = sc(b), q0 = slerp(quat(a, sa), quat(b, sb), k), s = sa + (sb - sa) * k, o = rotQ(q0); for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) o[i * 4 + j] *= s; for (let i = 12; i < 15; i++) o[i] = a[i] + (b[i] - a[i]) * k; return o; }
     window.LIB = { modelM, cartM, blend, ease, clamp, home, con, ct, lidE, cc, hh };
-    // ---- 0.25's choreography (mirrors Launch.kt) ----
+    // ---- 0.26's choreography (mirrors Launch.kt): springs, an impact, sparks ----
     const parts = L.parts || {}, press = L.press, back = (L.turn || 0) !== 0, lid = L.lid, lidFirst = lid && !opensAfter;
     const ent = n => con.getEntitiesByName(n)[0];
     const partE = Object.fromEntries(Object.keys(parts).map(n => [n, ent(n)]));
@@ -258,76 +258,142 @@ Filament.init(['ibl/ibl_ibl.ktx', 'glow.filamat'], async () => {
       if (p.hinge) tm.setTransform(tm.getInstance(e), mul(trans(...p.at), rotX(p.hinge[0] + (p.hinge[1] - p.hinge[0]) * k)));
       else tm.setTransform(tm.getInstance(e), trans(p.at[0] + p.slide[0] * k, p.at[1] + p.slide[1] * k, p.at[2] + p.slide[2] * k)); }
     const out3 = v => 1 - Math.pow(1 - clamp(v), 3), smoother = v => { v = clamp(v); return v * v * v * (v * (v * 6 - 15) + 10); };
-    const pressK = (u, rest) => u <= 0 ? 0 : u < .09 ? ease(u / .09) : Math.max(rest, 1 - ease((u - .15) / .14) * (1 - rest));
-    // the beats, in seconds
-    const T = {}; T.rise = [0, .7]; T.flight = [.32, 1.12]; T.open = lidFirst ? .42 : null;   // the PlayStation's open button, then its lid
-    T.slide = [T.flight[1] + .1, T.flight[1] + .1 + (press ? .42 : .36)];
-    let after = T.slide[1] + (press ? .32 : .06);
-    T.press = press ? [T.slide[1] + .06, T.slide[1] + .26] : null;
-    T.lidClose = lidFirst ? [after + .02, after + .4] : null;
-    T.turnBack = back ? [after + .04, after + .6] : null;
-    T.lidOpen = opensAfter ? [after + .42, after + .95] : null;
-    let P = Math.max(after, T.lidClose?.[1] ?? 0, T.turnBack?.[1] ?? 0, T.lidOpen ? T.lidOpen[0] + .3 : 0) + .06;
-    T.power = P; T.led = parts.power ? P + .16 : P; T.screen = [T.led + .12, T.led + .55]; T.dark = [T.led + .4, T.led + .95];
+    const spring = (u, d = 7, w = 13) => u <= 0 ? 0 : 1 - Math.exp(-d * u) * Math.cos(w * u);           // to 1, overshooting, settling
+    const bump = (u, d = 7, w = 21) => u <= 0 ? 0 : Math.exp(-d * u) * Math.cos(w * u) * Math.min(1, u / .03);   // a hit, ringing down
+    const pressK = (u, rest) => u <= 0 ? 0 : u < .07 ? out3(u / .07) : rest + (1 - rest) * (1 - spring(u - .12, 9, 16)) * (u < .12 ? 1 : 1);
+    const isButton = p => p.slide && Math.abs(p.slide[1]) + Math.abs(p.slide[2]) > Math.abs(p.slide[0]);
+    // the beats
+    const T = {}; T.rise = .8; T.flight = [.3, 1.0]; T.open = .4;
+    T.slide = [T.flight[1] + .16, T.flight[1] + .16 + .3]; T.hit = T.slide[1];                 // wind up, then slam
+    T.press = press ? [T.hit + .1, T.hit + .26] : null; T.hit2 = press ? T.press[1] : null;
+    const after = (T.hit2 ?? T.hit) + .14;
+    T.lidClose = lidFirst ? [after, after + .3] : null;
+    T.turnBack = back ? [after + .02, after + .55] : null;
+    T.lidOpen = opensAfter ? [after + .4, after + .9] : null;
+    const P = Math.max(after, T.lidClose ? T.lidClose[1] + .1 : 0, T.turnBack ? T.turnBack[1] : 0, T.lidOpen ? T.lidOpen[0] + .3 : 0) + .06;
+    T.power = P; T.led = parts.power ? P + .14 : P; T.screen = [T.led + .1, T.led + .5]; T.dark = [T.led + .45, T.led + 1.0];
     window.T = T;
     const diag = Math.hypot(...hh), px0 = 2 * 275 * Math.max(hh[0], hh[1]) / diag;
-    // framing: while it takes its game, the console and the game waiting over its slot both fit on the screen (a tall
-    // handheld taking a cartridge from above sits lower and a little smaller, then comes back up to size)
     const cb = ct.getBoundingBox(), cc2 = [0, 1, 2].map(i => (cb.min[i] + cb.max[i]) / 2), ch = [0, 1, 2].map(i => (cb.max[i] - cb.min[i]) / 2);
-    const screenY = (M, p) => { const v = [0, 1, 2].map(i => M[i] * p[0] + M[4 + i] * p[1] + M[8 + i] * p[2] + M[12 + i]); return H - (H / 2 + (v[1] - H / 2) * DIST / (DIST - v[2])); };
+    const proj = (M, p) => { const v = [0, 1, 2].map(i => M[i] * p[0] + M[4 + i] * p[1] + M[8 + i] * p[2] + M[12 + i]); const f = DIST / (DIST - v[2]); return [W / 2 + (v[0] - W / 2) * f, H - (H / 2 + (v[1] - H / 2) * f)]; };
+    const yawOf = k => (upright ? -.32 : -.5) + (L.turn || 0) * k, pitch = upright ? .1 : .42;
+    const along = (C, path, pk) => { const pr = press || [0, 0, 0]; return mul(C, mul(trans(L.from[0] * path + pr[0] * (1 - pk), L.from[1] * path + pr[1] * (1 - pk), L.from[2] * path + pr[2] * (1 - pk)), new Float32Array(L.seat))); };
     const fit = (() => {
-      const yaw = (upright ? -.32 : -.5) + (back ? L.turn : 0), pitch = upright ? .1 : .42, C = modelM(667, 372, 30, yaw, pitch, px0);
-      const pr = press || [0, 0, 0], A = mul(C, mul(trans(L.from[0] + pr[0], L.from[1] + pr[1], L.from[2] + pr[2]), new Float32Array(L.seat)));
+      const C = modelM(667, 372, 30, yawOf(back ? 1 : 0), pitch, px0), A = along(C, 1.12, 0);
       let top = 1e9, bot = -1e9;
-      for (let n = 0; n < 8; n++) { const c = [0, 1, 2].map(i => cc2[i] + ((n >> i) & 1 ? ch[i] : -ch[i])), y = screenY(A, c); top = Math.min(top, y); bot = Math.max(bot, y); }
-      for (let n = 0; n < 8; n++) { const c = [0, 1, 2].map(i => cc[i] + ((n >> i) & 1 ? hh[i] : -hh[i])), y = screenY(C, c); top = Math.min(top, y); bot = Math.max(bot, y); }
-      const fr = Math.min(1, 610 / (bot - top)), t1 = 372 + (top - 372) * fr, b1 = 372 + (bot - 372) * fr;
-      const dy = t1 < 70 ? Math.min(70 - t1, 715 - b1) : 0;
-      return { fr, dy };
+      for (let n = 0; n < 8; n++) { const y = proj(A, [0, 1, 2].map(i => cc2[i] + ((n >> i) & 1 ? ch[i] : -ch[i])))[1]; top = Math.min(top, y); bot = Math.max(bot, y); }
+      for (let n = 0; n < 8; n++) { const y = proj(C, [0, 1, 2].map(i => cc[i] + ((n >> i) & 1 ? hh[i] : -hh[i])))[1]; top = Math.min(top, y); bot = Math.max(bot, y); }
+      const fr = Math.min(1, 600 / (bot - top)), t1 = 372 + (top - 372) * fr, b1 = 372 + (bot - 372) * fr;
+      return { fr, dy: t1 < 75 ? Math.min(75 - t1, 712 - b1) : 0 };
     })();
-    window.FIT = fit;
+    // the axis the hit squashes along (the console's own): the way the game went in last
+    const hitDir = press || L.from, ax = [0, 1, 2].reduce((b, i) => Math.abs(hitDir[i]) > Math.abs(hitDir[b]) ? i : b, 0);
+    // where the game goes in: along its path from the seat until it leaves the console's box
+    const mouth = (() => { const s0 = [L.seat[12], L.seat[13], L.seat[14]], d = L.from.map(v => v / Math.hypot(...L.from)); let k = 0;
+      while (k < 400 && [0, 1, 2].every(i => Math.abs(s0[i] + d[i] * k - cc[i]) < hh[i])) k += 1; return s0.map((v, i) => v + d[i] * Math.max(0, k - 2)); })();
     const frameOut = T.turnBack ?? [after, after + .5];
+    const fxc = document.getElementById('fx').getContext('2d');
+    const ACC = q.get('acc') ?? '#8f7dff';
     window.at = (t) => {
       const fk = 1 - smoother((t - frameOut[0]) / (frameOut[1] - frameOut[0])), fr = 1 + (fit.fr - 1) * fk, fdy = fit.dy * fk;
-      const rise = out3((t - T.rise[0]) / (T.rise[1] - T.rise[0]));
-      // arriving: up from below, settling into its turn as it slows; a back-loader turns to show its back on the way
-      const turnK = back ? smoother((t - .08) / .74) - (T.turnBack ? smoother((t - T.turnBack[0]) / (T.turnBack[1] - T.turnBack[0])) : 0) : 0;
-      const yaw = (upright ? -.32 : -.5) + (L.turn || 0) * turnK - .38 * (1 - rise), pitch = upright ? .1 : .42;
-      const C = modelM(667, 372 + fdy + (1 - rise) * 640, 30, yaw, pitch, px0 * fr * (.94 + .06 * rise));
+      // arriving: a spring up from below, overshooting a little and settling; a gentle float once it's there
+      const rs = spring(t, 6.5, 8.5), riseK = clamp(t / .5);
+      const turnK = back ? spring(t - .05, 6, 9) - (T.turnBack ? spring(t - T.turnBack[0], 7, 11) : 0) : 0;
+      const float = 4 * Math.sin((t - .8) * 2.3) * smoother((t - .6) / .5);
+      // the hit: a squash along the way the game went in, ringing down, and a tiny shake
+      const h1 = bump(t - T.hit), h2 = T.hit2 ? bump(t - T.hit2) : 0, hit = .1 * h1 + .12 * h2;
+      const shake = 3 * (Math.exp(-14 * Math.max(0, t - T.hit)) * Math.sin(55 * (t - T.hit)) * (t > T.hit) + (T.hit2 ? Math.exp(-14 * Math.max(0, t - T.hit2)) * Math.sin(55 * (t - T.hit2)) * (t > T.hit2) : 0));
+      const x = 667 + shake, y = 372 + fdy + (1 - rs) * 640 + float;
+      let C = modelM(x, y, 30, yawOf(turnK) - .38 * (1 - rs), pitch, px0 * fr * (.9 + .1 * spring(t, 7, 12)));
+      // squash about the far side from the hit (the floor it sits on), keeping the volume
+      if (hit !== 0) { const sq = [1 + hit * .5, 1 + hit * .5, 1 + hit * .5]; sq[ax] = 1 - hit; const piv = cc.slice(); piv[ax] = cc[ax] - Math.sign(hitDir[ax]) * hh[ax];
+        C = mul(C, mul(trans(...piv), mul(scale(...sq), trans(-piv[0], -piv[1], -piv[2])))); }
       tm.setTransform(tm.getInstance(con.getRoot()), C);
-      // the lid: the PlayStation's pops open as its button is pressed and closes over the disc; the PSP's door opens as it
-      // turns and closes after; the DS's opens at the end
       let lidK = 0;
-      if (lidFirst) lidK = out3((t - T.open - .1) / .4) - smoother((t - T.lidClose[0]) / (T.lidClose[1] - T.lidClose[0]));
-      if (opensAfter) lidK = smoother((t - T.lidOpen[0]) / (T.lidOpen[1] - T.lidOpen[0]));
+      if (lidFirst) lidK = spring(t - T.open - .08, 7, 13) - (t < T.lidClose[0] ? 0 : Math.pow(clamp((t - T.lidClose[0]) / (T.lidClose[1] - T.lidClose[0])), 2.2) + (t > T.lidClose[1] ? -.06 * bump(t - T.lidClose[1], 8, 26) : 0));
+      if (opensAfter) lidK = spring(t - T.lidOpen[0], 6.5, 10);
       if (lidE && L.lid) { const ang = L.lid.closed + (L.lid.open - L.lid.closed) * lidK; tm.setTransform(tm.getInstance(lidE), mul(trans(...L.lid.hinge), rotX(ang))); }
       if (parts.open) movePart('open', pressK(t - T.open, 0));
-      // the game: picked up, carried along a curve, lined up with its slot, then pushed in (and on the NES, pressed down)
-      const sK = smoother((t - T.slide[0]) / (T.slide[1] - T.slide[0])), pK = T.press ? smoother((t - T.press[0]) / (T.press[1] - T.press[0])) : 1;
-      const pr = press || [0, 0, 0], path = 1 - sK;
-      const off = [0, 1, 2].map(i => L.from[i] * path + pr[i] * (1 - pK));
-      const along = mul(C, mul(trans(...off), new Float32Array(L.seat)));
-      if (parts.door) movePart('door', Math.min(ease((sK - .02) / .24), 1 - ease((t - T.press[1] + .02) / .3)));
-      const u = (t - T.flight[0]) / (T.flight[1] - T.flight[0]);
+      // the game: wind up (a little further out) and slam in, a small rebound; on the NES, slammed down too
+      const u = (t - T.slide[0]) / (T.slide[1] - T.slide[0]);
+      let path = u <= 0 ? 1 : u < .55 ? 1 + .14 * smoother(u / .55) : u < 1 ? 1.14 * (1 - Math.pow((u - .55) / .45, 2.6)) : 0;
+      if (t > T.hit && !press) path += .045 * Math.max(0, Math.exp(-9 * (t - T.hit)) * Math.sin(24 * (t - T.hit)));
+      let pk = press ? (t < T.press[0] ? -.25 * smoother((t - T.hit - .02) / .08) : t < T.press[1] ? -.25 + 1.25 * Math.pow((t - T.press[0]) / (T.press[1] - T.press[0]), 2.4) : 1 - .08 * Math.max(0, Math.exp(-9 * (t - T.hit2)) * Math.sin(24 * (t - T.hit2)))) : 1;
+      if (press && t < T.hit) pk = 0;
+      const A = along(C, path, pk);
+      if (parts.door) movePart('door', t < T.hit2 ? spring(((t - T.slide[0]) / (T.slide[1] - T.slide[0]) - .55) / 1.6, 8, 14) : Math.max(-.08, 1 - spring(t - T.hit2 - .04, 7, 15)));
+      // the flight: lifted (a dip first), along a high curve, leaning into the way it moves, a float over the slot
+      const lifted = tt => { const m = home.slice(), l = spring(tt - .1, 8, 12), dip = Math.sin(Math.PI * clamp(tt / .12)) * (tt < .12); m[13] += 30 * l - 9 * dip; m[14] += 70 * l; return m; };
+      const fu = (t - T.flight[0]) / (T.flight[1] - T.flight[0]);
       let Pm;
-      if (t < T.flight[0]) {   // lifted from where it was: up a little, toward you
-        const l = smoother(t / T.flight[0]); Pm = home.slice(); Pm[13] += 22 * l; Pm[14] += 60 * l;
-      } else if (u < 1) {
-        const lifted = home.slice(); lifted[13] += 22; lifted[14] += 60;
-        const e = smoother(u), r = smoother(Math.min(1, u / .8));
-        Pm = blend(lifted, along, r);
-        // the position on a curve: out toward you first, coming in along the slot's own direction at the end
-        const a = [lifted[12], lifted[13], lifted[14]], d = [along[12], along[13], along[14]];
-        const dir = [0, 1, 2].map(i => C[i] * L.from[0] + C[4 + i] * L.from[1] + C[8 + i] * L.from[2]); const dl = Math.hypot(...dir) || 1;
-        const b1 = [a[0] + 40, a[1] + 60, a[2] + 160], b2 = [0, 1, 2].map(i => d[i] + dir[i] / dl * 140 + (i === 2 ? 60 : 0));
-        for (let i = 0; i < 3; i++) Pm[12 + i] = Math.pow(1 - e, 3) * a[i] + 3 * Math.pow(1 - e, 2) * e * b1[i] + 3 * (1 - e) * e * e * b2[i] + e * e * e * d[i];
-      } else Pm = along;
+      const at0 = along(C, 1, 0), dir = [0, 1, 2].map(i => C[i] * L.from[0] + C[4 + i] * L.from[1] + C[8 + i] * L.from[2]), dl = Math.hypot(...dir) || 1;
+      const bez = (e, a, d) => { const b1 = [a[0] + 30, a[1] + 170, a[2] + 170], b2 = [0, 1, 2].map(i => d[i] + dir[i] / dl * 150 + (i === 2 ? 70 : 0)), ie = 1 - e;
+        return [0, 1, 2].map(i => ie * ie * ie * a[i] + 3 * ie * ie * e * b1[i] + 3 * ie * e * e * b2[i] + e * e * e * d[i]); };
+      if (t < T.flight[0]) Pm = lifted(t);
+      else if (fu < 1) {
+        const L0 = lifted(t), a = [L0[12], L0[13], L0[14]], d = [at0[12], at0[13], at0[14]];
+        const e = smoother(fu), r = smoother(Math.min(1, fu / .75));
+        Pm = blend(L0, at0, r); const p = bez(e, a, d), p2 = bez(smoother(Math.min(1, fu + .02)), a, d);
+        const vx = (p2[0] - p[0]) / (.02 * (T.flight[1] - T.flight[0]));
+        const lean = Math.max(-.4, Math.min(.4, -vx * .0007));   // leaning into the way it moves, like something carried
+        for (let i = 0; i < 3; i++) Pm[12 + i] = p[i];
+        Pm = mul(trans(p[0], p[1], p[2]), mul(new Float32Array([Math.cos(lean), Math.sin(lean), 0, 0, -Math.sin(lean), Math.cos(lean), 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]), mul(trans(-p[0], -p[1], -p[2]), Pm)));
+      } else {
+        Pm = A;
+        if (t < T.slide[0]) { Pm = Pm.slice(); Pm[13] += 7 * Math.sin(Math.PI * clamp((t - T.flight[1]) / (T.slide[0] - T.flight[1]))); }   // a breath, floating
+      }
       tm.setTransform(tm.getInstance(ct.getRoot()), Pm);
-      if (parts.power) { const k = parts.power.hinge ? 0 : (parts.power.slide && Math.abs(parts.power.slide[1] || 0) + Math.abs(parts.power.slide[2] || 0) > Math.abs(parts.power.slide[0])) ? pressK(t - T.power, sys === 'nes' ? .45 : 0) : smoother((t - T.power) / .2); movePart('power', k); }
+      if (parts.power) movePart('power', isButton(parts.power) ? pressK(t - T.power, sys === 'nes' ? .45 : 0) : spring(t - T.power, 9, 16));
+      // sparks, on a 2D layer over the 3D (Sparks in the app)
+      const bursts = [];
+      const M0 = proj(C, mouth), sd = proj(C, mouth.map((v, i) => v + L.from[i] / Math.hypot(...L.from) * 20));
+      const ang = Math.atan2(sd[1] - M0[1], sd[0] - M0[0]);
+      const wx = [L.seat[0], L.seat[1], L.seat[2]], hw = ch[0] * .9, E1 = proj(C, mouth.map((v, i) => v - wx[i] * hw)), E2 = proj(C, mouth.map((v, i) => v + wx[i] * hw));
+      const B = (t0, n, power, seed, a = ang) => ({ t0, x: M0[0], y: M0[1], e: [E1, E2], ang: a, n, power, seed });
+      if (!press) bursts.push(B(T.hit, 30, 1, 7));
+      else bursts.push(B(T.hit, 12, .6, 3), B(T.hit2, 30, 1, 7, -Math.PI / 2));
+      if (L.led) { const lp = proj(C, L.led); bursts.push({ t0: T.led, x: lp[0], y: lp[1], ang: -Math.PI / 2, n: 9, power: .35, seed: 11, soft: true }); }
+      fxc.clearRect(0, 0, W, H); for (const b of bursts) drawBurst(fxc, b, t, ACC);
       const z = +(q.get('zoom') ?? 1), fx = +(q.get('fx') ?? W / 2), fy = +(q.get('fy') ?? H / 2);
       camera.setProjectionFov(FOV / z, W / H, 50, DIST * 3, Filament.Camera$Fov.VERTICAL);
       camera.lookAt([fx, H - fy, DIST], [fx, H - fy, 0], [0, 1, 0]);
+      document.getElementById('fx').style.transform = `translate(${(W / 2 - fx) * z}px,${(H / 2 - fy) * z}px) scale(${z})`; document.getElementById('fx').style.transformOrigin = `${fx}px ${fy}px`;
     };
+    // A burst of sparks (Sparks.kt draws the same): little square bits flying out around `ang` and falling, a few
+    // four-pointed twinkles, and a ring spreading from the spot; `soft` floats up slowly (the power light)
+    function drawBurst(c, b, t, acc) {
+      const u = t - b.t0; if (u < 0 || u > 1.2) return;
+      let seed = b.seed * 9301 + 49297; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+      c.save();
+      if (!b.soft) {   // the ring
+        const rk = clamp(u / .42); if (rk < 1) { c.globalAlpha = .55 * (1 - rk); c.strokeStyle = acc; c.lineWidth = 4 * (1 - rk) + .5;
+          c.beginPath(); c.ellipse(b.x, b.y, 18 + 160 * out3(rk) * b.power, (18 + 160 * out3(rk) * b.power) * .42, 0, 0, 7); c.stroke(); }
+        const gk = clamp(u / .28); if (gk < 1) { const g = c.createRadialGradient(b.x, b.y, 0, b.x, b.y, 70 * b.power); g.addColorStop(0, acc); g.addColorStop(1, 'rgba(0,0,0,0)');
+          c.globalAlpha = .45 * (1 - gk); c.fillStyle = g; c.fillRect(b.x - 80, b.y - 80, 160, 160); }
+      }
+      for (let i = 0; i < b.n; i++) {
+        // from either edge of the slot, out to that side and along the way the game came from
+        const side = i % 2, o = b.e ? b.e[side] : [b.x, b.y];
+        let a; if (b.soft) a = b.ang + (rnd() - .5) * 2.4; else { const ex = o[0] - b.x, ey = o[1] - b.y, el = Math.hypot(ex, ey) || 1, k2 = .35 + .9 * rnd();
+          a = Math.atan2(ey / el + k2 * Math.sin(b.ang), ex / el + k2 * Math.cos(b.ang)) + (rnd() - .5) * .5; }
+        const sp = (b.soft ? 40 + 70 * rnd() : 480 + 640 * rnd()) * b.power, life = (b.soft ? .7 : .5) + .45 * rnd();
+        const size = Math.round(4 + 6 * rnd()), white = rnd() < .3, star = rnd() < .2;
+        if (u > life) continue; const k = u / life;
+        const drag = b.soft ? 1 : 1 / (1 + 2.2 * u);
+        const ox = o[0], oy = o[1];
+        const px = ox + Math.cos(a) * sp * u * drag, py = oy + Math.sin(a) * sp * u * drag + (b.soft ? -30 * u : 900 * u * u);
+        const _ = oy;
+        c.globalAlpha = (1 - k) * (1 - k) * .95 + .05;
+        const col = white ? '#ffffff' : acc;
+        if (star) { const r = (size + 5) * (1 - k * .5) * (.7 + .3 * Math.sin(u * 40 + i)); c.fillStyle = col; c.beginPath();
+          c.moveTo(px, py - r); c.lineTo(px + r * .22, py - r * .22); c.lineTo(px + r, py); c.lineTo(px + r * .22, py + r * .22); c.lineTo(px, py + r); c.lineTo(px - r * .22, py + r * .22); c.lineTo(px - r, py); c.lineTo(px - r * .22, py - r * .22); c.fill(); }
+        else { const s2 = Math.max(2, Math.round(size * (1 - k * .6))); const al = c.globalAlpha;
+          c.fillStyle = acc; c.globalAlpha = al * .35; c.fillRect(Math.round(px - s2), Math.round(py - s2), s2 * 2, s2 * 2);   // a soft square halo
+          c.globalAlpha = al; c.fillStyle = col; c.fillRect(Math.round(px - s2 / 2), Math.round(py - s2 / 2), s2, s2);
+          if (!white && s2 > 3) { c.fillStyle = '#ffffff'; c.globalAlpha = al * .8; c.fillRect(Math.round(px - s2 / 4), Math.round(py - s2 / 4), Math.ceil(s2 / 2), Math.ceil(s2 / 2)); } }
+      }
+      c.restore();
+    }
     window.at(+(q.get('t') ?? 0));
   }
   window.frame = () => frame();

@@ -300,6 +300,11 @@ Summarized from the first part of the conversation; the full transcript is kept 
   edited/changed/deleted like any other collection… a convenient way to save a sort+filter combo"). The start
   animations get their own round ("Really take some time and flesh these out"); the NES door should "hinge inward just
   like on the real console". Later: more themes, sound packs, better icons/fonts/style, the models (ROADMAP).
+- The start animations, after 0.25 (the user): "still too stiff. I want them to be bouncier, floatier, punchier. I
+  want to feel the impact of the cartridge or disc going in, maybe even see some retro looking particle effects… Make
+  them livelier, more animated!" This relaxes "calm, smooth animation" for the start animation; bounces stay quick and
+  settle (the old "wobbling makes me feel like I'm on acid"), and the sparks are crisp squares and twinkles in the
+  console's color, no white flashes.
 - The start animations (0.25, after the user's "go ahead and work on the next thing… wow me"): built as agreed (the NES
   door "hinge inward just like on the real console"; stiffness, clipping and collisions fixed for all consoles). Added on
   my own, to be vetoed: power switches and buttons moving before the light comes on, the NES's press-down and clunk, the

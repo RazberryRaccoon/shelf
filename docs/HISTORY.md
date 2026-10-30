@@ -592,6 +592,14 @@ opening edge, and a coloured test spine in the new render confirms the fix.
 **0.24, fixed:** the Library crashed as it opened: `byName`, a stored comparator declared below `init`, was still null
 when `init` sorted the first list (the init-order trap again; it's a getter now).
 
+**0.26: livelier start animations** (the user, after 0.25: "still too stiff… bouncier, floatier, punchier… feel the
+impact… particle effects"). Springs (`spring`: 1 − e^(−d·t)·cos(w·t)) replace the eases; a hit (`bump`) squashes the
+console along the way the game went in, about its far side, keeping its volume (`ax`, `hitDir`); the slide winds up
+14% further out then drives in with a t^2.6 ease-in. The game leans by its sideways speed along the curve. `Sparks`
+(Launch.kt) draws seeded bursts from the slot's two edges (`mouth`: the seat moved along the path until it leaves the
+console's box), placed when each hit happens; the rig's launch scene draws the same on a 2D canvas. Bounces are quick
+and settle (the user's old "no wobbling" note: nothing keeps moving afterwards). Not tested on the device.
+
 **0.25: the start animations.** A launch scene in `tools/lighting-rig` (`launch.mjs`, `sheet.py`) renders any
 console's sequence frame by frame with the app's models, camera and timings, and closes in on a slot (`zoom`, `fx`,
 `fy`). What it showed in 0.24: the cartridge crossed through the console as it rose; the Game Boy's and the SNES's

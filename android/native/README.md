@@ -52,6 +52,21 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
+## What's in version 0.26
+
+The start animations, livelier (the user: "bouncier, floatier, punchier… feel the impact… particle effects"):
+1. **The console springs up** from below, overshooting a little and settling, then floats gently while it waits.
+2. **The game is picked up** with a little dip first, flies along a higher curve leaning into the way it moves, and
+   floats a moment over the slot.
+3. **Then it slams in:** it winds up a little further out and drives in fast. The console squashes against the hit
+   and rings back, with a tiny shake, and the game rebounds a touch. On the NES the cartridge slams in, then down.
+4. **Sparks:** little square sparks with white cores and four-pointed twinkles burst from both edges of the slot in
+   the console's color, with a ring spreading over the console and a soft glow. A few float up from the power light
+   as it comes on.
+5. **Springy parts:** lids pop open and clap shut, the NES's door springs shut, power switches snap over and buttons
+   spring back, and a back-loader springs round to face you.
+6. **Impact sounds:** every game now lands with the deep clunk as well as the click.
+
 ## What's in version 0.25
 
 The start animations, rebuilt and studied frame by frame (tools/lighting-rig's launch scene renders every console's

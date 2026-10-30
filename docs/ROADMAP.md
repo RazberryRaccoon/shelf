@@ -35,8 +35,8 @@ published by GitHub Actions. Next, in order:
 
 ## Shelf Native: next, and later (the user's list, October 2026)
 
-- **Done in 0.25:** the start animations, studied frame by frame in the rig: the NES door hinges inward, nothing
-  clips, power switches and buttons, framing. Waiting on the user's notes.
+- **Done in 0.25–0.26:** the start animations, studied frame by frame in the rig: the NES door hinges inward, nothing
+  clips, power switches and buttons, framing; 0.26 springs, the hit, sparks. Waiting on the user's notes.
 - **Pinned collections on Home:** wanted, place not decided.
 - **The Library's Spines view,** once there's real spine art.
 - **Eventually** (the user: "things I'm generally not happy with and want to … tackle eventually, so don't forget
