@@ -189,6 +189,13 @@ export function buildConsole(entry, opts) {
         const pivot = new THREE.Group(); pivot.name = 'lid'; pivot.position.set(hinge[0] * MM, hinge[1] * MM, hinge[2] * MM);
         pivot.userData.lid = { closed, open }; parent.add(pivot); build(kit(pivot)); return pivot;
       },
+      // A part that moves on its own in the start animation (the NES's door, a power switch or button), built in its own
+      // space around `at`: `hinge: [closed, open]` turns it about x there (radians), `slide: [x, y, z]` moves it that far
+      // (Shelf units). Exported as a node of its own, named `name`; the app moves it, 0 at rest to 1.
+      part: (name, spec, build) => {
+        const pivot = new THREE.Group(); pivot.name = name; pivot.position.set(spec.at[0] * MM, spec.at[1] * MM, spec.at[2] * MM);
+        pivot.userData.part = { name, ...spec }; parent.add(pivot); build(kit(pivot)); return pivot;
+      },
     };
     return k;
   };
@@ -210,10 +217,12 @@ export function buildConsole(entry, opts) {
 export function splitHalves(group, seam) {
   group.updateMatrixWorld(true);
   const lower = new THREE.Group(), upper = new THREE.Group(); lower.name = 'lower'; upper.name = 'upper';
-  // a lid (the DS's top half, the PlayStation's lid, the PSP's door) stays whole, on its hinge, in the half its hinge is in
-  const lid = group.userData.lid || null, inLid = o => { for (let p = o.parent; p; p = p.parent) if (p === lid) return true; return false; };
-  const meshes = []; group.traverse(o => { if (o.isMesh && !inLid(o)) meshes.push(o); });
-  if (lid) { const at = lid.getWorldPosition(new THREE.Vector3()); (at[seam.axis] >= seam.at * MM ? upper : lower).attach(lid); }
+  // a lid (the DS's top half, the PlayStation's lid, the PSP's door) and each moving part (part above) stays whole, on its
+  // hinge or track, in the half its pivot is in
+  const movers = []; group.traverse(o => { if (o === group.userData.lid || o.userData.part) movers.push(o); });
+  const inMover = o => { for (let p = o.parent; p; p = p.parent) if (movers.includes(p)) return true; return false; };
+  const meshes = []; group.traverse(o => { if (o.isMesh && !inMover(o)) meshes.push(o); });
+  for (const mv of movers) { const at = mv.getWorldPosition(new THREE.Vector3()); (at[seam.axis] >= seam.at * MM ? upper : lower).attach(mv); }
   for (const m of meshes) {
     let h = m.userData.half;
     if (!h) { const c = new THREE.Box3().setFromObject(m).getCenter(new THREE.Vector3()); h = c[seam.axis] >= seam.at * MM ? 'upper' : 'lower'; }

@@ -300,6 +300,11 @@ Summarized from the first part of the conversation; the full transcript is kept 
   edited/changed/deleted like any other collection… a convenient way to save a sort+filter combo"). The start
   animations get their own round ("Really take some time and flesh these out"); the NES door should "hinge inward just
   like on the real console". Later: more themes, sound packs, better icons/fonts/style, the models (ROADMAP).
+- The start animations (0.25, after the user's "go ahead and work on the next thing… wow me"): built as agreed (the NES
+  door "hinge inward just like on the real console"; stiffness, clipping and collisions fixed for all consoles). Added on
+  my own, to be vetoed: power switches and buttons moving before the light comes on, the NES's press-down and clunk, the
+  PlayStation's open button, the PSP's disc visible under its door, the framing for tall handhelds, two new soft sounds,
+  the return as the same sequence backwards.
 - The Library (the user, before 0.23): collections "need to work really well… easy to add or remove games to a
   collection, games can be in multiple collections, custom collection names"; hide any game behind "a 4 digit password
   lock… it should use the 4 dpad buttons and 4 face buttons… reset this password in settings without putting in the

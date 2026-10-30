@@ -29,6 +29,10 @@ Scenes: `carts` (every cartridge at Home's turn), `colors&sys=nes` (one cartridg
 glow's and line's colors, `r` its reach, `orbit` where the travelling light is, `moveTest` checks the silhouette clears
 when the object moves).
 
+The start animation, frame by frame (`launch`, mirroring Launch.kt's timeline): `node launch.mjs nes "" 0 3 .15 out/`
+renders frames from 0 to 3 seconds every 0.15 (tone mapped in the page), `python3 sheet.py out/ nes.png 5 .25 0 .15`
+lays them out on one sheet. Extra parameters close in on a spot: `"zoom=3&fx=580&fy=370"`.
+
 Lighting parameters (the app's defaults when left out): `env` (studio), `key`, `exp` (Filament's direct exposure:
 it brightens by 1/exp), `bright` (the brightness itself; overrides exp), `dir` (key light direction), `yaw`/`pitch`
 (the rig's turn), `gold`/`silver` (metal colors), `ov` (material overrides as JSON, e.g. `{"all":{"roughness":0.5}}`,

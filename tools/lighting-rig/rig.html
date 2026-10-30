@@ -211,6 +211,8 @@ Filament.init(['ibl/ibl_ibl.ktx', 'glow.filamat'], async () => {
       for (const nm of ['front', 'manual-art']) for (const mi of mis(a, nm)) { try { mi.setTextureParameter('baseColorMap', labelTexture(30 + i * 40, 'Disc ' + (i + 1)), sampler); } catch (e) {} }
       placeModel(a, 180 + (i % 4) * 330, 220 + Math.floor(i / 4) * 330, .2, -.06, 260, false);
     }
+  } else if (SCENE === 'launch') {   // Launch.kt's start animation, frame by frame: window.at(t) poses everything at time t
+    await launchScene();
   } else if (SCENE === 'none') {
   } else if (SCENE === 'consoles') {
     const list = ORDER.slice(0, 10);
@@ -219,6 +221,116 @@ Filament.init(['ibl/ibl_ibl.ktx', 'glow.filamat'], async () => {
       placeModel(a, 150 + col * 258, 200 + row * 340, -.25, -.15, 230, false);
     }
   }
+  async function launchScene() {
+    const sys = q.get('sys') ?? 'nes';
+    const info = (await (await fetch('models/consoles.json')).json())[sys]; const L = info.launch;
+    const con = await load(`console-${sys}.glb`);
+    const { a: ct, st } = await cart(sys, null, 205, 'Star Voyage');
+    const bb = con.getBoundingBox(); const cc = [0, 1, 2].map(i => (bb.min[i] + bb.max[i]) / 2), hh = [0, 1, 2].map(i => (bb.max[i] - bb.min[i]) / 2);
+    const lidE = con.getEntitiesByName('lid')[0];
+    const SCREENS = ['gb', 'gbc', 'gba', 'ds', 'psp', 'android'], UPRIGHT = ['gb', 'gbc', 'gba', 'psp', 'android'];
+    const hand = SCREENS.includes(sys), upright = UPRIGHT.includes(sys), opensAfter = (L.lid?.rest ?? 0) > .5;
+    window.LAUNCH = { L, hh, st };
+    const clamp = v => Math.min(1, Math.max(0, v)), ease = v => { v = clamp(v); return v * v * (3 - 2 * v); };
+    function modelM(x, y, z, ry, rx, px) {   // Model.place, held
+      const s = px / (2 * Math.max(hh[0], hh[1])); let M = trans(x, H - y, z); M = mul(M, rotX(rx)); M = mul(M, rotY(ry)); M = mul(M, scale(s)); return mul(M, trans(-cc[0], -cc[1], -cc[2]));
+    }
+    function cartM(x, y, z, ry, rx, px) { const s = px / Math.max(st.size[0], st.size[1]); let M = trans(x, H - y, z); M = mul(M, rotY(ry)); M = mul(M, rotX(rx)); return mul(M, scale(s)); }
+    const home = cartM(+(q.get('hx') ?? 300), +(q.get('hy') ?? 330), 0, -.25, -.1, 330);
+    // Poses.blend
+    const sc = m => Math.hypot(m[0], m[1], m[2]);
+    function quat(m, s) { const m00 = m[0] / s, m11 = m[5] / s, m22 = m[10] / s, m21 = m[6] / s, m12 = m[9] / s, m02 = m[8] / s, m20 = m[2] / s, m10 = m[1] / s, m01 = m[4] / s, tr = m00 + m11 + m22;
+      if (tr > 0) { const r = Math.sqrt(tr + 1) * 2; return [(m21 - m12) / r, (m02 - m20) / r, (m10 - m01) / r, .25 * r]; }
+      if (m00 > m11 && m00 > m22) { const r = Math.sqrt(1 + m00 - m11 - m22) * 2; return [.25 * r, (m01 + m10) / r, (m02 + m20) / r, (m21 - m12) / r]; }
+      if (m11 > m22) { const r = Math.sqrt(1 + m11 - m00 - m22) * 2; return [(m01 + m10) / r, .25 * r, (m12 + m21) / r, (m02 - m20) / r]; }
+      const r = Math.sqrt(1 + m22 - m00 - m11) * 2; return [(m02 + m20) / r, (m12 + m21) / r, .25 * r, (m10 - m01) / r]; }
+    function slerp(a, b, k) { let d = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3]; if (d < 0) { b = b.map(v => -v); d = -d; }
+      if (d > .9995) { const o = a.map((v, i) => v + (b[i] - v) * k); const n = Math.hypot(...o); return o.map(v => v / n); }
+      const th = Math.acos(d), s0 = Math.sin((1 - k) * th) / Math.sin(th), s1 = Math.sin(k * th) / Math.sin(th); return a.map((v, i) => v * s0 + b[i] * s1); }
+    function rotQ([x, y, z, w]) { const m = ident(); m[0] = 1 - 2 * (y * y + z * z); m[1] = 2 * (x * y + z * w); m[2] = 2 * (x * z - y * w); m[4] = 2 * (x * y - z * w); m[5] = 1 - 2 * (x * x + z * z); m[6] = 2 * (y * z + x * w); m[8] = 2 * (x * z + y * w); m[9] = 2 * (y * z - x * w); m[10] = 1 - 2 * (x * x + y * y); return m; }
+    function blend(a, b, k) { const sa = sc(a), sb = sc(b), q0 = slerp(quat(a, sa), quat(b, sb), k), s = sa + (sb - sa) * k, o = rotQ(q0); for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) o[i * 4 + j] *= s; for (let i = 12; i < 15; i++) o[i] = a[i] + (b[i] - a[i]) * k; return o; }
+    window.LIB = { modelM, cartM, blend, ease, clamp, home, con, ct, lidE, cc, hh };
+    // ---- 0.25's choreography (mirrors Launch.kt) ----
+    const parts = L.parts || {}, press = L.press, back = (L.turn || 0) !== 0, lid = L.lid, lidFirst = lid && !opensAfter;
+    const ent = n => con.getEntitiesByName(n)[0];
+    const partE = Object.fromEntries(Object.keys(parts).map(n => [n, ent(n)]));
+    function movePart(n, k) { const p = parts[n], e = partE[n]; if (!p || !e) return;
+      if (p.hinge) tm.setTransform(tm.getInstance(e), mul(trans(...p.at), rotX(p.hinge[0] + (p.hinge[1] - p.hinge[0]) * k)));
+      else tm.setTransform(tm.getInstance(e), trans(p.at[0] + p.slide[0] * k, p.at[1] + p.slide[1] * k, p.at[2] + p.slide[2] * k)); }
+    const out3 = v => 1 - Math.pow(1 - clamp(v), 3), smoother = v => { v = clamp(v); return v * v * v * (v * (v * 6 - 15) + 10); };
+    const pressK = (u, rest) => u <= 0 ? 0 : u < .09 ? ease(u / .09) : Math.max(rest, 1 - ease((u - .15) / .14) * (1 - rest));
+    // the beats, in seconds
+    const T = {}; T.rise = [0, .7]; T.flight = [.32, 1.12]; T.open = lidFirst ? .42 : null;   // the PlayStation's open button, then its lid
+    T.slide = [T.flight[1] + .1, T.flight[1] + .1 + (press ? .42 : .36)];
+    let after = T.slide[1] + (press ? .32 : .06);
+    T.press = press ? [T.slide[1] + .06, T.slide[1] + .26] : null;
+    T.lidClose = lidFirst ? [after + .02, after + .4] : null;
+    T.turnBack = back ? [after + .04, after + .6] : null;
+    T.lidOpen = opensAfter ? [after + .42, after + .95] : null;
+    let P = Math.max(after, T.lidClose?.[1] ?? 0, T.turnBack?.[1] ?? 0, T.lidOpen ? T.lidOpen[0] + .3 : 0) + .06;
+    T.power = P; T.led = parts.power ? P + .16 : P; T.screen = [T.led + .12, T.led + .55]; T.dark = [T.led + .4, T.led + .95];
+    window.T = T;
+    const diag = Math.hypot(...hh), px0 = 2 * 275 * Math.max(hh[0], hh[1]) / diag;
+    // framing: while it takes its game, the console and the game waiting over its slot both fit on the screen (a tall
+    // handheld taking a cartridge from above sits lower and a little smaller, then comes back up to size)
+    const cb = ct.getBoundingBox(), cc2 = [0, 1, 2].map(i => (cb.min[i] + cb.max[i]) / 2), ch = [0, 1, 2].map(i => (cb.max[i] - cb.min[i]) / 2);
+    const screenY = (M, p) => { const v = [0, 1, 2].map(i => M[i] * p[0] + M[4 + i] * p[1] + M[8 + i] * p[2] + M[12 + i]); return H - (H / 2 + (v[1] - H / 2) * DIST / (DIST - v[2])); };
+    const fit = (() => {
+      const yaw = (upright ? -.32 : -.5) + (back ? L.turn : 0), pitch = upright ? .1 : .42, C = modelM(667, 372, 30, yaw, pitch, px0);
+      const pr = press || [0, 0, 0], A = mul(C, mul(trans(L.from[0] + pr[0], L.from[1] + pr[1], L.from[2] + pr[2]), new Float32Array(L.seat)));
+      let top = 1e9, bot = -1e9;
+      for (let n = 0; n < 8; n++) { const c = [0, 1, 2].map(i => cc2[i] + ((n >> i) & 1 ? ch[i] : -ch[i])), y = screenY(A, c); top = Math.min(top, y); bot = Math.max(bot, y); }
+      for (let n = 0; n < 8; n++) { const c = [0, 1, 2].map(i => cc[i] + ((n >> i) & 1 ? hh[i] : -hh[i])), y = screenY(C, c); top = Math.min(top, y); bot = Math.max(bot, y); }
+      const fr = Math.min(1, 610 / (bot - top)), t1 = 372 + (top - 372) * fr, b1 = 372 + (bot - 372) * fr;
+      const dy = t1 < 70 ? Math.min(70 - t1, 715 - b1) : 0;
+      return { fr, dy };
+    })();
+    window.FIT = fit;
+    const frameOut = T.turnBack ?? [after, after + .5];
+    window.at = (t) => {
+      const fk = 1 - smoother((t - frameOut[0]) / (frameOut[1] - frameOut[0])), fr = 1 + (fit.fr - 1) * fk, fdy = fit.dy * fk;
+      const rise = out3((t - T.rise[0]) / (T.rise[1] - T.rise[0]));
+      // arriving: up from below, settling into its turn as it slows; a back-loader turns to show its back on the way
+      const turnK = back ? smoother((t - .08) / .74) - (T.turnBack ? smoother((t - T.turnBack[0]) / (T.turnBack[1] - T.turnBack[0])) : 0) : 0;
+      const yaw = (upright ? -.32 : -.5) + (L.turn || 0) * turnK - .38 * (1 - rise), pitch = upright ? .1 : .42;
+      const C = modelM(667, 372 + fdy + (1 - rise) * 640, 30, yaw, pitch, px0 * fr * (.94 + .06 * rise));
+      tm.setTransform(tm.getInstance(con.getRoot()), C);
+      // the lid: the PlayStation's pops open as its button is pressed and closes over the disc; the PSP's door opens as it
+      // turns and closes after; the DS's opens at the end
+      let lidK = 0;
+      if (lidFirst) lidK = out3((t - T.open - .1) / .4) - smoother((t - T.lidClose[0]) / (T.lidClose[1] - T.lidClose[0]));
+      if (opensAfter) lidK = smoother((t - T.lidOpen[0]) / (T.lidOpen[1] - T.lidOpen[0]));
+      if (lidE && L.lid) { const ang = L.lid.closed + (L.lid.open - L.lid.closed) * lidK; tm.setTransform(tm.getInstance(lidE), mul(trans(...L.lid.hinge), rotX(ang))); }
+      if (parts.open) movePart('open', pressK(t - T.open, 0));
+      // the game: picked up, carried along a curve, lined up with its slot, then pushed in (and on the NES, pressed down)
+      const sK = smoother((t - T.slide[0]) / (T.slide[1] - T.slide[0])), pK = T.press ? smoother((t - T.press[0]) / (T.press[1] - T.press[0])) : 1;
+      const pr = press || [0, 0, 0], path = 1 - sK;
+      const off = [0, 1, 2].map(i => L.from[i] * path + pr[i] * (1 - pK));
+      const along = mul(C, mul(trans(...off), new Float32Array(L.seat)));
+      if (parts.door) movePart('door', Math.min(ease((sK - .02) / .24), 1 - ease((t - T.press[1] + .02) / .3)));
+      const u = (t - T.flight[0]) / (T.flight[1] - T.flight[0]);
+      let Pm;
+      if (t < T.flight[0]) {   // lifted from where it was: up a little, toward you
+        const l = smoother(t / T.flight[0]); Pm = home.slice(); Pm[13] += 22 * l; Pm[14] += 60 * l;
+      } else if (u < 1) {
+        const lifted = home.slice(); lifted[13] += 22; lifted[14] += 60;
+        const e = smoother(u), r = smoother(Math.min(1, u / .8));
+        Pm = blend(lifted, along, r);
+        // the position on a curve: out toward you first, coming in along the slot's own direction at the end
+        const a = [lifted[12], lifted[13], lifted[14]], d = [along[12], along[13], along[14]];
+        const dir = [0, 1, 2].map(i => C[i] * L.from[0] + C[4 + i] * L.from[1] + C[8 + i] * L.from[2]); const dl = Math.hypot(...dir) || 1;
+        const b1 = [a[0] + 40, a[1] + 60, a[2] + 160], b2 = [0, 1, 2].map(i => d[i] + dir[i] / dl * 140 + (i === 2 ? 60 : 0));
+        for (let i = 0; i < 3; i++) Pm[12 + i] = Math.pow(1 - e, 3) * a[i] + 3 * Math.pow(1 - e, 2) * e * b1[i] + 3 * (1 - e) * e * e * b2[i] + e * e * e * d[i];
+      } else Pm = along;
+      tm.setTransform(tm.getInstance(ct.getRoot()), Pm);
+      if (parts.power) { const k = parts.power.hinge ? 0 : (parts.power.slide && Math.abs(parts.power.slide[1] || 0) + Math.abs(parts.power.slide[2] || 0) > Math.abs(parts.power.slide[0])) ? pressK(t - T.power, sys === 'nes' ? .45 : 0) : smoother((t - T.power) / .2); movePart('power', k); }
+      const z = +(q.get('zoom') ?? 1), fx = +(q.get('fx') ?? W / 2), fy = +(q.get('fy') ?? H / 2);
+      camera.setProjectionFov(FOV / z, W / H, 50, DIST * 3, Filament.Camera$Fov.VERTICAL);
+      camera.lookAt([fx, H - fy, DIST], [fx, H - fy, 0], [0, 1, 0]);
+    };
+    window.at(+(q.get('t') ?? 0));
+  }
+  window.frame = () => frame();
   // the views drawn before the main one each frame (the glow's silhouette)
   function frame() { if (renderer.beginFrame(swap)) { for (const v of (window.preViews ?? [])) renderer.renderView(v); window.afterPre?.(); renderer.renderView(view); renderer.endFrame(); } }
   for (let k = 0; k < 4; k++) frame();

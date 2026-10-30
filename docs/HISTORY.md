@@ -592,6 +592,22 @@ opening edge, and a coloured test spine in the new render confirms the fix.
 **0.24, fixed:** the Library crashed as it opened: `byName`, a stored comparator declared below `init`, was still null
 when `init` sorted the first list (the init-order trap again; it's a getter now).
 
+**0.25: the start animations.** A launch scene in `tools/lighting-rig` (`launch.mjs`, `sheet.py`) renders any
+console's sequence frame by frame with the app's models, camera and timings, and closes in on a slot (`zoom`, `fx`,
+`fy`). What it showed in 0.24: the cartridge crossed through the console as it rose; the Game Boy's and the SNES's
+cartridges left the top of the screen while waiting over the slot; the NES's cartridge went through a solid door; the
+PSP's disc sat inside the shell, hidden behind the door's dark recess. The rebuild:
+- Moving parts in the models (`k.part` in `console.js`, exported as their own nodes; `parts` in consoles.json): the
+  NES's door on a hinge with a dark opening behind it, power switches and buttons. `press` gives the NES's two-step
+  insert (in, then down). `Console.move` moves them.
+- The game travels on a cubic curve that bows toward the camera and arrives along the slot's own direction; it turns
+  into line by four fifths of the way, so it arrives straight. Beats use smootherstep and a cubic ease-out.
+- Framing (`Launch.fit`): the console's and the waiting game's corners are projected through the camera once; if they
+  don't fit, the console is scaled and lowered while it takes its game.
+- Coming back is the same timeline backwards (×1.3), so it can never disagree with going in.
+- The rig's first screenshot came out stale (Filament's first frames); it's taken once and thrown away.
+Not tested on the device: the timings as they feel at 60 fps, and the new sounds.
+
 **0.24, more of the user's notes:** a new order or new filters kept the cursor on the same game, wherever it now sat
 in the list; they start at the top now (`Library.toTop`), and A on the list you're in jumps back to its first game
 (right still returns to where you were). A crash closing a filter's choices (Consoles, two ticked, then B) couldn't
