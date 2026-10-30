@@ -592,6 +592,22 @@ opening edge, and a coloured test spine in the new render confirms the fix.
 **0.24, fixed:** the Library crashed as it opened: `byName`, a stored comparator declared below `init`, was still null
 when `init` sorted the first list (the init-order trap again; it's a getter now).
 
+**0.27: the user's notes on 0.26.** (1) The open box clipped into the console: launching set the box's flow back to
+"cartridge only", which runs its slower close-and-slide-away while the console springs up in the middle; now `placeBox`
+also darts it left with launchK (0.22 s, a cubic ease-out). (2) Sparks "goofy and princess-y", and leftovers on the
+way back: the power light's burst was still within its life at backFrom, where PLAYING keeps posing. Replaced by an
+`Outline` round the console (stencil ref CONSOLE = 4, made at the start so the hit doesn't pause) and `Shockwave` rings
+in the plane across the hit axis, broken where they pass inside the console's box, left out when that plane faces the
+camera less than 0.3 (a handheld from above: a halo); `quiet()` clears both at PLAYING, on skip and on back.
+(3) `ArtIndex.searchName`: "Legend of Zelda, The - A Link to the Past (USA)" → "The Legend of Zelda: A Link to the
+Past", used by every service search, Wikipedia and the page title. (4) `MediaPage.manualCover`: a first page ≥1.6×
+as wide as the median of pages 2–6 is a pair (or, when the inside is pairs too, ≥1.75× a single page for the console:
+`SINGLE`); its right half (left for Japan). Measured: archive.org and most manual hosts are blocked from the sandbox;
+one real scan (a Game Boy manual) came through: 583×420 pt pages, 1.39 wide, landscape, unlike the square booklet,
+so the box's shape couldn't be the test. `Case.manualShape` fits the booklet to the cover's aspect, upright or
+sideways (if 8% bigger), by scaling (and turning) the booklet node; `bookletSize` for the glow, `manualSize` the shape.
+Not tested on the device.
+
 **0.26: livelier start animations** (the user, after 0.25: "still too stiff… bouncier, floatier, punchier… feel the
 impact… particle effects"). Springs (`spring`: 1 − e^(−d·t)·cos(w·t)) replace the eases; a hit (`bump`) squashes the
 console along the way the game went in, about its far side, keeping its volume (`ax`, `hitDir`); the slide winds up

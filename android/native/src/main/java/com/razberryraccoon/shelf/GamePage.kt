@@ -213,7 +213,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val i = info; val f = i?.fields ?: emptyMap()
         chipText.text = Games.NAMES[game.sys] ?: game.sys; chipDot.background = round(Theme.accentOf(game.sys), 6f)
         favChip.visibility = if (games.favorite(game)) View.VISIBLE else View.GONE
-        title.text = i?.name?.let { ArtIndex.stripTags(it).replace(Regex("\\s+"), " ").trim() }?.ifEmpty { null } ?: game.title
+        title.text = i?.name?.let { ArtIndex.searchName(it) }?.ifEmpty { null } ?: game.title
         val played = games.lastPlayed(game); val n = games.timesPlayed(game)
         val about1 = listOfNotNull(f["releaseyear"], f["developer"] ?: f["publisher"], f["genre"]).joinToString(" · ")
         facts.text = listOfNotNull(
@@ -284,7 +284,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val pk = Backdrop.ease(((t - .3f) / .7f).coerceIn(0f, 1f))
         studioK = if (studio != null) min(1f, studioK + dt / .3f) else maxOf(0f, studioK - dt / .25f)
         val sk = Backdrop.ease(studioK)
-        launchK = if (launching) min(1f, launchK + dt / .3f) else maxOf(0f, launchK - dt / .4f)
+        launchK = if (launching) min(1f, launchK + dt / .22f) else maxOf(0f, launchK - dt / .4f)
         val lk = 1 - Backdrop.ease(launchK)
         val mk = 1 - Backdrop.ease(manualK)   // the panel steps back while the manual is out
         inspK = if (inspecting) min(1f, inspK + dt / .4f) else maxOf(0f, inspK - dt / .35f)
@@ -528,7 +528,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val f = manualFile() ?: return
         if (manualCoverFor == f.path) return
         manualCoverFor = f.path
-        Thread { val b = try { MediaPage.pdfCover(f, 512) } catch (e: Throwable) { null }; board.post { if (closing || b == null) b?.recycle() else case?.manualArt(b) } }.start()
+        Thread { val b = try { MediaPage.manualCover(f, 512, game.sys, MediaPage.rightToLeft(game)) } catch (e: Throwable) { null }; board.post { if (closing || b == null) b?.recycle() else case?.manualArt(b) } }.start()
     }
     /**
      * Reads the manual: the box comes in and opens (if it wasn't showing), the booklet lifts out of the cover and comes
@@ -583,7 +583,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         if (c != null && !boxMarked) { boxMarked = true; Outline.mark(stage, c.asset.entities, Outline.BOX); if (c.hasManual) Outline.mark(stage, intArrayOf(c.manualEntity), Outline.MANUAL) }
         when {
             !choosing -> g.frame(dt, null, 0, null, null, null, null)
-            pick == 1 && c != null && c.hasManual -> { val ms = c.manualSize
+            pick == 1 && c != null && c.hasManual -> { val ms = c.bookletSize   // manualNow carries the booklet's own shape and turn
                 g.frame(dt, intArrayOf(c.manualEntity), Outline.MANUAL, game.sys, c.manualNow(), floatArrayOf(0f, 0f, 0f), floatArrayOf(ms[0] / 2, ms[1] / 2, .9f)) }
             view == 2 && c != null -> g.frame(dt, c.asset.entities, Outline.BOX, game.sys, c.current(), c.center, c.half)
             ct != null -> { val bb = ct.asset.boundingBox; g.frame(dt, ct.asset.entities, Outline.CART, game.sys, ct.current(), bb.center, bb.halfExtent) }
@@ -883,7 +883,10 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val shift = maxOf(0f, -kotlin.math.cos(PI.toFloat() * .97f * c.open)) * c.half[0] * s * kotlin.math.cos(ry)
         val at = x + shift
         val bx = at - (1 - flow.boxIn) * (at + 4 * c.half[0] * s + 40f)   // off the left edge, the open cover and all
-        c.place(bx, y, 50f, ry, rx, s * big)
+        // a game starting: the box darts off to the left at once (fast, then slowing), out of the console's way as it
+        // springs up in the middle (it clipped into it while the box went through its own slower sequence)
+        val gone = 1 - (1 - launchK) * (1 - launchK) * (1 - launchK)
+        c.place(bx - gone * (at + 4 * c.half[0] * s + 300f), y, 50f, ry, rx, s * big)
         if (launching) return
         val ct = cart ?: return
         val tray = c.mediaMatrix()

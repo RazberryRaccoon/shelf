@@ -148,6 +148,19 @@ final class ArtIndex {
 
     static String stripTags(String s) { return s.replaceAll("\\([^)]*\\)|\\[[^\\]]*\\]", " "); }
 
+    /**
+     * A catalogue name as people (and the other art and details services) write it: libretro's and No-Intro's
+     * "Legend of Zelda, The - A Link to the Past (USA)" → "The Legend of Zelda: A Link to the Past". Searching the
+     * services with the catalogue's order found the wrong game or none (the user, after 0.26: box backs for Zelda).
+     */
+    static String searchName(String s) {
+        String t = stripTags(s).replaceAll("\\s+", " ").trim();
+        Matcher m = ARTICLE.matcher(t);
+        if (m.matches()) t = m.group(2) + " " + m.group(1) + (m.group(3) == null ? "" : m.group(3));
+        return t.replace(" - ", ": ");
+    }
+    private static final Pattern ARTICLE = Pattern.compile("^(.+?), (The|A|An|Die|Der|Das|Le|La|Les|El|Los|Il)( - .*|: .*)?$");
+
     /** Lower case, "&" as "and", everything that isn't a letter or digit as a single space. */
     static String norm(String s) {
         return s.toLowerCase(Locale.ROOT).replace("&", " and ").replaceAll("['’]", "").replaceAll("[^\\p{L}\\p{N}]+", " ").trim();

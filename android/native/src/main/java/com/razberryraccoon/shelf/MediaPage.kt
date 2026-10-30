@@ -76,7 +76,7 @@ class MediaPage(ctx: Context, private val game: Game, private val title: String,
             val b = try {
                 when (kind) {
                     "video" -> android.media.MediaMetadataRetriever().run { try { setDataSource(f.path); getFrameAtTime(2_000_000)?.let { scaled(it, 360) } } finally { release() } }
-                    "manual" -> pdfCover(f, 300)
+                    "manual" -> manualCover(f, 300, game.sys, rightToLeft(game))
                     else -> meta.bitmap(f, 360)
                 }
             } catch (e: Throwable) { null }   // a damaged file, or one too big to read, leaves the tile empty
@@ -330,6 +330,37 @@ class MediaPage(ctx: Context, private val game: Game, private val title: String,
         private const val COLS = 5; private const val CCOLS = 4
         private const val CHOOSE = "Choose a file…"
         private const val TW = 204f; private const val TH = 150f; private const val GAP = 34f
+
+        /**
+         * A manual's front cover, about `w` wide. Scans differ: some start with the front cover alone, others with the
+         * back and front covers side by side on one page, and some are scanned in pairs all through. A first page about
+         * twice as wide as the pages after it (1.6× or more) is a pair; so is one when every page is a pair and the first
+         * is far wider than one page of that console's manuals ever is (SINGLE). Of a pair, the front cover is the right
+         * half (the left for a Japanese manual, which opens the other way). Measured on real scans: a Game Boy manual's
+         * pages are about 1.39 wide to 1 tall, not square like the box's booklet, so the inside pages decide, not the box.
+         */
+        fun manualCover(f: File, w: Int, sys: String, rightToLeft: Boolean): Bitmap? = android.os.ParcelFileDescriptor.open(f, android.os.ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
+            android.graphics.pdf.PdfRenderer(fd).use { r ->
+                if (r.pageCount == 0) return null
+                fun aspect(i: Int) = r.openPage(i).use { it.width.toFloat() / it.height }
+                val a0 = aspect(0)
+                val inner = (1 until minOf(r.pageCount, 6)).map { aspect(it) }.sorted()
+                val typical = inner.getOrNull(inner.size / 2)
+                val single = SINGLE[sys] ?: 1f
+                val pair = (typical != null && a0 > typical * 1.6f) || (a0 > single * 1.75f && (typical == null || typical > single * 1.4f))
+                r.openPage(0).use { pg ->
+                    val full = if (pair) 2 * w else w
+                    val h = (full * pg.height.toFloat() / pg.width).toInt().coerceAtLeast(1)
+                    val b = Bitmap.createBitmap(full, h, Bitmap.Config.ARGB_8888).also { b -> b.eraseColor(Color.WHITE); pg.render(b, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY) }
+                    if (!pair) b else Bitmap.createBitmap(b, if (rightToLeft) 0 else full / 2, 0, full / 2, h).also { b.recycle() }
+                }
+            }
+        }
+        /** About how wide one page of each console's manuals is, to its height (North American and European ones; approximate). */
+        private val SINGLE = mapOf("nes" to .72f, "snes" to 1.4f, "n64" to 1.42f, "genesis" to .7f, "gb" to 1.38f, "gbc" to 1.38f, "gba" to 1.2f,
+            "ds" to 1.12f, "psp" to .58f, "ps1" to 1f, "android" to .75f)
+        /** A Japanese release: its manual opens from the right, so its front cover is the left half of a pair. */
+        fun rightToLeft(g: Game) = Regex("\\(Japan").containsMatchIn(g.path)
 
         /** A PDF's first page, about `w` wide (a manual's cover). */
         fun pdfCover(f: File, w: Int): Bitmap? = android.os.ParcelFileDescriptor.open(f, android.os.ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->

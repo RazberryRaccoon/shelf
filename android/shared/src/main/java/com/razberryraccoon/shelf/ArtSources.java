@@ -145,7 +145,7 @@ final class ArtSources {
     static List<Option> screenScraper(String sys, String query, String kind, JSONObject keys, File cache) throws Exception {
         List<Option> out = new ArrayList<>();
         if (!connected("ss", keys) || !SS_TYPES.containsKey(kind)) return out;
-        String url = "https://api.screenscraper.fr/api2/jeuRecherche.php?" + ssAuth(keys) + "&systemeid=" + SS_SYSTEM.get(sys) + "&recherche=" + q(ArtIndex.stripTags(query).trim());
+        String url = "https://api.screenscraper.fr/api2/jeuRecherche.php?" + ssAuth(keys) + "&systemeid=" + SS_SYSTEM.get(sys) + "&recherche=" + q(ArtIndex.searchName(query));
         JSONArray games = new JSONObject(get(url, null)).getJSONObject("response").optJSONArray("jeux");
         if (games == null) return out;
         for (int i = 0; i < games.length() && i < 3; i++) out.addAll(ssMedia(games.getJSONObject(i), kind));
@@ -195,7 +195,7 @@ final class ArtSources {
         List<Option> out = new ArrayList<>();
         if (!connected("tgdb", keys) || !(kind.equals("box") || kind.equals("back") || kind.equals("title") || kind.equals("shot"))) return out;
         String key = q(keys.getJSONObject("tgdb").optString("key"));
-        String url = "https://api.thegamesdb.net/v1.1/Games/ByGameName?apikey=" + key + "&name=" + q(ArtIndex.stripTags(query).trim()) + "&filter%5Bplatform%5D=" + TGDB_PLATFORM.get(sys);
+        String url = "https://api.thegamesdb.net/v1.1/Games/ByGameName?apikey=" + key + "&name=" + q(ArtIndex.searchName(query)) + "&filter%5Bplatform%5D=" + TGDB_PLATFORM.get(sys);
         JSONArray games = new JSONObject(get(url, null)).getJSONObject("data").optJSONArray("games");
         if (games == null || games.length() == 0) return out;
         List<JSONObject> list = new ArrayList<>(); Map<JSONObject, String> names = new HashMap<>();
@@ -252,7 +252,7 @@ final class ArtSources {
         List<Option> out = new ArrayList<>();
         if (!connected("sgdb", keys) || !kind.equals("box")) return out;
         Map<String, String> auth = new HashMap<>(); auth.put("Authorization", "Bearer " + keys.getJSONObject("sgdb").optString("key"));
-        JSONArray games = new JSONObject(get("https://www.steamgriddb.com/api/v2/search/autocomplete/" + q(ArtIndex.stripTags(query).trim()), auth)).optJSONArray("data");
+        JSONArray games = new JSONObject(get("https://www.steamgriddb.com/api/v2/search/autocomplete/" + q(ArtIndex.searchName(query)), auth)).optJSONArray("data");
         if (games == null) return out;
         for (int i = 0; i < games.length() && i < 2; i++) {
             JSONObject g = games.getJSONObject(i);
@@ -281,7 +281,7 @@ final class ArtSources {
             }
         }
         Map<String, String> h = new HashMap<>(); h.put("Client-ID", k.optString("id")); h.put("Authorization", "Bearer " + igdbToken);
-        String body = "search \"" + ArtIndex.stripTags(query).trim().replace("\"", "") + "\"; fields name,cover.image_id,screenshots.image_id; where platforms = (" + IGDB_PLATFORM.get(sys) + "); limit 4;";
+        String body = "search \"" + ArtIndex.searchName(query).replace("\"", "") + "\"; fields name,cover.image_id,screenshots.image_id; where platforms = (" + IGDB_PLATFORM.get(sys) + "); limit 4;";
         JSONArray games = new JSONArray(request("POST", "https://api.igdb.com/v4/games", h, body));
         for (int i = 0; i < games.length(); i++) {
             JSONObject g = games.getJSONObject(i);

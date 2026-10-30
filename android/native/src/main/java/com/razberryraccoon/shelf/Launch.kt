@@ -93,11 +93,13 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
     /** Coming back: the same beats backwards from the screen fully on, this much quicker. */
     private val backFrom = screenT[1]; private val backSpeed = 1.3f
     private val frameOut = if (back) turnBack else floatArrayOf(after, after + .5f)
-    /** The sparks (going in only), in the console's color. */
-    private val sparks = Sparks(ctx, Theme.accentOf(game.sys))
+    /** The hit's shockwave rings (going in only), in the console's color. */
+    private val waves = Shockwave(ctx, Theme.accentOf(game.sys))
+    /** The glow that hugs the console when the game hits home (Outline, as on the game page). */
+    private var glow: Outline? = console?.let { c -> Outline(stage).also { Outline.mark(stage, c.asset.entities, Outline.CONSOLE) } }   // made now, not at the hit (no pause then)
 
     init {
-        board.put(sparks, 0, 0, 1334, 750)
+        board.put(waves, 0, 0, 1334, 750)
         board.put(black, -700, -700, 2734, 2150)   // past the board's edges too, so the letterbox goes dark with it
         if (hand) picture = titlePicture()
     }
@@ -130,14 +132,14 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
     /** Any button: straight to the fade (starting) or to the end (coming back); in the dark, back to Shelf. */
     fun input(a: String) {
         if (phase == Phase.PLAYING) return back()   // still here in the dark (the game never opened): come back
-        if (phase == Phase.IN && t < darkT[0]) { t = darkT[0]; sparks.clear() }
+        if (phase == Phase.IN && t < darkT[0]) { t = darkT[0]; quiet() }
         else if (phase == Phase.OUT) t = maxOf(t, backFrom / backSpeed - .12f)
     }
 
     /** Back from the game: the return animation, from black. */
     fun back() {
         if (phase != Phase.PLAYING) return
-        phase = Phase.OUT; t = 0f; sounded.clear()
+        phase = Phase.OUT; t = 0f; sounded.clear(); quiet()
         black.kind = Curtain.FADE   // coming back: simply out of black (the transition is only for going in)
     }
 
@@ -148,7 +150,7 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
                 place(t, going = true)
                 black.k = if (phase == Phase.PLAYING) 1f else clamp(span(t, darkT))
                 if (t >= darkT[1]) {
-                    phase = Phase.PLAYING; black.k = 1f
+                    phase = Phase.PLAYING; black.k = 1f; quiet()
                     error = host.start(this)
                     if (error.isNotEmpty()) back()   // it couldn't start: come straight back and say why
                 }
@@ -214,7 +216,7 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
     /** The axis (the console's own) a hit squashes along: the way the game went in last. */
     private val hitDir = press ?: marks?.from ?: floatArrayOf(0f, 1f, 0f)
     private val ax = (0..2).maxByOrNull { abs(hitDir[it]) } ?: 1
-    /** Where the game goes in: along its path from the seat until it leaves the console's box (the sparks fly from there). */
+    /** Where the game goes in: along its path from the seat until it leaves the console's box (the shockwave spreads from there). */
     private val mouth: FloatArray? = run {
         val c = console; val m = marks ?: return@run null; if (c == null) return@run null
         val d = m.from.let { f -> val l = sqrt(f[0] * f[0] + f[1] * f[1] + f[2] * f[2]).coerceAtLeast(1e-4f); FloatArray(3) { f[it] / l } }
@@ -222,7 +224,6 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
         while (k < 400f && (0..2).all { abs(s0[it] + d[it] * k - c.center[it]) < c.half[it] }) k += 1f
         FloatArray(3) { s0[it] + d[it] * maxOf(0f, k - 2f) }
     }
-    private val sparked = HashSet<Int>()
     private val cartHalfW = cart?.asset?.boundingBox?.halfExtent?.get(0) ?: 20f
 
     /** A point in a model's millimetres on the screen, through the camera's lens (layout pixels, y down). */
@@ -234,7 +235,7 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
 
     /**
      * Everything at time t of the start animation (coming back plays it backwards: `going` false only changes the sounds,
-     * leaves out the sparks, and where the game flies to).
+     * leaves out the hit's glow and rings, and where the game flies to).
      */
     private fun place(t: Float, going: Boolean) {
         val c = console
@@ -286,24 +287,34 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
         val target = (if (hand) marks?.screen else marks?.led) ?: marks?.led ?: marks?.screen
         target?.let { tp -> val q = screen(cm, tp); black.focus(q[0], q[1]) }
         backdrop.shadows.add(floatArrayOf(x, y - float + 200f * fr, 420f * fr * (1 - float / 60f), .8f * clamp(t / .5f)))
-        // the sparks: where the game went in, from both edges of the slot, when it hits; a few from the power light
+        // the hit: the console's glow swells round it in its color and fades; two thin rings spread from the slot, lying
+        // in the console's own plane (across the way the game went in), so they read as a pressure wave
         val m = marks ?: return
-        if (going) {
-            sparks.time = t
-            // each burst placed when it happens, where the console is then
+        if (going && phase == Phase.IN) {
+            val gk = if (press != null) hit2 else hit
+            val glowing = t >= gk && t < gk + .32f
+            glow?.let { g -> if (glowing) g.frame(1 / 60f, c.asset.entities, Outline.CONSOLE, game.sys, cm, c.center, c.half) else g.frame(1 / 60f, null, 0, null, null, null, null) }
             mouth?.let { mo ->
-                fun burst(key: Int, t0: Float, n: Int, power: Float, seed: Int, up: Boolean) {
-                    if (t < t0 || !sparked.add(key)) return
-                    val l = sqrt(m.from[0] * m.from[0] + m.from[1] * m.from[1] + m.from[2] * m.from[2]).coerceAtLeast(1e-4f)
-                    val m0 = screen(cm, mo); val sd = screen(cm, FloatArray(3) { mo[it] + m.from[it] / l * 20f })
-                    val ang = if (up) (-PI / 2).toFloat() else atan2(sd[1] - m0[1], sd[0] - m0[0])
-                    val wx = floatArrayOf(m.seat[0], m.seat[1], m.seat[2]); val hw = cartHalfW * .9f
-                    sparks.add(Sparks.Burst(t0, m0, screen(cm, FloatArray(3) { mo[it] - wx[it] * hw }), screen(cm, FloatArray(3) { mo[it] + wx[it] * hw }), ang, n, power, seed))
+                val rings = ArrayList<FloatArray>(); val looks = ArrayList<FloatArray>()
+                // the ring lies across the slot (the plane the game went in through), like a ripple on the console's
+                // surface; seen nearly edge on (a handheld taking its cartridge from above) it would hover like a halo,
+                // so then there's none, and the glow and the squash carry the hit
+                val facing = abs(cm[4 * ax + 2]) / sqrt(cm[4 * ax] * cm[4 * ax] + cm[4 * ax + 1] * cm[4 * ax + 1] + cm[4 * ax + 2] * cm[4 * ax + 2]).coerceAtLeast(1e-6f)
+                val a1 = (ax + 1) % 3; val a2 = (ax + 2) % 3; val reach = 1.5f * maxOf(c.half[a1], c.half[a2])
+                for ((h, delay, strength) in listOf(Triple(gk, 0f, 1f), Triple(gk, .08f, .5f), Triple(if (press != null) hit else -1f, 0f, .45f))) {
+                    if (h < 0f || facing <= .3f) continue
+                    val u = t - h - delay; if (u < 0f || u > .55f) continue
+                    val k = u / .55f; val e = 1 - (1 - k) * (1 - k) * (1 - k)
+                    val r = 6f + reach * e * (if (strength < .6f && delay == 0f) .55f else 1f)
+                    val pts = FloatArray(2 * 49)
+                    for (i in 0..48) { val th = (2 * PI * i / 48).toFloat(); val p = mo.copyOf(); p[a1] += r * cos(th); p[a2] += r * sin(th)
+                        // inside the console (its slot opens on a face, as the NES's does): a gap, the console hides it
+                        if ((0..2).all { abs(p[it] - c.center[it]) < c.half[it] - .5f }) { pts[2 * i] = Float.NaN; pts[2 * i + 1] = Float.NaN; continue }
+                        val q = screen(cm, p); pts[2 * i] = q[0]; pts[2 * i + 1] = q[1] }
+                    rings += pts; looks += floatArrayOf(strength * (1 - k) * (1 - k), 3.2f * (1 - k) + .6f)
                 }
-                if (press == null) burst(0, hit, 30, 1f, 7, false)
-                else { burst(0, hit, 12, .6f, 3, false); burst(1, hit2, 30, 1f, 7, true) }
+                waves.set(rings, looks)
             }
-            m.led?.let { led -> if (t >= ledAt && sparked.add(2)) sparks.add(Sparks.Burst(ledAt, screen(cm, led), null, null, (-PI / 2).toFloat(), 9, .35f, 11, soft = true)) }
         }
         // the game: wound up (a little further out) and slammed in, a small rebound; on the NES, slammed down too
         val u = span(t, slide)
@@ -358,10 +369,16 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
         phase = Phase.DONE
         cart?.placeMatrix(homeAgain)
         console?.destroy(); circuit?.destroy(); picture?.let { stage.engine.destroyTexture(it) }
-        board.removeView(black); board.removeView(sparks); backdrop.shadows.clear()
+        board.removeView(black); board.removeView(waves); backdrop.shadows.clear(); glow?.destroy(); glow = null
         if (error.isNotEmpty()) Sounds.play(Sounds.BUMP)
         host.done(this)
     }
+    /** The hit's rings and glow put away (the game starting, skipping, coming back): nothing of them stays on the screen. */
+    private fun quiet() {
+        waves.set(emptyList(), emptyList())
+        glow?.let { g -> g.frame(1f, null, 0, null, null, null, null); g.destroy() }; glow = null
+    }
+
     /** What went wrong starting it, if anything (shown once it's back). */
     val problem get() = error
 
@@ -372,66 +389,28 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
 }
 
 /**
- * The sparks when a game goes in (and a few from the power light): little square bits flying out from both edges of
- * the slot and falling, a few four-pointed twinkles, a ring spreading over the console and a soft glow, in the
- * console's color with white cores. Drawn over the 3D. Each burst is worked out from its start time alone (seeded), so
- * slow frames can't change how it looks; mirrored in tools/lighting-rig's launch scene.
+ * The shockwave when a game hits home: thin rings in the console's color (richer, as its glow is), each a closed line
+ * of points Launch has already put through the camera, so they lie in the console's own plane; a soft wider line under
+ * each for a little bloom. Nothing else: no particles (the user, after 0.26: sparks looked "goofy and princess-y").
  */
-class Sparks(ctx: Context, accent: Int) : View(ctx) {
-    class Burst(val t0: Float, val at: FloatArray, val e1: FloatArray?, val e2: FloatArray?, val ang: Float, val n: Int, val power: Float, val seed: Int, val soft: Boolean = false)
-    private val bursts = ArrayList<Burst>()
-    var time = 0f; set(v) { field = v; invalidate() }
-    fun add(b: Burst) { bursts += b }
-    fun clear() { bursts.clear(); invalidate() }
-    // the console's color made richer (as the glow does), so it shows on a white console too
-    private val acc = FloatArray(3).let { hsv -> Color.colorToHSV(accent, hsv); hsv[1] = minOf(1f, hsv[1] * 1.45f + .1f); hsv[2] = minOf(1f, hsv[2] * .95f); Color.HSVToColor(hsv) }
-    private val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+class Shockwave(ctx: Context, accent: Int) : View(ctx) {
+    private var rings: List<FloatArray> = emptyList(); private var looks: List<FloatArray> = emptyList()
+    private val acc = FloatArray(3).let { hsv -> Color.colorToHSV(accent, hsv); hsv[1] = minOf(1f, hsv[1] * 1.45f + .1f); Color.HSVToColor(hsv) }
+    private val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { style = android.graphics.Paint.Style.STROKE; strokeJoin = android.graphics.Paint.Join.ROUND }
     private val path = android.graphics.Path()
 
-    override fun onDraw(c: android.graphics.Canvas) { for (b in bursts) draw(c, b) }
+    /** The rings to draw: their points (x, y pairs) and each one's (strength, width). */
+    fun set(r: List<FloatArray>, l: List<FloatArray>) { if (r.isEmpty() && rings.isEmpty()) return; rings = r; looks = l; invalidate() }
 
-    private fun draw(c: android.graphics.Canvas, b: Burst) {
-        val u = time - b.t0; if (u < 0f || u > 1.2f) return
-        var seed = (b.seed * 9301L + 49297L)
-        fun rnd(): Float { seed = (seed * 16807L) % 2147483647L; return seed / 2147483647f }
-        fun out3(v: Float) = v.coerceIn(0f, 1f).let { 1 - (1 - it) * (1 - it) * (1 - it) }
-        val x = b.at[0]; val y = b.at[1]
-        if (!b.soft) {
-            val rk = (u / .42f).coerceIn(0f, 1f)
-            if (rk < 1f) {   // the ring
-                p.style = android.graphics.Paint.Style.STROKE; p.color = acc; p.alpha = (255 * .55f * (1 - rk)).toInt(); p.strokeWidth = 4 * (1 - rk) + .5f
-                val r = 18 + 160 * out3(rk) * b.power; c.drawOval(x - r, y - r * .42f, x + r, y + r * .42f, p); p.style = android.graphics.Paint.Style.FILL
-            }
-            val gk = (u / .28f).coerceIn(0f, 1f)
-            if (gk < 1f) {   // a soft glow
-                p.shader = android.graphics.RadialGradient(x, y, 70 * b.power, acc, Color.TRANSPARENT, android.graphics.Shader.TileMode.CLAMP)
-                p.alpha = (255 * .45f * (1 - gk)).toInt(); c.drawRect(x - 80, y - 80, x + 80, y + 80, p); p.shader = null
-            }
-        }
-        for (i in 0 until b.n) {
-            // from either edge of the slot, out to that side and along the way the game came from
-            val o = (if (i % 2 == 1) b.e2 else b.e1) ?: b.at
-            val a = if (b.soft) b.ang + (rnd() - .5f) * 2.4f else {
-                val ex = o[0] - x; val ey = o[1] - y; val el = kotlin.math.hypot(ex, ey).coerceAtLeast(1e-3f); val k2 = .35f + .9f * rnd()
-                kotlin.math.atan2(ey / el + k2 * kotlin.math.sin(b.ang), ex / el + k2 * kotlin.math.cos(b.ang)) + (rnd() - .5f) * .5f
-            }
-            val sp = (if (b.soft) 40 + 70 * rnd() else 480 + 640 * rnd()) * b.power; val life = (if (b.soft) .7f else .5f) + .45f * rnd()
-            val size = Math.round(4 + 6 * rnd()); val white = rnd() < .3f; val star = rnd() < .2f
-            if (u > life) continue
-            val k = u / life; val drag = if (b.soft) 1f else 1 / (1 + 2.2f * u)
-            val px = o[0] + kotlin.math.cos(a) * sp * u * drag; val py = o[1] + kotlin.math.sin(a) * sp * u * drag + (if (b.soft) -30 * u else 900 * u * u)
-            val al = (1 - k) * (1 - k) * .95f + .05f
-            val col = if (white) Color.WHITE else acc
-            if (star) {   // a four-pointed twinkle
-                val r = (size + 5) * (1 - k * .5f) * (.7f + .3f * kotlin.math.sin(u * 40 + i)); p.color = col; p.alpha = (255 * al).toInt()
-                path.reset(); path.moveTo(px, py - r); path.lineTo(px + r * .22f, py - r * .22f); path.lineTo(px + r, py); path.lineTo(px + r * .22f, py + r * .22f)
-                path.lineTo(px, py + r); path.lineTo(px - r * .22f, py + r * .22f); path.lineTo(px - r, py); path.lineTo(px - r * .22f, py - r * .22f); path.close(); c.drawPath(path, p)
-            } else {   // a little square, crisp, with a soft square halo and a white core
-                val s2 = maxOf(2, Math.round(size * (1 - k * .6f))).toFloat(); val rx = Math.round(px).toFloat(); val ry = Math.round(py).toFloat()
-                p.color = acc; p.alpha = (255 * al * .35f).toInt(); c.drawRect(rx - s2, ry - s2, rx + s2, ry + s2, p)
-                p.color = col; p.alpha = (255 * al).toInt(); c.drawRect(rx - s2 / 2, ry - s2 / 2, rx + s2 / 2, ry + s2 / 2, p)
-                if (!white && s2 > 3) { p.color = Color.WHITE; p.alpha = (255 * al * .8f).toInt(); c.drawRect(rx - s2 / 4, ry - s2 / 4, rx + s2 / 4, ry + s2 / 4, p) }
-            }
+    override fun onDraw(c: android.graphics.Canvas) {
+        for ((i, pts) in rings.withIndex()) {
+            val (a, w) = looks[i].let { it[0] to it[1] }
+            // a closed line, broken where Launch marked a gap (NaN: hidden inside the console)
+            path.reset(); var pen = false; var whole = true; var j = 0
+            while (j < pts.size) { if (pts[j].isNaN()) { pen = false; whole = false } else if (pen) path.lineTo(pts[j], pts[j + 1]) else { path.moveTo(pts[j], pts[j + 1]); pen = true }; j += 2 }
+            if (whole) path.close()
+            p.color = acc; p.alpha = (255 * a * .25f).toInt().coerceIn(0, 255); p.strokeWidth = w * 4f; c.drawPath(path, p)   // the soft bloom
+            p.alpha = (255 * a * .85f).toInt().coerceIn(0, 255); p.strokeWidth = w; c.drawPath(path, p)
         }
     }
 }

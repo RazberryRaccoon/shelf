@@ -175,7 +175,7 @@ object Media {
     }
 
     private fun description(id: String, sys: String, name: String, rom: File, keys: JSONObject, meta: Meta): Choice? {
-        val clean = ArtIndex.stripTags(name).replace(Regex("\\s+"), " ").trim()
+        val clean = ArtIndex.searchName(name)
         return when (id) {
             "wikipedia" -> meta.wikipedia(clean, sys)?.let { (t, intro, all) ->
                 Choice("Wikipedia", t, fields = mapOf("description" to intro, "article" to all, "wikititle" to t, "descsource" to "Wikipedia"), note = intro) }
@@ -192,7 +192,7 @@ object Media {
 
     private fun ssGame(sys: String, name: String, rom: File, keys: JSONObject): JSONObject? {
         try { ArtSources.ssGame(sys, rom, keys)?.let { return it } } catch (e: Exception) { }
-        val url = "https://api.screenscraper.fr/api2/jeuRecherche.php?" + ArtSources.ssAuth(keys) + "&systemeid=" + SS_SYSTEMS[sys] + "&recherche=" + ArtIndex.enc(ArtIndex.stripTags(name).trim())
+        val url = "https://api.screenscraper.fr/api2/jeuRecherche.php?" + ArtSources.ssAuth(keys) + "&systemeid=" + SS_SYSTEMS[sys] + "&recherche=" + ArtIndex.enc(ArtIndex.searchName(name))
         return JSONObject(ArtSources.get(url, null)).getJSONObject("response").optJSONArray("jeux")?.optJSONObject(0)
     }
     private val SS_SYSTEMS = mapOf("nes" to 3, "snes" to 4, "n64" to 14, "genesis" to 1, "gb" to 9, "gbc" to 10, "gba" to 12, "ps1" to 57, "ds" to 15, "psp" to 61, "android" to 63)
@@ -207,13 +207,13 @@ object Media {
         val k = keys.getJSONObject("igdb")
         val t = JSONObject(ArtSources.request("POST", "https://id.twitch.tv/oauth2/token?client_id=" + ArtSources.q(k.optString("id")) + "&client_secret=" + ArtSources.q(k.optString("secret")) + "&grant_type=client_credentials", null, ""))
         val h = mapOf("Client-ID" to k.optString("id"), "Authorization" to "Bearer " + t.getString("access_token"))
-        val q = "search \"" + ArtIndex.stripTags(name).trim().replace("\"", "") + "\"; fields $fields; where platforms = (" + IGDB[sys] + "); limit 1;"
+        val q = "search \"" + ArtIndex.searchName(name).replace("\"", "") + "\"; fields $fields; where platforms = (" + IGDB[sys] + "); limit 1;"
         return JSONArray(ArtSources.request("POST", "https://api.igdb.com/v4/games", h, q)).optJSONObject(0)
     }
     private val IGDB = mapOf("nes" to 18, "snes" to 19, "n64" to 4, "genesis" to 29, "gb" to 33, "gbc" to 22, "gba" to 24, "ps1" to 7, "ds" to 20, "psp" to 38, "android" to 34)
 
     private fun tgdbGame(sys: String, name: String, keys: JSONObject): JSONObject? {
-        val url = "https://api.thegamesdb.net/v1.1/Games/ByGameName?apikey=" + ArtSources.q(keys.getJSONObject("tgdb").optString("key")) + "&name=" + ArtSources.q(ArtIndex.stripTags(name).trim()) +
+        val url = "https://api.thegamesdb.net/v1.1/Games/ByGameName?apikey=" + ArtSources.q(keys.getJSONObject("tgdb").optString("key")) + "&name=" + ArtSources.q(ArtIndex.searchName(name)) +
             "&fields=players,overview&filter%5Bplatform%5D=" + TGDB[sys]
         return JSONObject(ArtSources.get(url, null)).optJSONObject("data")?.optJSONArray("games")?.optJSONObject(0)
     }
@@ -357,7 +357,7 @@ object MediaJob {
                 val kinds = Media.kindsFor(g.sys).filter { (only == null || it.id in only) && !Media.has(info, it.id) }
                 if (kinds.isEmpty()) return@forEachIndexed
                 found += Media.findMissing(g, name, info, saved, cache, meta, only) { what ->
-                    status = "${n + 1} of ${list.size} · ${ArtIndex.stripTags(name).trim()}: ${what.lowercase()}"; ui.post { onChange?.invoke() } }.size
+                    status = "${n + 1} of ${list.size} · ${ArtIndex.searchName(name)}: ${what.lowercase()}"; ui.post { onChange?.invoke() } }.size
             }
             running = false; status = if (stop) "Stopped" else "Done"
             ui.post { onChange?.invoke() }
