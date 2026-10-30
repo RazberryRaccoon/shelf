@@ -82,8 +82,13 @@ class Case(stage: Stage, asset: FilamentAsset, title: String, private val sample
     val hasManual get() = manual != 0
     /** A booklet without an inside face of its own (a case exported before 0.16.2). */
     val jewel get() = asset.getFirstEntityByName("manual-art") == 0
-    /** The booklet's width and height, in millimetres: a jewel case's (its clear lid) is nearly the whole case. */
-    val manualSize get() = if (asset.getFirstEntityByName("clear") != 0) floatArrayOf(2 * half[0] - 4, 2 * half[1] - 4) else floatArrayOf(2 * half[0] - 16, 2 * half[1] - 18)
+    /** The booklet as the box was made, in millimetres: a jewel case's (its clear lid) is nearly the whole case. */
+    val bookletSize get() = if (asset.getFirstEntityByName("clear") != 0) floatArrayOf(2 * half[0] - 4, 2 * half[1] - 4) else floatArrayOf(2 * half[0] - 16, 2 * half[1] - 18)
+    // the booklet's own shape, once the manual's cover is known (manualShape): scaled across and down from the box's
+    // booklet, and whether it lies sideways in the box. Declared before init, which reads manualSize
+    private var shapeX = 1f; private var shapeY = 1f; private var sideways = false
+    /** The booklet's width and height as it is now (its own, upright), in millimetres. */
+    val manualSize get() = bookletSize.let { floatArrayOf(it[0] * shapeX, it[1] * shapeY) }
 
     init {
         if (cover != 0) tm.getTransform(tm.getInstance(cover), coverRest)
@@ -103,6 +108,7 @@ class Case(stage: Stage, asset: FilamentAsset, title: String, private val sample
      */
     fun setArt(title: String, front: Bitmap?, back: Bitmap?, spine: Bitmap?) {
         textures.forEach { stage.engine.destroyTexture(it) }; textures.clear()
+        shapeX = 1f; shapeY = 1f; sideways = false   // dressed for another game: the box's own booklet again
         val aspect = (half[0] / half[1]).coerceIn(.3f, 3f)
         if (manual != 0 && !jewel) manualSize.let { ms -> val a = (ms[0] / ms[1]).coerceIn(.3f, 3f)
             art("manual-art", front?.copy(Bitmap.Config.ARGB_8888, false)?.let { c -> fill(c, a).also { if (it !== c) c.recycle() } } ?: Paintings.label(400, (400 / a).toInt(), "$title manual")) }
@@ -151,12 +157,30 @@ class Case(stage: Stage, asset: FilamentAsset, title: String, private val sample
     fun manualNow(): FloatArray = FloatArray(16).also { tm.getWorldTransform(tm.getInstance(manual), it) }
 
     /** The manual's own cover art (its PDF's first page), on a case whose booklet is its own. */
-    fun manualArt(b: Bitmap) { if (jewel) b.recycle() else art("manual-art", b) }
+    fun manualArt(b: Bitmap) { if (jewel) b.recycle() else { manualShape(b.width.toFloat() / b.height); art("manual-art", b) } }
+
+    /**
+     * The booklet takes the shape of the real manual's cover (`a`, width over height), as big as fits in the box: upright,
+     * or lying sideways when that fills it better (a wide manual in a tall box, as some were packed), so its cover is
+     * never squeezed or cut. Carried out to be read, it turns upright on the way (GamePage's flight has no turn).
+     */
+    fun manualShape(a: Float) {
+        if (manual == 0 || jewel || a <= 0f) return
+        val (bw, bh) = bookletSize.let { it[0] to it[1] }
+        val uw = minOf(bw, bh * a); val uh = uw / a                    // upright
+        val sw = minOf(bh, bw * a); val sh = sw / a                    // sideways: its width along the box's height
+        sideways = sw * sh > uw * uh * 1.08f
+        shapeX = (if (sideways) sw else uw) / bw; shapeY = (if (sideways) sh else uh) / bh
+        manualIn(0f)
+    }
+    /** Its turn and shape on top of a placement (the booklet's geometry is the box's own, upright). */
+    private fun shaped(m: FloatArray) { if (sideways) Matrix.rotateM(m, 0, 90f, 0f, 0f, 1f); Matrix.scaleM(m, 0, shapeX, shapeY, 1f) }
 
     /** The manual back in its place in the cover, lifted toward you by `k` (0..1, a few millimetres) while it's chosen. */
     fun manualIn(k: Float) {
         if (manual == 0) return
         val m = FloatArray(16); Matrix.translateM(m, 0, manualRest, 0, 0f, 0f, if (jewel) 3f * k else -3f * k)   // toward you, out of the open cover
+        shaped(m)
         tm.setTransform(tm.getInstance(manual), m)
     }
     /** The cover's place in the world (what the manual hangs from). */
@@ -165,7 +189,7 @@ class Case(stage: Stage, asset: FilamentAsset, title: String, private val sample
         if (pi != 0) tm.getWorldTransform(pi, it) else Matrix.setIdentityM(it, 0)
     }
     /** Where the manual rests in the cover, in the world. */
-    fun manualRestWorld(): FloatArray = FloatArray(16).also { Matrix.multiplyMM(it, 0, parentWorld(), 0, manualRest, 0) }
+    fun manualRestWorld(): FloatArray = FloatArray(16).also { Matrix.multiplyMM(it, 0, parentWorld(), 0, manualRest, 0); if (sideways) Matrix.rotateM(it, 0, 90f, 0f, 0f, 1f) }
     /**
      * Carries the manual out of the case, to this place in the world. It stays attached to the cover (re-parenting in
      * Filament mixes entities and instances, and a wrong one stops the app outright), placed relative to it instead.
@@ -174,7 +198,7 @@ class Case(stage: Stage, asset: FilamentAsset, title: String, private val sample
         if (manual == 0) return
         val inv = FloatArray(16)
         if (!Matrix.invertM(inv, 0, parentWorld(), 0)) return
-        tm.setTransform(tm.getInstance(manual), FloatArray(16).also { Matrix.multiplyMM(it, 0, inv, 0, world, 0) })
+        tm.setTransform(tm.getInstance(manual), FloatArray(16).also { Matrix.multiplyMM(it, 0, inv, 0, world, 0); Matrix.scaleM(it, 0, shapeX, shapeY, 1f) })   // its own shape (the turn is in `world`)
     }
 
     /** Where a cartridge sits in the tray: the case's last placement, moved to the tray's centre (same millimetres). */

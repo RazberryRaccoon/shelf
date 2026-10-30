@@ -344,16 +344,15 @@ Filament.init(['ibl/ibl_ibl.ktx', 'glow.filamat'], async () => {
       }
       tm.setTransform(tm.getInstance(ct.getRoot()), Pm);
       if (parts.power) movePart('power', isButton(parts.power) ? pressK(t - T.power, sys === 'nes' ? .45 : 0) : spring(t - T.power, 9, 16));
-      // sparks, on a 2D layer over the 3D (Sparks in the app)
-      const bursts = [];
-      const M0 = proj(C, mouth), sd = proj(C, mouth.map((v, i) => v + L.from[i] / Math.hypot(...L.from) * 20));
-      const ang = Math.atan2(sd[1] - M0[1], sd[0] - M0[0]);
-      const wx = [L.seat[0], L.seat[1], L.seat[2]], hw = ch[0] * .9, E1 = proj(C, mouth.map((v, i) => v - wx[i] * hw)), E2 = proj(C, mouth.map((v, i) => v + wx[i] * hw));
-      const B = (t0, n, power, seed, a = ang) => ({ t0, x: M0[0], y: M0[1], e: [E1, E2], ang: a, n, power, seed });
-      if (!press) bursts.push(B(T.hit, 30, 1, 7));
-      else bursts.push(B(T.hit, 12, .6, 3), B(T.hit2, 30, 1, 7, -Math.PI / 2));
-      if (L.led) { const lp = proj(C, L.led); bursts.push({ t0: T.led, x: lp[0], y: lp[1], ang: -Math.PI / 2, n: 9, power: .35, seed: 11, soft: true }); }
-      fxc.clearRect(0, 0, W, H); for (const b of bursts) drawBurst(fxc, b, t, ACC);
+      // the hit's shockwave (Shockwave in the app): thin rings in the console's own plane, spreading from the slot
+      fxc.clearRect(0, 0, W, H);
+      { const gk = press ? T.hit2 : T.hit, facing = Math.abs(C[4 * ax + 2]) / Math.hypot(C[4 * ax], C[4 * ax + 1], C[4 * ax + 2]), a1 = (ax + 1) % 3, a2 = (ax + 2) % 3, reach = 1.5 * Math.max(hh[a1], hh[a2]);
+        if (facing > .3) for (const [h, delay, st] of [[gk, 0, 1], [gk, .08, .5], [press ? T.hit : -1, 0, .45]]) {
+          if (h < 0) continue; const u = t - h - delay; if (u < 0 || u > .55) continue;
+          const k = u / .55, e = 1 - Math.pow(1 - k, 3), r = 6 + reach * e * (st < .6 && delay === 0 ? .55 : 1);
+          fxc.beginPath();
+          let pen = false; for (let i = 0; i <= 48; i++) { const th = 2 * Math.PI * i / 48, p = mouth.slice(); p[a1] += r * Math.cos(th); p[a2] += r * Math.sin(th); if ([0, 1, 2].every(j => Math.abs(p[j] - cc[j]) < hh[j] - .5)) { pen = false; continue; } const qq = proj(C, p); pen ? fxc.lineTo(qq[0], qq[1]) : fxc.moveTo(qq[0], qq[1]); pen = true; } const al = st * (1 - k) * (1 - k), w = 3.2 * (1 - k) + .6;
+          fxc.strokeStyle = ACC; fxc.globalAlpha = al * .25; fxc.lineWidth = w * 4; fxc.stroke(); fxc.globalAlpha = al * .85; fxc.lineWidth = w; fxc.stroke(); fxc.globalAlpha = 1; } }
       const z = +(q.get('zoom') ?? 1), fx = +(q.get('fx') ?? W / 2), fy = +(q.get('fy') ?? H / 2);
       camera.setProjectionFov(FOV / z, W / H, 50, DIST * 3, Filament.Camera$Fov.VERTICAL);
       camera.lookAt([fx, H - fy, DIST], [fx, H - fy, 0], [0, 1, 0]);

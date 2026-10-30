@@ -52,6 +52,24 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
+## What's in version 0.27
+
+The user's four notes on 0.26:
+1. **Starting a game with the box open:** the box darts off to the left at once, clear of the console springing up
+   (it used to go through its slower closing sequence and clip into it). It slides back in when you return.
+2. **No more sparks.** The hit is now the console's own glow (as on the game page) swelling round it in its color,
+   and thin shockwave rings spreading from the slot, lying flat in the console's plane like a ripple; the part of a
+   ring inside the console isn't drawn (the NES's bursts out of the front). A handheld taking its cartridge from above
+   has no ring (seen edge on it looked like a halo). Nothing stays on the screen any more: the effects are cleared
+   when the game starts, when you skip, and on the way back (a power-light burst was left over before).
+3. **"The Legend of Zelda" and every "…, The" game:** the art and details services are searched with the name as
+   people write it ("The Legend of Zelda: A Link to the Past"), not the catalogue's "Legend of Zelda, The - …", which
+   they didn't recognise (box backs came from those services). The page's title reads the same way.
+4. **Manual covers:** a scan whose first page is the back and front covers side by side shows only the front cover
+   (the right half; the left for a Japanese manual). Shelf tells by comparing the first page with the pages inside.
+   The booklet in the box now takes the cover's real shape, as big as fits, upright or lying sideways when that fills
+   the box better, so the cover is never squeezed; carried out to read, a sideways one turns upright on the way.
+
 ## What's in version 0.26
 
 The start animations, livelier (the user: "bouncier, floatier, punchier… feel the impact… particle effects"):

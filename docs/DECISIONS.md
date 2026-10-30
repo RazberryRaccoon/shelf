@@ -300,6 +300,10 @@ Summarized from the first part of the conversation; the full transcript is kept 
   edited/changed/deleted like any other collection… a convenient way to save a sort+filter combo"). The start
   animations get their own round ("Really take some time and flesh these out"); the NES door should "hinge inward just
   like on the real console". Later: more themes, sound packs, better icons/fonts/style, the models (ROADMAP).
+- After 0.26 (the user): the sparks "look kinda goofy and princess-y": replaced by the console's glow and thin shockwave
+  rings. Manuals: "some use the front and back page together as the 'first page'… only show the front cover page - which
+  would be the right half"; "for some consoles, the manual would have been inserted in the box sideways" (the booklet
+  takes the cover's shape, upright or sideways).
 - The start animations, after 0.25 (the user): "still too stiff. I want them to be bouncier, floatier, punchier. I
   want to feel the impact of the cartridge or disc going in, maybe even see some retro looking particle effects… Make
   them livelier, more animated!" This relaxes "calm, smooth animation" for the start animation; bounces stay quick and

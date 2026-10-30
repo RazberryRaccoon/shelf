@@ -146,7 +146,7 @@ class Outline(private val stage: Stage) {
 
     companion object {
         /** The stencil numbers: each object glowed around on the page marks its pixels with its own. */
-        const val CART = 1; const val BOX = 2; const val MANUAL = 3
+        const val CART = 1; const val BOX = 2; const val MANUAL = 3; const val CONSOLE = 4   // CONSOLE: the start animation's hit
         /** The layer only the silhouette's view shows (everything is on layer 1, the main view's). */
         private const val LAYER = 0x2
 

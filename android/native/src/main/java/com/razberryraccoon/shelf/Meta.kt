@@ -140,7 +140,7 @@ class Meta(private val ctx: Context, private val games: Games) {
         val text = listOf("description", "descsource", "article", "wikititle")
         if ("description" in src) old?.fields?.let { o -> text.forEach { k -> o[k]?.let { fields[k] = it } ?: fields.remove(k) } }
         // libretro rarely has a description; Wikipedia's article on the game usually does (its opening section)
-        else if ((fields["description"]?.length ?: 0) < 200) wikipedia(name?.let { ArtIndex.stripTags(it) } ?: g.title, g.sys)?.let { (t, intro, all) ->
+        else if ((fields["description"]?.length ?: 0) < 200) wikipedia(name?.let { ArtIndex.searchName(it) } ?: g.title, g.sys)?.let { (t, intro, all) ->
             fields["description"] = intro; fields["descsource"] = "Wikipedia"; fields["article"] = all; fields["wikititle"] = t; src["description"] = "Wikipedia" }
         val pics = HashMap<String, File>(kept)
         if (name != null) for ((kind, _) in KINDS) {
