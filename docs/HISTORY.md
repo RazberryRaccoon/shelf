@@ -592,6 +592,13 @@ opening edge, and a coloured test spine in the new render confirms the fix.
 **0.24, fixed:** the Library crashed as it opened: `byName`, a stored comparator declared below `init`, was still null
 when `init` sorted the first list (the init-order trap again; it's a getter now).
 
+**0.24, more of the user's notes:** a new order or new filters kept the cursor on the same game, wherever it now sat
+in the list; they start at the top now (`Library.toTop`), and A on the list you're in jumps back to its first game
+(right still returns to where you were). A crash closing a filter's choices (Consoles, two ticked, then B) couldn't
+be traced without the crash screen; the likely cause made safe: `Overlays` took a closing card off the board from
+inside that card's own draw, and with a card under it (the Filters card) that is the first time two were stacked.
+Cards now come off the board after the frame (`post`).
+
 **0.24: the Library's notes.** Causes found:
 - **Two glows, one slot.** `Stage.preView` was a single slot, and the Library's glow cleared it every frame while a
   page from the Library was trying to use it. It's now a map (`preViews`), each glow adding and removing its own.
