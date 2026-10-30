@@ -5,20 +5,28 @@ import android.graphics.Color
 import android.view.View
 import com.google.android.filament.Texture
 import com.google.android.filament.TextureSampler
-import kotlin.math.PI
 import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * Starting a game, and coming back from it. Starting (about 2.5 seconds): the game's console rises into view in its
- * colors from the Museum; the cartridge flies from where it was (Home or the open page), lines up with the slot and
- * slides in (a Game Boy turns round to take it in its back, a DS or PSP too); it seats with a click, the power light
- * comes on with a soft chime, a handheld's screen glows with the game's title screen, and the view eases in on the power
- * light or the screen, and the screen closes to black by the transition chosen in Settings (an iris closing on the
- * power light or screen, a wipe, blinds, a clock sweep… see Curtain). Then the game starts. Coming back plays it the
- * other way: the black opens the same way, the screen dims and the light goes off, the cartridge slides out and flies
- * home, and the console sinks away.
+ * Starting a game, and coming back from it (0.25, studied frame by frame in tools/lighting-rig's launch scene).
+ *
+ * Starting, about three seconds: the game's console rises into view in its colors from the Museum, settling into its
+ * turn as it slows (one that takes its game in the back turns to show it on the way). The cartridge is lifted from where
+ * it was, carried along a curve that passes in front of everything, and lines up over its slot, slowing as it arrives;
+ * a breath, and it's pushed in, seating with a click. Each console then does what the real one does: the NES's door
+ * swings in as the cartridge passes and drops shut once it's pressed down into the connector (clunk); the PlayStation's
+ * open button is pressed and its lid pops up for the disc and closes over it; the PSP's door opens and closes; a
+ * handheld turns back to face you; the DS opens. Then its power switch slides over (or its power button is pressed),
+ * the power light comes on with a soft chime, a handheld's screen glows with the game's title screen, and the screen
+ * closes to black by the transition chosen in Settings (see Curtain). Then the game starts.
+ *
+ * While it takes its game, the console and the game waiting over its slot both fit on the screen: a tall handheld
+ * taking a cartridge from above sits lower and a little smaller, and comes back up to size as it turns to you.
+ *
+ * Coming back plays the same thing backwards, a little quicker, out of black: the screen dims, the switch slides back
+ * and the light goes off, the game comes out of its slot and flies home, and the console sinks away.
  * Any button skips to the end of either.
  */
 class Launch(private val ctx: Context, private val stage: Stage, private val board: Board, private val backdrop: Backdrop,
@@ -38,9 +46,13 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
     private var t = 0f
     private val info = consoles.info[game.sys]
     private val marks = info?.launch
-    private val hand = game.sys in SCREENS        // it has a screen to show the title on (and eases in on it)
+    private val hand = game.sys in SCREENS        // it has a screen to show the title on
     private val upright = game.sys in UPRIGHT     // held upright, seen nearly face on (the DS lies open, like a home console)
     private val opensAfter = (marks?.lid?.rest ?: 0f) > .5f   // its lid rests open (the DS): closed for the card, then open
+    private val lidFirst = marks?.lid != null && !opensAfter   // its lid opens for the game and closes after (the PlayStation, the PSP)
+    private val back = (marks?.turn ?: 0f) != 0f   // it takes its game in the back: it turns round for it
+    private val parts = marks?.parts ?: emptyMap()
+    private val press = marks?.press
     private val sampler = TextureSampler(TextureSampler.MinFilter.LINEAR_MIPMAP_LINEAR, TextureSampler.MagFilter.LINEAR, TextureSampler.WrapMode.CLAMP_TO_EDGE)
     private val look = consoles.lookFor(game.sys, games.consoleLook(game.sys))
     private val console: Console? = run {
@@ -54,6 +66,25 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
     private val black = Curtain(ctx, Curtain.pick(games.launchFx))
     private val sounded = HashSet<Int>()
     private var error = ""
+
+    // ---------- the beats, in seconds ----------
+
+    private val rise = .7f
+    private val flight = floatArrayOf(.32f, 1.12f)
+    private val openAt = .42f                                                             // the PlayStation's open button
+    private val slide = floatArrayOf(flight[1] + .1f, flight[1] + .1f + if (press != null) .42f else .36f)
+    private val after = slide[1] + if (press != null) .32f else .06f
+    private val pressT = floatArrayOf(slide[1] + .06f, slide[1] + .26f)                    // the NES: pressed down
+    private val lidClose = floatArrayOf(after + .02f, after + .4f)
+    private val turnBack = floatArrayOf(after + .04f, after + .6f)
+    private val lidOpen = floatArrayOf(after + .42f, after + .95f)                         // the DS opens
+    private val powerAt = maxOf(after, if (lidFirst) lidClose[1] else 0f, if (back) turnBack[1] else 0f, if (opensAfter) lidOpen[0] + .3f else 0f) + .06f
+    private val ledAt = if (parts["power"] != null) powerAt + .16f else powerAt
+    private val screenT = floatArrayOf(ledAt + .12f, ledAt + .55f)
+    private val darkT = floatArrayOf(ledAt + .4f, ledAt + .95f)
+    /** Coming back: the same beats backwards from the screen fully on, this much quicker. */
+    private val backFrom = screenT[1]; private val backSpeed = 1.3f
+    private val frameOut = if (back) turnBack else floatArrayOf(after, after + .5f)
 
     init {
         board.put(black, -700, -700, 2734, 2150)   // past the board's edges too, so the letterbox goes dark with it
@@ -70,13 +101,20 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
 
     private fun clamp(v: Float) = v.coerceIn(0f, 1f)
     private fun ease(v: Float) = Backdrop.ease(clamp(v))
+    /** Slowing to a stop (a cubic ease-out). */
+    private fun out3(v: Float) = clamp(v).let { 1 - (1 - it) * (1 - it) * (1 - it) }
+    /** Smoother still at both ends (smootherstep): nothing starts or stops with a jolt. */
+    private fun smoother(v: Float) = clamp(v).let { it * it * it * (it * (it * 6 - 15) + 10) }
+    private fun span(v: Float, a: FloatArray) = (v - a[0]) / (a[1] - a[0])
+    /** A button: pressed in quickly, held a moment, let back to `rest` (an NES button stays a little in). */
+    private fun pressK(u: Float, rest: Float) = when { u <= 0f -> 0f; u < .09f -> ease(u / .09f); else -> maxOf(rest, 1 - ease((u - .15f) / .14f) * (1 - rest)) }
     private fun once(k: Int, sound: Int) { if (sounded.add(k)) Sounds.play(sound) }
 
     /** Any button: straight to the fade (starting) or to the end (coming back); in the dark, back to Shelf. */
     fun input(a: String) {
         if (phase == Phase.PLAYING) return back()   // still here in the dark (the game never opened): come back
-        if (phase == Phase.IN && t < 2.05f) t = 2.05f
-        else if (phase == Phase.OUT && t < 1.7f) t = maxOf(t, 1.7f)
+        if (phase == Phase.IN && t < darkT[0]) t = darkT[0]
+        else if (phase == Phase.OUT) t = maxOf(t, backFrom / backSpeed - .12f)
     }
 
     /** Back from the game: the return animation, from black. */
@@ -90,18 +128,25 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
         when (phase) {
             Phase.IN -> {
                 t += dt
-                place(intoK = 1f)
-                if (t >= 2.5f) {
-                    phase = Phase.PLAYING
+                place(t, going = true)
+                black.k = if (phase == Phase.PLAYING) 1f else clamp(span(t, darkT))
+                if (t >= darkT[1]) {
+                    phase = Phase.PLAYING; black.k = 1f
                     error = host.start(this)
                     if (error.isNotEmpty()) back()   // it couldn't start: come straight back and say why
                 }
             }
-            Phase.PLAYING -> place(intoK = 1f)
+            Phase.PLAYING -> place(backFrom, going = true)
             Phase.OUT -> {
                 t += dt
-                place(intoK = 0f)
-                if (t >= 1.75f) finish()
+                val u = backFrom - t * backSpeed
+                black.k = 1 - clamp(t / .45f)
+                // the sounds going backwards: the screen and light off, the switch back, the game out of its seat
+                if (u < ledAt + .05f) once(2, Sounds.POWER_OFF)
+                if (parts["power"] != null && u < powerAt + .1f) once(3, Sounds.SWITCH)
+                if (u < slide[1]) once(4, Sounds.CLICK)
+                place(maxOf(0f, u), going = false)
+                if (u <= 0f) finish()
             }
             Phase.DONE -> {}
         }
@@ -111,82 +156,113 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
 
     private val tmp = FloatArray(16); private val tmp2 = FloatArray(16)
 
+    /** The console's size at rest (layout pixels across its larger side), as the Museum shows it. */
+    private val px0 = console?.let { c -> 2 * 275f * maxOf(c.half[0], c.half[1]) / sqrt(c.half[0] * c.half[0] + c.half[1] * c.half[1] + c.half[2] * c.half[2]) } ?: 1f
+    private fun yawOf(turnK: Float) = (if (upright) -.32f else -.5f) + (marks?.turn ?: 0f) * turnK
+    private val pitch = if (upright) .1f else .42f
+
+    /** Where the game's path along its slot is, from the console's placement: `path` 1 at its start, 0 in; `pressK` 1 pressed down. */
+    private fun along(cm: FloatArray, path: Float, pressK: Float, out: FloatArray): FloatArray {
+        val m = marks!!; val pr = press ?: ZERO
+        android.opengl.Matrix.setIdentityM(tmp, 0)
+        android.opengl.Matrix.translateM(tmp, 0, m.from[0] * path + pr[0] * (1 - pressK), m.from[1] * path + pr[1] * (1 - pressK), m.from[2] * path + pr[2] * (1 - pressK))
+        android.opengl.Matrix.multiplyMM(tmp2, 0, tmp, 0, m.seat, 0)
+        android.opengl.Matrix.multiplyMM(out, 0, cm, 0, tmp2, 0)
+        return out
+    }
+
     /**
-     * Everything at time t: going in (intoK 1) or coming out (0). The beats, going in: the console rises (0–.55 s),
-     * turns round if it takes its game in the back (.2–.7), the cartridge flies to the start of its slot's path
-     * (.15–1.0) and slides in (1.0–1.3, click), the console turns back (1.35–1.85), the power light comes on (1.45, chime),
-     * a handheld's screen glows (1.6–2.0), and the view eases in (1.95–2.5) as it fades to black (2.05–2.5).
+     * How much smaller, and how much lower, the console sits while it takes its game, so the game waiting over the slot
+     * fits on the screen too: measured once from where both will be, through the camera's own lens.
      */
-    private fun place(intoK: Float) {
+    private val fit: FloatArray = run {
+        val c = console; val m = marks
+        if (c == null || m == null) return@run floatArrayOf(1f, 0f)
+        c.place(667f, 372f, 30f, yawOf(if (back) 1f else 0f), pitch, px0)
+        val cm = c.matrix.copyOf(); val a = along(cm, 1f, 0f, FloatArray(16))
+        var top = 1e9f; var bot = -1e9f
+        val v = FloatArray(4); val p = FloatArray(4)
+        fun corners(mat: FloatArray, centre: FloatArray, half: FloatArray) { for (n in 0 until 8) {
+            for (i in 0..2) v[i] = centre[i] + if ((n shr i) and 1 == 1) half[i] else -half[i]; v[3] = 1f
+            android.opengl.Matrix.multiplyMV(p, 0, mat, 0, v, 0)
+            val y = Stage.H - (Stage.H / 2 + (p[1] - Stage.H / 2) * Stage.DIST / (Stage.DIST - p[2]))
+            top = minOf(top, y); bot = maxOf(bot, y) } }
+        cart?.let { ct -> val bb = ct.asset.boundingBox; corners(a, bb.center, bb.halfExtent) }
+        corners(cm, c.center, c.half)
+        c.hide()
+        val fr = minOf(1f, 610f / (bot - top)); val t1 = 372 + (top - 372) * fr; val b1 = 372 + (bot - 372) * fr
+        floatArrayOf(fr, if (t1 < 70f) minOf(70 - t1, 715 - b1) else 0f)
+    }
+
+    /** Everything at time t of the start animation (coming back plays it backwards: `going` false only changes the sounds and where the game flies to). */
+    private fun place(t: Float, going: Boolean) {
         val c = console
-        val going = intoK > .5f
-        // how far through each beat, the same measures going in and coming out
-        val rise: Float; val turnK: Float; val fly: Float; val slide: Float; val powerK: Float; val screenK: Float; val inK: Float; val dark: Float; val lidK: Float
-        if (going) {
-            rise = ease(t / .55f)
-            turnK = ease((t - .2f) / .5f) - ease((t - 1.35f) / .5f)
-            fly = ease((t - .15f) / .85f)
-            slide = Backdrop.ease(clamp((t - 1f) / .3f))
-            if (t >= 1.3f) once(0, Sounds.CLICK)
-            powerK = clamp((t - 1.45f) / .3f); if (t >= 1.45f) once(1, Sounds.CHIME)
-            // a lid that rests open (the DS) starts closed and opens once the card's in; one that rests closed (the
-            // PlayStation's lid, the PSP's door) opens for the game and closes after it
-            lidK = if (opensAfter) ease((t - 1.3f) / .45f) else ease((t - .35f) / .4f) - ease((t - 1.3f) / .3f)
-            screenK = if (hand) clamp((t - 1.6f) / .4f) else 0f
-            inK = 0f   // no close-up any more: the transition ends it
-            dark = if (phase == Phase.PLAYING) 1f else clamp((t - 1.95f) / .55f)
-        } else {
-            // coming back: out of black and back out of the close-up, the screen and light go off, the console turns
-            // round if it took its game in the back, the cartridge slides out and flies home, the console sinks away
-            dark = 1 - clamp(t / .45f)
-            inK = 0f
-            screenK = if (hand) 1 - clamp((t - .3f) / .3f) else 0f
-            powerK = 1 - clamp((t - .45f) / .25f); if (t >= .45f) once(2, Sounds.POWER_OFF)
-            turnK = ease((t - .5f) / .3f)
-            slide = 1 - Backdrop.ease(clamp((t - .75f) / .25f))
-            fly = 1 - ease((t - 1f) / .6f)
-            lidK = if (opensAfter) 1 - ease((t - .5f) / .3f) else ease((t - .5f) / .25f) - ease((t - 1.02f) / .3f)
-            rise = 1 - ease((t - 1.05f) / .5f)
-        }
-        black.k = dark
         backdrop.shadows.clear()
         val from = if (going) home else homeAgain
         if (c == null) { cart?.placeMatrix(from); return }
-        // the console: centred a little left of middle, seen a little from above (a handheld nearly face on)
-        val diag = sqrt(c.half[0] * c.half[0] + c.half[1] * c.half[1] + c.half[2] * c.half[2])
-        val px0 = 2 * 275f * maxOf(c.half[0], c.half[1]) / diag
-        val yaw = (if (upright) -.32f else -.5f) + (marks?.turn ?: 0f) * turnK
-        val pitch = if (upright) .1f else .42f
-        var x = 667f; var y = 372f + (1 - rise) * 760f
-        val zoom = 1 + inK * (if (hand) 1.5f else 1.1f)
-        c.place(x, y, 30f, yaw, pitch, px0 * zoom)
-        // easing in: the power light (or the screen) drifts toward the middle of the view as it grows
-        val target = (if (hand) marks?.screen else marks?.led) ?: marks?.led ?: marks?.screen
-        if (target != null && inK > 0f) {
-            val p = FloatArray(4); android.opengl.Matrix.multiplyMV(p, 0, c.matrix, 0, floatArrayOf(target[0], target[1], target[2], 1f), 0)
-            x += (667f - p[0]) * inK; y += (375f - (Stage.H - p[1])) * inK
-            c.place(x, y, 30f, yaw, pitch, px0 * zoom)
+        if (going) {
+            if (t >= slide[1]) once(0, Sounds.CLICK)
+            if (press != null && t >= pressT[1]) once(5, Sounds.CLUNK)
+            if (parts["power"] != null && t >= powerAt + .1f) once(6, Sounds.SWITCH)
+            if (t >= ledAt) once(1, Sounds.CHIME)
+            if (lidFirst && t >= openAt) once(7, Sounds.MOVE)
         }
-        c.power(powerK)
+        // the console: up from below, slowing into its turn (a back-loader turned to show its back, then back to you)
+        val riseK = out3(t / rise)
+        val turnK = if (back) smoother((t - .08f) / .74f) - smoother(span(t, turnBack)) else 0f
+        val fk = 1 - smoother(span(t, frameOut)); val fr = 1 + (fit[0] - 1) * fk; val fdy = fit[1] * fk
+        val x = 667f; val y = 372f + fdy + (1 - riseK) * 640f
+        val size = px0 * fr * (.94f + .06f * riseK)
+        c.place(x, y, 30f, yawOf(turnK) - .38f * (1 - riseK), pitch, size)
+        // the lid: the PlayStation's pops up as its button is pressed and closes over the disc; the PSP's door opens as it
+        // turns and closes after; the DS's opens at the end
+        val lidK = when {
+            lidFirst -> out3((t - openAt - .1f) / .4f) - smoother(span(t, lidClose))
+            opensAfter -> smoother(span(t, lidOpen))
+            else -> 0f
+        }
         c.lid(lidK, marks?.lid)
-        c.picture(picture, sampler, screenK)
+        parts["open"]?.let { c.move("open", pressK(t - openAt, 0f), it) }
+        // the power: the switch slides over (or the button is pressed), then the light, then a handheld's screen
+        parts["power"]?.let { p -> c.move("power", if (p.button) pressK(t - powerAt, if (game.sys == "nes") .45f else 0f) else smoother((t - powerAt) / .2f), p) }
+        c.power(clamp((t - ledAt) / .3f))
+        c.picture(picture, sampler, if (hand) clamp(span(t, screenT)) else 0f)
         circuit?.follow(c.matrix)
-        // the iris closes on the power light (or the screen)
+        // the black closes on the power light (or the screen)
+        val target = (if (hand) marks?.screen else marks?.led) ?: marks?.led ?: marks?.screen
         target?.let { tp -> val q = FloatArray(4); android.opengl.Matrix.multiplyMV(q, 0, c.matrix, 0, floatArrayOf(tp[0], tp[1], tp[2], 1f), 0); black.focus(q[0], Stage.H - q[1]) }
-        backdrop.shadows.add(floatArrayOf(x, y + 200f * zoom, 420f * zoom, .8f * rise * (1 - inK)))
-        // the cartridge: home → the start of the slot's path (flying, arcing up a little), then along it into the seat
+        backdrop.shadows.add(floatArrayOf(x, y + 200f * fr, 420f * fr, .8f * riseK))
+        // the game: lifted from where it was, carried along a curve, lined up over its slot, pushed in (and pressed down)
+        val m = marks ?: return
+        val sK = smoother(span(t, slide)); val pK = if (press != null) smoother(span(t, pressT)) else 1f
+        val cm = c.matrix
+        // the NES's door swings in as the cartridge passes, and drops shut once it's pressed down
+        parts["door"]?.let { d -> c.move("door", minOf(ease((sK - .02f) / .24f), 1 - ease((t - pressT[1] + .02f) / .3f)), d) }
         val ct = cart ?: return
-        val m = marks
-        if (m == null) { ct.placeMatrix(from); return }
-        val path = 1 - slide   // 1 at the start of the path, 0 seated
-        android.opengl.Matrix.setIdentityM(tmp, 0); android.opengl.Matrix.translateM(tmp, 0, m.from[0] * path, m.from[1] * path, m.from[2] * path)
-        android.opengl.Matrix.multiplyMM(tmp2, 0, tmp, 0, m.seat, 0)
-        val along = FloatArray(16).also { android.opengl.Matrix.multiplyMM(it, 0, c.matrix, 0, tmp2, 0) }
-        if (fly >= 1f) ct.placeMatrix(along)
-        else {
-            val f = Poses.blend(from, along, fly)
-            f[13] += sin(PI.toFloat() * fly) * 70f   // arcing up on the way
-            ct.placeMatrix(f)
+        val path = along(cm, 1 - sK, pK, FloatArray(16))
+        val u = span(t, flight)
+        when {
+            t < flight[0] -> {   // picked up: up a little and toward you
+                val l = smoother(t / flight[0])
+                ct.placeMatrix(from.copyOf().also { it[13] += 22f * l; it[14] += 60f * l })
+            }
+            u < 1f -> {
+                val lifted = from.copyOf().also { it[13] += 22f; it[14] += 60f }
+                val e = smoother(u)
+                // turned to line up early (by four fifths of the way), so it arrives straight
+                val pose = Poses.blend(lifted, path, smoother(minOf(1f, u / .8f)))
+                // the way there, a curve: out toward you first, then in along the slot's own direction
+                val dir = FloatArray(3) { i -> cm[i] * m.from[0] + cm[4 + i] * m.from[1] + cm[8 + i] * m.from[2] }
+                val dl = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]).coerceAtLeast(1e-4f)
+                for (i in 0..2) {
+                    val a = lifted[12 + i]; val d = path[12 + i]
+                    val b1 = a + floatArrayOf(40f, 60f, 160f)[i]; val b2 = d + dir[i] / dl * 140f + (if (i == 2) 60f else 0f)
+                    val ie = 1 - e
+                    pose[12 + i] = ie * ie * ie * a + 3 * ie * ie * e * b1 + 3 * ie * e * e * b2 + e * e * e * d
+                }
+                ct.placeMatrix(pose)
+            }
+            else -> ct.placeMatrix(path)
         }
     }
 
@@ -201,7 +277,10 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
     /** What went wrong starting it, if anything (shown once it's back). */
     val problem get() = error
 
-    companion object { private val SCREENS = setOf("gb", "gbc", "gba", "ds", "psp", "android"); private val UPRIGHT = setOf("gb", "gbc", "gba", "psp", "android") }
+    companion object {
+        private val SCREENS = setOf("gb", "gbc", "gba", "ds", "psp", "android"); private val UPRIGHT = setOf("gb", "gbc", "gba", "psp", "android")
+        private val ZERO = FloatArray(3)
+    }
 }
 
 /**

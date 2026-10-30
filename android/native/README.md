@@ -52,6 +52,28 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
+## What's in version 0.25
+
+The start animations, rebuilt and studied frame by frame (tools/lighting-rig's launch scene renders every console's
+sequence as a strip of pictures, so each clip and collision could be seen and fixed):
+1. **The NES's door swings in.** It's hinged along its top edge, as on the real console: the cartridge pushes it in as
+   it slides through, a dark opening behind it. Then the cartridge is pressed down into the connector with a soft clunk,
+   and the door drops shut.
+2. **Nothing passes through anything any more.** The game is lifted from where it was and carried along a curve in
+   front of everything, lines up over its slot (slowing as it arrives), waits a breath, and is pushed in.
+3. **Everything fits on the screen.** While a tall handheld takes a cartridge from above, it sits a little lower and
+   smaller, so the cartridge waiting over it isn't cut off; it comes back up to size as it turns to face you.
+4. **Each console does what the real one does.** The PlayStation's open button is pressed and its lid pops up for the
+   disc. The PSP's disc now sits in the hollow under its door, where you can see it before the door closes.
+5. **Power switches.** The SNES, N64, Genesis, Game Boy and Game Boy Color slide their power switches over before the
+   light comes on; the NES's and the PlayStation's power buttons are pressed (the NES's stays a little in, as the real
+   one latches).
+6. **Smoother motion.** The console arrives turning gently into place as it slows, a back-loader already turning to
+   show its back; no beat starts or stops with a jolt.
+7. **Two new sounds,** as soft as the others: a switch's tiny double tick and the NES's deep clunk.
+8. **Coming back** plays the same sequence backwards, a little quicker: the switch slides off, the light goes out,
+   the game comes out of its slot, flies home and the console sinks away.
+
 ## What's in version 0.24
 
 The user's twelve notes on 0.23 (the start animations get their own round next):

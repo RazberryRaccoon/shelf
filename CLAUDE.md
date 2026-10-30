@@ -54,7 +54,8 @@ that we've learned … and make an Android game launcher that's the best it can 
   covers in console sections; `Collections.kt`: collections, automatic ones, hidden games with a button code; `Cards.kt`:
   the collections card, the code pad, `Overlays`). 0.24 the user's notes on it (sorting and
   filtering with live collections, `Filters.kt`; pooled boxes; the glow per view; box art fitting; jewel case
-  cover). Next: the start animations (their own round, see ROADMAP); pinned collections on Home (place undecided);
+  cover). 0.25 the start animations rebuilt (`Launch.kt`; moving parts `k.part` in the Studio, `Console.move`; the NES door
+  hinges in; studied frame by frame with `tools/lighting-rig/launch.mjs`). Next: the user's notes on 0.25; pinned collections on Home (place undecided);
   Spines once spine art exists; then Apps. The user's "eventually" list is in ROADMAP.
   Next: the Library (see DECISIONS.md and ROADMAP.md). The user paused inspecting the rarer shell colors until they can be seen big (0.3 makes that possible).
   Kotlin is compile-checked locally with the Kotlin 2.4 compiler against `android-all` and Filament's AARs.

@@ -60,17 +60,25 @@ export const CONSOLE_COLORS = {
 // (from: where that path starts, from the seated spot), and turn: how far the console turns round to take it.
 export const CONSOLES = {
   nes: {
-    insert: { at: [0, 8, 32], rot: [-Math.PI / 2, Math.PI, 0], from: [0, 0, 150] },   // flat through the front door, label up
+    // flat through the front door, label up, then pressed down into the connector as on the real one (press: where it
+    // goes in, above its seat)
+    insert: { at: [0, 6, 32], rot: [-Math.PI / 2, Math.PI, 0], from: [0, 0, 150], press: [0, 11, 0] },
     name: 'NES', finish: plastic('#a7a39d', .5, .25), seam: { axis: 'y', at: -.356 },
     build(k) {   // a wide, flat deck with a darker band along the front and a door on top of it
       const { M } = k, D0 = M.plastic('#4b4946', 'band'), z = 1.015;
       k.bodyY(k.rrect(2.56, 2.03, .05), .9, .035, -.356, k.at(0, 0, 0), M.shell);   // a low base and the top half, meeting just under the board
       k.face(k.bar(2.42, .36, .03, .02, .008), 0, -.235, z + .012, D0);
-      k.face(k.bar(1.62, .32, .02, .015, .006), 0, .17, z + .006, M.plastic('#aaa69f', 'door'));
-      k.face(k.plane(1.5, .012), 0, .31, z + .017, M.dark);
+      // the door: hinged along its top edge, it swings in as the cartridge pushes past it and drops shut behind it; the
+      // dark opening shows behind it while it's open
+      k.face(k.bar(1.56, .28, .004, .012, .002), 0, .17, z + .002, M.dark);
+      k.part('door', { at: [0, .33, z + .005], hinge: [0, 1.45] }, D => {
+        D.face(D.bar(1.62, .32, .014, .015, .005), 0, -.16, .007, M.plastic('#aaa69f', 'door'));
+        D.face(D.plane(1.5, .012), 0, -.02, .0145, M.dark);
+      });
       for (let i = 0; i < 9; i++) k.up(k.bar(2.3, .032, .014, .01, .004), 0, .452, -.15 - i * .085, M.plastic('#a9a59e'));
       [-.95, -.62].forEach(x => { k.face(k.bar(.24, .15, .006, .03), x, -.235, z + .027, M.dark); k.face(k.plane(.15, .05), x, -.235, z + .031, M.plastic('#6f6c68', 'band')); });
-      [.55, .86].forEach(x => k.face(k.bar(.24, .1, .035, .015, .006), x, -.235, z + .04, M.plastic('#d0ccc5', 'buttons')));
+      k.part('power', { at: [.55, -.235, z + .04], slide: [0, 0, -.022] }, P => P.face(P.bar(.24, .1, .035, .015, .006), 0, 0, 0, M.plastic('#d0ccc5', 'buttons')));   // pressed in to turn it on
+      k.face(k.bar(.24, .1, .035, .015, .006), .86, -.235, z + .04, M.plastic('#d0ccc5', 'buttons'));
       k.face(k.bar(.05, .03, .008, .006), .32, -.235, z + .028, M.led('#ff3b3b'));
     },
   },
@@ -86,7 +94,9 @@ export const CONSOLES = {
       k.up(k.bar(1.1, .3, .006, .03), 0, .2405, -.56, M.plastic('#b3b1ba'));                           // its dust flap surround
       [-.62, .62].forEach(x => k.up(k.bar(.14, .9, .004, .02), x, .2405, -.5, M.plastic('#b3b1ba')));   // grooves along the block
       k.up(k.bar(.34, .12, .05, .05, .015), 0, .13, .2, P);                                            // the eject lever, in front of the block
-      [-.62, .62].forEach(x => { k.up(k.bar(.34, .18, .012, .04), x, .121, .38, M.dark); k.up(k.bar(.15, .15, .06, .04, .02), x - .07, .14, .38, P); });   // power and reset
+      [-.62, .62].forEach(x => k.up(k.bar(.34, .18, .012, .04), x, .121, .38, M.dark));   // power and reset
+      k.part('power', { at: [-.69, .14, .38], slide: [.14, 0, 0] }, S => S.up(S.bar(.15, .15, .06, .04, .02), 0, 0, 0, P));
+      k.up(k.bar(.15, .15, .06, .04, .02), .55, .14, .38, P);
       k.up(k.disc(.02, .006), -.3, .121, .52, M.led('#ff4a4a'));
       [-.36, .36].forEach(x => { k.face(k.bar(.3, .17, .008, .05), x, -.2, 1.225, M.dark); k.face(k.plane(.2, .06), x, -.2, 1.23, M.plastic('#5e5c66')); });
       for (let i = 0; i < 3; i++) k.face(k.bar(1.2, .012, .004, .005), 0, .055 - i * .035, 1.2165, M.plastic('#a9a7b1'));   // lines across the front of the upper half
@@ -102,7 +112,9 @@ export const CONSOLES = {
       k.up(k.bar(1.12, .14, .01, .02), 0, .312, -.08, M.dark);
       k.up(k.bar(1.18, .03, .012, .01), 0, .314, .03, D0);
       k.up(k.bar(.62, .26, .012, .03), 0, .137, .74, D0);
-      [-.85, .85].forEach(x => { k.up(k.bar(.3, .12, .02, .05), x, .14, .6, D0); k.up(k.bar(.12, .1, .05, .03), x + .06, .16, .6, M.plastic('#55585f', 'switches')); });
+      [-.85, .85].forEach(x => k.up(k.bar(.3, .12, .02, .05), x, .14, .6, D0));
+      k.part('power', { at: [-.79, .16, .6], slide: [-.12, 0, 0] }, S => S.up(S.bar(.12, .1, .05, .03), 0, 0, 0, M.plastic('#55585f', 'switches')));
+      k.up(k.bar(.12, .1, .05, .03), .91, .16, .6, M.plastic('#55585f', 'switches'));
       k.up(k.disc(.022, .006), 0, .137, .8, M.led('#ff3b3b'));   // clear of the rounded front edge
       [-.75, -.25, .25, .75].forEach(x => { k.face(k.bar(.24, .17, .008, .03), x, -.17, .955, M.dark); k.face(k.plane(.15, .07), x, -.17, .96, M.plastic('#55585f')); });
     },
@@ -117,7 +129,8 @@ export const CONSOLES = {
       [.46, .58, .7].forEach(r => k.up(k.ring(r, r + .014, .004, 64), -.2, .252, -.05, D0));
       k.up(k.bar(1.02, .2, .01, .02), -.2, .254, -.05, M.dark);
       k.up(k.bar(1.12, .26, .006, .03), -.2, .252, -.05, M.plastic('#2a2b31'));
-      k.up(k.bar(.3, .12, .02, .05), -1.0, .2, .82, D0); k.up(k.bar(.1, .1, .05, .03), -1.05, .22, .82, M.plastic('#3a3b42', 'switches'));
+      k.up(k.bar(.3, .12, .02, .05), -1.0, .2, .82, D0);
+      k.part('power', { at: [-1.05, .22, .82], slide: [.1, 0, 0] }, S => S.up(S.bar(.1, .1, .05, .03), 0, 0, 0, M.plastic('#3a3b42', 'switches')));
       k.up(k.dome(.08, .03), 1.02, .2, .8, M.plastic('#2c2d34', 'switches'));
       k.up(k.disc(.02, .006), -.72, .201, .86, M.led('#ff3030'));
       k.face(k.bar(.22, .05, .02, .02), -1.05, -.05, 1.06, D0); k.face(k.bar(.04, .08, .03, .015), -1.12, -.05, 1.08, M.plastic('#3a3b42'));
@@ -125,7 +138,7 @@ export const CONSOLES = {
     },
   },
   gb: {
-    insert: { at: [0, 41.5, -11], rot: [0, Math.PI, 0], from: [0, 90, 0], turn: Math.PI },   // down into the pocket in the back, label out
+    insert: { at: [0, 41.5, -11], rot: [0, Math.PI, 0], from: [0, 76, 0], turn: Math.PI },   // down into the pocket in the back, label out
     name: 'Game Boy', finish: plastic('#b9b8bf', .48, .3), seam: { axis: 'z', at: -.07 },
     build(k) {   // tall and gray, with the rounded lower corner, a framed screen and slanted speaker slots
       const { M } = k, z = .16, B0 = M.plastic('#2a2a31', 'dpad'), K = M.plastic('#9a99a2');
@@ -141,11 +154,11 @@ export const CONSOLES = {
       [[.3, -.15], [.13, -.23]].forEach(([x, y]) => k.face(k.dome(.066, .03), x, y, z, M.plastic('#9c2a5c', 'buttons')));
       [-.06, .1].forEach(x => k.face(k.bar(.13, .036, .02, .017), x, -.46, z + .008, M.plastic('#8d8c97', 'small'), .45));
       for (let i = 0; i < 6; i++) { const d = (i - 2.5) * .04; k.face(k.bar(.022, .15, .006, .011), .27 + d * Math.cos(.5), -.54 + d * Math.sin(.5), z + .001, K, .5); }
-      k.up(k.bar(.18, .05, .03, .012), -.22, .74, .02, K);
+      k.part('power', { at: [-.22, .74, .02], slide: [.09, 0, 0] }, S => S.up(S.bar(.18, .05, .03, .012), 0, 0, 0, K));   // the power switch on top, sliding toward the cartridge
     },
   },
   gbc: {
-    insert: { at: [0, 34, -8.5], rot: [0, Math.PI, 0], from: [0, 90, 0], turn: Math.PI },
+    insert: { at: [0, 34, -8.5], rot: [0, Math.PI, 0], from: [0, 76, 0], turn: Math.PI },
     name: 'Game Boy Color', finish: plastic('#2fb5a9', .35, .55), seam: { axis: 'z', at: -.045 },
     build(k) {   // smaller, the screen centered high
       const { M } = k, z = .135, B0 = M.plastic('#26323a', 'dpad');
@@ -159,10 +172,11 @@ export const CONSOLES = {
       [[.25, -.17], [.1, -.25]].forEach(([x, y]) => k.face(k.dome(.058, .028), x, y, z, M.plastic('#4a3f93', 'buttons')));
       [-.07, .08].forEach(x => k.face(k.bar(.11, .032, .018, .015), x, -.45, z + .007, M.plastic('#1f2a30', 'small')));
       k.grille(.24, -.5, z, 3, 2, .04);
+      k.part('power', { at: [-.2, .665, .02], slide: [.07, 0, 0] }, S => S.up(S.bar(.14, .04, .025, .01), 0, 0, 0, M.plastic('#1f2a30', 'small')));   // its switch on top
     },
   },
   gba: {
-    insert: { at: [0, 24.25, -7.75], rot: [0, Math.PI, 0], from: [0, 70, 0], turn: Math.PI },   // all the way in, flush with the top
+    insert: { at: [0, 24.25, -7.75], rot: [0, Math.PI, 0], from: [0, 56, 0], turn: Math.PI },   // all the way in, flush with the top
     name: 'Game Boy Advance', finish: plastic('#4e46a8', .4, .45), seam: { axis: 'z', at: -.0375 },
     build(k) {   // wide, with firm corners, the screen between the controls, shoulder buttons along the top edge
       const { M } = k, z = .1225, B0 = M.plastic('#c5c4d2', 'buttons'), SS = M.plastic('#c5c4d2', 'small'), D = M.plastic('#3b3488', 'dpad'), SH = M.plastic('#3b3488', 'shoulders');
@@ -188,8 +202,9 @@ export const CONSOLES = {
       k.up(k.ring(.722, .745, .004, 72), -.25, .3, -.05, M.plastic('#8e8c86'));
       k.up(k.disc(.7, .01, 64), -.25, .296, -.05, M.plastic('#2a2a2e'));   // the well under the lid, with its spindle
       k.up(k.lathe([[0, .03], [.05, .03], [.06, 0], [0, 0]], 24), -.25, .3, -.05, M.metal);
-      k.up(k.dome(.15, .035), .92, .3, -.36, D0);
-      [[.72, .42], [1.06, .42]].forEach(([x, z]) => k.up(k.dome(.09, .03), x, .3, z, D0));
+      k.part('open', { at: [.92, .3, -.36], slide: [0, -.016, 0] }, B => B.up(B.dome(.15, .035), 0, 0, 0, D0));   // the big round button that opens the lid
+      k.up(k.dome(.09, .03), .72, .3, .42, D0);
+      k.part('power', { at: [1.06, .3, .42], slide: [0, -.014, 0] }, B => B.up(B.dome(.09, .03), 0, 0, 0, D0));
       k.up(k.disc(.02, .006), .89, .301, .2, M.led('#3dff6a'));
       [-.6, -.2].forEach(x => { k.face(k.bar(.3, .12, .008, .03), x, -.15, .94, M.dark); k.face(k.bar(.28, .05, .008, .01), x, .05, .94, M.dark); });
       k.lid({ hinge: [-.25, .3, -.77], closed: 0, open: -1.7 }, L => L.on(L.lathe([[0, .035], [.66, .035], [.71, .015], [.72, 0], [0, 0]], 72), L.at(0, 0, .72, -Math.PI / 2), L.M.plastic('#cbc9c4', 'lid')));
@@ -217,7 +232,7 @@ export const CONSOLES = {
     },
   },
   psp: {
-    insert: { at: [0, 0, -8.4], rot: [0, Math.PI, 0], from: [0, 0, -90], turn: Math.PI },   // behind the back door, label out
+    insert: { at: [0, 0, -13.7], rot: [0, Math.PI, 0], from: [0, 0, -80], turn: Math.PI },   // in the hollow under the back door, label out (seen while the door is open)
     name: 'PSP', finish: plastic('#16171b', .22, .85), lid: { rest: 0 }, seam: { axis: 'z', at: 0 },
     build(k) {   // a glossy black oval with a wide screen in the middle
       const { M } = k, z = .115, K = M.plastic('#2c2d33', 'buttons'), SH = M.plastic('#2c2d33', 'shoulders');

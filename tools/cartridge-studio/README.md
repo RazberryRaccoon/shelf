@@ -64,6 +64,9 @@ tray the cartridge sits in), and `--no-carts` leaves the cartridges as they are.
 and commit the results. Each model is merged into one mesh per material as it's exported
 (`mergeByMaterial`), so a cartridge costs the phone about 8 draw calls instead of up to 71; it looks the same.
 
+Consoles have parts that move in the start animation (`k.part` in `console.js`: the NES's door on its hinge, power
+switches and buttons); each is exported as a node of its own, and `consoles.json` lists where it turns or slides.
+
 Every cartridge is built in two halves like the real ones, each half's edge molded with a small 45° chamfer, so where
 they meet a little V-shaped canyon runs around the sides; screws (`screws` in `cartridges.js`) hold the backs on. Cartridges with an edge connector (NES, SNES, N64, Genesis, Game Boy,
 Game Boy Color, GBA) are hollow and open at the bottom, so the circuit board shows from below; the DS and Android cards

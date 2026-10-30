@@ -100,10 +100,10 @@ window.exportAll = async ({ consoles = false, cases = false, carts = true } = {}
     // a lid stays its own node ("lid", on its hinge, inside its half) so the app can open and close it
     const halves = con => { if (!entry.seam) return mergeByMaterial(con); const out = new THREE.Group(); out.name = con.name;
       for (const n of ['lower', 'upper']) {
-        const h = con.getObjectByName(n), lid = h.children.find(c => c.name === 'lid');
-        if (lid) h.remove(lid);
+        const h = con.getObjectByName(n), movers = h.children.filter(c => c.name === 'lid' || c.userData.part);
+        movers.forEach(c => h.remove(c));
         const m = mergeByMaterial(h); m.name = n; out.add(m);
-        if (lid) { const l = mergeByMaterial(lid); l.name = 'lid'; l.position.copy(lid.position); l.quaternion.copy(lid.quaternion); m.add(l); h.add(lid); }
+        for (const mv of movers) { const l = mergeByMaterial(mv); l.name = mv.name; l.position.copy(mv.position); l.quaternion.copy(mv.quaternion); m.add(l); h.add(mv); }
       }
       return out; };
     const con = make();
@@ -121,7 +121,12 @@ window.exportAll = async ({ consoles = false, cases = false, carts = true } = {}
       const lidPivot = con.getObjectByName('lid'), lidInfo = lidPivot && lidPivot.userData.lid;
       launch = { seat: seat.elements.map(v => +v.toFixed(5)), from: ins.from, turn: ins.turn || 0, led: centre('power-led'), screen: centre('screen-picture'),
         // its lid's hinge (millimetres, turning about x), closed and open angles, and where it rests
-        lid: lidInfo ? { hinge: lidPivot.position.toArray().map(v => +v.toFixed(3)), closed: lidInfo.closed, open: lidInfo.open, rest: entry.lid.rest } : null };
+        lid: lidInfo ? { hinge: lidPivot.position.toArray().map(v => +v.toFixed(3)), closed: lidInfo.closed, open: lidInfo.open, rest: entry.lid.rest } : null,
+        // where the game first goes in before it's pressed down into its seat (the NES's tray), from the seat, millimetres
+        press: ins.press || null,
+        // the parts that move (part in console.js): where each turns or slides from, in millimetres, and how
+        parts: (() => { const o = {}; con.traverse(p => { const d = p.userData.part; if (!d) return;
+          o[d.name] = { at: d.at.map(v => +(v * 100).toFixed(3)), ...(d.hinge ? { hinge: d.hinge } : {}), ...(d.slide ? { slide: d.slide.map(v => +(v * 100).toFixed(3)) } : {}) }; }); return o; })() };
     }
     let explode = null;
     if (entry.seam) {

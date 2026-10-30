@@ -27,9 +27,17 @@ class ConsoleInfo(val sys: String, val name: String, val parts: List<Pair<String
 /**
  * The start animation's marks, in the console's millimetres: where its game sits once it's in (a whole transform, `seat`),
  * the straight path it slides in along (`from`, from the seated spot), how far the console turns round to take it, and
- * where its power light and its picture screen are (what the view eases in on).
+ * where its power light and its picture screen are (what the view eases in on); `press`, where a game goes in before it's
+ * pressed down into its seat (the NES), and the parts that move on their own (the NES's door, power switches and buttons).
  */
-class LaunchMarks(val seat: FloatArray, val from: FloatArray, val turn: Float, val led: FloatArray?, val screen: FloatArray?, val lid: Lid?)
+class LaunchMarks(val seat: FloatArray, val from: FloatArray, val turn: Float, val led: FloatArray?, val screen: FloatArray?, val lid: Lid?,
+                  val press: FloatArray? = null, val parts: Map<String, MovingPart> = emptyMap())
+
+/** A part that moves in the start animation: where it turns or slides from (millimetres), and either its hinge's angles (closed, open; about x) or how far it slides. */
+class MovingPart(val at: FloatArray, val hinge: FloatArray?, val slide: FloatArray?) {
+    /** A button pressed in (it moves mostly in or down), rather than a switch slid across. */
+    val button get() = slide != null && kotlin.math.abs(slide[0]) < kotlin.math.abs(slide[1]) + kotlin.math.abs(slide[2])
+}
 
 /** A console's lid (the DS's top half, the PlayStation's lid, the PSP's disc door): its hinge (turning about x, in millimetres), its angles closed and open, and how it rests (0 closed, 1 open). */
 class Lid(val hinge: FloatArray, val closed: Float, val open: Float, val rest: Float)
@@ -58,7 +66,10 @@ class Consoles(ctx: Context, stage: Stage) {
                 c.optJSONObject("explode")?.let { o -> Explode(o.getString("axis")[0], o.getDouble("upper").toFloat(), o.getDouble("lower").toFloat()) },
                 c.optJSONObject("launch")?.let { l -> fun arr(k: String) = l.optJSONArray(k)?.let { a -> FloatArray(a.length()) { a.getDouble(it).toFloat() } }
                     LaunchMarks(arr("seat") ?: FloatArray(16).also { android.opengl.Matrix.setIdentityM(it, 0) }, arr("from") ?: FloatArray(3), l.optDouble("turn", 0.0).toFloat(), arr("led"), arr("screen"),
-                        l.optJSONObject("lid")?.let { d -> d.optJSONArray("hinge")?.let { h -> Lid(FloatArray(3) { h.getDouble(it).toFloat() }, d.getDouble("closed").toFloat(), d.getDouble("open").toFloat(), d.optDouble("rest", 0.0).toFloat()) } }) })
+                        l.optJSONObject("lid")?.let { d -> d.optJSONArray("hinge")?.let { h -> Lid(FloatArray(3) { h.getDouble(it).toFloat() }, d.getDouble("closed").toFloat(), d.getDouble("open").toFloat(), d.optDouble("rest", 0.0).toFloat()) } },
+                        arr("press"), l.optJSONObject("parts")?.let { ps -> ps.keys().asSequence().associateWith { n -> ps.getJSONObject(n).let { p ->
+                            fun f(k: String) = p.optJSONArray(k)?.let { a -> FloatArray(a.length()) { a.getDouble(it).toFloat() } }
+                            MovingPart(f("at") ?: FloatArray(3), f("hinge"), f("slide")) } } } ?: emptyMap()) })
         } }
     }
 
@@ -144,6 +155,21 @@ class Console(stage: Stage, asset: FilamentAsset, private val file: JSONObject?,
         android.opengl.Matrix.translateM(m, 0, l.hinge[0], l.hinge[1], l.hinge[2])
         android.opengl.Matrix.rotateM(m, 0, Math.toDegrees((l.closed + (l.open - l.closed) * k).toDouble()).toFloat(), 1f, 0f, 0f)
         tm.setTransform(tm.getInstance(lidEnt), m)
+    }
+
+    private val partEnts = HashMap<String, Int>()
+    /** A part that moves on its own (MovingPart), 0 at rest to 1: turned on its hinge or slid along. */
+    fun move(name: String, k: Float, p: MovingPart?) {
+        if (p == null) return
+        val e = partEnts.getOrPut(name) { asset.getFirstEntityByName(name) }; if (e == 0) return
+        val m = FloatArray(16).also { android.opengl.Matrix.setIdentityM(it, 0) }
+        val s = p.slide
+        if (s != null) android.opengl.Matrix.translateM(m, 0, p.at[0] + s[0] * k, p.at[1] + s[1] * k, p.at[2] + s[2] * k)
+        else {
+            android.opengl.Matrix.translateM(m, 0, p.at[0], p.at[1], p.at[2])
+            p.hinge?.let { h -> android.opengl.Matrix.rotateM(m, 0, Math.toDegrees((h[0] + (h[1] - h[0]) * k).toDouble()).toFloat(), 1f, 0f, 0f) }
+        }
+        tm.setTransform(tm.getInstance(e), m)
     }
 
     /** The power light, 0 off to 1 on. */

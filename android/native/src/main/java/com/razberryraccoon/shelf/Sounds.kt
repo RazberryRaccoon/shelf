@@ -19,9 +19,9 @@ import kotlin.math.sin
  */
 object Sounds {
     const val MOVE = 0; const val BUMP = 1; const val OPEN = 2; const val CLOSE = 3; const val PICK = 4; const val TURN = 5
-    const val CLICK = 6; const val CHIME = 7; const val POWER_OFF = 8
+    const val CLICK = 6; const val CHIME = 7; const val POWER_OFF = 8; const val SWITCH = 9; const val CLUNK = 10
     private var pool: SoundPool? = null
-    private val ids = IntArray(9)
+    private val ids = IntArray(11)
     private var lastMove = 0L
     var enabled = true
 
@@ -41,7 +41,9 @@ object Sounds {
             listOf(floatArrayOf(660f, 0f, .12f)) to .07f,                                     // turn: a breath of a tone
             listOf(floatArrayOf(262f, 0f, .05f), floatArrayOf(2093f, .012f, .025f)) to .13f,  // click: a game seating, a low knock with a tiny tick
             listOf(floatArrayOf(1319f, 0f, .32f), floatArrayOf(1568f, .09f, .32f), floatArrayOf(2093f, .18f, .5f)) to .07f,   // chime: power on, E6 G6 C7, soft
-            listOf(floatArrayOf(1568f, 0f, .14f), floatArrayOf(1047f, .08f, .24f)) to .06f)   // power off: G6 falling to C6
+            listOf(floatArrayOf(1568f, 0f, .14f), floatArrayOf(1047f, .08f, .24f)) to .06f,   // power off: G6 falling to C6
+            listOf(floatArrayOf(1760f, 0f, .02f), floatArrayOf(2637f, .03f, .025f)) to .07f,  // switch: a power switch sliding over, two tiny ticks
+            listOf(floatArrayOf(147f, 0f, .09f), floatArrayOf(294f, 0f, .05f), floatArrayOf(1568f, .006f, .02f)) to .14f)   // clunk: the NES's cartridge pressed down, deep and soft
         recipes.forEachIndexed { k, (notes, gain) ->
             val f = File(dir, "s$k-v2.wav")
             if (!f.exists()) writeWav(f, synth(notes, gain))
