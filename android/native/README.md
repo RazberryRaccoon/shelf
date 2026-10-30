@@ -52,6 +52,46 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
+## What's in version 0.24
+
+The user's twelve notes on 0.23 (the start animations get their own round next):
+1. **Home's top bar:** the round buttons no longer lose the top of their circles. The row of games sits a little lower
+   with the selected one a little smaller, so the buttons' names have room.
+2. **The Library loads much faster.**
+   - Boxes that scroll away are kept and dressed again for the next game, instead of being built from scratch.
+   - Art is read on two threads at the size the grid shows it.
+   - Paintings for games without art are drawn off the main thread.
+   - Art read for boxes you've scrolled past is let go.
+3. **Sorting and filtering.**
+   - **All games** is one list; the default is A to Z. Its order can be name (either way), recently played, most
+     played, recently added, release year (either way), or by console, genre, developer or publisher. Grouped orders,
+     and the years by decade, get headings.
+   - **Filters:** consoles, genres, played or not, favorites only, release decades, players, developers, publishers,
+     in a collection, added this month.
+   - **Save as a collection:** keeps the sort and filters as a live collection (✦) that updates itself. It can be
+     renamed, recolored, refiltered, reordered and deleted like any other.
+   - **Consoles and collections** can be sorted too; your own collections and Favorites stay console by console.
+   - **Where:** the pills under the list's name (Up from the first row, or Start).
+4. **The message pill** fades whatever is showing (it stuck while the Library was open).
+5. **Crashes:**
+   - Art read for boxes long scrolled past piled up in memory; now it's let go.
+   - The Library and a game page could both grab the same freshly read box art and use it twice; the Library now
+     reads its own.
+   - A box that can't be made is left out instead of stopping Shelf.
+   - If it still closes on an error, Shelf shows what happened on the next start: a photo of that screen helps.
+6. **The glow works on pages opened from the Library.** The Library's glow and the page's took turns switching each
+   other off; now each draws its own silhouette.
+7. **Backing out of the open box from the Library** plays one close sound, not two.
+8. **Group headings have more room** above the boxes, and the chosen box lifts less, so its glow stays clear of them.
+9. **Box backs aren't cut off any more.** A scan rarely has exactly the box's measured shape, and cropping the
+   difference cut the edges; now up to 12% out it's left whole and stretched imperceptibly, and only beyond that is the
+   excess trimmed. (A test pattern in the rig showed the models themselves show the whole picture.)
+10. *(The start animations: next round.)*
+11. **PlayStation jewel cases:** the clear cover was a quarter opaque and mirror smooth, a sheet of glare over the art.
+    It's now far thinner, so the art reads clearly with a soft sheen (compared side by side in the rig).
+12. **A game's page:** the Back tile is gone (B and Up already go back), so the five tiles spread out and their names
+    don't overlap.
+
 ## What's in version 0.23
 
 **The Library**, as talked through with the user (SPEC §6):

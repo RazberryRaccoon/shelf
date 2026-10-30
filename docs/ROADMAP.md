@@ -33,6 +33,21 @@ published by GitHub Actions. Next, in order:
    has the Japanese and European ones), and the cartridge **color variant as a per-game setting** ("Eventually I want
    this feature in the per game settings of the actual launcher"). Being done in Shelf Native (0.1 has the colors).
 
+## Shelf Native: next, and later (the user's list, October 2026)
+
+- **Next round:** the start animations. Each console's sequence gets studied in a rig, frame by frame. The NES door
+  flap hinges inward as on the real console (today the cartridge passes through it). Everything stiff is loosened, and
+  the clipping and collisions are fixed.
+- **Pinned collections on Home:** wanted, place not decided.
+- **The Library's Spines view,** once there's real spine art.
+- **Eventually** (the user: "things I'm generally not happy with and want to … tackle eventually, so don't forget
+  these"):
+  1. More themes.
+  2. More sound effect packs.
+  3. Better icons, fonts and style.
+  4. The cartridge and console models still need work: a larger project, perhaps bringing back the Cartridge Studio
+     for testing lighting and the models together.
+
 ## Open questions
 
 - Touch support, and how much of it.

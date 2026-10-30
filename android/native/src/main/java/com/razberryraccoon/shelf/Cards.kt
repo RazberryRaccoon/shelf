@@ -206,7 +206,7 @@ object GameCard {
         lateinit var card: ListCard
         card = ListCard(ctx, "Collections", g.title, {
             listOf(ListCard.Row("Favorites", icon = "heart", check = games.favorite(g), tag = "fav")) +
-                cols.all.map { ListCard.Row(it.name, dot = it.color, check = cols.has(it, g), tag = it) } +
+                cols.all.filter { !it.live }.map { ListCard.Row(it.name, dot = it.color, check = cols.has(it, g), tag = it) } +
                 listOf(ListCard.Row("New collection…", icon = "plus", tag = "new"),
                     if (cols.hidden(g)) ListCard.Row("Show this game again", note = "Out of Hidden", icon = "eye", tag = "unhide") else ListCard.Row("Hide this game", note = "Library › Hidden", icon = "lock", tag = "hide"))
         }) { _, r ->

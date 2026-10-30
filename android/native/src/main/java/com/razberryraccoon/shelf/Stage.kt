@@ -65,9 +65,12 @@ class Stage(private val ctx: Context, private val surface: SurfaceView) : Choreo
     private var ibl: IndirectLight? = null
     private val sun = EntityManager.get().create()
     var onFrame: ((Float) -> Unit)? = null   // seconds since the last frame; the screens animate here
-    /** A view drawn into its own texture before the screen's views each frame (Outline), and what to do right after. */
-    var preView: View? = null
-    var afterPre: (() -> Unit)? = null
+    /**
+     * Views drawn into their own textures before the screen's views each frame (each glow's silhouette, Outline), with
+     * what to do right after each. Each glow adds itself while it shows and takes itself off when it's done; until 0.24
+     * there was one slot, and a page's glow and the Library's took it from each other every frame.
+     */
+    val preViews = LinkedHashMap<View, () -> Unit>()
     /** The 3D's size on the screen, in pixels (for views drawn to match it). */
     var pixels = intArrayOf(W.toInt(), H.toInt()); private set
     private var last = 0L
@@ -199,7 +202,7 @@ class Stage(private val ctx: Context, private val surface: SurfaceView) : Choreo
         // the GPU still busy with an earlier frame: Filament skips this one (it shows as a skipped frame in the meter)
         if (ui.isReadyToRender && renderer.beginFrame(sc, now)) {
             // a view drawn into a texture first, when something needs one (the glow's silhouette, Outline)
-            preView?.let { renderer.render(it); afterPre?.invoke() }
+            for ((v, after) in preViews) { renderer.render(v); after() }
             renderer.render(backView); renderer.render(view); renderer.endFrame(); drawn++
         } else skipped++
         // the meter (Settings › Show frame rate): each half second, how many frames came and how long each part took

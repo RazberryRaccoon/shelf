@@ -26,12 +26,18 @@ class Collections(ctx: Context, private val games: Games, private val mediaRoot:
     private val prefs = ctx.getSharedPreferences("shelf", Context.MODE_PRIVATE)
 
     class Entry(val path: String, val sys: String, val title: String)
-    class Collection(val id: String, var name: String, var color: Int, var sort: Int, val entries: MutableList<Entry>)
+    /**
+     * A collection. `rule` set: a live one, a saved sort and filters (from the Library's Sort and Filter), whose games
+     * are whichever match now; renamed, recolored, edited or deleted like any other.
+     */
+    class Collection(val id: String, var name: String, var color: Int, var sort: Int, val entries: MutableList<Entry>, var rule: JSONObject? = null) {
+        val live get() = rule != null
+        val filter get() = Filter.from(rule?.optJSONObject("filter"))
+    }
 
     companion object {
-        /** The orders a collection can have its games in (within each console). */
-        const val AZ = 0; const val RECENT = 1; const val MOST = 2; const val YEAR = 3; const val MINE = 4
-        val SORTS = listOf("A to Z", "Recently played", "Most played", "Release year", "Your order")
+        /** The orders (see Sorts; these keep their old numbers, so saved collections read the same). */
+        const val AZ = Sorts.AZ; const val RECENT = Sorts.RECENT; const val MOST = Sorts.MOST; const val MINE = Sorts.MINE
         /** Colors to choose from: soft, bright enough to glow on the dark backdrop. */
         val COLORS = listOf("Coral" to "#ff8a7a", "Amber" to "#ffc35c", "Lime" to "#b6e36a", "Mint" to "#62e0b8", "Sky" to "#6fc8ff",
             "Iris" to "#9a8cff", "Orchid" to "#e28cf5", "Rose" to "#ff8fb8").map { it.first to Color.parseColor(it.second) }
@@ -51,12 +57,12 @@ class Collections(ctx: Context, private val games: Games, private val mediaRoot:
             val o = a.optJSONObject(i) ?: continue
             val list = o.optJSONArray("games") ?: JSONArray()
             all += Collection(o.optString("id"), o.optString("name"), o.optInt("color", COLORS[0].second), o.optInt("sort", AZ),
-                MutableList(list.length()) { j -> list.getJSONObject(j).let { Entry(it.optString("path"), it.optString("sys"), it.optString("title")) } })
+                MutableList(list.length()) { j -> list.getJSONObject(j).let { Entry(it.optString("path"), it.optString("sys"), it.optString("title")) } }, o.optJSONObject("rule"))
         }
     }
 
     private fun json(): JSONArray = JSONArray().also { a ->
-        for (c in all) a.put(JSONObject().put("id", c.id).put("name", c.name).put("color", c.color).put("sort", c.sort)
+        for (c in all) a.put(JSONObject().put("id", c.id).put("name", c.name).put("color", c.color).put("sort", c.sort).put("rule", c.rule ?: JSONObject.NULL)
             .put("games", JSONArray().also { g -> c.entries.forEach { e -> g.put(JSONObject().put("path", e.path).put("sys", e.sys).put("title", e.title)) } }))
     }
 
@@ -78,11 +84,16 @@ class Collections(ctx: Context, private val games: Games, private val mediaRoot:
 
     /** The game behind an entry: by its file, or else by its console and name (a restored backup on another handheld). */
     private fun matches(e: Entry, g: Game) = e.path == g.path || (e.sys == g.sys && e.title == g.title)
-    fun has(c: Collection, g: Game) = c.entries.any { matches(it, g) }
-    fun of(g: Game) = all.filter { has(it, g) }
+    fun has(c: Collection, g: Game) = if (c.live) c.filter.matches(g, games, this) else c.entries.any { matches(it, g) }
+    /** The ones you put the game in yourself (live collections choose their own games). */
+    fun of(g: Game) = all.filter { !it.live && has(it, g) }
     fun add(c: Collection, g: Game) { if (!has(c, g)) { c.entries += Entry(g.path, g.sys, g.title); save() } }
     fun remove(c: Collection, g: Game) { c.entries.removeAll { matches(it, g) }; save() }
     fun toggle(c: Collection, g: Game): Boolean { val on = !has(c, g); if (on) add(c, g) else remove(c, g); return on }
+
+    /** A live collection: these filters and this order, saved under a name. */
+    fun createLive(name: String, sort: Int, filter: Filter): Collection =
+        create(name).also { it.sort = sort; it.rule = JSONObject().put("filter", filter.json()); save() }
 
     fun create(name: String): Collection {
         // the next color nobody's using yet (or round again)
@@ -109,10 +120,12 @@ class Collections(ctx: Context, private val games: Games, private val mediaRoot:
     /** Every game you can see: hidden ones only while the Library's Hidden is open (`unlocked`). */
     fun visible(unlocked: Boolean = false) = games.all.filter { unlocked || !hidden(it) }
 
-    fun gamesOf(c: Collection): List<Game> { val v = visible(); return v.filter { has(c, it) } }
+    fun gamesOf(c: Collection): List<Game> { val v = visible(); val f = if (c.live) c.filter else null
+        return if (f != null) v.filter { f.matches(it, games, this) } else v.filter { has(c, it) } }
 
     /** When a game's file arrived on the handheld (as near as Shelf can tell: the file's date). */
-    fun added(g: Game) = try { File(g.path).lastModified() } catch (_: Exception) { 0L }
+    fun added(g: Game) = addedAt.getOrPut(g.path) { try { File(g.path).lastModified() } catch (_: Exception) { 0L } }
+    private val addedAt = java.util.concurrent.ConcurrentHashMap<String, Long>()   // read from storage once a game
 
     /** The three that fill themselves, by their rules. */
     fun smart(id: String): List<Game> = when (id) {
@@ -127,6 +140,9 @@ class Collections(ctx: Context, private val games: Games, private val mediaRoot:
     /** The order for a list that isn't one of yours (All games, a console, Favorites…), remembered per list. */
     fun sortFor(id: String) = prefs.getInt("libsort:$id", if (id == ADDED) RECENT else if (id == MOSTPLAYED) MOST else AZ)
     fun setSortFor(id: String, s: Int) = prefs.edit().putInt("libsort:$id", s).apply()
+    /** All games' filters, remembered. */
+    fun filterFor(id: String): Filter = Filter.from(try { JSONObject(prefs.getString("libfilter:$id", "{}") ?: "{}") } catch (_: Exception) { null })
+    fun setFilterFor(id: String, f: Filter) = prefs.edit().putString("libfilter:$id", f.json().toString()).apply()
 
     // ---------- hidden games ----------
 

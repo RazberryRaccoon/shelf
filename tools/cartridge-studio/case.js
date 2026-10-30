@@ -42,7 +42,7 @@ export function buildCase(sys, mediaSize, opts) {
   const body = plasticMaterial({ color: opts.color ?? '#2b2f3c', roughness: .42, clearcoat: .35, clearcoatRoughness: .6 }); body.name = 'case-body';
   const inner = plasticMaterial({ color: opts.inner ?? '#1d2029', roughness: .6, clearcoat: .1, clearcoatRoughness: .7 }); inner.name = 'case-inner';
   const tray = jewel ? plasticMaterial({ color: '#15161b', roughness: .35, clearcoat: .5, clearcoatRoughness: .3 }) : inner;
-  const clear = new THREE.MeshPhysicalMaterial({ color: '#dfe8f2', roughness: .05, clearcoat: 1, clearcoatRoughness: .03, transparent: true, opacity: .25 });
+  const clear = new THREE.MeshPhysicalMaterial({ color: '#cbdbeb', roughness: .12, clearcoat: .4, clearcoatRoughness: .08, transparent: true, opacity: .05 });   // 0.24: thinner (the app sets the same)
   const art = name => { const m = labelMaterial(opts.artTexture, { labelRoughness: .5, labelGloss: .15 }); m.name = name; return m; };
 
   const group = new THREE.Group(); group.name = 'case';

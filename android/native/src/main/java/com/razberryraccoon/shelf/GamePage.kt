@@ -260,8 +260,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
             1 -> if (games.ownEmulator(game) != null) "Plays with $emu, chosen for this game." else "Plays with $emu. Choose one just for this game."
             2 -> "Its shell: the real colors, or your own from the Studio."
             3 -> collectionsNote()
-            4 -> "Its emulator, shell color, whether it shows on Home, and which game it is."
-            else -> "Put it back on Home."
+            else -> "Its emulator, shell color, whether it shows on Home, and which game it is."
         }
     }
 
@@ -340,7 +339,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val was = flow.s
         flow.tick(dt, boxedTo, if (closing) 1.3f else 1f)
         if (was < 2f && flow.s >= 2f) Sounds.play(Sounds.CLICK)        // the cartridge seats in its tray
-        if (was < 3f && flow.s >= 3f) Sounds.play(Sounds.CLOSE)        // the cover shuts
+        if (was < 3f && flow.s >= 3f && !closing) Sounds.play(Sounds.CLOSE)   // the cover shuts (closing the page already sounded once)
         cart?.teardown(tk)
         val spot = cart?.toolSpot(tk)
         if (tk > 0f && !toolTried) { toolTried = true; tool = carts.model("screwdriver.glb")?.let { Model(stage, it) }?.also { it.hide() } }
@@ -393,8 +392,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
                     1 -> chooseEmulator(then = false)
                     2 -> startColors(Mode.PAGE)
                     3 -> host.collectionsCard(game) { hidden -> if (hidden) { homeChanged = true; close() } else { tiles.fav = games.favorite(game); tiles.invalidate(); refreshNote() } }
-                    4 -> startSettings()
-                    else -> close()
+                    else -> startSettings()
                 }
             }
             Zone.MANUAL -> when (a) {
@@ -945,7 +943,8 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
  */
 class Tiles(ctx: Context) : View(ctx) {
     companion object { const val INSET = 10; const val HEIGHT = 138; private const val SIZE = 76f; private const val TOP = 12f }
-    private val names = listOf("Play", "Emulator", "Customize", "Collections", "Settings", "Back")
+    // no Back tile since 0.24 (B and Up already go back): the five spread out, so their names don't run together
+    private val names = listOf("Play", "Emulator", "Customize", "Collections", "Settings")
     var at = 0; private set
     var active = true
     var fav = false

@@ -88,28 +88,45 @@ class Case(stage: Stage, asset: FilamentAsset, title: String, private val sample
     init {
         if (cover != 0) tm.getTransform(tm.getInstance(cover), coverRest)
         if (manual != 0) { val i = tm.getInstance(manual); tm.getTransform(i, manualRest); manualParent = tm.getParent(i) }   // an entity, not an instance
-        // the front: the game's own box art if it's been downloaded (cropped to fill the box's real front, never
-        // stretched), else Shelf's label painting at the front's shape
+        setArt(title, front, back, spine)
+        // a jewel case's clear cover: as it came from the Studio (a quarter opaque, mirror smooth) it lay over the
+        // booklet like a sheet of frosted glare under the 0.21 lighting; thinner and a touch less glossy, the art reads
+        // through clearly and the cover still catches a soft sheen (tuned in tools/lighting-rig, the jewel scene)
+        materialOf("clear")?.let { m -> m.set("baseColorFactor", .8f, .86f, .92f, .05f); m.set("roughnessFactor", .12f); m.set("clearCoatFactor", .4f); m.set("clearCoatRoughnessFactor", .08f) }
+        hinge()
+    }
+
+    /**
+     * The box's art: its front (the game's box art if downloaded, else Shelf's painting at the front's shape), back
+     * and spine; the manual's booklet wears the front too until the manual's own cover arrives. Called again to dress a
+     * box again for another game (the Library reuses boxes as you scroll); the old pictures go.
+     */
+    fun setArt(title: String, front: Bitmap?, back: Bitmap?, spine: Bitmap?) {
+        textures.forEach { stage.engine.destroyTexture(it) }; textures.clear()
         val aspect = (half[0] / half[1]).coerceIn(.3f, 3f)
-        // the manual's booklet wears the box art too, until the manual itself is downloaded (its first page then)
         if (manual != 0 && !jewel) manualSize.let { ms -> val a = (ms[0] / ms[1]).coerceIn(.3f, 3f)
             art("manual-art", front?.copy(Bitmap.Config.ARGB_8888, false)?.let { c -> fill(c, a).also { if (it !== c) c.recycle() } } ?: Paintings.label(400, (400 / a).toInt(), "$title manual")) }
         art("front", front?.let { f -> fill(f, aspect).also { if (it !== f) f.recycle() } } ?: Paintings.label(512, (512 / aspect).toInt(), title))
         art("back", back?.let { b -> fill(b, aspect).also { if (it !== b) b.recycle() } } ?: Paintings.picture(512, (512 / aspect).toInt(), "$title back"))
-        // the spine is a narrow strip, as tall as the box; a downloaded spine is cropped to it the same way
+        // the spine is a narrow strip, as tall as the box; a downloaded spine is fitted to it the same way
         val sa = ((2 * half[2] - 2) / (2 * half[1] - 4)).coerceIn(.04f, .5f)
         art("spine", spine?.let { s0 -> upright(s0).let { b -> fill(b, sa).also { if (it !== b) b.recycle() } } } ?: Paintings.picture(96, 640, title))
-        hinge()
     }
 
     /** A spine scanned lying down (wider than tall) stood up, turned a quarter clockwise so its text reads top to bottom. */
     private fun upright(b: Bitmap): Bitmap = if (b.width <= b.height) b else
         Bitmap.createBitmap(b, 0, 0, b.width, b.height, android.graphics.Matrix().apply { postRotate(90f) }, true).also { b.recycle() }
 
-    /** A picture cropped to this shape (width / height), centred, so it fills it without stretching. */
+    /**
+     * A picture fitted to this shape (width / height). A scan is rarely exactly the box's measured shape, and cropping
+     * the difference off cut the edges of the backs' text (the user, after 0.23): up to 12% out it's left whole and
+     * stretched that little (which can't be seen); beyond that only the excess is cropped, centred.
+     */
     private fun fill(b: Bitmap, aspect: Float): Bitmap {
         val a = b.width.toFloat() / b.height
-        val w = if (a > aspect) (b.height * aspect).toInt() else b.width; val h = if (a > aspect) b.height else (b.width / aspect).toInt()
+        val keep = a.coerceIn(aspect / 1.12f, aspect * 1.12f)
+        val w = if (a > keep) (b.height * keep).toInt() else b.width; val h = if (a > keep) b.height else (b.width / keep).toInt()
+        if (w == b.width && h == b.height) return b
         return Bitmap.createBitmap(b, (b.width - w) / 2, (b.height - h) / 2, w.coerceAtLeast(1), h.coerceAtLeast(1))
     }
 
