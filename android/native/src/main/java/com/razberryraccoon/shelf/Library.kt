@@ -190,7 +190,8 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
     private fun setSort(sh: Shelf, s: Int) { colOf(sh)?.let { it.sort = s; cols.save() } ?: cols.setSortFor(sh.id, s); changed = true }
 
     private fun year(g: Game) = Facts.of(g)?.year
-    private val byName = compareBy<Game> { it.title.lowercase() }
+    // a getter, not a stored value: the Library sorts while it opens (in init), before a value declared down here exists
+    private val byName: Comparator<Game> get() = compareBy { it.title.lowercase() }
 
     /** The order within a group. */
     private fun within(sort: Int, col: Collections.Collection?): Comparator<Game> = when (sort) {

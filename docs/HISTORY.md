@@ -589,6 +589,9 @@ meter now adds FrameMetrics to confirm it before the bigger change (the backdrop
 the screen). The Spines style's earlier render had shown a grey edge taken for the spine; the user saw it was the
 opening edge, and a coloured test spine in the new render confirms the fix.
 
+**0.24, fixed:** the Library crashed as it opened: `byName`, a stored comparator declared below `init`, was still null
+when `init` sorted the first list (the init-order trap again; it's a getter now).
+
 **0.24: the Library's notes.** Causes found:
 - **Two glows, one slot.** `Stage.preView` was a single slot, and the Library's glow cleared it every frame while a
   page from the Library was trying to use it. It's now a map (`preViews`), each glow adding and removing its own.
