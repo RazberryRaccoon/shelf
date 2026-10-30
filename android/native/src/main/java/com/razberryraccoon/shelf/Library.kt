@@ -1,15 +1,14 @@
 package com.razberryraccoon.shelf
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.text.TextUtils
 import android.util.TypedValue
 import android.view.View
-import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import kotlin.math.abs
@@ -19,18 +18,23 @@ import kotlin.math.sin
 
 /**
  * The Library: every game you have, as its closed box, in two panes like Settings. On the left, your lists: All games,
- * Favorites, the three that fill themselves (Recently added, Not played yet, Most played), your own collections, each
- * console, and Hidden. On the right, the chosen list's boxes, four across at their real relative sizes, a heading for
- * each console with its games after it (so a collection of one series reads console by console), each console's games in
- * the list's order.
+ * Favorites, the three that fill themselves (Recently added, Not played yet, Most played), your collections (live ones
+ * too: a saved sort and filters), each console, and Hidden. On the right, the chosen list's boxes, four across at their
+ * real relative sizes, under a bar of pills: its order, its filters (All games, and live collections), and for your own
+ * collections Add games and Arrange.
+ *
+ * All games, a console and a live collection are one list in their order; ordering by console, genre, developer,
+ * publisher or release year puts a heading over each group. Your own collections and Favorites always go console by
+ * console (the user: a collection of one series reads by platform), each console's games in the collection's order.
  *
  * The chosen box lifts toward you, turns a little more to face you, and glows in its console's color (Outline); its name
  * and how long ago you played it sit under it. A opens it (the Library slides away and the game's page opens from the
- * box), X brings up its collections card, Y makes it a favorite, L1 and R1 jump a console at a time. Y on a list on the
- * left: its order, and for your own collections Add games, Arrange, Rename, Color, Move and Delete.
+ * box), X brings up its collections card, Y makes it a favorite, L1 and R1 jump a group at a time, Start goes to the
+ * pills. Y on a list on the left: what you can do with it.
  *
- * Boxes are made as they come near the screen (their art read on another thread, one box made a frame) and let go when
- * they're well off it, so a big library scrolls smoothly; each one arrives with a small rise.
+ * Boxes are made as they come near the screen and kept for reuse when they leave it (dressed again with the next game's
+ * art, which is read on two threads at the size the grid needs), so a big library fills in quickly; each box arrives
+ * with a small rise.
  */
 class Library(private val ctx: Context, private val stage: Stage, private val board: Board, private val backdrop: Backdrop,
               private val games: Games, private val carts: Carts, private val meta: Meta, private val cols: Collections,
@@ -53,16 +57,17 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
         private const val GX = 360f         // the grid's left edge
         private const val CW = 236f         // a column's width (four of them)
         private const val COLS = 4
-        private const val TOP = 154f        // where the grid starts under the list's name
-        private const val HEAD = 58f        // a console's heading
+        private const val TOP = 214f        // where the grid starts, under the list's name, its pills and its summary (room for a lifted, glowing box)
+        private const val HEAD = 84f        // a group's heading, with room for the box under it to lift and glow
         private const val UNDER = 66f       // room under a row for the chosen box's name
         private const val RY = .2f          // boxes turn a little, so their spines show
+        private const val PILL_Y = 92f; private const val PILL_H = 42f
     }
 
     // ---------- the lists ----------
 
     /** A list on the left: what it's called and which games it shows. */
-    private class Shelf(val id: String, val name: String, val dot: Int? = null, val icon: String? = null)
+    private class Shelf(val id: String, val name: String, val dot: Int? = null)
 
     private var unlocked = false   // Hidden, opened with the code (until you leave the Library)
     private var shelves: List<Shelf> = emptyList()
@@ -70,29 +75,31 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
     private val listPanel = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; background = round(Theme.panel, 33f, Theme.line); setPadding(30, 34, 30, 22); clipToPadding = false }
     private val label = text(20f, Fonts.bold, Theme.accentOf(null)).apply { letterSpacing = .08f; text = "LIBRARY" }
     private val list = Options(ctx).apply { compact = true; keep = true }
-    private val heading = text(40f, Fonts.display, Theme.fg).apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END }
-    private val subline = text(21f, Fonts.body, Theme.fg2).apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END }
+    private val heading = text(38f, Fonts.display, Theme.fg).apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END }
     private val labels = Labels(ctx)
 
     // ---------- the grid ----------
 
-    private class Cell(val game: Game, var x: Float = 0f, var y: Float = 0f, val w: Float, val h: Float, val row: Int, val col: Int, val section: Int) {
+    private class Cell(val game: Game, val x: Float, val y: Float, val w: Float, val h: Float, val row: Int, val col: Int, val group: Int) {
         var case: Case? = null; var arrive = 0f; var lift = 0f
     }
-    private class Section(val sys: String, val count: Int, val y: Float)
+    /** A group's heading: its name, a dot in its console's color (consoles only), how many, and where it sits. */
+    private class Group(val name: String, val dot: Int?, val count: Int, val y: Float)
     private var cells: List<Cell> = emptyList()
-    private var sections: List<Section> = emptyList()
-    private var rowTops = FloatArray(0); private var rowHeights = FloatArray(0)
+    private var groups: List<Group> = emptyList()
+    private var summary = ""
     private var contentH = 0f
     private var sel = 0
     private var scroll = 0f; private var scrollTo = 0f
-    private var focus = "list"   // "list" or "grid"
+    private var focus = "list"   // "list", "pills" or "grid"
+    private var pillAt = 0
     private var adding: Collections.Collection? = null      // Add games: every game, ticks for the ones in this collection
     private var arranging: Collections.Collection? = null   // Arrange: the chosen game moves with the d-pad
     private var carrying = false
-    private val boxes = HashMap<String, Case>()              // made boxes, by game
-    private val reading = HashMap<String, java.util.concurrent.Future<Array<android.graphics.Bitmap?>>>()
-    private val reader = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private val boxes = HashMap<String, Case>()              // boxes dressed for a game, by game
+    private val spare = HashMap<String, ArrayDeque<Case>>()  // boxes off the screen, kept to be dressed again, by console
+    private val reading = HashMap<String, java.util.concurrent.Future<Array<Bitmap?>>>()
+    private val reader = java.util.concurrent.Executors.newFixedThreadPool(2)
     private val sampler = com.google.android.filament.TextureSampler(com.google.android.filament.TextureSampler.MinFilter.LINEAR_MIPMAP_LINEAR, com.google.android.filament.TextureSampler.MagFilter.LINEAR, com.google.android.filament.TextureSampler.WrapMode.CLAMP_TO_EDGE)
     private var glow: Outline? = null
 
@@ -107,14 +114,15 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
         board.put(listPanel, 24, 24, 306, 702)
         listPanel.addView(label, LinearLayout.LayoutParams(-1, -2).apply { leftMargin = 12 })
         listPanel.addView(list, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = 22; leftMargin = -30; rightMargin = -30 })
-        board.put(heading, GX.toInt() + 10, 40, 940)
-        board.put(subline, GX.toInt() + 12, 98, 940)
+        board.put(heading, GX.toInt() + 10, 34, 940)
         board.put(labels, 0, 0, 1334, 750)
         list.onFocus = { (list.current()?.tag as? String)?.let { id -> shelves.firstOrNull { it.id == id }?.let { open(it, quick = true) } } }
         fillList()
         open(shelves.first())
         focusOn("list")
         Sounds.play(Sounds.OPEN)
+        // every game's details (genre, year, makers, players), for ordering and filtering by them
+        Facts.build(meta, games.all) { if (!leaving) { fillList(); shelf?.let { open(it, quick = true) } } }
     }
 
     /** The lists on the left, in order (counts updated). */
@@ -122,12 +130,12 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
         val v = cols.visible()
         val s = ArrayList<Shelf>()
         s += Shelf("all", "All games")
-        s += Shelf(Collections.FAVORITES, "Favorites", icon = "heart")
+        s += Shelf(Collections.FAVORITES, "Favorites")
         if (cols.smartOn) { s += Shelf(Collections.ADDED, "Recently added"); s += Shelf(Collections.UNPLAYED, "Not played yet"); s += Shelf(Collections.MOSTPLAYED, "Most played") }
-        val mine = cols.all.map { Shelf("c:" + it.id, it.name, dot = it.color) }
+        val mine = cols.all.map { Shelf("c:" + it.id, (if (it.live) "✦ " else "") + it.name, dot = it.color) }
         val consoles = Games.NAMES.keys.filter { k -> v.any { it.sys == k } }.map { Shelf("sys:$it", Games.NAMES[it] ?: it, dot = Theme.accentOf(it)) }
         val rows = ArrayList<Options.Row>()
-        fun row(sh: Shelf) = Options.Row("shelf", sh.name, value = count(sh).toString(), dot = sh.dot, tag = sh.id)
+        fun row(sh: Shelf) = Options.Row("shelf", sh.name, value = gamesOf(sh).size.toString(), dot = sh.dot, tag = sh.id)
         s.forEach { rows += row(it) }
         rows += Options.Row(Options.HEAD, "Collections")
         mine.forEach { rows += row(it) }
@@ -142,94 +150,188 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
         list.invalidate()
     }
 
-    private fun count(sh: Shelf) = gamesOf(sh).size
+    private fun colOf(sh: Shelf) = if (sh.id.startsWith("c:")) cols.byId(sh.id.removePrefix("c:")) else null
+
+    /** All games' filters, or a live collection's; null where a list has none. */
+    private fun filterOf(sh: Shelf): Filter? = when {
+        sh.id == "all" -> cols.filterFor("all")
+        else -> colOf(sh)?.takeIf { it.live }?.filter
+    }
+    private fun saveFilter(sh: Shelf, f: Filter) {
+        if (sh.id == "all") cols.setFilterFor("all", f)
+        else colOf(sh)?.takeIf { it.live }?.let { it.rule = (it.rule ?: org.json.JSONObject()).put("filter", f.json()); cols.save() }
+        changed = true
+    }
 
     private fun gamesOf(sh: Shelf): List<Game> = when {
-        sh.id == "all" -> cols.visible()
+        sh.id == "all" -> { val f = cols.filterFor("all"); cols.visible().filter { f.matches(it, games, cols) } }
         sh.id == "hidden" -> if (unlocked) games.all.filter { cols.hidden(it) } else emptyList()
         sh.id.startsWith("sys:") -> cols.visible().filter { it.sys == sh.id.removePrefix("sys:") }
-        sh.id.startsWith("c:") -> cols.byId(sh.id.removePrefix("c:"))?.let { cols.gamesOf(it) } ?: emptyList()
+        sh.id.startsWith("c:") -> colOf(sh)?.let { cols.gamesOf(it) } ?: emptyList()
         else -> cols.smart(sh.id)
     }
 
-    private fun sortOf(sh: Shelf) = if (sh.id.startsWith("c:")) cols.byId(sh.id.removePrefix("c:"))?.sort ?: Collections.AZ else cols.sortFor(sh.id)
+    /** Your own collections and Favorites go console by console; their order is within each console. */
+    private fun byConsole(sh: Shelf) = sh.id == Collections.FAVORITES || colOf(sh)?.live == false
+    /** Lists whose order is part of what they are. */
+    private fun fixedSort(sh: Shelf) = sh.id == Collections.ADDED || sh.id == Collections.MOSTPLAYED
 
-    /** A list's games in its order, within each console (consoles in the usual order). */
-    private fun ordered(sh: Shelf, list: List<Game>): List<Game> {
-        val sort = sortOf(sh)
-        val col = if (sh.id.startsWith("c:")) cols.byId(sh.id.removePrefix("c:")) else null
-        val order = Games.NAMES.keys.toList()
-        val within: Comparator<Game> = when {
-            sh.id == Collections.ADDED -> compareByDescending { cols.added(it) }
-            sh.id == Collections.MOSTPLAYED || sort == Collections.MOST -> compareByDescending<Game> { games.timesPlayed(it) }.thenBy { it.title.lowercase() }
-            sort == Collections.RECENT -> compareByDescending<Game> { games.lastPlayed(it) }.thenBy { it.title.lowercase() }
-            sort == Collections.YEAR -> compareBy<Game> { meta.cached(it)?.fields?.get("releaseyear")?.take(4)?.toIntOrNull() ?: 9999 }.thenBy { it.title.lowercase() }
-            sort == Collections.MINE && col != null -> compareBy { g -> col.entries.indexOfFirst { it.path == g.path || (it.sys == g.sys && it.title == g.title) } }
-            else -> compareBy { it.title.lowercase() }
+    private fun sortOf(sh: Shelf) = when {
+        sh.id == Collections.ADDED -> Sorts.ADDED
+        sh.id == Collections.MOSTPLAYED -> Sorts.MOST
+        else -> colOf(sh)?.sort ?: cols.sortFor(sh.id)
+    }
+    private fun sortsFor(sh: Shelf): List<Int> = when {
+        fixedSort(sh) -> emptyList()
+        byConsole(sh) -> Sorts.WITHIN + (if (colOf(sh) != null) listOf(Sorts.MINE) else emptyList())
+        sh.id.startsWith("sys:") -> Sorts.ALL - Sorts.CONSOLE
+        else -> Sorts.ALL
+    }
+    private fun setSort(sh: Shelf, s: Int) { colOf(sh)?.let { it.sort = s; cols.save() } ?: cols.setSortFor(sh.id, s); changed = true }
+
+    private fun year(g: Game) = Facts.of(g)?.year
+    private val byName = compareBy<Game> { it.title.lowercase() }
+
+    /** The order within a group. */
+    private fun within(sort: Int, col: Collections.Collection?): Comparator<Game> = when (sort) {
+        Sorts.ZA -> compareByDescending { it.title.lowercase() }
+        Sorts.RECENT -> compareByDescending<Game> { games.lastPlayed(it) }.then(byName)
+        Sorts.MOST -> compareByDescending<Game> { games.timesPlayed(it) }.then(byName)
+        Sorts.ADDED -> compareByDescending<Game> { cols.added(it) }.then(byName)
+        Sorts.NEWEST -> compareBy<Game> { year(it) == null }.thenByDescending { year(it) ?: 0 }.then(byName)
+        Sorts.OLDEST -> compareBy<Game> { year(it) == null }.thenBy { year(it) ?: 0 }.then(byName)
+        Sorts.MINE -> if (col != null) compareBy { g -> col.entries.indexOfFirst { it.path == g.path || (it.sys == g.sys && it.title == g.title) } } else byName
+        else -> byName
+    }
+
+    /** A list's games in order, in groups (a heading over each) or one group without one. */
+    private fun arrange(sh: Shelf, list: List<Game>): List<Pair<Group?, List<Game>>> {
+        val sort = sortOf(sh); val col = colOf(sh)
+        val consoles = Games.NAMES.keys.toList()
+        fun consoleGroups(order: Comparator<Game>) = list.groupBy { it.sys }.toList().sortedBy { consoles.indexOf(it.first) }
+            .map { (sys, gs) -> Group(Games.NAMES[sys] ?: sys, Theme.accentOf(sys), gs.size, 0f) to gs.sortedWith(order) }
+        fun keyed(key: (Game) -> String?, ascending: Boolean = true): List<Pair<Group?, List<Game>>> {
+            val g = list.groupBy { key(it) ?: "" }
+            val names = g.keys.filter { it.isNotEmpty() }.let { if (ascending) it.sortedBy { k -> k.lowercase() } else it.sortedByDescending { k -> k.lowercase() } } + (if ("" in g) listOf("") else emptyList())
+            return names.map { k -> Group(k.ifEmpty { "Unknown" }, null, g[k]!!.size, 0f) to g[k]!!.sortedWith(byName) }
         }
-        return list.sortedWith(compareBy<Game> { order.indexOf(it.sys) }.then(within))
+        return when {
+            byConsole(sh) -> consoleGroups(within(sort, col))
+            sort == Sorts.CONSOLE -> consoleGroups(byName)
+            sort == Sorts.GENRE -> keyed({ Facts.of(it)?.genres?.firstOrNull() })
+            sort == Sorts.DEVELOPER -> keyed({ Facts.of(it)?.developer })
+            sort == Sorts.PUBLISHER -> keyed({ Facts.of(it)?.publisher })
+            sort == Sorts.NEWEST || sort == Sorts.OLDEST -> {
+                val order = within(sort, col)
+                list.sortedWith(order).groupBy { year(it)?.let { y -> "${y / 10 * 10}s" } ?: "Unknown" }.toList().map { (k, gs) -> Group(k, null, gs.size, 0f) to gs }
+            }
+            else -> listOf(null to list.sortedWith(within(sort, col)))
+        }
     }
 
     /** Shows a list on the right. */
     private fun open(sh: Shelf, quick: Boolean = false) {
-        if (sh.id == "hidden" && !unlocked) {
-            shelf = sh; heading.text = "Hidden"; subline.text = "Locked. A to enter your code."; layout(emptyList(), single = true); return
-        }
         val same = shelf?.id == sh.id
         shelf = sh
-        val list = adding?.let { ordered(Shelf("all", ""), cols.visible()) } ?: ordered(sh, gamesOf(sh))
+        if (sh.id == "hidden" && !unlocked) { heading.text = "Hidden"; layout(emptyList()); summary = "Locked"; return }
         val keep = cells.getOrNull(sel)?.game
-        layout(list, single = sh.id.startsWith("sys:") && adding == null)
+        val add = adding
+        layout(if (add != null) arrangeAll() else arrange(sh, gamesOf(sh)))
         sel = if (same && keep != null) cells.indexOfFirst { it.game == keep }.coerceAtLeast(0) else 0
         if (!same) { scroll = 0f; scrollTo = 0f }
+        pillAt = pillAt.coerceIn(0, max(0, pills().size - 1))
         refreshHeading()
         if (!quick) Sounds.play(Sounds.MOVE)
     }
+    /** Add games: every game, console by console, by name. */
+    private fun arrangeAll() = cols.visible().groupBy { it.sys }.toList().sortedBy { Games.NAMES.keys.indexOf(it.first) }
+        .map { (sys, gs) -> Group(Games.NAMES[sys] ?: sys, Theme.accentOf(sys), gs.size, 0f) as Group? to gs.sortedWith(byName) }
 
     private fun refreshHeading() {
         val sh = shelf ?: return
         val add = adding
         val n = cells.size
-        heading.text = if (add != null) "Adding to ${add.name}" else sh.name
-        subline.text = when {
+        heading.text = if (add != null) "Adding to ${add.name}" else sh.name.removePrefix("✦ ")
+        val f = filterOf(sh)
+        summary = when {
             add != null -> "${add.entries.size} in it  ·  A puts a game in or takes it out  ·  B when you're done"
             arranging != null -> "Arranging  ·  A picks up a game and puts it down  ·  B when you're done"
-            n == 0 -> when (sh.id) {
-                Collections.FAVORITES -> "Nothing here yet. Y on any game makes it a favorite."
-                Collections.UNPLAYED -> "You've played everything."
-                Collections.MOSTPLAYED -> "Play something and it shows up here."
-                else -> if (sh.id.startsWith("c:")) "Empty. Y here, then Add games, or X on any game." else "No games."
+            sh.id == "hidden" && !unlocked -> "Locked"
+            n == 0 -> when {
+                f != null && f.count > 0 -> "No games match these filters."
+                sh.id == Collections.FAVORITES -> "Nothing here yet. Y on any game makes it a favorite."
+                sh.id == Collections.UNPLAYED -> "You've played everything."
+                sh.id == Collections.MOSTPLAYED -> "Play something and it shows up here."
+                colOf(sh) != null -> "Empty. Add games above, or X on any game."
+                else -> "No games."
             }
-            else -> "$n ${if (n == 1) "game" else "games"}  ·  " + when (sh.id) { Collections.ADDED -> "Newest first"; Collections.MOSTPLAYED -> "Most played first"; else -> Collections.SORTS[sortOf(sh)] }
+            else -> "$n ${if (n == 1) "game" else "games"}" + (f?.takeIf { it.count > 0 }?.let { "  ·  " + it.summary(cols) } ?: "")
         }
     }
 
-    /** Lays the games out: a heading per console (unless it's one console's list), then rows of four. */
-    private fun layout(list: List<Game>, single: Boolean) {
-        val out = ArrayList<Cell>(); val secs = ArrayList<Section>(); val tops = ArrayList<Float>(); val hs = ArrayList<Float>()
+    /** Lays the groups out: each group's heading (if it has one), then rows of four, the boxes standing on each row's line. */
+    private fun layout(list: List<Pair<Group?, List<Game>>>) {
+        val out = ArrayList<Cell>(); val gs = ArrayList<Group>()
         var y = 0f; var row = -1
-        val bySys = list.groupBy { it.sys }
-        for ((sys, gs) in bySys) {
-            if (!single) { secs += Section(sys, gs.size, y); y += HEAD }
-            val (w, h) = BOX_MM[sys] ?: (130f to 170f)
-            gs.chunked(COLS).forEach { line ->
-                row++; tops += y; val rh = h * S; hs += rh
-                line.forEachIndexed { c, g -> out += Cell(g, GX + CW / 2 + c * CW, y + rh / 2, w * S, h * S, row, c, secs.size - 1) }
+        for ((g, games) in list) {
+            if (g != null) { gs += Group(g.name, g.dot, games.size, y); y += HEAD }
+            games.chunked(COLS).forEach { line ->
+                row++
+                val sizes = line.map { BOX_MM[it.sys] ?: (130f to 170f) }
+                val rh = sizes.maxOf { it.second } * S
+                line.forEachIndexed { c, game -> val (w, h) = sizes[c]; out += Cell(game, GX + CW / 2 + c * CW, y + rh - h * S / 2, w * S, h * S, row, c, gs.size - 1) }
                 y += rh + UNDER
             }
             y += 14f
         }
-        // the boxes no longer in the list go
+        // the boxes no longer in the list go back to be used again
         val now = out.map { it.game.path }.toSet()
-        boxes.keys.filter { it !in now }.forEach { boxes.remove(it)?.destroy() }
+        boxes.keys.filter { it !in now }.forEach { p -> boxes.remove(p)?.let { release(it, p) } }
         out.forEach { c -> boxes[c.game.path]?.let { c.case = it; c.arrive = 1f } }
-        cells = out; sections = secs; rowTops = tops.toFloatArray(); rowHeights = hs.toFloatArray(); contentH = y
+        cells = out; groups = gs; contentH = y
         sel = sel.coerceIn(0, max(0, cells.size - 1))
     }
 
     private fun focusOn(f: String) {
         focus = f
         list.active = f == "list"; list.invalidate()
+    }
+
+    // ---------- the pills ----------
+
+    private class Pill(val text: String, val key: String)
+    /** The pills over the boxes: the order, the filters, and what a list of yours can do. */
+    private fun pills(): List<Pill> {
+        val sh = shelf ?: return emptyList()
+        if (adding != null || arranging != null || (sh.id == "hidden" && !unlocked)) return emptyList()
+        val out = ArrayList<Pill>()
+        val col = colOf(sh)
+        val sort = sortOf(sh)
+        if (sortsFor(sh).isNotEmpty()) out += Pill((if (byConsole(sh)) "Each console by " else "Sorted by ") + Sorts.NAMES[sort].replaceFirstChar { it.lowercase() }, "sort")
+        val f = filterOf(sh)
+        if (f != null) out += Pill(if (f.count == 0) "Filter" else "Filters  ·  ${f.count}", "filter")
+        if (f != null && f.count > 0) out += Pill("Clear", "clear")
+        if (sh.id == "all" && f != null && f.count > 0) out += Pill("Save as a collection", "save")
+        if (col != null && !col.live) { out += Pill("Add games", "add"); out += Pill("Arrange", "arrange") }
+        return out
+    }
+
+    private fun pillAct(p: Pill) {
+        val sh = shelf ?: return
+        val col = colOf(sh)
+        when (p.key) {
+            "sort" -> chooseSort(sh)
+            "filter" -> filterCard(sh)
+            "clear" -> { filterOf(sh)?.let { it.clear(); saveFilter(sh, it) }; Sounds.play(Sounds.CLICK); refresh() }
+            "save" -> host.askText("Name the collection", "") { name ->
+                if (name.isBlank()) return@askText
+                val c = cols.createLive(name.trim().take(40), sortOf(sh), cols.filterFor("all")); changed = true
+                fillList(); list.rows.indexOfFirst { it.tag == "c:" + c.id }.takeIf { it >= 0 }?.let { list.focus(it) }
+                open(shelves.first { it.id == "c:" + c.id }); host.show("Saved ${c.name}: it keeps itself up to date")
+            }
+            "add" -> col?.let { startAdding(it) }
+            "arrange" -> col?.let { startArranging(sh, it) }
+        }
     }
 
     // ---------- every frame ----------
@@ -242,7 +344,7 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
         val away = max(1 - k, pageK)
         // the panes slide up with the sheet, and step aside for a game's page
         listPanel.translationY = (1 - k) * 760f; listPanel.translationX = -pageK * 340f; listPanel.alpha = 1 - pageK
-        for (v in listOf(heading, subline, labels)) { v.translationY = (1 - k) * 760f; v.alpha = 1 - pageK }
+        for (v in listOf(heading, labels)) { v.translationY = (1 - k) * 760f; v.alpha = 1 - pageK }
         if (leaving && shownK == 0f) { destroy(); host.closed(this, changed); return }
         page?.tick(dt)
         // scrolling: the chosen row stays near the middle of what's left under the heading
@@ -250,23 +352,7 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
         scroll += (scrollTo - scroll) * min(1f, dt * 9f)
         backdrop.shadows.clear()
         if (launching) { cells.forEach { it.case?.hide() }; return }
-        // which boxes should exist: those within a screen of what's showing, the chosen one's neighbours first
-        var made = 0
-        val near = cells.withIndex().filter { (_, c) -> sy(c) > -380 && sy(c) < 1130 }.sortedBy { (i, _) -> abs(i - sel) }
-        for ((_, c) in near) {
-            if (c.case != null) continue
-            val path = c.game.path
-            val f = reading[path] ?: reader.submit(java.util.concurrent.Callable { GamePage.boxArt(meta, c.game) }).also { reading[path] = it }
-            if (!f.isDone || made >= 1) continue
-            reading.remove(path)
-            val art = try { f.get() } catch (e: Exception) { arrayOfNulls<android.graphics.Bitmap>(3) }
-            val case = carts.model("case-${c.game.sys}.glb")?.let { Case(stage, it, c.game.title, sampler, art[0], art[1], art[2]) }
-            if (case == null) { art.forEach { it?.recycle() }; continue }
-            case.open = 0f; Outline.mark(stage, case.asset.entities, Outline.BOX)
-            c.case = case; boxes[path] = case; c.arrive = 0f; made++
-        }
-        // and those far off it go
-        for (c in cells) if (c.case != null && (sy(c) < -900 || sy(c) > 1650)) { boxes.remove(c.game.path)?.destroy(); c.case = null }
+        dress()
         // placing them
         cells.forEachIndexed { i, c ->
             val case = c.case ?: return@forEachIndexed
@@ -281,11 +367,10 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
             val grow = edge * arrive * (1 - away) * (1 + .06f * c.lift)
             if (grow < .02f) { case.hide(); return@forEachIndexed }
             val bob = if (chosen) sin(time * 1.6f) * 3f else 0f
-            // the chosen one: up toward you, turned a little more to face you
-            case.place(c.x, y - c.lift * 14f + (1 - arrive) * 18f + bob + (1 - k) * 760f, 10f + 46f * c.lift, RY * (1 - .5f * c.lift), -.06f, max(c.w, c.h) * grow, held = false)
-            val big = max(c.w, c.h)
+            // the chosen one: toward you, turned a little more to face you (it rises only a little, so it stays clear of
+            // the heading over its row)
+            case.place(c.x, y - c.lift * 6f + (1 - arrive) * 18f + bob + (1 - k) * 760f, 10f + 46f * c.lift, RY * (1 - .5f * c.lift), -.06f, max(c.w, c.h) * grow, held = false)
             if (arrive > .05f) backdrop.shadows.add(floatArrayOf(c.x, y + c.h / 2 * grow + 16f + (1 - k) * 760f, c.w * grow * .95f, (.55f + .3f * c.lift) * edge * (1 - away)))
-            if (big <= 0f) return@forEachIndexed
         }
         // the glow around the chosen box, in its console's color (and the sky's nebula takes that color too)
         val c = cells.getOrNull(sel)?.takeIf { focus == "grid" && page == null && !leaving }
@@ -299,6 +384,60 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
         labels.invalidate()
     }
 
+    /**
+     * The boxes near the screen get dressed (two a frame from the spare ones, or one new one); those far from it go
+     * back to the spares; art read for boxes no longer wanted is let go.
+     */
+    private fun dress() {
+        val want = HashSet<String>()
+        val near = cells.withIndex().filter { (_, c) -> sy(c) > -320 && sy(c) < 1100 }.sortedBy { (i, _) -> abs(i - sel) }
+        var reused = 0; var made = 0
+        for ((_, c) in near) {
+            val path = c.game.path; want += path
+            if (c.case != null) continue
+            val f = reading[path] ?: reader.submit(java.util.concurrent.Callable { art(c.game) }).also { reading[path] = it }
+            if (!f.isDone) continue
+            val pool = spare[c.game.sys]
+            if (pool.isNullOrEmpty() && made >= 1) continue
+            if (!pool.isNullOrEmpty() && reused >= 2) continue
+            reading.remove(path)
+            val art = try { f.get() } catch (e: Exception) { arrayOfNulls<Bitmap>(3) }
+            // one box that can't be dressed (a broken picture file, say) is left out, rather than closing Shelf
+            val case = try {
+                pool?.removeFirstOrNull()?.also { it.setArt(c.game.title, art[0], art[1], art[2]); reused++ }
+                    ?: carts.model("case-${c.game.sys}.glb")?.let { Case(stage, it, c.game.title, sampler, art[0], art[1], art[2]) }?.also {
+                        it.open = 0f; Outline.mark(stage, it.asset.entities, Outline.BOX); made++ }
+            } catch (e: Exception) { android.util.Log.w("Shelf", "Couldn't dress the box for ${c.game.title}", e); null }
+            if (case == null) { art.forEach { if (it?.isRecycled == false) it.recycle() }; continue }
+            c.case = case; boxes[path] = case; c.arrive = 0f
+        }
+        // far off the screen: back to the spares
+        for (c in cells) if (c.case != null && (sy(c) < -700 || sy(c) > 1500)) { boxes.remove(c.game.path)?.let { release(it, c.game.path) }; c.case = null }
+        // art read for a box that's no longer wanted (scrolled past, another list): let go once it's read
+        reading.entries.removeAll { (p, f) -> if (p !in want && f.isDone) { try { f.get().forEach { it?.recycle() } } catch (_: Exception) { }; true } else false }
+    }
+
+    /** A box no longer showing a game: kept (out of sight) to be dressed for another, or let go if there are plenty. */
+    private fun release(case: Case, path: String) {
+        val sys = cells.firstOrNull { it.game.path == path }?.game?.sys ?: games.all.firstOrNull { it.path == path }?.sys
+        case.hide()
+        val pool = sys?.let { spare.getOrPut(it) { ArrayDeque() } }
+        if (pool != null && pool.size < 10) pool.addLast(case) else case.destroy()
+    }
+
+    /**
+     * A game's box art for the grid, read on another thread: front, back and spine at the sizes the grid shows them
+     * (smaller than the page needs), Shelf's paintings for any it doesn't have, drawn here too, not on the main thread.
+     */
+    private fun art(g: Game): Array<Bitmap?> {
+        val pics = meta.cached(g)?.pics
+        val (w, h) = BOX_MM[g.sys] ?: (130f to 170f); val aspect = w / h
+        val front = pics?.get("box")?.let { meta.bitmap(it, 360) } ?: Paintings.label(360, (360 / aspect).toInt(), g.title)
+        val back = pics?.get("back")?.let { meta.bitmap(it, 256) } ?: Paintings.picture(256, (256 / aspect).toInt(), "${g.title} back")
+        val spine = pics?.get("spine")?.let { meta.bitmap(it, 160) } ?: Paintings.picture(64, 420, g.title)
+        return arrayOf(front, back, spine)
+    }
+
     /** Where a cell is on the screen now (its centre's height). */
     private fun sy(c: Cell) = TOP + c.y - scroll
 
@@ -307,7 +446,7 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
     fun input(a: String) {
         page?.let { it.input(a); return }
         if (leaving || launching) return
-        if (focus == "list") listInput(a) else gridInput(a)
+        when (focus) { "list" -> listInput(a); "pills" -> pillInput(a); else -> gridInput(a) }
     }
 
     private fun listInput(a: String) {
@@ -319,11 +458,25 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
                 r?.key == "new" -> if (a == "a") newCollection() else Sounds.play(Sounds.BUMP)
                 r?.tag == "hidden" && !unlocked -> if (a == "a") unlock() else Sounds.play(Sounds.BUMP)
                 cells.isNotEmpty() -> { Sounds.play(Sounds.PICK); focusOn("grid") }
+                pills().isNotEmpty() -> { Sounds.play(Sounds.PICK); pillAt = 0; focusOn("pills") }
                 else -> Sounds.play(Sounds.BUMP)
             }
+            "start" -> if (pills().isNotEmpty()) { Sounds.play(Sounds.MOVE); pillAt = 0; focusOn("pills") }
             "y" -> shelf?.let { menu(it) }
             "select" -> if (!unlocked && !cols.hiddenEntry && cols.hasCode) unlock()   // Hidden not listed: Select, then the code
             "b" -> close()
+        }
+    }
+
+    private fun pillInput(a: String) {
+        val ps = pills()
+        if (ps.isEmpty()) return focusOn("list")
+        when (a) {
+            "left" -> if (pillAt > 0) { pillAt--; Sounds.play(Sounds.MOVE) } else { Sounds.play(Sounds.MOVE); focusOn("list") }
+            "right" -> if (pillAt < ps.size - 1) { pillAt++; Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
+            "down", "start" -> if (cells.isNotEmpty()) { Sounds.play(Sounds.MOVE); focusOn("grid") } else Sounds.play(Sounds.BUMP)
+            "a" -> { Sounds.play(Sounds.PICK); pillAct(ps[pillAt.coerceIn(0, ps.size - 1)]) }
+            "b" -> { Sounds.play(Sounds.MOVE); focusOn("list") }
         }
     }
 
@@ -344,9 +497,10 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
         when (a) {
             "left" -> if (c != null && c.col > 0) step(sel - 1) else if (adding == null && arranging == null) { Sounds.play(Sounds.MOVE); focusOn("list") } else Sounds.play(Sounds.BUMP)
             "right" -> if (c != null && c.col < COLS - 1 && cells.getOrNull(sel + 1)?.row == c.row) step(sel + 1) else Sounds.play(Sounds.BUMP)
-            "up" -> vertical(-1)
+            "up" -> if (c != null && c.row == 0 && pills().isNotEmpty()) { Sounds.play(Sounds.MOVE); focusOn("pills") } else vertical(-1)
             "down" -> vertical(1)
-            "lb", "rb" -> jumpSection(if (a == "lb") -1 else 1)
+            "lb", "rb" -> jumpGroup(if (a == "lb") -1 else 1)
+            "start" -> if (pills().isNotEmpty()) { Sounds.play(Sounds.MOVE); focusOn("pills") }
             "a" -> c?.let { cell ->
                 val add = adding
                 when {
@@ -370,23 +524,22 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
     /** Up or down a row, to the nearest box by position (rows can be different lengths). */
     private fun vertical(d: Int) {
         val c = cells.getOrNull(sel) ?: return
-        val row = c.row + d
-        val inRow = cells.withIndex().filter { it.value.row == row }
+        val inRow = cells.withIndex().filter { it.value.row == c.row + d }
         if (inRow.isEmpty()) return Sounds.play(Sounds.BUMP)
         sel = inRow.minByOrNull { abs(it.value.x - c.x) }!!.index; Sounds.play(Sounds.MOVE)
     }
 
-    private fun jumpSection(d: Int) {
+    private fun jumpGroup(d: Int) {
         val c = cells.getOrNull(sel) ?: return
-        val to = cells.indexOfFirst { it.section == c.section + d }
-        if (to < 0 || sections.isEmpty()) return Sounds.play(Sounds.BUMP)
+        val to = if (groups.isEmpty()) -1 else cells.indexOfFirst { it.group == c.group + d }
+        if (to < 0) return Sounds.play(Sounds.BUMP)
         sel = to; Sounds.play(Sounds.MOVE)
     }
 
     /** After something changed (a favorite, a collection, a hidden game): the counts and the list shown again. */
     private fun refresh() { fillList(); shelf?.let { open(it, quick = true) } }
 
-    // ---------- lists: making, ordering, changing ----------
+    // ---------- lists: making, ordering, filtering, changing ----------
 
     private fun newCollection() = host.askText("Name the new collection", "") { name ->
         if (name.isBlank()) return@askText
@@ -403,23 +556,30 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
         focusOn("grid"); refreshHeading()
     }
 
-    /** Y on a list: its order, and for your own collections everything else you can do with it. */
+    private fun startArranging(sh: Shelf, c: Collections.Collection) {
+        c.sort = Sorts.MINE; cols.save(); arranging = c; adding = null; open(sh, quick = true); focusOn("grid"); refreshHeading()
+    }
+
+    /** Y on a list: what you can do with it. */
     private fun menu(sh: Shelf) {
-        val col = if (sh.id.startsWith("c:")) cols.byId(sh.id.removePrefix("c:")) else null
-        if (sh.id == Collections.ADDED || sh.id == Collections.MOSTPLAYED || (sh.id == "hidden" && !unlocked)) return Sounds.play(Sounds.BUMP)
+        val col = colOf(sh)
+        if ((sh.id == "hidden" && !unlocked) || (col == null && sortsFor(sh).isEmpty())) return Sounds.play(Sounds.BUMP)
         val rows = ArrayList<ListCard.Row>()
-        if (col != null) { rows += ListCard.Row("Add games", icon = "grid", tag = "add"); rows += ListCard.Row("Arrange", note = "Your own order", icon = "move", tag = "arrange") }
-        rows += ListCard.Row("Order", note = Collections.SORTS[sortOf(sh)], icon = "sort", tag = "sort")
+        if (col != null && !col.live) { rows += ListCard.Row("Add games", icon = "grid", tag = "add"); rows += ListCard.Row("Arrange", note = "Your own order", icon = "move", tag = "arrange") }
+        if (col != null && col.live) rows += ListCard.Row("Filters", note = col.filter.count.let { if (it == 0) "None" else "$it" }, icon = "eye", tag = "filter")
+        if (sortsFor(sh).isNotEmpty()) rows += ListCard.Row("Order", note = Sorts.NAMES[sortOf(sh)], icon = "sort", tag = "sort")
         if (col != null) {
             rows += ListCard.Row("Rename", icon = "pencil", tag = "rename"); rows += ListCard.Row("Color", dot = col.color, tag = "color")
             rows += ListCard.Row("Move up the list", icon = "move", tag = "up"); rows += ListCard.Row("Move down the list", icon = "move", tag = "down")
             rows += ListCard.Row("Delete", icon = "bin", tag = "delete")
         }
-        Overlays.show(ListCard(ctx, sh.name, if (col != null) "${col.entries.size} ${if (col.entries.size == 1) "game" else "games"}" else null, { rows }) { _, r ->
+        val sub = if (col == null) null else if (col.live) "Live: whichever games match its filters" else "${col.entries.size} ${if (col.entries.size == 1) "game" else "games"}"
+        Overlays.show(ListCard(ctx, sh.name.removePrefix("✦ "), sub, { rows }) { _, r ->
             when (r.tag) {
                 "add" -> { startAdding(col!!); true }
-                "arrange" -> { col!!.sort = Collections.MINE; cols.save(); arranging = col; adding = null; open(sh, quick = true); focusOn("grid"); refreshHeading(); true }
-                "sort" -> { chooseSort(sh, col); true }
+                "arrange" -> { startArranging(sh, col!!); true }
+                "filter" -> { filterCard(sh); true }
+                "sort" -> { chooseSort(sh); true }
                 "rename" -> { host.askText("Rename the collection", col!!.name) { n -> if (n.isNotBlank()) { col.name = n.trim().take(40); cols.save(); changed = true; fillList(); open(shelves.first { it.id == sh.id }, quick = true) } }; true }
                 "color" -> { chooseColor(col!!); true }
                 "up", "down" -> { cols.move(col!!, if (r.tag == "up") -1 else 1); changed = true; fillList(); false }
@@ -429,13 +589,80 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
         })
     }
 
-    private fun chooseSort(sh: Shelf, col: Collections.Collection?) {
-        val options = Collections.SORTS.indices.filter { col != null || it != Collections.MINE }
-        Overlays.show(ListCard(ctx, "Order", "Within each console", { options.map { ListCard.Row(Collections.SORTS[it], check = sortOf(sh) == it, tag = it) } }, start = options.indexOf(sortOf(sh)).coerceAtLeast(0)) { _, r ->
-            val s = r.tag as Int
-            if (col != null) { col.sort = s; cols.save() } else cols.setSortFor(sh.id, s)
-            open(sh, quick = true); false
+    private fun chooseSort(sh: Shelf) {
+        val options = sortsFor(sh)
+        if (options.isEmpty()) return Sounds.play(Sounds.BUMP)
+        Overlays.show(ListCard(ctx, "Order", if (byConsole(sh)) "Within each console" else null, { options.map { ListCard.Row(Sorts.NAMES[it], check = sortOf(sh) == it, tag = it) } },
+            start = options.indexOf(sortOf(sh)).coerceAtLeast(0)) { _, r ->
+            setSort(sh, r.tag as Int); open(sh, quick = true); true
         })
+    }
+
+    /**
+     * The filters (All games, or a live collection's own): each kind on its own row, saying what's chosen; A opens its
+     * choices (ticks, the card stays open, the boxes behind change as you go).
+     */
+    private fun filterCard(sh: Shelf) {
+        val f = filterOf(sh) ?: return
+        fun apply() { saveFilter(sh, f); fillList(); open(sh, quick = true) }
+        fun note(set: Collection<Any>, name: (Any) -> String) = when (set.size) { 0 -> "Any"; 1 -> name(set.first()); else -> "${set.size} chosen" }
+        val all = cols.visible()
+        lateinit var card: ListCard
+        card = ListCard(ctx, "Filters", if (Facts.ready) "Show only games that match" else "Still reading your games' details…", {
+            listOf(
+                ListCard.Row("Consoles", note = note(f.consoles) { Games.NAMES[it as String] ?: it.toString() }, tag = "consoles"),
+                ListCard.Row("Genres", note = note(f.genres) { it.toString() }, tag = "genres"),
+                ListCard.Row("Played", note = Filter.PLAYED_NAMES[f.played], tag = "played"),
+                ListCard.Row("Favorites only", check = f.favorites, tag = "favorites"),
+                ListCard.Row("Release years", note = note(f.decades) { "${it}s" }, tag = "decades"),
+                ListCard.Row("Players", note = Filter.PLAYER_NAMES[f.players], tag = "players"),
+                ListCard.Row("Developers", note = note(f.developers) { it.toString() }, tag = "developers"),
+                ListCard.Row("Publishers", note = note(f.publishers) { it.toString() }, tag = "publishers"),
+                ListCard.Row("In a collection", note = note(f.collections) { cols.byId(it as String)?.name ?: "" }, tag = "collections"),
+                ListCard.Row("Added this month", check = f.recent, tag = "recent")) +
+                (if (f.count > 0) listOf(ListCard.Row("Clear all filters", icon = "bin", tag = "clear")) else emptyList())
+        }) { _, r ->
+            when (r.tag) {
+                "favorites" -> { f.favorites = !f.favorites; apply() }
+                "recent" -> { f.recent = !f.recent; apply() }
+                "clear" -> { f.clear(); apply() }
+                "played" -> radio("Played", Filter.PLAYED_NAMES, { f.played }) { f.played = it; apply(); card.invalidate() }
+                "players" -> radio("Players", Filter.PLAYER_NAMES, { f.players }) { f.players = it; apply(); card.invalidate() }
+                "consoles" -> ticks("Consoles", all.groupingBy { it.sys }.eachCount().toList().sortedBy { Games.NAMES.keys.indexOf(it.first) }.map { (k, n) -> Triple(k, Games.NAMES[k] ?: k, n) }, f.consoles, Theme::accentOf) { apply(); card.invalidate() }
+                "genres" -> ticks("Genres", counted(all) { Facts.of(it)?.genres ?: emptyList() }, f.genres) { apply(); card.invalidate() }
+                "developers" -> ticks("Developers", counted(all) { listOfNotNull(Facts.of(it)?.developer) }, f.developers) { apply(); card.invalidate() }
+                "publishers" -> ticks("Publishers", counted(all) { listOfNotNull(Facts.of(it)?.publisher) }, f.publishers) { apply(); card.invalidate() }
+                "collections" -> ticks("In a collection", cols.all.filter { !it.live }.map { Triple(it.id, it.name, cols.gamesOf(it).size) }, f.collections, { id -> cols.byId(id)?.color }) { apply(); card.invalidate() }
+                "decades" -> {
+                    val d = all.mapNotNull { year(it)?.let { y -> y / 10 * 10 } }.groupingBy { it }.eachCount().toList().sortedBy { it.first }
+                    tickInts("Release years", d.map { (k, n) -> Triple(k, "${k}s", n) }, f.decades) { apply(); card.invalidate() }
+                }
+            }
+            false
+        }
+        Overlays.show(card)
+    }
+
+    /** Every value a detail takes across these games, with how many have it, by name. */
+    private fun counted(list: List<Game>, of: (Game) -> List<String>) =
+        list.flatMap(of).groupingBy { it }.eachCount().toList().sortedBy { it.first.lowercase() }.map { (k, n) -> Triple(k, k, n) }
+
+    /** A card of choices to tick (several), each with how many games have it. */
+    private fun ticks(title: String, options: List<Triple<String, String, Int>>, set: MutableSet<String>, dot: (String) -> Int? = { null }, changed: () -> Unit) {
+        if (options.isEmpty()) return host.show(if (Facts.ready) "None of your games say" else "Still reading your games' details; try again in a moment")
+        Overlays.show(ListCard(ctx, title, "Any of these", { options.map { (k, name, n) -> ListCard.Row(name, note = "$n", dot = dot(k), check = k in set, tag = k) } }) { _, r ->
+            val k = r.tag as String; if (!set.remove(k)) set += k; changed(); false
+        })
+    }
+    private fun tickInts(title: String, options: List<Triple<Int, String, Int>>, set: MutableSet<Int>, changed: () -> Unit) {
+        if (options.isEmpty()) return host.show(if (Facts.ready) "None of your games say" else "Still reading your games' details; try again in a moment")
+        Overlays.show(ListCard(ctx, title, "Any of these", { options.map { (k, name, n) -> ListCard.Row(name, note = "$n", check = k in set, tag = k) } }) { _, r ->
+            val k = r.tag as Int; if (!set.remove(k)) set += k; changed(); false
+        })
+    }
+    /** A card of choices to pick one of. */
+    private fun radio(title: String, names: List<String>, now: () -> Int, picked: (Int) -> Unit) {
+        Overlays.show(ListCard(ctx, title, null, { names.mapIndexed { i, n -> ListCard.Row(n, check = now() == i, tag = i) } }, start = now()) { _, r -> picked(r.tag as Int); true })
     }
 
     private fun chooseColor(col: Collections.Collection) {
@@ -510,10 +737,11 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
         page?.destroy(); page = null; pageCart?.destroy(); pageCart = null
         glow?.destroy(); glow = null
         boxes.values.forEach { it.destroy() }; boxes.clear()
+        spare.values.forEach { q -> q.forEach { it.destroy() } }; spare.clear()
         reading.values.forEach { f -> reader.execute { try { f.get().forEach { it?.recycle() } } catch (_: Exception) { } } }; reading.clear()
         reader.shutdown()
         backdrop.shadows.clear()
-        board.removeView(listPanel); board.removeView(heading); board.removeView(subline); board.removeView(labels)
+        board.removeView(listPanel); board.removeView(heading); board.removeView(labels)
     }
 
     private fun text(size: Float, face: android.graphics.Typeface, color: Int) = TextView(ctx).apply {
@@ -521,22 +749,37 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
     }
 
     /**
-     * The words among the boxes, drawn in one go each frame: each console's heading (its color's dot, its name, how many),
-     * the chosen box's name and when you last played it, and in Add games a tick on every box that's in the collection.
+     * The words among the boxes, drawn in one go each frame: the pills and the summary under the heading, each group's
+     * heading (a console's color dot, its name, how many, a fine line), the chosen box's name and when you last played
+     * it, and in Add games a tick on every box that's in the collection.
      */
     private inner class Labels(ctx: Context) : View(ctx) {
         private val p = Paint(Paint.ANTI_ALIAS_FLAG)
         override fun onDraw(c: Canvas) {
-            c.save(); c.clipRect(GX - 20, TOP - 30, 1334f, 750f)
-            for (s in sections) {
-                val y = TOP + s.y - scroll + 34f
+            // the pills
+            var x = GX + 10f
+            pills().forEachIndexed { i, pill ->
+                p.typeface = Fonts.bold; p.textSize = 19f
+                val w = p.measureText(pill.text) + 40f; val on = focus == "pills" && i == pillAt
+                val r = RectF(x, PILL_Y, x + w, PILL_Y + PILL_H)
+                p.color = if (on) Theme.sel else Theme.chip; c.drawRoundRect(r, PILL_H / 2, PILL_H / 2, p)
+                if (on) { p.style = Paint.Style.STROKE; p.strokeWidth = 2f; p.color = Theme.sel; c.drawRoundRect(RectF(r.left - 4, r.top - 4, r.right + 4, r.bottom + 4), PILL_H / 2 + 4, PILL_H / 2 + 4, p); p.style = Paint.Style.FILL }
+                p.color = if (on) Theme.selFg else Theme.fg; c.drawText(pill.text, x + 20f, PILL_Y + PILL_H / 2 + 7f, p)
+                x += w + 12f
+            }
+            p.typeface = Fonts.body; p.textSize = 19f; p.color = Theme.fg2
+            c.drawText(TextUtils.ellipsize(summary, android.text.TextPaint(p), 1300f - GX - 12f, TextUtils.TruncateAt.END).toString(), GX + 12f, PILL_Y + PILL_H + 32f, p)
+            c.save(); c.clipRect(GX - 20, TOP - 16, 1334f, 750f)
+            for (g in groups) {
+                val y = TOP + g.y - scroll + 40f
                 if (y < TOP - 40 || y > 790) continue
-                p.color = Theme.accentOf(s.sys); c.drawCircle(GX + 22, y - 8, 7f, p)
+                var tx = GX + 12
+                g.dot?.let { d -> p.color = d; c.drawCircle(GX + 22, y - 8, 7f, p); tx = GX + 40 }
                 p.typeface = Fonts.bold; p.textSize = 21f; p.letterSpacing = .06f; p.color = Theme.fg
-                c.drawText((Games.NAMES[s.sys] ?: s.sys).uppercase(), GX + 40, y, p)
-                val w = p.measureText((Games.NAMES[s.sys] ?: s.sys).uppercase()); p.letterSpacing = 0f
-                p.typeface = Fonts.body; p.textSize = 19f; p.color = Theme.fg2; c.drawText("${s.count}", GX + 54 + w, y, p)
-                p.color = Theme.line; c.drawRect(GX + 70 + w + p.measureText("${s.count}"), y - 8, 1300f, y - 7, p)
+                val name = g.name.uppercase(); c.drawText(name, tx, y, p)
+                val w = p.measureText(name); p.letterSpacing = 0f
+                p.typeface = Fonts.body; p.textSize = 19f; p.color = Theme.fg2; c.drawText("${g.count}", tx + 14 + w, y, p)
+                p.color = Theme.line; c.drawRect(tx + 30 + w + p.measureText("${g.count}"), y - 8, 1300f, y - 7, p)
             }
             val add = adding
             cells.forEachIndexed { i, cell ->

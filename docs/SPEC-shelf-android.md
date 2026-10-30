@@ -97,9 +97,18 @@ Built in Shelf Native 0.23 (`Library.kt`, `Collections.kt`, `Cards.kt`), from th
   fill themselves; Settings › Library turns them off), then Collections (yours, each with its color and count, and
   "+ New collection"), then Consoles, then Hidden. Moving down the list changes the right pane at once; Right or A goes
   into it, Left or B comes back, B on the list closes the Library.
+- **Order and filters (0.24):** under the list's name, a bar of pills: the order, the filters (All games and live
+  collections), Clear, Save as a collection (All games), Add games and Arrange (your collections); Up from the first
+  row or Start reaches them. All games is one list (A to Z by default); its orders: name either way, recently played,
+  most played, recently added, release year either way (headed by decade), console, genre, developer, publisher (headed
+  by group). Filters: consoles, genres, played, favorites only, release decades, players, developers, publishers, in a
+  collection, added this month; each opens a card of ticks with counts. A saved filter is a live collection (✦): its
+  games are whichever match, and it's edited, renamed, recolored and deleted like any other. Console pages sort;
+  your collections and Favorites stay console by console with an order within.
 - **Covers (the default view):** the closed boxes, four across, every box at one scale (1.2 layout px per mm), so
-  sizes are true to each other; each turned a little so its spine shows. A heading per console (its color's dot, its
-  name, how many), its games after it: a collection of one series reads console by console. Each console's games in
+  sizes are true to each other, each standing on its row's line and turned a little so its spine shows. Collections
+  and Favorites have a heading per console (its color's dot, its name, how many), its games after it: a collection of
+  one series reads console by console. Each console's games in
   the list's order: A to Z, Recently played, Most played, Release year, or (your collections) Your order. Spines come
   as a second view once spine art is in.
 - **The chosen box** lifts toward you, turns to face you a little more, glows in its console's color (the 0.22 glow)

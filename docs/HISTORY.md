@@ -589,6 +589,22 @@ meter now adds FrameMetrics to confirm it before the bigger change (the backdrop
 the screen). The Spines style's earlier render had shown a grey edge taken for the spine; the user saw it was the
 opening edge, and a coloured test spine in the new render confirms the fix.
 
+**0.24: the Library's notes.** Causes found:
+- **Two glows, one slot.** `Stage.preView` was a single slot, and the Library's glow cleared it every frame while a
+  page from the Library was trying to use it. It's now a map (`preViews`), each glow adding and removing its own.
+- **Leaks and a shared read.** The Library kept every box picture read ahead, even for boxes scrolled long past (a
+  likely cause of the crashes). It also shared `GamePage.boxArt`'s read-ahead slot with the main thread, so two boxes
+  could get the same pictures, and the second would use them after the first had recycled them.
+- **The stuck pill.** Home only faded it in the part of `tick` that runs while Home shows.
+- **Clipped top buttons.** The dock buttons drew their circles to the very edge of their views.
+- **Cut-off backs.** A test pattern in the rig showed the models map the whole picture, so the cut was the crop to the
+  box's shape.
+- **PlayStation glare.** Rendered side by side with art on the booklet, the clear cover's 25% opacity was a sheet of
+  glare.
+
+New: `Filters.kt` (Facts, the details index read once in the background; Filter; Sorts). Collections gained `rule`
+(live collections). Boxes are pooled per console and re-dressed with `Case.setArt`.
+
 **0.23: the Library.** Built from the talked-through vision (SPEC §6). Choices along the way:
 - Boxes are made only near the screen: art read on a background thread, at most one box built per frame, and let go
   well off screen. Each one rises in as it arrives.

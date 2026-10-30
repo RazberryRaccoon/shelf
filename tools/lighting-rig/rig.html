@@ -172,21 +172,45 @@ Filament.init(['ibl/ibl_ibl.ktx', 'glow.filamat'], async () => {
     Filament.RenderableManager.Builder(1).boundingBox({ center: [cx, H - cy, 0], halfExtent: [hw, hh, 1] }).culling(false).priority(7).material(0, mi)
       .geometry(0, Filament.RenderableManager$PrimitiveType.TRIANGLES, vb, ib).build(engine, quad);
     scene.addEntity(quad);
-  } else if (SCENE === 'library') {   // Library.kt's grid: a collection with a heading per console, four across, 1 px per mm
-    const BOX = { gba: [123, 123], snes: [174, 121], genesis: [128, 197], gb: [123, 123], gbc: [123, 123], n64: [174, 121], ds: [135, 122] };
-    const list = (q.get('list') ?? 'gba:5,gbc:2,snes:3').split(',').map(t => t.split(':'));
-    const SC = 1.2, GX = 360, CW = 236, TOP = 154, HEAD = 58, UNDER = 66, RY = .2; let y = 0; const heads = [], cellsOut = [];
-    for (const [sys, n] of list) {
-      heads.push([sys, +n, y]); y += HEAD; const [w, h] = BOX[sys].map(v => v * SC);
-      for (let i = 0; i < +n; i += 4) { for (let c = 0; c < Math.min(4, +n - i); c++) cellsOut.push([sys, GX + CW / 2 + c * CW, y + h / 2, w, h]); y += h + UNDER; }
-      y += 14;
+  } else if (SCENE === 'library') {   // Library.kt's grid (0.24): rows of four at 1.2 px per mm, each box standing on its row's line
+    const BOX = { gba: [123, 123], snes: [174, 121], genesis: [128, 197], gb: [123, 123], gbc: [123, 123], n64: [174, 121], ds: [135, 122], nes: [127, 182], psp: [104, 177], ps1: [142, 125] };
+    const SC = 1.2, GX = 360, CW = 236, TOP = 196, UNDER = 66, RY = .2;
+    const items = (q.get('flat') ?? 'gba,snes,ds,gb,n64,gba,ps1,genesis').split(',');
+    let y = 0, k = 0;
+    for (let i = 0; i < items.length; i += 4) {
+      const line = items.slice(i, i + 4); const rh = Math.max(...line.map(s => BOX[s][1] * SC));
+      for (let c = 0; c < line.length; c++) {
+        const [w, h] = BOX[line[c]].map(v => v * SC); const chosen = k === +(q.get('sel') ?? 0);
+        const a = await load(`case-${line[c]}.glb`);
+        if (line[c] === 'ps1') for (const mi of mis(a, 'clear')) { mi.setFloat4Parameter('baseColorFactor', [.8, .86, .92, .05]); mi.setFloatParameter('roughnessFactor', .12); mi.setFloatParameter('clearCoatFactor', .4); }
+        placeModel(a, GX + CW / 2 + c * CW, TOP + y + rh - h / 2 - (chosen ? 6 : 0), RY * (chosen ? .5 : 1), -.06, Math.max(w, h) * (chosen ? 1.06 : 1), false); k++;
+      }
+      y += rh + UNDER;
     }
-    let k = 0;
-    for (const [sys, x, cy, w, h] of cellsOut) {
-      const a = await load(`case-${sys}.glb`); const chosen = k === +(q.get('sel') ?? 1);
-      placeModel(a, x, TOP + cy - (chosen ? 14 : 0), RY * (chosen ? .5 : 1), -.06, Math.max(w, h) * (chosen ? 1.06 : 1), false); k++;
+  } else if (SCENE === 'caseback') {   // a box's back with a test pattern (an edge frame and labelled corners), as the app crops it
+    const sys = q.get('sys') ?? 'gba'; const a = await load(`case-${sys}.glb`);
+    const bb = a.getBoundingBox(); const hw = (bb.max[0] - bb.min[0]) / 2, hh = (bb.max[1] - bb.min[1]) / 2;
+    const w = 512, h = Math.round(512 / (hw / hh)), c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d');
+    x.fillStyle = '#346'; x.fillRect(0, 0, w, h); x.lineWidth = 6;
+    [['#f44', 0], ['#4f4', 1], ['#48f', 2], ['#ff4', 3]].forEach(([col, i]) => { x.strokeStyle = col; x.beginPath();
+      if (i === 0) { x.moveTo(3, 0); x.lineTo(3, h); } if (i === 1) { x.moveTo(w - 3, 0); x.lineTo(w - 3, h); } if (i === 2) { x.moveTo(0, 3); x.lineTo(w, 3); } if (i === 3) { x.moveTo(0, h - 3); x.lineTo(w, h - 3); } x.stroke(); });
+    x.fillStyle = '#fff'; x.font = 'bold 40px sans-serif'; x.fillText('LEFT', 20, h / 2); x.fillText('TOP', w / 2 - 40, 50); x.fillText('RIGHT', w - 140, h / 2); x.fillText('BOTTOM', w / 2 - 80, h - 24);
+    const img = x.getImageData(0, 0, w, h).data, flip = new Uint8Array(w * h * 4);
+    for (let r = 0; r < h; r++) flip.set(img.subarray((h - 1 - r) * w * 4, (h - r) * w * 4), r * w * 4);
+    const t = Filament.Texture.Builder().width(w).height(h).levels(1).sampler(Filament.Texture$Sampler.SAMPLER_2D).format(Filament.Texture$InternalFormat.SRGB8_A8).build(engine);
+    t.setImage(engine, 0, Filament.PixelBuffer(flip, Filament.PixelDataFormat.RGBA, Filament.PixelDataType.UBYTE));
+    for (const nm of ['back', 'front']) for (const mi of mis(a, nm)) { try { mi.setTextureParameter('baseColorMap', t, sampler); } catch (e) {} }
+    placeModel(a, 380, 380, +(q.get('ry') ?? 3.1416), 0, 520, false);
+    const a2 = await load(`case-${sys}.glb`); for (const mi of mis(a2, 'front')) { try { mi.setTextureParameter('baseColorMap', t, sampler); } catch (e) {} }
+    placeModel(a2, 980, 380, 0, 0, 520, false);
+  } else if (SCENE === 'jewel') {   // PlayStation jewel cases at the Library's turn, the clear lid's material varied: cl=[[r,g,b,a,rough,coat,coatRough],...]
+    const v = JSON.parse(q.get('cl') ?? '[null]');
+    for (let i = 0; i < v.length; i++) {
+      const a = await load('case-ps1.glb');
+      if (v[i]) for (const mi of mis(a, 'clear')) { mi.setFloat4Parameter('baseColorFactor', v[i].slice(0, 4)); mi.setFloatParameter('roughnessFactor', v[i][4]); mi.setFloatParameter('clearCoatFactor', v[i][5]); mi.setFloatParameter('clearCoatRoughnessFactor', v[i][6]); }
+      for (const nm of ['front', 'manual-art']) for (const mi of mis(a, nm)) { try { mi.setTextureParameter('baseColorMap', labelTexture(30 + i * 40, 'Disc ' + (i + 1)), sampler); } catch (e) {} }
+      placeModel(a, 180 + (i % 4) * 330, 220 + Math.floor(i / 4) * 330, .2, -.06, 260, false);
     }
-    window.libHeads = heads.map(([sys, n, hy]) => [sys, n, TOP + hy + 34]); window.libCells = cellsOut.map(c => [c[1], TOP + c[2], c[4]]);
   } else if (SCENE === 'none') {
   } else if (SCENE === 'consoles') {
     const list = ORDER.slice(0, 10);

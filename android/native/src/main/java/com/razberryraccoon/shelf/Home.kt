@@ -36,7 +36,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         fun hideGame(g: Game, then: () -> Unit)
         fun collectionNames(g: Game): List<String> }
 
-    private class Slot(val game: Game, var cart: Cart?, var x: Float = ROW_X, var y: Float = 326f, var z: Float = 0f, var px: Float = SMALL, var bright: Float = .72f,
+    private class Slot(val game: Game, var cart: Cart?, var x: Float = ROW_X, var y: Float = 348f, var z: Float = 0f, var px: Float = SMALL, var bright: Float = .72f,
                        var ry: Float = -.2f, var case: Case? = null)
     private val slots = ArrayList<Slot>()
     /**
@@ -45,7 +45,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
      * the right (the third centered on the screen's edge: ROW_X + NEXT + 2 STEP = 1334).
      */
     companion object {
-        private const val ROW_X = 370f; private const val NEXT = 370f; private const val STEP = 297f; private const val BIG = 350f; private const val SMALL = 245f
+        private const val ROW_X = 370f; private const val NEXT = 370f; private const val STEP = 297f; private const val BIG = 330f; private const val SMALL = 245f
         /** Settings › Home scrolling, in order. */
         val STYLES = listOf("Classic", "Centered", "Cover flow", "Spines", "Carousel", "Stack")
         /** A box on Home is a little bigger than a cartridge would be in its place. */
@@ -67,14 +67,14 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     private fun pose(style: Int, d: Float, chosen: Boolean): FloatArray {
         val a = abs(d); val sg = sign(d); val near = min(a, 1f); val far = maxOf(0f, a - 1f)
         return when (style) {
-            1 -> floatArrayOf(667f + d * STEP + sg * near * (NEXT - STEP), if (chosen) 302f else 326f, if (chosen) 40f else 0f, -.2f, if (chosen) BIG else SMALL, if (chosen) 1.02f else .72f)
-            2 -> floatArrayOf(667f + sg * (near * 350f + far * 250f), 316f, 40f - a * 30f + d * 1.5f, -sg * near * .8f, if (chosen) BIG else 270f, 1.02f - near * .26f - far * .04f)
+            1 -> floatArrayOf(667f + d * STEP + sg * near * (NEXT - STEP), if (chosen) 324f else 348f, if (chosen) 40f else 0f, -.2f, if (chosen) BIG else SMALL, if (chosen) 1.02f else .72f)
+            2 -> floatArrayOf(667f + sg * (near * 350f + far * 250f), 338f, 40f - a * 30f + d * 1.5f, -sg * near * .8f, if (chosen) BIG else 270f, 1.02f - near * .26f - far * .04f)
             // every one turns the same way, so a box's spine (its left side) shows on both sides of the selected one
-            3 -> floatArrayOf(667f + sg * (near * 330f + far * 150f), 316f, 40f - a * 20f + d * 1.5f, near * 1.38f, if (chosen) BIG else 300f, 1.02f - near * .22f - far * .03f)
+            3 -> floatArrayOf(667f + sg * (near * 330f + far * 150f), 338f, 40f - a * 20f + d * 1.5f, near * 1.38f, if (chosen) BIG else 300f, 1.02f - near * .22f - far * .03f)
             4 -> { val th = d * .44f; val r = 1000f
-                floatArrayOf(667f + r * kotlin.math.sin(th), 318f - (1 - kotlin.math.cos(th)) * 60f, 40f - r * (1 - kotlin.math.cos(th)), th, BIG * (.62f + .38f * kotlin.math.cos(th)) * (if (chosen) 1f else .92f), 1.02f - (1 - kotlin.math.cos(th)) * 1.4f - if (chosen) 0f else .08f) }
-            5 -> floatArrayOf(667f + sg * (near * 290f + far * 170f), 314f + a * 6f, 40f - a * 45f + d * 1.5f, -sg * near * .22f, BIG * maxOf(.55f, 1f - a * .12f) * (if (chosen) 1f else .9f), (1.02f - a * .12f).coerceAtLeast(.4f))
-            else -> floatArrayOf(ROW_X + d * STEP + sg * near * (NEXT - STEP), if (chosen) 302f else 326f, if (chosen) 40f else 0f, -.2f, if (chosen) BIG else SMALL, if (chosen) 1.02f else .72f)
+                floatArrayOf(667f + r * kotlin.math.sin(th), 340f - (1 - kotlin.math.cos(th)) * 60f, 40f - r * (1 - kotlin.math.cos(th)), th, BIG * (.62f + .38f * kotlin.math.cos(th)) * (if (chosen) 1f else .92f), 1.02f - (1 - kotlin.math.cos(th)) * 1.4f - if (chosen) 0f else .08f) }
+            5 -> floatArrayOf(667f + sg * (near * 290f + far * 170f), 336f + a * 6f, 40f - a * 45f + d * 1.5f, -sg * near * .22f, BIG * maxOf(.55f, 1f - a * .12f) * (if (chosen) 1f else .9f), (1.02f - a * .12f).coerceAtLeast(.4f))
+            else -> floatArrayOf(ROW_X + d * STEP + sg * near * (NEXT - STEP), if (chosen) 324f else 348f, if (chosen) 40f else 0f, -.2f, if (chosen) BIG else SMALL, if (chosen) 1.02f else .72f)
         }
     }
 
@@ -134,8 +134,8 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     init {
         // the top bar
         board.put(profile, 32, 20, h = 72)
-        dock.forEachIndexed { k, b -> board.put(b, 667 - 2 * 76 - 45 + k * 106, 16, 76, 76) }
-        board.put(dockLabel, 0, 96, 1334)
+        dock.forEachIndexed { k, b -> board.put(b, 667 - 2 * 76 - 45 + k * 106 - 6, 12, 88, 88) }   // 6 px of room round the 76 px circle
+        board.put(dockLabel, 0, 104, 1334)
         board.put(clock, 1334 - 36 - 260, 38, 260); clock.gravity = Gravity.END
         board.put(battery, 1334 - 36 - 260, 40, 44, 24)
         // Android tells every change in the battery (its level, and whether a charger is plugged in) the moment it
@@ -144,7 +144,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
             override fun onReceive(c: Context, i: android.content.Intent) = batteryFrom(i)
         }, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED))?.let { batteryFrom(it) }
         // the selected game's details, under the row
-        board.put(title, 64, 520, 1100)
+        board.put(title, 64, 530, 1100)
         title.maxLines = 1; title.ellipsize = TextUtils.TruncateAt.END
         val chip = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; background = round(Theme.chip, 21f); setPadding(18, 6, 18, 6) }
         chip.addView(dot, LinearLayout.LayoutParams(13, 13).apply { rightMargin = 10 })
@@ -153,7 +153,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         meta.addView(hint("A", "Play"), LinearLayout.LayoutParams(-2, -2).apply { leftMargin = 24 })
         meta.addView(hint("↓", "Details"), LinearLayout.LayoutParams(-2, -2).apply { leftMargin = 24 })
         meta.addView(hint("Y", "Customize"), LinearLayout.LayoutParams(-2, -2).apply { leftMargin = 24 })
-        board.put(meta, 64, 600)
+        board.put(meta, 64, 608)
         board.put(message, 167, 300, 1000)
         board.put(toast, 0, 640); toast.layoutParams = (toast.layoutParams as android.widget.FrameLayout.LayoutParams).apply { width = -2; gravity = Gravity.CENTER_HORIZONTAL }
         refreshTop(); clockTick(); refreshProfile()
@@ -257,6 +257,8 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
 
     fun tick(dt: Float) {
         time += dt
+        // the message pill fades on its own clock, whatever is showing (it's shown over the Library and pages too)
+        if (toastLeft > 0) { toastLeft = (toastUntil - android.os.SystemClock.uptimeMillis()) / 1000f; toast.alpha = min(1f, toastLeft / .3f).coerceAtLeast(0f) }
         f += (i - f) * min(1f, dt * 11f)
         rise = if (visible) min(1f, rise + dt / 1.4f) else maxOf(0f, rise - dt / .35f)
         if (visible) riseT += dt
@@ -307,7 +309,6 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         }
         page?.tick(dt)
         if (picTimer > 0) { picTimer -= dt; if (picTimer <= 0) current().let { g -> if (g != picFor) { picFor = g; showPicture(g) }; if (g != null) GamePage.prepare(lookup, g) } }
-        if (toastLeft > 0) { toastLeft = (toastUntil - android.os.SystemClock.uptimeMillis()) / 1000f; toast.alpha = min(1f, toastLeft / .3f).coerceAtLeast(0f) }
         clockLeft -= dt; if (clockLeft <= 0) clockTick()
     }
 
@@ -466,8 +467,9 @@ class DockButton(ctx: Context, private val kind: String) : View(ctx) {
     var focused = false; set(v) { field = v; animate().scaleX(if (v) 1.1f else 1f).scaleY(if (v) 1.1f else 1f).setDuration(220).start(); invalidate() }
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     override fun onDraw(c: Canvas) {
-        val w = width.toFloat(); val r = w / 2
-        p.style = Paint.Style.FILL; p.color = if (focused) Theme.sel else Theme.chip; c.drawCircle(r, r, r, p)
+        // the circle sits inside the view with room to spare: drawn right to the edges, its top could be clipped
+        val w = width.toFloat(); val r = w / 2; val rc = r - 6f
+        p.style = Paint.Style.FILL; p.color = if (focused) Theme.sel else Theme.chip; c.drawCircle(r, r, rc, p)
         p.style = Paint.Style.STROKE; p.strokeWidth = 2.6f; p.strokeCap = Paint.Cap.ROUND; p.strokeJoin = Paint.Join.ROUND
         p.color = if (focused) Theme.selFg else Theme.fg
         c.save(); c.translate(r - 17, r - 17)   // a 34 × 34 icon, as in the prototype

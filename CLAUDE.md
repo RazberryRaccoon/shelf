@@ -52,8 +52,10 @@ that we've learned … and make an Android game launcher that's the best it can 
   stencil), Settings in two panes; 0.22 the glow rebuilt (one silhouette drawn into a texture by a view of its own, blurred through its
   mipmaps, in the console's color: `Outline.kt`, `materials/glow.mat`). 0.23 the Library (`Library.kt`: two panes,
   covers in console sections; `Collections.kt`: collections, automatic ones, hidden games with a button code; `Cards.kt`:
-  the collections card, the code pad, `Overlays`). Next: the user's notes on 0.23; pinned collections on Home (place
-  undecided); Spines view once spine art exists; then Apps.
+  the collections card, the code pad, `Overlays`). 0.24 the user's notes on it (sorting and
+  filtering with live collections, `Filters.kt`; pooled boxes; the glow per view; box art fitting; jewel case
+  cover). Next: the start animations (their own round, see ROADMAP); pinned collections on Home (place undecided);
+  Spines once spine art exists; then Apps. The user's "eventually" list is in ROADMAP.
   Next: the Library (see DECISIONS.md and ROADMAP.md). The user paused inspecting the rarer shell colors until they can be seen big (0.3 makes that possible).
   Kotlin is compile-checked locally with the Kotlin 2.4 compiler against `android-all` and Filament's AARs.
 - The Android SDK can't be downloaded in Claude's sandbox (dl.google.com is blocked): compile-check the Java against

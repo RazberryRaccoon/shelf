@@ -57,6 +57,7 @@ class Outline(private val stage: Stage) {
     private val radius = 20f * mw / 667f   // in silhouette pixels: about 40 screen pixels on the Retroid
     private var chosen: IntArray? = null; private var next: IntArray? = null; private var nextRef = 0
     private var k = 0f; private var swell = 9f; private var time = 0f
+    private val mips: () -> Unit = { tex.generateMipmaps(engine) }
 
     init {
         val v = ByteBuffer.allocateDirect(48).order(ByteOrder.nativeOrder())
@@ -92,8 +93,8 @@ class Outline(private val stage: Stage) {
                 sys?.let { color(it) }
             }
         } else k = min(1f, k + dt / .3f)
-        if (chosen == null || k < .005f || world == null || center == null || half == null) { stage.preView = null; return hidePanel() }
-        stage.preView = maskView; stage.afterPre = { tex.generateMipmaps(engine) }
+        if (chosen == null || k < .005f || world == null || center == null || half == null) { stage.preViews.remove(maskView); return hidePanel() }
+        stage.preViews[maskView] = mips
         // the panel: over the object's box as it lies on the screen, with room for the glow
         var x0 = 1e9f; var x1 = -1e9f; var y0 = 1e9f; var y1 = -1e9f
         val p = FloatArray(4); val c = FloatArray(4)
@@ -136,7 +137,7 @@ class Outline(private val stage: Stage) {
 
     fun destroy() {
         chosen?.let { layer(it, false) }
-        if (stage.preView === maskView) { stage.preView = null; stage.afterPre = null }
+        stage.preViews.remove(maskView)
         stage.scene.removeEntity(panel); engine.destroyEntity(panel); EntityManager.get().destroy(panel)
         engine.destroyVertexBuffer(vb); engine.destroyIndexBuffer(ib)
         engine.destroyView(maskView); engine.destroyRenderTarget(target); engine.destroyTexture(tex)

@@ -292,6 +292,14 @@ Summarized from the first part of the conversation; the full transcript is kept 
   further up, pan speed); Inside closer, and "as [clipping] starts to happen, the shell pieces float away from the
   board". The user thought the DS box should be a little wider than tall; the measured case (Wikipedia's keep-case
   table, retail cases) is a little taller than wide, so the box follows the measurements and box art is cropped to fill.
+- After 0.23 (the user's twelve notes): All games "separated by console; what's the point then vs the console
+  selector on the left? 'By console' should just be one of the available sort methods. The default should be
+  alphabetical"; "a whole sorting and filtering system that uses all the metadata we have for games: I want to be able
+  to select 'I want GBA platformer games that I haven't played yet'"; filters on All games, sorting on console and
+  collection pages. The user chose the pill bar, and saving a filter as a live collection ("only an option and can be
+  edited/changed/deleted like any other collection… a convenient way to save a sort+filter combo"). The start
+  animations get their own round ("Really take some time and flesh these out"); the NES door should "hinge inward just
+  like on the real console". Later: more themes, sound packs, better icons/fonts/style, the models (ROADMAP).
 - The Library (the user, before 0.23): collections "need to work really well… easy to add or remove games to a
   collection, games can be in multiple collections, custom collection names"; hide any game behind "a 4 digit password
   lock… it should use the 4 dpad buttons and 4 face buttons… reset this password in settings without putting in the
