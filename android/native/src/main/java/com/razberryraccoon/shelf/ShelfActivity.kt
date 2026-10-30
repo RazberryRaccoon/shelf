@@ -297,10 +297,12 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
     /** Play: the start animation, which starts the game at its end (start), and plays the way back when Shelf returns. */
     override fun play(g: Game) {
         if (launch != null) return
+        // from a page with its box out: the console waits while the box slides away behind the lifted cartridge
+        val lead = if (library?.boxOut(g) ?: home.boxOut(g)) .55f else 0f
         val fromLib = library?.takeForLaunch(g)
         fromLibrary = fromLib != null
         val (cart, from, back) = fromLib ?: home.takeForLaunch(g)
-        launch = Launch(this, stage, board, backdrop, carts, consoles, games, meta, g, cart, from, this, back)
+        launch = Launch(this, stage, board, backdrop, carts, consoles, games, meta, g, cart, from, this, back, lead)
     }
     // Settings › Show frame rate: the meter, over everything in the top left corner
     private var meterLeft = 0f

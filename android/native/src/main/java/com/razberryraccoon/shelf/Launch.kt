@@ -20,7 +20,8 @@ import kotlin.math.sqrt
  *
  * Starting, about three seconds: the game's console rises into view in its colors from the Museum, settling into its
  * turn as it slows (one that takes its game in the back turns to show it on the way). The cartridge is lifted from where
- * it was, carried along a curve that passes in front of everything, and lines up over its slot, slowing as it arrives;
+ * it was to where it waits, clear of where the console will stand (from the page's open box: first, while the box slides
+ * away behind it, `lead`), carried along a curve that passes in front of everything, and lines up over its slot;
  * a breath, and it's pushed in, seating with a click. Each console then does what the real one does: the NES's door
  * swings in as the cartridge passes and drops shut once it's pressed down into the connector (clunk); the PlayStation's
  * open button is pressed and its lid pops up for the disc and closes over it; the PSP's door opens and closes; a
@@ -39,7 +40,12 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
              private val carts: Carts, private val consoles: Consoles, private val games: Games, private val meta: Meta,
              val game: Game, private val cart: Cart?, private val home: FloatArray, private val host: Host,
              /** Where the cartridge goes back to (on the page, its own spot: the box slides in for it again afterwards). */
-             private val homeAgain: FloatArray = home) {
+             private val homeAgain: FloatArray = home,
+             /**
+              * Seconds before the console comes (the page's open box leaving): the cartridge lifts out of its tray toward
+              * you and moves to where it waits while the box slides away behind it; only then does the console rise.
+              */
+             private val lead: Float = 0f) {
     interface Host {
         /** Starts the game; an error to show, or "" when it's on its way. */
         fun start(l: Launch): String
@@ -95,8 +101,6 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
     private val frameOut = if (back) turnBack else floatArrayOf(after, after + .5f)
     /** The hit's shockwave rings (going in only), in the console's color. */
     private val waves = Shockwave(ctx, Theme.accentOf(game.sys))
-    /** The glow that hugs the console when the game hits home (Outline, as on the game page). */
-    private var glow: Outline? = console?.let { c -> Outline(stage).also { Outline.mark(stage, c.asset.entities, Outline.CONSOLE) } }   // made now, not at the hit (no pause then)
 
     init {
         board.put(waves, 0, 0, 1334, 750)
@@ -132,8 +136,8 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
     /** Any button: straight to the fade (starting) or to the end (coming back); in the dark, back to Shelf. */
     fun input(a: String) {
         if (phase == Phase.PLAYING) return back()   // still here in the dark (the game never opened): come back
-        if (phase == Phase.IN && t < darkT[0]) { t = darkT[0]; quiet() }
-        else if (phase == Phase.OUT) t = maxOf(t, backFrom / backSpeed - .12f)
+        if (phase == Phase.IN && t < lead + darkT[0]) { t = lead + darkT[0]; quiet() }
+        else if (phase == Phase.OUT) t = maxOf(t, (backFrom + lead) / backSpeed - .12f)
     }
 
     /** Back from the game: the return animation, from black. */
@@ -147,9 +151,9 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
         when (phase) {
             Phase.IN -> {
                 t += dt
-                place(t, going = true)
-                black.k = if (phase == Phase.PLAYING) 1f else clamp(span(t, darkT))
-                if (t >= darkT[1]) {
+                place(t - lead, going = true)   // the timeline below counts from the console's arrival; before it, the lead
+                black.k = clamp(span(t - lead, darkT))
+                if (t - lead >= darkT[1]) {
                     phase = Phase.PLAYING; black.k = 1f; quiet()
                     error = host.start(this)
                     if (error.isNotEmpty()) back()   // it couldn't start: come straight back and say why
@@ -164,8 +168,8 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
                 if (u < ledAt + .05f) once(2, Sounds.POWER_OFF)
                 if (parts["power"] != null && u < powerAt + .1f) once(3, Sounds.SWITCH)
                 if (u < hit) once(4, Sounds.CLICK)
-                place(maxOf(0f, u), going = false)
-                if (u <= 0f) finish()
+                place(maxOf(-lead, u), going = false)
+                if (u <= -lead) finish()
             }
             Phase.DONE -> {}
         }
@@ -213,6 +217,41 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
         floatArrayOf(fr, if (t1 < 75f) minOf(75 - t1, 712 - b1) else 0f)
     }
 
+    /**
+     * Where the cartridge waits for the console (the pose it's lifted to): already the size it will be in the console,
+     * turned as it was, toward you, and beside where the console will stand, so the console rising never passes
+     * through it (it rose into the page's cartridge before). Measured once, through the camera's lens, from every
+     * pose the console takes on its way up and while it takes its game; the spot nearest where the cartridge was that
+     * keeps clear of all of them: to the left, above, or to the right.
+     */
+    private val wait: FloatArray? = run {
+        val c = console ?: return@run null; val ct = cart ?: return@run null; if (marks == null) return@run null
+        var x0 = 1e9f; var x1 = -1e9f; var y0 = 1e9f; var y1 = -1e9f
+        fun rect(mat: FloatArray) { for (n in 0 until 8) {
+            val q = screen(mat, FloatArray(3) { i -> c.center[i] + if ((n shr i) and 1 == 1) c.half[i] else -c.half[i] })
+            x0 = minOf(x0, q[0]); x1 = maxOf(x1, q[0]); y0 = minOf(y0, q[1]); y1 = maxOf(y1, q[1]) } }
+        for ((turn, extra, size) in listOf(Triple(0f, 0f, 1f), Triple(if (back) 1f else 0f, 0f, 1f), Triple(0f, -.38f, 1f), Triple(0f, -.38f, .9f), Triple(.5f, 0f, 1f)))
+            for (lift in listOf(0f, -60f))   // and where its spring carries it, a little past its place, as it arrives
+                { c.place(667f, 372f + fit[1] + lift, 30f, yawOf(if (back) turn else 0f) + extra, pitch, px0 * fit[0] * size); rect(c.matrix) }
+        c.place(667f, 372f + fit[1], 30f, yawOf(if (back) 1f else 0f), pitch, px0 * fit[0])
+        val a = along(c.matrix, 1f, 0f, FloatArray(16)); c.hide()
+        val s = sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2])
+        val hb = ct.asset.boundingBox.halfExtent; val r = s * maxOf(hb[0], hb[1]) * 1.05f   // its reach on the screen, any way it's turned
+        val z = home[14] + 80f
+        val f = Stage.DIST / (Stage.DIST - z)
+        val hx = Stage.W / 2 + (home[12] - Stage.W / 2) * f; val hy = Stage.H - (Stage.H / 2 + (home[13] - Stage.H / 2) * f)
+        val gap = 36f
+        fun clampY(y: Float) = y.coerceIn(r + 24f, Stage.H - r - 24f)
+        fun clampX(x: Float) = x.coerceIn(r + 24f, Stage.W - r - 24f)
+        val spots = listOf(floatArrayOf(x0 - gap - r, clampY(hy)), floatArrayOf(clampX(hx), y0 - gap - r), floatArrayOf(x1 + gap + r, clampY(hy)))
+            .filter { (x, y) -> x >= r + 20f && x <= Stage.W - r - 20f && y >= r + 20f && y <= Stage.H - r - 20f }
+        val (sx, sy) = spots.minByOrNull { (x, y) -> (x - hx) * (x - hx) + (y - hy) * (y - hy) }?.let { it[0] to it[1] } ?: ((r + 24f) to clampY(hy))
+        // the pose: the cartridge's own turn, at that size, there (from the screen back into the world at its depth)
+        val hs = sqrt(home[0] * home[0] + home[1] * home[1] + home[2] * home[2]).coerceAtLeast(1e-6f)
+        FloatArray(16).also { m -> for (i in 0..11) m[i] = home[i] / hs * s
+            m[12] = Stage.W / 2 + (sx - Stage.W / 2) / f; m[13] = Stage.H / 2 + ((Stage.H - sy) - Stage.H / 2) / f; m[14] = z; m[15] = 1f }
+    }
+
     /** The axis (the console's own) a hit squashes along: the way the game went in last. */
     private val hitDir = press ?: marks?.from ?: floatArrayOf(0f, 1f, 0f)
     private val ax = (0..2).maxByOrNull { abs(hitDir[it]) } ?: 1
@@ -222,8 +261,9 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
         val d = m.from.let { f -> val l = sqrt(f[0] * f[0] + f[1] * f[1] + f[2] * f[2]).coerceAtLeast(1e-4f); FloatArray(3) { f[it] / l } }
         val s0 = floatArrayOf(m.seat[12], m.seat[13], m.seat[14]); var k = 0f
         while (k < 400f && (0..2).all { abs(s0[it] + d[it] * k - c.center[it]) < c.half[it] }) k += 1f
-        FloatArray(3) { s0[it] + d[it] * maxOf(0f, k - 2f) }
+        FloatArray(3) { s0[it] + d[it] * (k + 2f) }   // just outside, so the part of a ring inside the console can be left out
     }
+    private var ringAt: FloatArray? = null
     private val cartHalfW = cart?.asset?.boundingBox?.halfExtent?.get(0) ?: 20f
 
     /** A point in a model's millimetres on the screen, through the camera's lens (layout pixels, y down). */
@@ -235,7 +275,7 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
 
     /**
      * Everything at time t of the start animation (coming back plays it backwards: `going` false only changes the sounds,
-     * leaves out the hit's glow and rings, and where the game flies to).
+     * leaves out the hit's rings, and where the game flies to).
      */
     private fun place(t: Float, going: Boolean) {
         val c = console
@@ -287,30 +327,31 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
         val target = (if (hand) marks?.screen else marks?.led) ?: marks?.led ?: marks?.screen
         target?.let { tp -> val q = screen(cm, tp); black.focus(q[0], q[1]) }
         backdrop.shadows.add(floatArrayOf(x, y - float + 200f * fr, 420f * fr * (1 - float / 60f), .8f * clamp(t / .5f)))
-        // the hit: the console's glow swells round it in its color and fades; two thin rings spread from the slot, lying
-        // in the console's own plane (across the way the game went in), so they read as a pressure wave
+        // the hit: thin rings spread from the slot, the part inside the console left out. Level (a ripple over a home
+        // console's top; on the NES they burst out of the front, half rings) when the console's top faces you; on an
+        // upright handheld, in the plane of its face (an arc over its top, never a halo seen edge on)
         val m = marks ?: return
         if (going && phase == Phase.IN) {
             val gk = if (press != null) hit2 else hit
-            val glowing = t >= gk && t < gk + .32f
-            glow?.let { g -> if (glowing) g.frame(1 / 60f, c.asset.entities, Outline.CONSOLE, game.sys, cm, c.center, c.half) else g.frame(1 / 60f, null, 0, null, null, null, null) }
-            mouth?.let { mo ->
+            // the rings stay where they were made: the console's placement at the first hit (a handheld turning round
+            // afterwards doesn't carry them with it)
+            if (t >= hit && ringAt == null) ringAt = cm.copyOf()
+            val rm = ringAt
+            if (rm != null) mouth?.let { mo ->
                 val rings = ArrayList<FloatArray>(); val looks = ArrayList<FloatArray>()
-                // the ring lies across the slot (the plane the game went in through), like a ripple on the console's
-                // surface; seen nearly edge on (a handheld taking its cartridge from above) it would hover like a halo,
-                // so then there's none, and the glow and the squash carry the hit
-                val facing = abs(cm[4 * ax + 2]) / sqrt(cm[4 * ax] * cm[4 * ax] + cm[4 * ax + 1] * cm[4 * ax + 1] + cm[4 * ax + 2] * cm[4 * ax + 2]).coerceAtLeast(1e-6f)
-                val a1 = (ax + 1) % 3; val a2 = (ax + 2) % 3; val reach = 1.5f * maxOf(c.half[a1], c.half[a2])
+                fun facing(i: Int) = abs(rm[4 * i + 2]) / sqrt(rm[4 * i] * rm[4 * i] + rm[4 * i + 1] * rm[4 * i + 1] + rm[4 * i + 2] * rm[4 * i + 2]).coerceAtLeast(1e-6f)
+                val n = if (facing(1) > .3f) 1 else 2   // the plane's normal: the console's up, or its face
+                val a1 = (n + 1) % 3; val a2 = (n + 2) % 3; val reach = 1.5f * maxOf(c.half[a1], c.half[a2])
                 for ((h, delay, strength) in listOf(Triple(gk, 0f, 1f), Triple(gk, .08f, .5f), Triple(if (press != null) hit else -1f, 0f, .45f))) {
-                    if (h < 0f || facing <= .3f) continue
+                    if (h < 0f) continue
                     val u = t - h - delay; if (u < 0f || u > .55f) continue
                     val k = u / .55f; val e = 1 - (1 - k) * (1 - k) * (1 - k)
                     val r = 6f + reach * e * (if (strength < .6f && delay == 0f) .55f else 1f)
                     val pts = FloatArray(2 * 49)
                     for (i in 0..48) { val th = (2 * PI * i / 48).toFloat(); val p = mo.copyOf(); p[a1] += r * cos(th); p[a2] += r * sin(th)
-                        // inside the console (its slot opens on a face, as the NES's does): a gap, the console hides it
+                        // inside the console: a gap, the console hides it
                         if ((0..2).all { abs(p[it] - c.center[it]) < c.half[it] - .5f }) { pts[2 * i] = Float.NaN; pts[2 * i + 1] = Float.NaN; continue }
-                        val q = screen(cm, p); pts[2 * i] = q[0]; pts[2 * i + 1] = q[1] }
+                        val q = screen(rm, p); pts[2 * i] = q[0]; pts[2 * i + 1] = q[1] }
                     rings += pts; looks += floatArrayOf(strength * (1 - k) * (1 - k), 3.2f * (1 - k) + .6f)
                 }
                 waves.set(rings, looks)
@@ -331,10 +372,15 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
         parts["door"]?.let { d -> c.move("door", if (t < hit2) spring((u - .55f) / 1.6f, 8f, 14f) else maxOf(-.08f, 1 - spring(t - hit2 - .04f, 7f, 15f)), d) }
         val ct = cart ?: return
         val at = along(cm, path, pK, FloatArray(16))
-        // lifted from where it was (a little dip first), carried along a high curve leaning into the way it moves, a
-        // breath floating over the slot
-        fun lifted(tt: Float): FloatArray { val l = spring(tt - .1f, 8f, 12f); val dip = if (tt < .12f) sin(PI.toFloat() * clamp(tt / .12f)) else 0f
-            return from.copyOf().also { it[13] += 30f * l - 9f * dip; it[14] += 70f * l } }
+        // lifted from where it was (a little dip first) to where it waits for the console, floating there; then carried
+        // along a high curve leaning into the way it moves, a breath floating over the slot
+        val liftEnd = lead + flight[0]
+        fun lifted(tm: Float): FloatArray {
+            val ta = tm + lead; val dip = if (ta < .12f) sin(PI.toFloat() * clamp(ta / .12f)) else 0f
+            val w = wait ?: return from.copyOf().also { it[13] += 30f * spring(ta - .1f, 8f, 12f) - 9f * dip; it[14] += 70f * spring(ta - .1f, 8f, 12f) }
+            val k = smoother(ta / (liftEnd * .9f))
+            return Poses.blend(from, w, k).also { it[13] += -9f * dip + 5f * sin(ta * 3.1f) * k }
+        }
         val fu = span(t, flight)
         when {
             t < flight[0] -> ct.placeMatrix(lifted(t))
@@ -369,14 +415,13 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
         phase = Phase.DONE
         cart?.placeMatrix(homeAgain)
         console?.destroy(); circuit?.destroy(); picture?.let { stage.engine.destroyTexture(it) }
-        board.removeView(black); board.removeView(waves); backdrop.shadows.clear(); glow?.destroy(); glow = null
+        board.removeView(black); board.removeView(waves); backdrop.shadows.clear()
         if (error.isNotEmpty()) Sounds.play(Sounds.BUMP)
         host.done(this)
     }
-    /** The hit's rings and glow put away (the game starting, skipping, coming back): nothing of them stays on the screen. */
+    /** The hit's rings put away (the game starting, skipping, coming back): nothing of them stays on the screen. */
     private fun quiet() {
         waves.set(emptyList(), emptyList())
-        glow?.let { g -> g.frame(1f, null, 0, null, null, null, null); g.destroy() }; glow = null
     }
 
     /** What went wrong starting it, if anything (shown once it's back). */

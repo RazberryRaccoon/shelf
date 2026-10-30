@@ -523,7 +523,9 @@ class Options(ctx: Context) : View(ctx) {
     var compact = false
     /** The chosen row stays marked while the focus is elsewhere (Settings' sections, while you're in one). */
     var keep = false
-    private var i = 0
+    private var i = 0; set(v) { if (v != field) since = android.os.SystemClock.uptimeMillis(); field = v }
+    private var since = 0L   // when the chosen row was chosen: its long text waits a moment from then before it moves
+    private var gliding = false
     private var top = 0f
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     private fun h(r: Row) = if (r.key == HEAD) 46f else if (compact) 54f else if (r.sub.isNullOrEmpty()) 64f else 80f
@@ -540,7 +542,27 @@ class Options(ctx: Context) : View(ctx) {
         i = k; onFocus?.invoke(); invalidate(); return true
     }
 
+    /**
+     * Text too long for its room. On the chosen row it starts at its beginning, waits a moment, glides slowly to its end,
+     * waits, and fades back to the start (it used to be cut at the front: "…nfo about this setting"); on other rows it
+     * ends in an ellipsis.
+     */
+    private fun line(c: Canvas, s: String, x: Float, y: Float, room: Float, moving: Boolean) {
+        val w = p.measureText(s)
+        if (w <= room) { c.drawText(s, x, y, p); return }
+        if (!moving) { c.drawText(TextUtils.ellipsize(s, android.text.TextPaint(p), room, TextUtils.TruncateAt.END).toString(), x, y, p); return }
+        val over = w - room + 6f; val run = over / 40f   // 40 layout pixels a second: slow enough to read as it goes
+        val cycle = 1.5f + run + 1.6f + .45f
+        val u = ((android.os.SystemClock.uptimeMillis() - since) / 1000f) % cycle
+        val k = ((u - 1.5f) / run).coerceIn(0f, 1f); val off = over * k * k * (3 - 2 * k)   // easing in and out of the glide
+        val fade = when { u > cycle - .45f -> (cycle - u) / .45f; u < .3f && since != 0L && android.os.SystemClock.uptimeMillis() - since > cycle * 1000 -> u / .3f; else -> 1f }
+        val a0 = p.alpha; p.alpha = (a0 * fade.coerceIn(0f, 1f)).toInt()
+        c.save(); c.clipRect(x - 2, y - p.textSize * 1.3f, x + room, y + p.textSize * .5f); c.drawText(s, x - off, y, p); c.restore()
+        p.alpha = a0; gliding = true
+    }
+
     override fun onDraw(c: Canvas) {
+        gliding = false
         // keep the focused row in view
         var y0 = 0f; for (k in 0 until i) y0 += h(rows[k]) + 8
         val hi = rows.getOrNull(i)?.let { h(it) } ?: 0f
@@ -568,14 +590,15 @@ class Options(ctx: Context) : View(ctx) {
             p.typeface = Fonts.bold; p.textSize = if (compact) 22f else 23f; p.color = fg
             // a long name gives way to the value on the right (cut short with an ellipsis)
             val room = width - 54f - x - (r.value?.let { v -> p.textSize = 21f; p.measureText(v) + 14f } ?: 0f); p.textSize = if (compact) 22f else 23f
-            c.drawText(TextUtils.ellipsize(r.label + if (r.check) "  ✓" else "", android.text.TextPaint(p), room, TextUtils.TruncateAt.END).toString(), x, y + (if (r.sub.isNullOrEmpty()) rh / 2 + 8 else 38f), p)
+            line(c, r.label + if (r.check) "  ✓" else "", x, y + (if (r.sub.isNullOrEmpty()) rh / 2 + 8 else 38f), room, on)
             r.value?.let { p.typeface = Fonts.bold; p.textSize = 21f; p.color = if (r.primary) fg else Theme.fg2; p.textAlign = Paint.Align.RIGHT; c.drawText(it, width - 54f, y + (if (r.sub.isNullOrEmpty()) rh / 2 + 8 else 38f), p); p.textAlign = Paint.Align.LEFT }
             r.sub?.takeIf { it.isNotEmpty() }?.let { p.typeface = Fonts.body; p.textSize = 18f
                 p.color = if (r.primary) Color.argb(200, Color.red(Theme.selFg), Color.green(Theme.selFg), Color.blue(Theme.selFg)) else Theme.fg2   // dark on the light button
-                c.drawText(TextUtils.ellipsize(it, android.text.TextPaint(p), width - x - 60, TextUtils.TruncateAt.START).toString(), x, y + 64f, p) }
+                line(c, it, x, y + 64f, width - x - 60, on) }
             y += rh + 8
         }
         c.restore()
+        if (gliding) postInvalidateOnAnimation()   // a long line on the chosen row is moving
         // a soft fade at the bottom when there's more below
         if (y - top > height) { p.shader = android.graphics.LinearGradient(0f, height - 40f, 0f, height.toFloat(), Color.TRANSPARENT, Color.argb(200, 12, 17, 44), android.graphics.Shader.TileMode.CLAMP)
             c.drawRect(0f, height - 40f, width.toFloat(), height.toFloat(), p); p.shader = null }

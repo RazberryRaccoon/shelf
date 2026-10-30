@@ -712,6 +712,8 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
     }
 
     /** Starting a game from its page here: its cartridge goes to the start animation, and comes back to the page. */
+    /** The game's page is open with its box out. */
+    fun boxOut(g: Game) = page?.takeIf { it.game.path == g.path }?.boxOut == true
     fun takeForLaunch(g: Game): Triple<Cart?, FloatArray, FloatArray>? {
         val p = page?.takeIf { it.game.path == g.path } ?: return null
         val c = p.cart

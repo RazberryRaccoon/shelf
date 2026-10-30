@@ -171,6 +171,8 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
      * Starting a game: Home (and the page, if it's open) steps aside, and the game's cartridge goes to the start
      * animation, with where it is now and where it comes back to.
      */
+    /** The game's page is open with its box out (a game started from it waits for the box to slide away). */
+    fun boxOut(g: Game) = page?.takeIf { it.game.path == g.path }?.boxOut == true
     fun takeForLaunch(g: Game): Triple<Cart?, FloatArray, FloatArray> {
         val p = page?.takeIf { it.game.path == g.path }
         val c = p?.cart ?: slots.firstOrNull { it.game.path == g.path }?.cart

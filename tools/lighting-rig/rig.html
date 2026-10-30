@@ -11,6 +11,15 @@ const OV = JSON.parse(q.get('ov') ?? '{}');   // material overrides per style ke
 // the backdrop, roughly (its sky's base and the nebula's glow), so contrast against it reads as in the app
 { const b = document.getElementById('bg').getContext('2d'); b.fillStyle = '#070b1e'; b.fillRect(0, 0, W, H);
   const g = b.createRadialGradient(300, 160, 0, 300, 160, 700); g.addColorStop(0, 'rgba(160,140,255,.2)'); g.addColorStop(1, 'rgba(0,0,0,0)'); b.fillStyle = g; b.fillRect(0, 0, W, H); }
+function invert(m) { const inv = new Float32Array(16), [a00, a01, a02, a03, a10, a11, a12, a13, a20, a21, a22, a23, a30, a31, a32, a33] = m;
+  const b00 = a00 * a11 - a01 * a10, b01 = a00 * a12 - a02 * a10, b02 = a00 * a13 - a03 * a10, b03 = a01 * a12 - a02 * a11, b04 = a01 * a13 - a03 * a11, b05 = a02 * a13 - a03 * a12,
+    b06 = a20 * a31 - a21 * a30, b07 = a20 * a32 - a22 * a30, b08 = a20 * a33 - a23 * a30, b09 = a21 * a32 - a22 * a31, b10 = a21 * a33 - a23 * a31, b11 = a22 * a33 - a23 * a32;
+  const d = 1 / (b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06);
+  inv[0] = (a11 * b11 - a12 * b10 + a13 * b09) * d; inv[1] = (a02 * b10 - a01 * b11 - a03 * b09) * d; inv[2] = (a31 * b05 - a32 * b04 + a33 * b03) * d; inv[3] = (a22 * b04 - a21 * b05 - a23 * b03) * d;
+  inv[4] = (a12 * b08 - a10 * b11 - a13 * b07) * d; inv[5] = (a00 * b11 - a02 * b08 + a03 * b07) * d; inv[6] = (a32 * b02 - a30 * b05 - a33 * b01) * d; inv[7] = (a20 * b05 - a22 * b02 + a23 * b01) * d;
+  inv[8] = (a10 * b10 - a11 * b08 + a13 * b06) * d; inv[9] = (a01 * b08 - a00 * b10 - a03 * b06) * d; inv[10] = (a30 * b04 - a31 * b02 + a33 * b00) * d; inv[11] = (a21 * b02 - a20 * b04 - a23 * b00) * d;
+  inv[12] = (a11 * b07 - a10 * b09 - a12 * b06) * d; inv[13] = (a00 * b09 - a01 * b07 + a02 * b06) * d; inv[14] = (a31 * b01 - a30 * b03 - a32 * b00) * d; inv[15] = (a20 * b03 - a21 * b01 + a22 * b00) * d;
+  return inv; }
 function mul(a, b) { const o = new Float32Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + r] * b[c * 4 + k]; o[c * 4 + r] = s; } return o; }
 function ident() { const m = new Float32Array(16); m[0] = m[5] = m[10] = m[15] = 1; return m; }
 function trans(x, y, z) { const m = ident(); m[12] = x; m[13] = y; m[14] = z; return m; }
@@ -236,7 +245,10 @@ Filament.init(['ibl/ibl_ibl.ktx', 'glow.filamat'], async () => {
       const s = px / (2 * Math.max(hh[0], hh[1])); let M = trans(x, H - y, z); M = mul(M, rotX(rx)); M = mul(M, rotY(ry)); M = mul(M, scale(s)); return mul(M, trans(-cc[0], -cc[1], -cc[2]));
     }
     function cartM(x, y, z, ry, rx, px) { const s = px / Math.max(st.size[0], st.size[1]); let M = trans(x, H - y, z); M = mul(M, rotY(ry)); M = mul(M, rotX(rx)); return mul(M, scale(s)); }
-    const home = cartM(+(q.get('hx') ?? 300), +(q.get('hy') ?? 330), 0, -.25, -.1, 330);
+    // where the cartridge starts: Home's row (from=home) or the game page (from=page: big, held, the console waits: lead)
+    const FROM = q.get('from') ?? 'home', LEAD = FROM === 'page' ? .55 : 0;
+    const home = FROM === 'page' ? (() => { const s = 300 / Math.max(st.size[0], st.size[1]); let M = trans(380, H - 384, 70); M = mul(M, rotX(-.1)); M = mul(M, rotY(-.28)); return mul(M, scale(s)); })()
+      : cartM(+(q.get('hx') ?? 300), +(q.get('hy') ?? 330), 0, -.25, -.1, 330);
     // Poses.blend
     const sc = m => Math.hypot(m[0], m[1], m[2]);
     function quat(m, s) { const m00 = m[0] / s, m11 = m[5] / s, m22 = m[10] / s, m21 = m[6] / s, m12 = m[9] / s, m02 = m[8] / s, m20 = m[2] / s, m10 = m[1] / s, m01 = m[4] / s, tr = m00 + m11 + m22;
@@ -290,11 +302,26 @@ Filament.init(['ibl/ibl_ibl.ktx', 'glow.filamat'], async () => {
     const hitDir = press || L.from, ax = [0, 1, 2].reduce((b, i) => Math.abs(hitDir[i]) > Math.abs(hitDir[b]) ? i : b, 0);
     // where the game goes in: along its path from the seat until it leaves the console's box
     const mouth = (() => { const s0 = [L.seat[12], L.seat[13], L.seat[14]], d = L.from.map(v => v / Math.hypot(...L.from)); let k = 0;
-      while (k < 400 && [0, 1, 2].every(i => Math.abs(s0[i] + d[i] * k - cc[i]) < hh[i])) k += 1; return s0.map((v, i) => v + d[i] * Math.max(0, k - 2)); })();
+      while (k < 400 && [0, 1, 2].every(i => Math.abs(s0[i] + d[i] * k - cc[i]) < hh[i])) k += 1; return s0.map((v, i) => v + d[i] * (k + 2)); })();
     const frameOut = T.turnBack ?? [after, after + .5];
     const fxc = document.getElementById('fx').getContext('2d');
     const ACC = q.get('acc') ?? '#8f7dff';
-    window.at = (t) => {
+    // where the cartridge waits for the console (Launch.wait): its size in the console, beside where the console stands
+    const wait = (() => {
+      let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+      const rect = M => { for (let n = 0; n < 8; n++) { const qq = proj(M, [0, 1, 2].map(i => cc[i] + ((n >> i) & 1 ? hh[i] : -hh[i]))); x0 = Math.min(x0, qq[0]); x1 = Math.max(x1, qq[0]); y0 = Math.min(y0, qq[1]); y1 = Math.max(y1, qq[1]); } };
+      for (const [turn, extra, size] of [[0, 0, 1], [back ? 1 : 0, 0, 1], [0, -.38, 1], [0, -.38, .9], [.5, 0, 1]]) for (const lift of [0, -60]) rect(modelM(667, 372 + fit.dy + lift, 30, yawOf(back ? turn : 0) + extra, pitch, px0 * fit.fr * size));
+      const a = along(modelM(667, 372 + fit.dy, 30, yawOf(back ? 1 : 0), pitch, px0 * fit.fr), 1, 0), s = Math.hypot(a[0], a[1], a[2]);
+      const r = s * Math.max(ch[0], ch[1]) * 1.05, z = home[14] + 80, f = DIST / (DIST - z);
+      const hx = W / 2 + (home[12] - W / 2) * f, hy = H - (H / 2 + (home[13] - H / 2) * f), gap = 36;
+      const cy = y => Math.min(H - r - 24, Math.max(r + 24, y)), cx = x => Math.min(W - r - 24, Math.max(r + 24, x));
+      const spots = [[x0 - gap - r, cy(hy)], [cx(hx), y0 - gap - r], [x1 + gap + r, cy(hy)]].filter(([x, y]) => x >= r + 20 && x <= W - r - 20 && y >= r + 20 && y <= H - r - 20);
+      const [sx, sy] = spots.length ? spots.reduce((b, p) => ((p[0] - hx) ** 2 + (p[1] - hy) ** 2 < (b[0] - hx) ** 2 + (b[1] - hy) ** 2 ? p : b)) : [r + 24, cy(hy)];
+      const hs = Math.hypot(home[0], home[1], home[2]), m = new Float32Array(16);
+      for (let i = 0; i < 12; i++) m[i] = home[i] / hs * s; m[12] = W / 2 + (sx - W / 2) / f; m[13] = H / 2 + ((H - sy) - H / 2) / f; m[14] = z; m[15] = 1;
+      window.WAIT = { sx, sy, r, rect: [x0, x1, y0, y1] }; return m;
+    })();
+    window.at = (ta) => { const t = ta - LEAD;
       const fk = 1 - smoother((t - frameOut[0]) / (frameOut[1] - frameOut[0])), fr = 1 + (fit.fr - 1) * fk, fdy = fit.dy * fk;
       // arriving: a spring up from below, overshooting a little and settling; a gentle float once it's there
       const rs = spring(t, 6.5, 8.5), riseK = clamp(t / .5);
@@ -323,7 +350,8 @@ Filament.init(['ibl/ibl_ibl.ktx', 'glow.filamat'], async () => {
       const A = along(C, path, pk);
       if (parts.door) movePart('door', t < T.hit2 ? spring(((t - T.slide[0]) / (T.slide[1] - T.slide[0]) - .55) / 1.6, 8, 14) : Math.max(-.08, 1 - spring(t - T.hit2 - .04, 7, 15)));
       // the flight: lifted (a dip first), along a high curve, leaning into the way it moves, a float over the slot
-      const lifted = tt => { const m = home.slice(), l = spring(tt - .1, 8, 12), dip = Math.sin(Math.PI * clamp(tt / .12)) * (tt < .12); m[13] += 30 * l - 9 * dip; m[14] += 70 * l; return m; };
+      const liftEnd = LEAD + T.flight[0];
+      const lifted = tm => { const tt = tm + LEAD, dip = tt < .12 ? Math.sin(Math.PI * clamp(tt / .12)) : 0, k = smoother(tt / (liftEnd * .9)); const m = blend(home, wait, k); m[13] += -9 * dip + 5 * Math.sin(tt * 3.1) * k; return m; };
       const fu = (t - T.flight[0]) / (T.flight[1] - T.flight[0]);
       let Pm;
       const at0 = along(C, 1, 0), dir = [0, 1, 2].map(i => C[i] * L.from[0] + C[4 + i] * L.from[1] + C[8 + i] * L.from[2]), dl = Math.hypot(...dir) || 1;
@@ -343,10 +371,28 @@ Filament.init(['ibl/ibl_ibl.ktx', 'glow.filamat'], async () => {
         if (t < T.slide[0]) { Pm = Pm.slice(); Pm[13] += 7 * Math.sin(Math.PI * clamp((t - T.flight[1]) / (T.slide[0] - T.flight[1]))); }   // a breath, floating
       }
       tm.setTransform(tm.getInstance(ct.getRoot()), Pm);
+      // clipping: how deep (mm) any point of the cartridge's box (corners, edge middles, face middles) is inside the
+      // console's box, in the console's own space; only before the game goes in (window.clipAt)
+      { const inv = invert(C); let worst = 0, hidden = 0;
+        if (t < T.slide[0]) for (let a0 = -1; a0 <= 1; a0++) for (let b0 = -1; b0 <= 1; b0++) for (let c0 = -1; c0 <= 1; c0++) {
+          const lp = [cc2[0] + a0 * ch[0], cc2[1] + b0 * ch[1], cc2[2] + c0 * ch[2]];
+          const w = [0, 1, 2].map(i => Pm[i] * lp[0] + Pm[4 + i] * lp[1] + Pm[8 + i] * lp[2] + Pm[12 + i]);
+          const l = [0, 1, 2].map(i => inv[i] * w[0] + inv[4 + i] * w[1] + inv[8 + i] * w[2] + inv[12 + i]);
+          const pen = Math.min(...[0, 1, 2].map(i => hh[i] - Math.abs(l[i] - cc[i])));
+          if (pen > worst) worst = pen;
+          // hidden: the line from the camera to this point passes through the console's box first
+          const cam = [0, 1, 2].map(i => inv[i] * W / 2 + inv[4 + i] * H / 2 + inv[8 + i] * DIST + inv[12 + i]);
+          let t0 = 0, t1 = .985, ok = true;
+          for (let i = 0; i < 3 && ok; i++) { const d = l[i] - cam[i], lo = cc[i] - hh[i], hi = cc[i] + hh[i];
+            if (Math.abs(d) < 1e-9) { if (cam[i] < lo || cam[i] > hi) ok = false; continue; }
+            let ta = (lo - cam[i]) / d, tb = (hi - cam[i]) / d; if (ta > tb) [ta, tb] = [tb, ta]; t0 = Math.max(t0, ta); t1 = Math.min(t1, tb); if (t0 > t1) ok = false; }
+          if (ok) hidden++; }
+        window.CLIP = worst; window.HIDDEN = hidden; window.DBG = { t, slide0: T.slide[0], pm: [Pm[12], Pm[13], Pm[14]].map(v => +v.toFixed(0)), hh: hh.map(v => +v.toFixed(0)), cc: cc.map(v => +v.toFixed(0)) }; }
       if (parts.power) movePart('power', isButton(parts.power) ? pressK(t - T.power, sys === 'nes' ? .45 : 0) : spring(t - T.power, 9, 16));
       // the hit's shockwave (Shockwave in the app): thin rings in the console's own plane, spreading from the slot
       fxc.clearRect(0, 0, W, H);
-      { const gk = press ? T.hit2 : T.hit, facing = Math.abs(C[4 * ax + 2]) / Math.hypot(C[4 * ax], C[4 * ax + 1], C[4 * ax + 2]), a1 = (ax + 1) % 3, a2 = (ax + 2) % 3, reach = 1.5 * Math.max(hh[a1], hh[a2]);
+      if (t >= T.hit && !window.RINGAT) window.RINGAT = C.slice(); if (t < T.hit) window.RINGAT = null;
+      if (window.RINGAT) { const C = window.RINGAT, gk = press ? T.hit2 : T.hit, fc = i => Math.abs(C[4 * i + 2]) / Math.hypot(C[4 * i], C[4 * i + 1], C[4 * i + 2]), nn = fc(1) > .3 ? 1 : 2, facing = 1, a1 = (nn + 1) % 3, a2 = (nn + 2) % 3, reach = 1.5 * Math.max(hh[a1], hh[a2]);
         if (facing > .3) for (const [h, delay, st] of [[gk, 0, 1], [gk, .08, .5], [press ? T.hit : -1, 0, .45]]) {
           if (h < 0) continue; const u = t - h - delay; if (u < 0 || u > .55) continue;
           const k = u / .55, e = 1 - Math.pow(1 - k, 3), r = 6 + reach * e * (st < .6 && delay === 0 ? .55 : 1);

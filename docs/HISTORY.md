@@ -592,6 +592,21 @@ opening edge, and a coloured test spine in the new render confirms the fix.
 **0.24, fixed:** the Library crashed as it opened: `byName`, a stored comparator declared below `init`, was still null
 when `init` sorted the first list (the init-order trap again; it's a getter now).
 
+**0.28: the user's notes on 0.27.** The box "flying away" was a bandage: the console still rose through the page's
+cartridge (it floats at x 350, up to 400 px across; the console rises at 667, about 550 across). Now `Launch.wait`: a
+spot beside the console's screen rectangle (taken over its rest, turned, rising-turn, smaller and overshoot poses),
+nearest where the cartridge was, at the size it'll have in the console, 80 px toward the camera; the cartridge lifts
+there during `lead` (0.55 s from a page with its box out: `GamePage.boxOut`), the box's flow runs at 1.6×, and the
+whole timeline counts from after the lead. `cliptest.mjs` sweeps every console and both starting points at 20 ms for
+interpenetration (cartridge box points inside the console box) and occlusion (the camera ray to a point crossing the
+console box): none, after allowing for the arrival spring's overshoot (one DS frame flagged was conservative). A
+frame that looked like clipping at small size (NES, 1.13 s) was, rendered large, the cartridge in front. The glow
+pulse is gone; rings use the console's up plane when it faces the camera (> 0.3), else its face plane, from a point
+just outside the box, with the inside left out, frozen at the first hit (`ringAt`). `Options.line`: a marquee on the
+chosen row (it cut long text at the front: TruncateAt.START). Manuals: `SINGLE` had the SNES and N64 at 1.4 (wide);
+they're upright (~0.72), so no pair was found. `seam`: per-pixel column differences at the middle against the
+median; the real Game Boy scan's single cover scored 1.8, a back-and-front pair made from it 8.45 (threshold 3.5).
+
 **0.27: the user's notes on 0.26.** (1) The open box clipped into the console: launching set the box's flow back to
 "cartridge only", which runs its slower close-and-slide-away while the console springs up in the middle; now `placeBox`
 also darts it left with launchK (0.22 s, a cubic ease-out). (2) Sparks "goofy and princess-y", and leftovers on the
