@@ -104,11 +104,11 @@ class Filter {
 /** The orders a list can be in, and which of them put headings between groups. */
 object Sorts {
     const val AZ = 0; const val RECENT = 1; const val MOST = 2; const val OLDEST = 3; const val MINE = 4; const val ZA = 5; const val ADDED = 6
-    const val NEWEST = 7; const val CONSOLE = 8; const val GENRE = 9; const val DEVELOPER = 10; const val PUBLISHER = 11
+    const val NEWEST = 7; const val CONSOLE = 8; const val GENRE = 9; const val DEVELOPER = 10; const val PUBLISHER = 11; const val TIME = 12
     val NAMES = listOf("Name, A to Z", "Recently played", "Most played", "Release year, oldest first", "Your order", "Name, Z to A", "Recently added",
-        "Release year, newest first", "Console", "Genre", "Developer", "Publisher")
+        "Release year, newest first", "Console", "Genre", "Developer", "Publisher", "Most time played")
     /** In the order they're offered. */
-    val ALL = listOf(AZ, ZA, RECENT, MOST, ADDED, NEWEST, OLDEST, CONSOLE, GENRE, DEVELOPER, PUBLISHER)
+    val ALL = listOf(AZ, ZA, RECENT, MOST, TIME, ADDED, NEWEST, OLDEST, CONSOLE, GENRE, DEVELOPER, PUBLISHER)
     /** Inside a collection the games are always grouped by console, so these are each console's own order. */
-    val WITHIN = listOf(AZ, ZA, RECENT, MOST, ADDED, NEWEST, OLDEST)
+    val WITHIN = listOf(AZ, ZA, RECENT, MOST, TIME, ADDED, NEWEST, OLDEST)
 }

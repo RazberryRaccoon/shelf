@@ -33,6 +33,10 @@ The start animation, frame by frame (`launch`, mirroring Launch.kt's timeline): 
 renders frames from 0 to 3 seconds every 0.15 (tone mapped in the page), `python3 sheet.py out/ nes.png 5 .25 0 .15`
 lays them out on one sheet. Extra parameters close in on a spot: `"zoom=3&fx=580&fy=370"`.
 
+Clipping: `node cliptest.mjs [nes,snes,…]` runs every console from Home and from a game page (`from=page`: the
+cartridge big, the console waiting `lead`), every 20 ms until the game goes in, and prints how deep the cartridge gets
+inside the console's box and when the console hides any of it (a ray from the camera through the console's box).
+
 Lighting parameters (the app's defaults when left out): `env` (studio), `key`, `exp` (Filament's direct exposure:
 it brightens by 1/exp), `bright` (the brightness itself; overrides exp), `dir` (key light direction), `yaw`/`pitch`
 (the rig's turn), `gold`/`silver` (metal colors), `ov` (material overrides as JSON, e.g. `{"all":{"roughness":0.5}}`,

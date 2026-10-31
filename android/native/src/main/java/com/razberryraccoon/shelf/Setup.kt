@@ -38,6 +38,9 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         fun artChanged()
         /** Your collections and hidden games (Settings › Library). */
         fun collections(): Collections
+        /** Whether Shelf is the home screen now, and Android's screen for choosing it. */
+        fun isHomeApp(): Boolean
+        fun chooseHomeApp()
     }
 
     private enum class Step { WELCOME, WHO, GAMES, EMUS, DONE, HOME, LIBRARY, PAGES, LIGHT, MEDIA, SOURCE, SAVED, SYSTEM }
@@ -172,6 +175,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                 rows += Options.Row("root", "My main games folder", value = if (roots.isEmpty()) "Choose" else "Change", sub = roots.firstOrNull()?.let { prettyPath(it) } ?: "One folder with a folder for each console inside")
                 val counts = games.counts()
                 for ((k, name) in Games.NAMES) {
+                    if (k == "android") continue   // Android games come from Apps, not a folder
                     val c = counts[k] ?: 0
                     rows += Options.Row("folder", name, value = if (c == 0) "None yet" else "$c ${if (c == 1) "game" else "games"}",
                         sub = games.folder(k)?.let { prettyPath(it) } ?: if (c > 0) "Found on its own" else "Choose its folder", tag = k, dot = Theme.accentOf(k))
@@ -180,7 +184,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             }
             Step.EMUS -> {
                 val counts = games.counts()
-                val list = Games.NAMES.keys.filter { (counts[it] ?: 0) > 0 }.ifEmpty { Games.NAMES.keys.toList() }
+                val list = Games.NAMES.keys.filter { it != "android" && (counts[it] ?: 0) > 0 }.ifEmpty { Games.NAMES.keys.filter { it != "android" } }   // Android games open on their own
                 page(if (settings) "Settings" else "Step 3 of 3", "How your games start",
                     if (games.installed.isEmpty()) "No emulators found yet. RetroArch, from the Play Store, plays most of these consoles; you can choose here any time."
                     else "Each console’s games open in an emulator. Shelf chose from what’s installed; press A to change one.")
@@ -201,6 +205,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             Step.HOME -> {
                 page("Settings", "Home", "How your games line up, and the picture behind them. Left and right change a value; the picture shows behind as you go.")
                 rows += Options.Row("homeboxes", "Home shows", value = "‹  ${if (games.homeBoxes) "Boxes" else "Cartridges"}  ›", sub = "Your games as cartridges, or as their closed boxes")
+                rows += Options.Row("theme", "Theme", value = "‹  ${Theme.look.name}  ›", sub = Theme.look.note)
                 rows += Options.Row("homescroll", "Scrolling", value = "‹  ${Home.STYLES[games.homeScroll.coerceIn(0, Home.STYLES.size - 1)]}  ›", sub = SCROLL_SUB[games.homeScroll.coerceIn(0, SCROLL_SUB.size - 1)])
                 rows += Options.Row(Options.HEAD, "The picture behind")
                 rows += Options.Row("art", "Picture", value = "‹  ${Art.KINDS.firstOrNull { it.first == games.artKind }?.second}  ›", sub = "Which picture of the selected game (another if it doesn’t have that one)", tag = "kind")
@@ -233,6 +238,9 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                 rows += Options.Row("smooth", "Smoothness", value = "‹  ${SMOOTH[games.smoothness]}  ›", sub = SMOOTH_SUB[games.smoothness])
                 rows += Options.Row("fps", "Show frame rate", value = if (games.showFps) "On" else "Off", sub = "A small meter in the top left: frames per second, and which part is slow")
                 rows += Options.Row("sounds", "Sounds", value = if (games.sounds) "On" else "Off", sub = "Soft clicks and chimes as you move around")
+                if (games.sounds) rows += Options.Row("soundpack", "Sound pack", value = "‹  ${Sounds.PACKS[games.soundPack.coerceIn(0, Sounds.PACKS.size - 1)]}  ›",
+                    sub = PACK_SUB[games.soundPack.coerceIn(0, PACK_SUB.size - 1)])
+                rows += Options.Row("homescreen", "Home screen", value = if (host.isHomeApp()) "Shelf" else "Choose", sub = "Make Shelf what the Home button opens: Android's own choice of home app")
                 rows += Options.Row("again", "Run first-time setup again")
                 rows += Options.Row("none", "Version", value = try { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName } catch (e: Exception) { "" })
             }
@@ -311,6 +319,16 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             val n = Labels.NAMES.size; games.labelFinish = (games.labelFinish + (if (a == "left") n - 1 else 1)) % n
             showcase.forEach { (sys, c) -> carts.refinish(c, Games.NAMES[sys] ?: "Android games", games.labelFinish) }; Sounds.play(Sounds.MOVE); return fill()
         }
+        if (r?.key == "theme" && (a == "left" || a == "right" || a == "a")) {
+            val n = Theme.LOOKS.size; games.theme = (games.theme + (if (a == "left") n - 1 else 1)) % n
+            Theme.setLook(games.theme); backdrop.theme(); Sounds.play(Sounds.MOVE)   // the sky changes behind at once; panels as they next open
+            return fill()
+        }
+        if (r?.key == "soundpack" && (a == "left" || a == "right" || a == "a")) {
+            val n = Sounds.PACKS.size; games.soundPack = (games.soundPack + (if (a == "left") n - 1 else 1)) % n
+            Sounds.setPack(ctx, games.soundPack); board.postDelayed({ Sounds.play(Sounds.OPEN) }, 260)   // a taste of it, once it's loaded
+            return fill()
+        }
         if (r?.key == "launchfx" && (a == "left" || a == "right" || a == "a")) {
             val n = Curtain.NAMES.size; games.launchFx = (games.launchFx + (if (a == "left") n - 1 else 1)) % n; Sounds.play(Sounds.MOVE); return fill()
         }
@@ -388,6 +406,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             "hiddenentry" -> { host.collections().let { it.hiddenEntry = !it.hiddenEntry }; fill() }
             "changecode" -> host.collections().let { c -> GameCard.askCode(ctx, c) { GameCard.chooseCode(ctx, c, "Choose a new code", "Four presses of the d-pad and A, B, X, Y.") { host.toast("Code changed"); fill() } } }
             "resetcode" -> host.collections().let { c -> GameCard.chooseCode(ctx, c, "Choose a new code", "Four presses of the d-pad and A, B, X, Y.") { host.toast("Code set"); fill() } }
+            "homescreen" -> host.chooseHomeApp()
             "sounds" -> { games.sounds = !games.sounds; Sounds.enabled = games.sounds; Sounds.play(Sounds.PICK); fill() }
             "art-reset" -> { games.artKind = "shot"; games.artBright = Art.BRIGHT; games.artTop = Art.TOP; games.artFade = Art.FADE; games.artFadeType = Art.DOTS; games.artPan = Art.PAN; host.artChanged(); fill() }
             "light-reset" -> { games.lightEnv = Look.ENV; games.lightBright = Look.BRIGHT; games.lightKey = Look.KEY; applyLight(); fill() }
@@ -523,7 +542,9 @@ class Options(ctx: Context) : View(ctx) {
     var compact = false
     /** The chosen row stays marked while the focus is elsewhere (Settings' sections, while you're in one). */
     var keep = false
-    private var i = 0
+    private var i = 0; set(v) { if (v != field) since = android.os.SystemClock.uptimeMillis(); field = v }
+    private var since = 0L   // when the chosen row was chosen: its long text waits a moment from then before it moves
+    private var gliding = false
     private var top = 0f
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     private fun h(r: Row) = if (r.key == HEAD) 46f else if (compact) 54f else if (r.sub.isNullOrEmpty()) 64f else 80f
@@ -540,7 +561,27 @@ class Options(ctx: Context) : View(ctx) {
         i = k; onFocus?.invoke(); invalidate(); return true
     }
 
+    /**
+     * Text too long for its room. On the chosen row it starts at its beginning, waits a moment, glides slowly to its end,
+     * waits, and fades back to the start (it used to be cut at the front: "…nfo about this setting"); on other rows it
+     * ends in an ellipsis.
+     */
+    private fun line(c: Canvas, s: String, x: Float, y: Float, room: Float, moving: Boolean) {
+        val w = p.measureText(s)
+        if (w <= room) { c.drawText(s, x, y, p); return }
+        if (!moving) { c.drawText(TextUtils.ellipsize(s, android.text.TextPaint(p), room, TextUtils.TruncateAt.END).toString(), x, y, p); return }
+        val over = w - room + 6f; val run = over / 40f   // 40 layout pixels a second: slow enough to read as it goes
+        val cycle = 1.5f + run + 1.6f + .45f
+        val u = ((android.os.SystemClock.uptimeMillis() - since) / 1000f) % cycle
+        val k = ((u - 1.5f) / run).coerceIn(0f, 1f); val off = over * k * k * (3 - 2 * k)   // easing in and out of the glide
+        val fade = when { u > cycle - .45f -> (cycle - u) / .45f; u < .3f && since != 0L && android.os.SystemClock.uptimeMillis() - since > cycle * 1000 -> u / .3f; else -> 1f }
+        val a0 = p.alpha; p.alpha = (a0 * fade.coerceIn(0f, 1f)).toInt()
+        c.save(); c.clipRect(x - 2, y - p.textSize * 1.3f, x + room, y + p.textSize * .5f); c.drawText(s, x - off, y, p); c.restore()
+        p.alpha = a0; gliding = true
+    }
+
     override fun onDraw(c: Canvas) {
+        gliding = false
         // keep the focused row in view
         var y0 = 0f; for (k in 0 until i) y0 += h(rows[k]) + 8
         val hi = rows.getOrNull(i)?.let { h(it) } ?: 0f
@@ -568,14 +609,15 @@ class Options(ctx: Context) : View(ctx) {
             p.typeface = Fonts.bold; p.textSize = if (compact) 22f else 23f; p.color = fg
             // a long name gives way to the value on the right (cut short with an ellipsis)
             val room = width - 54f - x - (r.value?.let { v -> p.textSize = 21f; p.measureText(v) + 14f } ?: 0f); p.textSize = if (compact) 22f else 23f
-            c.drawText(TextUtils.ellipsize(r.label + if (r.check) "  ✓" else "", android.text.TextPaint(p), room, TextUtils.TruncateAt.END).toString(), x, y + (if (r.sub.isNullOrEmpty()) rh / 2 + 8 else 38f), p)
+            line(c, r.label + if (r.check) "  ✓" else "", x, y + (if (r.sub.isNullOrEmpty()) rh / 2 + 8 else 38f), room, on)
             r.value?.let { p.typeface = Fonts.bold; p.textSize = 21f; p.color = if (r.primary) fg else Theme.fg2; p.textAlign = Paint.Align.RIGHT; c.drawText(it, width - 54f, y + (if (r.sub.isNullOrEmpty()) rh / 2 + 8 else 38f), p); p.textAlign = Paint.Align.LEFT }
             r.sub?.takeIf { it.isNotEmpty() }?.let { p.typeface = Fonts.body; p.textSize = 18f
                 p.color = if (r.primary) Color.argb(200, Color.red(Theme.selFg), Color.green(Theme.selFg), Color.blue(Theme.selFg)) else Theme.fg2   // dark on the light button
-                c.drawText(TextUtils.ellipsize(it, android.text.TextPaint(p), width - x - 60, TextUtils.TruncateAt.START).toString(), x, y + 64f, p) }
+                line(c, it, x, y + 64f, width - x - 60, on) }
             y += rh + 8
         }
         c.restore()
+        if (gliding) postInvalidateOnAnimation()   // a long line on the chosen row is moving
         // a soft fade at the bottom when there's more below
         if (y - top > height) { p.shader = android.graphics.LinearGradient(0f, height - 40f, 0f, height.toFloat(), Color.TRANSPARENT, Color.argb(200, 12, 17, 44), android.graphics.Shader.TileMode.CLAMP)
             c.drawRect(0f, height - 40f, width.toFloat(), height.toFloat(), p); p.shader = null }
@@ -594,6 +636,8 @@ class Dots(ctx: Context) : View(ctx) {
 /** The game page's three views, in order (Games.pageView). */
 val PAGE_VIEWS = listOf("Cartridge", "Open box", "Closed box")
 
+private val PACK_SUB = listOf("Sine tones with a quiet octave: the first sounds", "Bell-like, the ring of a struck glass", "Warm and dry, like a marimba",
+    "Each note glides up into place: a soft bloop")
 private val SMOOTH = listOf("Best looks", "Balanced", "Smoothest")
 private val SMOOTH_SUB = listOf("The smoothest edges; the most work for the handheld", "Softer edges, less work for the 3D",
     "Lightest: the sky's stars hold still, edges smoothed more cheaply")

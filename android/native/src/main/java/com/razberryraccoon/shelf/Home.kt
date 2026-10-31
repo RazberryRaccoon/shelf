@@ -31,6 +31,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     interface Actions { fun play(g: Game); fun allowStorage(); fun openSettings(); fun openMuseum(sys: String?); fun askText(title: String, value: String, then: (String) -> Unit)
         fun openDocument(mimes: Array<String>, then: (android.net.Uri?) -> Unit)
         fun openLibrary()
+        fun openApps()
         /** The collections card for a game; `changed` true if it was hidden. */
         fun collectionsCard(g: Game, changed: (Boolean) -> Unit)
         fun hideGame(g: Game, then: () -> Unit)
@@ -171,6 +172,8 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
      * Starting a game: Home (and the page, if it's open) steps aside, and the game's cartridge goes to the start
      * animation, with where it is now and where it comes back to.
      */
+    /** The game's page is open with its box out (a game started from it waits for the box to slide away). */
+    fun boxOut(g: Game) = page?.takeIf { it.game.path == g.path }?.boxOut == true
     fun takeForLaunch(g: Game): Triple<Cart?, FloatArray, FloatArray> {
         val p = page?.takeIf { it.game.path == g.path }
         val c = p?.cart ?: slots.firstOrNull { it.game.path == g.path }?.cart
@@ -318,6 +321,10 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         picker?.let { if (it.input(a)) return }
         page?.let { it.input(a); return }
         if (needsStorage) { if (a == "a") actions.allowStorage(); return }
+        // L1 and R1 step through Home's neighbours, in the top bar's order (spec §4): R1 the Library, L1 Settings (round
+        // the other way); inside a sheet they have jobs of their own
+        if (a == "rb") { Sounds.play(Sounds.PICK); return actions.openLibrary() }
+        if (a == "lb") { Sounds.play(Sounds.PICK); return actions.openSettings() }
         if (slots.isEmpty() && zone == "row") { if (a == "a") actions.openSettings() else if (a == "up") { zone = "top"; refreshTop() }; return }
         when (zone) {
             "row" -> when (a) {
@@ -333,7 +340,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
                 "left" -> if (topI > 0) { topI--; refreshTop(); Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
                 "right" -> if (topI < dock.size) { topI++; refreshTop(); Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
                 "down", "b" -> { zone = "row"; refreshTop(); Sounds.play(Sounds.MOVE) }
-                "a" -> if (topI == 0 || topI == dock.size) actions.openSettings() else if (topI == 3) actions.openMuseum(current()?.sys) else if (topI == 1) actions.openLibrary() else show("${dockNames[topI - 1]} comes to Shelf Native in a later version. The web Shelf has it today.")
+                "a" -> if (topI == 0 || topI == dock.size) actions.openSettings() else if (topI == 3) actions.openMuseum(current()?.sys) else if (topI == 1) actions.openLibrary() else actions.openApps()
             }
         }
     }
