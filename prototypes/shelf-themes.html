@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shelf Themes</title>
+<style>
+  :root { --bg: #04060f; --panel: #0c1130; --fg: #eef1ff; --fg2: #9aa2cc; --line: rgba(238,241,255,.14); --chip: rgba(238,241,255,.08); --sel: #eef1ff; --selfg: #0b1030; }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --bg: #04060f; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1334px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 22px; margin: 4px 0 2px; font-weight: 650; }
+  p.lead { margin: 0 0 14px; color: var(--fg2); max-width: 760px; }
+  .stage { position: relative; width: 100%; aspect-ratio: 1334 / 750; border-radius: 18px; overflow: hidden; border: 1px solid var(--line); background: #000; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 14px 0 6px; }
+  .bar .label { color: var(--fg2); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; margin-right: 6px; min-width: 64px; }
+  button.pill { border: 1px solid var(--line); background: var(--chip); color: var(--fg); border-radius: 999px; padding: 7px 16px; font: inherit; cursor: pointer; }
+  button.pill[aria-pressed="true"] { background: var(--sel); color: var(--selfg); border-color: var(--sel); font-weight: 600; }
+  button.dot { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; }
+  button.dot[aria-pressed="true"] { border-color: var(--sel); box-shadow: 0 0 0 3px rgba(238,241,255,.18); }
+  .about { color: var(--fg2); margin: 10px 0 0; min-height: 44px; max-width: 900px; }
+  .about b { color: var(--fg); font-weight: 600; }
+  .keys { color: var(--fg2); font-size: 13px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Shelf themes: the environments</h1>
+  <p class="lead">Each one is drawn live, the way the app draws its backdrop (no pictures, no video), so it can move gently and take on the selected console's color. Switch them below; Home's layer can sit on top to judge it behind the real interface.</p>
+  <div class="stage"><canvas id="gl" width="1334" height="750"></canvas><canvas id="ui" width="1334" height="750"></canvas></div>
+  <div class="bar" id="themes"><span class="label">Theme</span></div>
+  <div class="bar" id="consoles"><span class="label">Console</span></div>
+  <div class="bar"><span class="label">View</span>
+    <button class="pill" id="homeLayer" aria-pressed="true">Home's layer</button>
+    <button class="pill" id="pause" aria-pressed="false">Hold still</button>
+  </div>
+  <p class="about" id="about"></p>
+  <p class="keys">Left and right arrows change the theme.</p>
+</main>
+<script>
+// ---------- the themes ----------
+const THEMES = [
+  { id: 'space', name: 'Space', about: '<b>Space</b>, as it is now: the night sky with a nebula and the planet in the console\'s color, twinkling stars.' },
+  { id: 'city', name: 'City', about: '<b>City</b>: a skyline at night in three layers, fading into haze. Windows light and go dark, one at a time, every few seconds; a plane\'s light crosses slowly; the glow over the city takes the console\'s color.' },
+  { id: 'forest', name: 'Forest', about: '<b>Forest</b>: layers of pines under the moon, mist drifting slowly between them, fireflies wandering and glowing softly in the console\'s color.' },
+  { id: 'ocean', name: 'Ocean', about: '<b>Ocean</b>: a calm sea at night. The moon\'s reflection shimmers in thin lines; the water itself holds still (no swell, nothing rocking).' },
+  { id: 'aurora', name: 'Aurora', about: '<b>Aurora</b>: curtains of light rippling slowly over snowy hills, green leaning toward the console\'s color, under a sky of stars.' },
+  { id: 'desert', name: 'Desert', about: '<b>Desert</b>: dunes under a large moon, their ridges catching its light, fine sand drifting off the crests.' },
+  { id: 'stormy', name: 'Stormy', about: '<b>Stormy</b>: heavy clouds rolling slowly, fine rain, and now and then lightning far off, a dim glow inside the clouds in the console\'s color, never a white flash.' },
+];
+const CONSOLES = [['GBA', '#ab98ff'], ['SNES', '#c2b6ff'], ['NES', '#ff9db6'], ['N64', '#ffd06b'], ['Genesis', '#86b0ff'], ['Game Boy', '#b9db74'], ['GBC', '#5fe0d4'], ['PS1', '#9fb2d8'], ['DS', '#ff9a82'], ['PSP', '#a7e8ff'], ['Android', '#8ff0b4']];
+const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255);
+
+// ---------- the shader: one program, a branch per theme (layout pixels, y down, as backdrop.mat) ----------
+const VS = 'attribute vec2 a; void main(){ gl_Position = vec4(a, 0., 1.); }';
+const FS = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+uniform vec2 uRes; uniform float uT; uniform vec3 uMood; uniform float uTheme;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) { vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3. - 2. * f);
+  return mix(mix(hash(i), hash(i + vec2(1., 0.)), u.x), mix(hash(i + vec2(0., 1.)), hash(i + vec2(1., 1.)), u.x), u.y); }
+float fbm(vec2 p) { float v = 0., a = .5; for (int i = 0; i < 5; i++) { v += a * noise(p); p = p * 2.03 + 17.; a *= .5; } return v; }
+// stars: one in some cells, a little twinkle each
+float stars(vec2 p, float cell, float prob, float t) {
+  vec2 c = floor(p / cell); float h = hash(c); if (h > prob) return 0.;
+  vec2 pos = (c + vec2(hash(c + 3.1), hash(c + 7.7))) * cell; float r = .5 + .9 * hash(c + 1.3);
+  float tw = .55 + .45 * sin(t * (.5 + 1.4 * hash(c + 9.)) + h * 40.);
+  return smoothstep(r + .9, r - .3, length(p - pos)) * tw;
+}
+vec3 glow(vec3 d, vec3 c, float a, float t) { t = clamp(t, 0., 1.); return mix(d, c * (1. - t), clamp(a * (1. - t), 0., 1.)); }
+vec3 moon(vec3 col, vec2 p, vec2 c, float r, vec3 tint) {
+  float d = length(p - c);
+  col += tint * .18 * exp(-max(d - r, 0.) / (r * 1.2));                 // its halo
+  float disc = smoothstep(r + 1., r - 1., d);
+  float shade = .82 + .18 * fbm((p - c) / r * 3.);                      // faint markings
+  return mix(col, vec3(.92, .93, .96) * shade, disc);
+}
+
+vec3 space(vec2 p) {
+  vec3 m = uMood, c = vec3(7., 11., 30.) / 255.;
+  c = glow(c, m, 70. / 255., length(p - vec2(300., 160.)) / 700.);
+  c = glow(c, m, 40. / 255., length(p - vec2(1100., 700.)) / 600.);
+  c += vec3(.93, .94, 1.) * .6 * stars(p, 34., .55, uT);
+  vec2 pc = vec2(1190., -175.); float r = 390., d = length(p - pc), R = r * 1.18, f = clamp((d / R - .82) / .18, 0., 1.);
+  c = mix(c, mix(c, m * (1. - f), 90. / 255. * (1. - f)), clamp(R - d + .5, 0., 1.));
+  float u = length(p - (pc + vec2(-.35 * r, .55 * r))) / (r * 1.25);
+  vec3 c0 = mix(m, vec3(1.), .55), c1 = mix(m, vec3(7., 11., 30.) / 255., .45), c2 = vec3(6., 8., 20.) / 255.;
+  vec3 pl = u < .55 ? mix(c0, c1, u / .55) : mix(c1, c2, clamp((u - .55) / .45, 0., 1.));
+  return mix(c, pl, clamp(r - d + .5, 0., 1.));
+}
+
+// a layer of buildings: their tops, from a column's width and a height range; windows on the nearer ones
+float building(vec2 p, float w, float base, float lo, float hi, float seed, out vec2 cell, out float top) {
+  float col = floor(p.x / w); float h = lo + (hi - lo) * pow(hash(vec2(col, seed)), 1.4);
+  float x0 = col * w; float inset = w * .08 * hash(vec2(col, seed + 2.));
+  top = base - h; cell = vec2(col, seed);
+  float inside = step(top, p.y) * step(x0 + inset, p.x) * step(p.x, x0 + w - inset);
+  // a few have a mast
+  float mast = step(.8, hash(vec2(col, seed + 5.))) * step(abs(p.x - (x0 + w * .5)), 1.2) * step(top - 26., p.y) * step(p.y, top);
+  return max(inside, mast);
+}
+vec3 city(vec2 p) {
+  float t = uT; vec3 m = uMood;
+  float hz = 600.;
+  vec3 c = mix(vec3(.02, .03, .08), vec3(.11, .08, .17), smoothstep(0., hz, p.y));
+  c += mix(vec3(1., .6, .4), m, .5) * .16 * exp(-abs(p.y - hz + 40.) / 140.);   // the glow over the city
+  c += vec3(.9, .92, 1.) * .35 * stars(p, 46., .3, t) * (1. - smoothstep(150., 420., p.y));
+  c = moon(c, p, vec2(1040., 130.), 26., m);
+  // a plane's lights, crossing slowly (about every 50 seconds)
+  float px = mod(t * 28., 1700.) - 180.; vec2 pp = vec2(px, 118. + px * .03);
+  float blink = step(.82, fract(t * .9));
+  c += (vec3(1., .3, .3) * blink + vec3(.9) * .4) * smoothstep(2.6, .6, length(p - pp));
+  // three layers, far to near, fading into haze
+  vec2 cell; float top;
+  for (int L = 0; L < 3; L++) {
+    float fl = float(L);
+    float w = 44. + 26. * fl, base = hz + 28. * fl, lo = 90. - 20. * fl, hi = 330. - 70. * fl;
+    float b = building(p + vec2(t * (1.2 + fl * .8), 0.), w, base, lo, hi, fl * 13. + 1., cell, top);
+    if (b > 0.) {
+      vec3 sil = mix(vec3(.10, .10, .18), vec3(.025, .025, .05), fl / 2.);
+      sil += mix(vec3(1., .6, .4), m, .5) * .05 * (1. - fl / 2.) * exp(-(p.y - top) / 300.);
+      // windows: a grid, each one on or off, changing now and then
+      vec2 q = p + vec2(t * (1.2 + fl * .8), 0.); vec2 g = vec2(9. - fl, 13. - fl);
+      vec2 wc = floor((q - vec2(0., top)) / g); vec2 wf = fract((q - vec2(0., top)) / g);
+      float win = step(.25, wf.x) * step(wf.x, .7) * step(.3, wf.y) * step(wf.y, .75) * step(top + 10., p.y);
+      float slot = floor(t / (6. + 9. * hash(wc + cell)) + hash(wc * 1.7 + cell));
+      float lit = step(.72 + .1 * fl * 0., hash(wc + cell + slot * .37));
+      vec3 wcol = mix(vec3(1., .82, .55), m, .3) * (.32 + .35 * fl / 2.);
+      c = mix(c, sil, b) + win * lit * wcol * b;
+    }
+    c = mix(c, vec3(.1, .09, .16), .18 * (1. - fl / 2.) * smoothstep(hz - 150., hz + 60., p.y));   // haze
+  }
+  return c;
+}
+
+// a pine: tiers narrowing to its tip
+float pine(vec2 p, float x0, float base, float h, float w) {
+  float y = (p.y - (base - h)) / h; if (y < 0. || y > 1.02) return 0.;
+  float tier = fract(y * 5.); float width = w * (.18 + .82 * y) * (.62 + .38 * tier);
+  return smoothstep(width + 1., width - 1., abs(p.x - x0)) + step(abs(p.x - x0), w * .06) * step(.98, y);
+}
+vec3 forest(vec2 p) {
+  float t = uT; vec3 m = uMood;
+  vec3 c = mix(vec3(.02, .05, .09), vec3(.07, .14, .16), smoothstep(0., 620., p.y));
+  c += vec3(.85, .95, 1.) * .4 * stars(p, 40., .35, t) * (1. - smoothstep(200., 460., p.y));
+  c = moon(c, p, vec2(980., 150.), 34., vec3(.8, .95, .9));
+  for (int L = 0; L < 3; L++) {
+    float fl = float(L); float w = 70. - 14. * fl; float base = 560. + 70. * fl;
+    float spacing = 64. - 10. * fl; float col = floor(p.x / spacing);
+    float tree = 0.;
+    for (int k = -1; k <= 1; k++) {
+      float cc = col + float(k); float x0 = (cc + .5 + .35 * (hash(vec2(cc, fl)) - .5)) * spacing;
+      float h = (180. + 130. * hash(vec2(cc, fl + 3.))) * (1. + .35 * fl);
+      tree = max(tree, pine(p, x0, base + 30. * hash(vec2(cc, fl + 5.)), h, w * (.7 + .4 * hash(vec2(cc, fl + 7.)))));
+    }
+    float ground = smoothstep(base - 2., base + 2., p.y);
+    vec3 sil = mix(vec3(.07, .13, .15), vec3(.01, .025, .03), fl / 2.);
+    c = mix(c, sil, max(tree, ground));
+    // mist drifting between the layers
+    float mist = fbm(vec2(p.x * .004 + t * .012 * (1. + fl), p.y * .012 + fl * 4.)) ;
+    c += vec3(.55, .7, .72) * .09 * smoothstep(.45, .9, mist) * exp(-abs(p.y - base + 40.) / 70.) * (1. - fl * .3);
+  }
+  // fireflies, wandering on slow curves
+  for (int i = 0; i < 26; i++) {
+    float fi = float(i); vec2 b = vec2(hash(vec2(fi, 1.)) * 1334., 480. + hash(vec2(fi, 2.)) * 260.);
+    vec2 pos = b + vec2(sin(t * (.15 + .1 * hash(vec2(fi, 3.))) + fi) * 60., cos(t * (.2 + .1 * hash(vec2(fi, 4.))) + fi * 2.) * 26.);
+    float pulse = .5 + .5 * sin(t * (.7 + .6 * hash(vec2(fi, 5.))) + fi * 3.);
+    float d = length(p - pos);
+    c += mix(vec3(.85, 1., .5), m, .35) * pulse * (smoothstep(2.2, .4, d) * .9 + .16 * exp(-d / 9.));
+  }
+  return c;
+}
+
+vec3 ocean(vec2 p) {
+  float t = uT; vec3 m = uMood; float hz = 470.;
+  vec2 mc = vec2(900., 170.); vec3 mt = mix(vec3(.85, .9, 1.), m, .25);
+  if (p.y < hz) {
+    vec3 c = mix(vec3(.01, .02, .07), vec3(.06, .09, .2), smoothstep(0., hz, p.y));
+    c += vec3(.9, .93, 1.) * .55 * stars(p, 38., .38, t) * (1. - smoothstep(280., hz, p.y));
+    c += mt * .08 * exp(-abs(p.y - hz) / 60.);
+    return moon(c, p, mc, 40., mt);
+  }
+  float dy = p.y - hz;
+  vec3 c = mix(vec3(.03, .06, .14), vec3(.01, .02, .05), smoothstep(0., 280., dy));
+  // the moon's path on the water: thin lines that shimmer, wider nearer you
+  float spread = 30. + dy * .9;
+  float col = exp(-pow((p.x - mc.x) / spread, 2.));
+  float lines = smoothstep(.55, .85, noise(vec2(p.x * .025, dy * .55 - t * .5)) * .6 + noise(vec2(p.x * .06 + 3., dy * 1.3 - t * .9)) * .4);
+  c += mt * col * lines * (.7 - .4 * smoothstep(0., 280., dy));
+  // faint lines across the water, still
+  c += vec3(.25, .35, .5) * .05 * smoothstep(.6, .9, noise(vec2(p.x * .006, dy * .35)));
+  c += mt * .06 * exp(-dy / 12.);   // where sky meets sea
+  return c;
+}
+
+vec3 aurora(vec2 p) {
+  float t = uT; vec3 m = uMood;
+  vec3 c = mix(vec3(.01, .015, .05), vec3(.03, .06, .1), smoothstep(0., 600., p.y));
+  c += vec3(.9, .93, 1.) * .6 * stars(p, 32., .45, t);
+  // two curtains: a wavy lower edge, rays rising from it, rippling slowly
+  for (int k = 0; k < 2; k++) {
+    float fk = float(k);
+    float edge = 300. + 70. * fk + 55. * sin(p.x * .0045 + t * .07 + fk * 2.) + 40. * (fbm(vec2(p.x * .003 + t * .02, fk)) - .5);
+    float above = edge - p.y;
+    float shape = smoothstep(-6., 10., above) * exp(-max(above, 0.) / (130. + 60. * fk));
+    float rays = .45 + .55 * noise(vec2(p.x * .035 + t * .25 + fk * 9., fk));
+    vec3 green = mix(vec3(.2, 1., .55), m, .3), top = mix(vec3(.6, .3, .9), m, .35);
+    vec3 col = mix(green, top, smoothstep(0., 170., above));
+    c += col * shape * rays * (.55 - .2 * fk);
+  }
+  // snowy hills, catching a little of the light
+  float h1 = 600. + 30. * sin(p.x * .004 + 1.) + 18. * sin(p.x * .011);
+  float h2 = 660. + 22. * sin(p.x * .006 + 3.) + 12. * sin(p.x * .017 + 1.);
+  vec3 snow1 = vec3(.16, .2, .27) + mix(vec3(.2, 1., .55), m, .3) * .06, snow2 = vec3(.09, .11, .16);
+  c = mix(c, snow1 * (1. - .25 * smoothstep(h1, h1 + 80., p.y)), smoothstep(h1 - 1., h1 + 1., p.y));
+  c = mix(c, snow2, smoothstep(h2 - 1., h2 + 1., p.y));
+  return c;
+}
+
+vec3 desert(vec2 p) {
+  float t = uT; vec3 m = uMood;
+  vec3 c = mix(vec3(.04, .03, .1), mix(vec3(.32, .17, .2), m, .2), smoothstep(80., 560., p.y));
+  c += vec3(.95, .9, .85) * .5 * stars(p, 40., .38, t) * (1. - smoothstep(120., 380., p.y));
+  c = moon(c, p, vec2(360., 300.), 82., vec3(1., .88, .75));
+  // dunes, far to near: a ridge each, lit on the moon's side
+  for (int L = 0; L < 3; L++) {
+    float fl = float(L);
+    float base = 470. + 85. * fl;
+    float ridge = base - 40. * sin(p.x * (.0035 + .001 * fl) + fl * 2.) - 25. * sin(p.x * (.009 + .002 * fl) + fl) - 14. * fbm(vec2(p.x * .006, fl));
+    if (p.y > ridge) {
+      float slope = cos(p.x * (.0035 + .001 * fl) + fl * 2.);
+      vec3 sand = mix(vec3(.18, .11, .12), vec3(.05, .03, .05), fl / 2.);
+      sand += vec3(1., .82, .6) * .12 * clamp(-slope, 0., 1.) * (1. - fl * .25) * exp(-(p.y - ridge) / 90.);
+      c = sand;
+    }
+    // sand drifting off the crest
+    float drift = fbm(vec2(p.x * .01 - t * .25 * (1. + fl), p.y * .05));
+    c += vec3(1., .85, .7) * .05 * smoothstep(.55, .85, drift) * exp(-abs(p.y - ridge + 8.) / 10.);
+  }
+  return c;
+}
+
+vec3 stormy(vec2 p) {
+  float t = uT; vec3 m = uMood;
+  vec3 c = mix(vec3(.05, .06, .09), vec3(.1, .11, .14), smoothstep(0., 750., p.y));
+  // clouds, rolling slowly
+  float d1 = fbm(vec2(p.x * .0025 + t * .008, p.y * .004 + t * .002));
+  float d2 = fbm(vec2(p.x * .005 - t * .012, p.y * .007 + 5.));
+  float dens = smoothstep(.35, .85, d1 * .7 + d2 * .45);
+  c = mix(c, vec3(.15, .16, .2), dens * .8);
+  c *= .8 + .35 * (d2 - .5);
+  // lightning far off: now and then, a dim glow inside the clouds (two flickers), in the console's color
+  float period = 9.; float n = floor(t / period); float u = t - n * period - 2.5 * hash(vec2(n, 1.));
+  vec2 at = vec2(200. + 900. * hash(vec2(n, 2.)), 160. + 160. * hash(vec2(n, 3.)));
+  float env = (u > 0. ? exp(-u / .35) : 0.) + (u > .22 ? .7 * exp(-(u - .22) / .3) : 0.);
+  c += mix(vec3(.7, .75, 1.), m, .45) * .32 * env * dens * exp(-length(p - at) / 260.);
+  // fine rain, slanting
+  vec2 r = vec2(p.x + p.y * .18, p.y);
+  vec2 rc = vec2(floor(r.x / 7.), 0.); float speed = 900. + 400. * hash(rc);
+  float y = fract((r.y + t * speed + hash(rc + 3.) * 750.) / 120.);
+  float streak = smoothstep(.0, .02, y) * smoothstep(.16, .02, y) * step(abs(fract(r.x / 7.) - .5), .07) * step(.55, hash(rc + 9.));
+  c += vec3(.6, .65, .75) * .1 * streak;
+  return c;
+}
+
+void main() {
+  vec2 p = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y) * (vec2(1334., 750.) / uRes);
+  vec3 c;
+  if (uTheme < .5) c = space(p);
+  else if (uTheme < 1.5) c = city(p);
+  else if (uTheme < 2.5) c = forest(p);
+  else if (uTheme < 3.5) c = ocean(p);
+  else if (uTheme < 4.5) c = aurora(p);
+  else if (uTheme < 5.5) c = desert(p);
+  else c = stormy(p);
+  gl_FragColor = vec4(c, 1.);
+}`;
+
+const glc = document.getElementById('gl'), gl = glc.getContext('webgl', { antialias: false });
+function sh(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+const prog = gl.createProgram(); gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(prog); gl.useProgram(prog);
+const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+const loc = gl.getAttribLocation(prog, 'a'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+const U = n => gl.getUniformLocation(prog, n), uRes = U('uRes'), uT = U('uT'), uMood = U('uMood'), uTheme = U('uTheme');
+
+// ---------- Home's layer, roughly: the top bar, the row of cartridges, the selected one's name ----------
+const ui = document.getElementById('ui').getContext('2d');
+function homeLayer(acc) {
+  ui.clearRect(0, 0, 1334, 750); if (!state.home) return;
+  ui.fillStyle = 'rgba(238,241,255,.9)'; ui.beginPath(); ui.arc(64, 62, 24, 0, 7); ui.fill();
+  ['Library', 'Apps', 'Museum', 'Settings'].forEach((n, i) => { const x = 520 + i * 98; ui.fillStyle = 'rgba(238,241,255,.10)'; ui.beginPath(); ui.arc(x, 62, 38, 0, 7); ui.fill();
+    ui.strokeStyle = 'rgba(238,241,255,.18)'; ui.lineWidth = 1; ui.stroke(); });
+  ui.fillStyle = '#eef1ff'; ui.font = '600 22px system-ui'; ui.textAlign = 'right'; ui.fillText('9:41', 1270, 70); ui.textAlign = 'left';
+  for (let i = 0; i < 5; i++) {
+    const big = i === 0, w = big ? 250 : 170, h = big ? 270 : 184, x = 150 + (big ? 0 : 290 + (i - 1) * 205) - w / 2 + (big ? 0 : 0), y = (big ? 324 : 348) - h / 2;
+    ui.save(); if (big) { ui.shadowColor = acc; ui.shadowBlur = 34; }
+    ui.fillStyle = big ? '#bdb8c8' : '#7c7a86'; ui.beginPath(); ui.roundRect(x, y, w, h, 16); ui.fill(); ui.restore();
+    ui.fillStyle = `hsl(${(i * 67 + 220) % 360},45%,${big ? 45 : 30}%)`; ui.beginPath(); ui.roundRect(x + w * .12, y + h * .1, w * .76, h * .55, 8); ui.fill();
+    ui.fillStyle = 'rgba(0,0,0,.35)'; ui.beginPath(); ui.ellipse(x + w / 2, y + h + 26, w * .45, 9, 0, 0, 7); ui.fill();
+  }
+  ui.fillStyle = '#eef1ff'; ui.font = '700 38px system-ui'; ui.fillText('Star Voyage', 60, 530);
+  ui.fillStyle = '#9aa2cc'; ui.font = '20px system-ui'; ui.fillText('Game Boy Advance  ·  Played 2 hours ago', 60, 570);
+}
+
+// ---------- controls ----------
+const state = { theme: 0, acc: CONSOLES[0][1], home: true, still: false };
+try { const s = JSON.parse(localStorage.getItem('shelf-themes') || '{}'); Object.assign(state, s); } catch (e) {}
+function save() { try { localStorage.setItem('shelf-themes', JSON.stringify(state)); } catch (e) {} }
+const tb = document.getElementById('themes'), cb = document.getElementById('consoles');
+THEMES.forEach((t, i) => { const b = document.createElement('button'); b.className = 'pill'; b.textContent = t.name; b.onclick = () => { state.theme = i; refresh(); }; tb.appendChild(b); });
+CONSOLES.forEach(([n, c]) => { const b = document.createElement('button'); b.className = 'dot'; b.style.background = c; b.title = n; b.setAttribute('aria-label', n); b.onclick = () => { state.acc = c; refresh(); }; cb.appendChild(b); });
+document.getElementById('homeLayer').onclick = () => { state.home = !state.home; refresh(); };
+document.getElementById('pause').onclick = () => { state.still = !state.still; refresh(); };
+addEventListener('keydown', e => { if (e.key === 'ArrowRight') { state.theme = (state.theme + 1) % THEMES.length; refresh(); } if (e.key === 'ArrowLeft') { state.theme = (state.theme + THEMES.length - 1) % THEMES.length; refresh(); } });
+function refresh() {
+  [...tb.querySelectorAll('button')].forEach((b, i) => b.setAttribute('aria-pressed', i === state.theme));
+  [...cb.querySelectorAll('button')].forEach((b, i) => b.setAttribute('aria-pressed', CONSOLES[i][1] === state.acc));
+  document.getElementById('homeLayer').setAttribute('aria-pressed', state.home);
+  document.getElementById('pause').setAttribute('aria-pressed', state.still);
+  document.getElementById('about').innerHTML = THEMES[state.theme].about;
+  homeLayer(state.acc); save();
+}
+refresh();
+
+// ---------- drawing ----------
+let t = 0, last = performance.now();
+const params = new URLSearchParams(location.search);   // for testing: ?t=seconds&theme=n holds a moment
+function frame(now) {
+  const dt = Math.min(.05, (now - last) / 1000); last = now; if (!state.still) t += dt;
+  const T = params.has('t') ? +params.get('t') : t, th = params.has('theme') ? +params.get('theme') : state.theme;
+  gl.viewport(0, 0, glc.width, glc.height);
+  gl.uniform2f(uRes, glc.width, glc.height); gl.uniform1f(uT, T + 40.); gl.uniform3fv(uMood, hex(state.acc)); gl.uniform1f(uTheme, th);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  window.drawn = (window.drawn || 0) + 1;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
