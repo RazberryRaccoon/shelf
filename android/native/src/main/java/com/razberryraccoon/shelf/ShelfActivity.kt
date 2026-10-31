@@ -258,6 +258,11 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
     }
 
     override fun hasStorage() = Environment.isExternalStorageManager()
+    override fun isHomeApp() = try { packageManager.resolveActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)?.activityInfo?.packageName == packageName } catch (e: Exception) { false }
+    override fun chooseHomeApp() {
+        try { startActivity(Intent(Settings.ACTION_HOME_SETTINGS)) }
+        catch (e: Exception) { try { startActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)) } catch (e2: Exception) { toast("Choose a home app in Android's Settings › Apps › Default apps") } }
+    }
     override fun artChanged() = home.refreshPicture()
     override fun toast(msg: String) = home.show(msg)
 

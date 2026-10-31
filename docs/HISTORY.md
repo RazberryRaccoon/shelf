@@ -592,6 +592,15 @@ opening edge, and a coloured test spine in the new render confirms the fix.
 **0.24, fixed:** the Library crashed as it opened: `byName`, a stored comparator declared below `init`, was still null
 when `init` sorted the first list (the init-order trap again; it's a getter now).
 
+**0.29: an overnight round on my own** (the user asleep: "work on whatever you think would improve it"). Apps
+(`Apps.kt`, a Canvas grid; icons read on a thread at 126 px; the open fade is a `Curtain`); Android games
+(`Games.appGame`: path `app://<package>/<name>.app`, so Meta's folder name is the app's name; "android" joined
+`Games.NAMES`, kept out of Setup's folders and emulators; `Games.launch` opens the package); the HOME intent filter
+and `Setup.Host.chooseHomeApp`; themes (`Theme.LOOKS`, tuned on a canvas port of backdrop.mat's math, no new
+material); sound packs (`Sounds.synth` voices, cached per pack); play time (`Games.playTime`, from `Launch` start to
+`back`); Surprise me; Home's L1/R1. The Apps layout was checked on a canvas copy of its drawing; nothing tonight was
+run on the device.
+
 **0.28: the user's notes on 0.27.** The box "flying away" was a bandage: the console still rose through the page's
 cartridge (it floats at x 350, up to 400 px across; the console rises at 667, about 550 across). Now `Launch.wait`: a
 spot beside the console's screen rectangle (taken over its rest, turned, rising-turn, smaller and overshoot poses),

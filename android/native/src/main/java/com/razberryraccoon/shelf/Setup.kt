@@ -38,6 +38,9 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         fun artChanged()
         /** Your collections and hidden games (Settings › Library). */
         fun collections(): Collections
+        /** Whether Shelf is the home screen now, and Android's screen for choosing it. */
+        fun isHomeApp(): Boolean
+        fun chooseHomeApp()
     }
 
     private enum class Step { WELCOME, WHO, GAMES, EMUS, DONE, HOME, LIBRARY, PAGES, LIGHT, MEDIA, SOURCE, SAVED, SYSTEM }
@@ -237,6 +240,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                 rows += Options.Row("sounds", "Sounds", value = if (games.sounds) "On" else "Off", sub = "Soft clicks and chimes as you move around")
                 if (games.sounds) rows += Options.Row("soundpack", "Sound pack", value = "‹  ${Sounds.PACKS[games.soundPack.coerceIn(0, Sounds.PACKS.size - 1)]}  ›",
                     sub = PACK_SUB[games.soundPack.coerceIn(0, PACK_SUB.size - 1)])
+                rows += Options.Row("homescreen", "Home screen", value = if (host.isHomeApp()) "Shelf" else "Choose", sub = "Make Shelf what the Home button opens: Android's own choice of home app")
                 rows += Options.Row("again", "Run first-time setup again")
                 rows += Options.Row("none", "Version", value = try { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName } catch (e: Exception) { "" })
             }
@@ -402,6 +406,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             "hiddenentry" -> { host.collections().let { it.hiddenEntry = !it.hiddenEntry }; fill() }
             "changecode" -> host.collections().let { c -> GameCard.askCode(ctx, c) { GameCard.chooseCode(ctx, c, "Choose a new code", "Four presses of the d-pad and A, B, X, Y.") { host.toast("Code changed"); fill() } } }
             "resetcode" -> host.collections().let { c -> GameCard.chooseCode(ctx, c, "Choose a new code", "Four presses of the d-pad and A, B, X, Y.") { host.toast("Code set"); fill() } }
+            "homescreen" -> host.chooseHomeApp()
             "sounds" -> { games.sounds = !games.sounds; Sounds.enabled = games.sounds; Sounds.play(Sounds.PICK); fill() }
             "art-reset" -> { games.artKind = "shot"; games.artBright = Art.BRIGHT; games.artTop = Art.TOP; games.artFade = Art.FADE; games.artFadeType = Art.DOTS; games.artPan = Art.PAN; host.artChanged(); fill() }
             "light-reset" -> { games.lightEnv = Look.ENV; games.lightBright = Look.BRIGHT; games.lightKey = Look.KEY; applyLight(); fill() }

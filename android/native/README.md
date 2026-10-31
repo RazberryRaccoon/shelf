@@ -52,6 +52,28 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
+## What's in version 0.29
+
+Made overnight on my own (the user: "work on whatever you think would improve it… pretend I'm here"), on top of 0.28:
+1. **Apps** (the top bar's Apps button, which only said "later" before): every app on the handheld as icons on soft
+   plates, the ones you opened lately first, then A to Z. The chosen one lifts, floats and glows in Android green. A
+   opens it through a short fade (and Shelf fades back in when you return). X hides the emulators. Y: Open, Make it a
+   game, App info. L1 and R1 jump between the two groups.
+2. **Android games** (spec §10): Y › Make it a game turns an app into one of your games, with the Android cartridge
+   and box, the Android handheld's start animation, a place on Home and in the Library (Android), and art from the
+   art services where they have it. Game settings › Move back to Apps undoes it.
+3. **Shelf as your home screen:** Android now offers Shelf Native when you press Home; Settings › System › Home screen
+   opens Android's choice of home app.
+4. **Themes** (from the "eventually" list): Settings › Home › Theme: Space, Midnight, Aurora, Dusk, Deep sea, Ember.
+   Each is a background tone and a color the nebula and planet lean toward; panels take on the background.
+5. **Sound packs** (from the list): Settings › System › Sound pack: Soft (as before), Glass (bell-like), Wood
+   (marimba), Bubble (each note glides up into place). All made on the handheld from tones, as before.
+6. **Play time:** how long you've played each game (from the game starting to coming back) shows on its page and
+   under its box in the Library; a new order, Most time played.
+7. **Surprise me:** a pill in the Library that picks a game from the list at random (leaning toward ones you haven't
+   played lately) and glides to it.
+8. **L1 and R1 on Home** open the Library and Settings (spec §4).
+
 ## What's in version 0.28
 
 The user's notes on 0.27:
