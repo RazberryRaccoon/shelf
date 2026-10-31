@@ -121,8 +121,20 @@ class Meta(private val ctx: Context, private val games: Games) {
     }
 
     /** The closest names in libretro's list, for Game settings › Which game is this? (call off the main thread). */
-    fun candidates(g: Game): List<String> = try { ArtIndex.load(g.sys, ctx.cacheDir).search(g.title, 8).map { it.e.name } } catch (e: Exception) { emptyList() }
-    fun loadCandidates(g: Game, then: (List<String>) -> Unit) = work.execute { val c = candidates(g); ui.post { then(c) } }
+    /**
+     * The closest names in libretro's list to `query` (the game's own name unless you typed one), and what went wrong
+     * if nothing came back: the list couldn't be downloaded, the console has none (Android games), or no name is close
+     * (it looks again, less strictly, first). It used to say "check the internet" for all three.
+     */
+    fun candidates(g: Game, query: String = g.title): Pair<List<String>, String?> {
+        val ix = try { ArtIndex.load(g.sys, ctx.cacheDir) } catch (e: Exception) {
+            return emptyList<String>() to (if (g.sys == "android") "libretro has no list of Android games. Media › its pictures can come from SteamGridDB and the other services."
+                else "Couldn’t download libretro’s list of ${Games.NAMES[g.sys] ?: g.sys} games. Check the internet connection, and try again.")
+        }
+        val names = try { ix.search(query, 8).ifEmpty { ix.search(query, 12, .12) }.map { it.e.name } } catch (e: Exception) { emptyList() }
+        return names to (if (names.isEmpty()) "Nothing in libretro’s list is close to “$query”. Try typing its name." else null)
+    }
+    fun loadCandidates(g: Game, query: String = g.title, then: (List<String>, String?) -> Unit) = work.execute { val (c, why) = candidates(g, query); ui.post { then(c, why) } }
 
     private fun lookUp(g: Game): Info {
         val ix = ArtIndex.load(g.sys, ctx.cacheDir)

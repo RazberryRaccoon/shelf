@@ -72,6 +72,15 @@ class Backdrop(ctx: Context, private val stage: Stage) {
     var shade = 0f
     /** Lighter drawing (Settings › Smoothness › Smoothest): the stars hold still. */
     var lite = false
+    /** Settings › Smoothness (0 best looks .. 2 smoothest): how big, and how often, the other themes are drawn (Sky). */
+    var smooth = 1
+    /** The theme environments other than Space, drawn into a texture of their own. */
+    val scenery = Sky(stage)
+    /** How much it's day (0..1), easing toward the theme's time of day (Theme.dayTarget) over a couple of seconds. */
+    var day = Theme.dayTarget(); private set
+    private var clockIn = 0f; private var dayWant = day
+    /** Called when day turns to night or back (Music changes Forest's birds for crickets). */
+    var onDayChange: ((Boolean) -> Unit)? = null
 
     // the sky: one quad far bigger than any screen, its corners labeled with their layout pixels, so the shader knows
     // where each pixel is; the stage's camera for the backdrop shows just the screen's part of it
@@ -82,15 +91,16 @@ class Backdrop(ctx: Context, private val stage: Stage) {
 
     init {
         sky.setParameter("stars", starTexture(), clamp)
-        theme()
+        sky.setParameter("sky", blank, clamp)
         RenderableManager.Builder(1).boundingBox(Box(1000f, 0f, 0f, 5000f, 5000f, 1f)).culling(false).priority(0)
             .geometry(0, RenderableManager.PrimitiveType.TRIANGLES, quad.vb, quad.ib).material(0, sky).build(engine, skyEntity)
         stage.backScene.addEntity(skyEntity)
         tick(0f)
     }
 
-    /** The theme's background (after Theme.setLook). */
-    fun theme() = sky.setParameter("bg", Color.red(Theme.bg) / 255f, Color.green(Theme.bg) / 255f, Color.blue(Theme.bg) / 255f)
+    /** The theme or its time of day changed (Settings): the sky moves to it now, easing from day to night if that changed. */
+    fun theme(snap: Boolean = false) { sky.setParameter("bg", Color.red(Theme.bg) / 255f, Color.green(Theme.bg) / 255f, Color.blue(Theme.bg) / 255f)
+        clockIn = 0f; if (snap) { dayWant = Theme.dayTarget(); day = dayWant } }
 
     fun tick(dt: Float) {
         time += dt
@@ -98,10 +108,16 @@ class Backdrop(ctx: Context, private val stage: Stage) {
         panT += dt * pan
         picT = minOf(1f, picT + dt / .45f)
         // the sky
-        // the theme leans the console's color toward its own, and sets how bright the nebula is
-        val l = Theme.look
-        fun ch(c: Int, t: Int) = (c / 255f * (1 - l.tintK) + t / 255f * l.tintK) * l.glow
-        sky.setParameter("mood", ch(Color.red(mood), Color.red(l.tint)), ch(Color.green(mood), Color.green(l.tint)), ch(Color.blue(mood), Color.blue(l.tint)))
+        val mf = floatArrayOf(Color.red(mood) / 255f, Color.green(mood) / 255f, Color.blue(mood) / 255f)
+        sky.setParameter("mood", mf[0], mf[1], mf[2])
+        // day and night: the clock looked at every half minute (Automatic), the change eased over a couple of seconds
+        clockIn -= dt; if (clockIn <= 0f) { clockIn = 30f; dayWant = Theme.dayTarget() }
+        val was = day > .5f; day += (dayWant - day) * minOf(1f, dt * 1.6f); if (kotlin.math.abs(dayWant - day) < .002f) day = dayWant
+        if ((day > .5f) != was) onDayChange?.invoke(day > .5f)
+        sky.setParameter("day", day)
+        // another theme: its scene, drawn into its own texture (Sky); Space is drawn here
+        val env = scenery.frame(dt, Theme.env, day, mf, smooth)
+        sky.setParameter("skyOn", if (env != null) 1f else 0f); sky.setParameter("sky", env ?: blank, clamp)
         sky.setParameter("twinkle", if (lite) -1f else time * .6f)
         sky.setParameter("shade", shade)
         // the picture, panning diagonally from its top left to its bottom right: there and back, about 28 seconds each

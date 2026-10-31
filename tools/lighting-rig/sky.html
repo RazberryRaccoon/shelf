@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Sky check</title>
+<style>html, body { margin: 0; background: #000; } canvas { display: block; width: 1334px; height: 750px; }</style></head>
+<body><canvas id="c" width="1334" height="750"></canvas>
+<script src="filament.js"></script>
+<script>
+// The app's theme pipeline, as Sky.kt and Backdrop.kt build it: sky.filamat drawn into a smaller texture by a view of
+// its own, then backdrop.filamat laying that texture over the screen. ?theme=1..6&day=0..1&t=seconds&k=texture scale
+// node shot.mjs "sky.html?theme=2&day=1" out.png
+const q = new URLSearchParams(location.search);
+const W = 1334, H = 750, K = +(q.get('k') ?? .75), SW = Math.round(W * K), SH = Math.round(H * K);
+Filament.init(['sky.filamat', 'backdrop.filamat'], () => {
+  const canvas = document.getElementById('c'); canvas.getContext('webgl2', { antialias: false });
+  const engine = Filament.Engine.create(canvas), renderer = engine.createRenderer(), swap = engine.createSwapChain();
+  renderer.setClearOptions({ clearColor: [0, 0, 0, 1], clear: true });
+  const EM = Filament.EntityManager.get();
+  function quad(mi, pts, uv) {
+    const vb = Filament.VertexBuffer.Builder().vertexCount(4).bufferCount(1)
+      .attribute(Filament.VertexAttribute.POSITION, 0, Filament.VertexBuffer$AttributeType.FLOAT3, 0, 20)
+      .attribute(Filament.VertexAttribute.UV0, 0, Filament.VertexBuffer$AttributeType.FLOAT2, 12, 20).build(engine);
+    const d = []; pts.forEach(([x, y], i) => d.push(x, y, 0, uv[i][0], uv[i][1])); vb.setBufferAt(engine, 0, new Float32Array(d));
+    const ib = Filament.IndexBuffer.Builder().indexCount(6).bufferType(Filament.IndexBuffer$IndexType.USHORT).build(engine); ib.setBuffer(engine, new Uint16Array([0, 1, 2, 2, 1, 3]));
+    const e = EM.create();
+    Filament.RenderableManager.Builder(1).boundingBox({ center: [0, 0, 0], halfExtent: [9000, 9000, 1] }).culling(false).material(0, mi)
+      .geometry(0, Filament.RenderableManager$PrimitiveType.TRIANGLES, vb, ib).build(engine, e);
+    return e;
+  }
+  function tex(w, h, fmt, pf, data) {
+    const t = Filament.Texture.Builder().width(w).height(h).levels(1).sampler(Filament.Texture$Sampler.SAMPLER_2D).format(fmt).build(engine);
+    t.setImage(engine, 0, Filament.PixelBuffer(data, pf, Filament.PixelDataType.UBYTE)); return t;
+  }
+  // the noise: 256 × 256 random bytes (Sky.kt makes the same with its own random numbers)
+  let seed = 7; const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  const nz = new Uint8Array(256 * 256); for (let i = 0; i < nz.length; i++) nz[i] = Math.floor(rnd() * 256);
+  const noise = tex(256, 256, Filament.Texture$InternalFormat.R8, Filament.PixelDataFormat.R, nz);
+  const repeat = new Filament.TextureSampler(Filament.MinFilter.LINEAR, Filament.MagFilter.LINEAR, Filament.WrapMode.REPEAT);
+  const clampS = new Filament.TextureSampler(Filament.MinFilter.LINEAR, Filament.MagFilter.LINEAR, Filament.WrapMode.CLAMP_TO_EDGE);
+  // the sky's own view, into its texture
+  const skyTex = Filament.Texture.Builder().width(SW).height(SH).levels(1).sampler(Filament.Texture$Sampler.SAMPLER_2D)
+    .format(Filament.Texture$InternalFormat.RGBA8).usage(1 | 16).build(engine);
+  const rt = Filament.RenderTarget.Builder().texture(Filament.RenderTarget$AttachmentPoint.COLOR, skyTex).build(engine);
+  const skyScene = engine.createScene(), skyCam = engine.createCamera(EM.create()), skyView = engine.createView();
+  skyCam.setProjection(Filament.Camera$Projection.ORTHO, 0, 1, 0, 1, 0, 10); skyCam.lookAt([0, 0, 5], [0, 0, 0], [0, 1, 0]);
+  skyView.setScene(skyScene); skyView.setCamera(skyCam); skyView.setViewport([0, 0, SW, SH]); skyView.setRenderTarget(rt); skyView.setPostProcessingEnabled(false);
+  const sm = engine.createMaterial('sky.filamat').createInstance();
+  sm.setFloatParameter('theme', +(q.get('theme') ?? 2)); sm.setFloatParameter('day', +(q.get('day') ?? 1)); sm.setFloatParameter('time', +(q.get('t') ?? 46));
+  sm.setFloat3Parameter('mood', [.67, .6, 1]); sm.setFloat3Parameter('flash', [+(q.get('flash') ?? 0), 600, 220]);
+  sm.setTextureParameter('noise', noise, repeat);
+  skyScene.addEntity(quad(sm, [[0, 0], [1, 0], [0, 1], [1, 1]], [[0, 0], [1, 0], [0, 1], [1, 1]]));
+  // the backdrop on the screen, as Backdrop.kt: layout pixels, y down (so world y is minus layout y)
+  const backScene = engine.createScene(), backCam = engine.createCamera(EM.create()), backView = engine.createView();
+  backCam.setProjection(Filament.Camera$Projection.ORTHO, 0, W, -H, 0, 0, 10); backCam.lookAt([0, 0, 5], [0, 0, 0], [0, 1, 0]);
+  backView.setScene(backScene); backView.setCamera(backCam); backView.setViewport([0, 0, W, H]); backView.setPostProcessingEnabled(false);
+  const bm = engine.createMaterial('backdrop.filamat').createInstance();
+  const blank = tex(1, 1, Filament.Texture$InternalFormat.RGBA8, Filament.PixelDataFormat.RGBA, new Uint8Array(4));
+  const blankR = tex(1, 1, Filament.Texture$InternalFormat.R8, Filament.PixelDataFormat.R, new Uint8Array(1));
+  const blankRG = tex(1, 1, Filament.Texture$InternalFormat.RG8, Filament.PixelDataFormat.RG, new Uint8Array(2));
+  bm.setFloat3Parameter('mood', [.67, .6, 1]); bm.setFloat3Parameter('bg', [7 / 255, 11 / 255, 30 / 255]); bm.setFloatParameter('twinkle', -1); bm.setFloatParameter('shade', 0);
+  bm.setTextureParameter('stars', blankRG, clampS); bm.setTextureParameter('pic', blank, clampS); bm.setTextureParameter('picFrom', blank, clampS); bm.setTextureParameter('mask', blankR, clampS);
+  bm.setFloat4Parameter('picUv', [0, 0, 0, 0]); bm.setFloat4Parameter('fromUv', [0, 0, 0, 0]); bm.setFloat2Parameter('picA', [0, 0]); bm.setFloat3Parameter('dim', [1, 1, 1]); bm.setFloat2Parameter('picBox', [424, 326]);
+  const theme = +(q.get('theme') ?? 2);
+  bm.setFloatParameter('day', +(q.get('day') ?? 1)); bm.setFloatParameter('skyOn', theme > 0 ? 1 : 0); bm.setTextureParameter('sky', skyTex, clampS);
+  const L = [[-4000, -4000], [6000, -4000], [-4000, 6000], [6000, 6000]];
+  backScene.addEntity(quad(bm, L.map(([x, y]) => [x, -y]), L));
+  let n = 0;
+  function frame() { if (renderer.beginFrame(swap)) { if (theme > 0) renderer.renderView(skyView); renderer.renderView(backView); renderer.endFrame(); }
+    engine.execute(); if (++n < 6) requestAnimationFrame(frame); else window.done = true; }
+  requestAnimationFrame(frame);
+});
+</script></body></html>

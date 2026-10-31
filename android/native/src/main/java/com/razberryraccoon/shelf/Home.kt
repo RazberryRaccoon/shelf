@@ -441,6 +441,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
 
     private fun text(size: Float, face: android.graphics.Typeface, color: Int) = TextView(ctx).apply {
         setTextSize(TypedValue.COMPLEX_UNIT_PX, size); typeface = face; setTextColor(color); includeFontPadding = false
+        setShadowLayer(12f, 0f, 2f, Color.argb(130, 0, 0, 0))   // a soft shadow: readable over the bright day themes too (0.31)
     }
     private fun hint(btn: String, say: String) = LinearLayout(ctx).apply {
         orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL

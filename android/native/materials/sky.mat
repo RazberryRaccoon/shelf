@@ -1,0 +1,295 @@
+// Shelf's theme environments (Settings › Home › Theme): City, Forest, Ocean, Aurora, Desert and Stormy, each by day
+// and by night (`day` eases between them). Drawn into a texture of their own (Sky.kt), smaller than the screen and, on
+// the lighter Smoothness settings, every other frame; backdrop.mat lays it under Home's picture. The same math as the
+// theme viewer (prototypes/shelf-themes.html), in layout pixels (1334 × 750, y down), except that the random numbers
+// and the noise come from a small texture instead of sin(), which is much cheaper on a handheld's GPU.
+// Compile with build.sh (Filament's matc 1.75.1).
+material {
+    name : sky,
+    shadingModel : unlit,
+    blending : opaque,
+    culling : none,
+    depthWrite : false,
+    depthCulling : false,
+    parameters : [
+        { type : float, name : theme },      // 1 city .. 6 stormy
+        { type : float, name : day },        // 0 night .. 1 day
+        { type : float, name : time },       // seconds (wrapped every two hours)
+        { type : float3, name : mood },      // the selected console's color
+        { type : float3, name : flash },     // the lightning: how bright, and where (x, y)
+        { type : sampler2d, name : noise }   // 256 × 256 random values, repeating
+    ]
+}
+
+fragment {
+    #define T materialParams.time
+    #define MOOD materialParams.mood
+    #define FLASH materialParams.flash
+
+    highp float hash(highp vec2 p) { return texelFetch(materialParams_noise, ivec2(mod(floor(p), 256.0)), 0).r; }
+    // value noise: the texture's linear filtering does the blending, its weights eased so there are no creases
+    highp float noise(highp vec2 p) { highp vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
+        return texture(materialParams_noise, (mod(i, 256.0) + u + 0.5) / 256.0).r; }
+    highp float fbm(highp vec2 p) { float v = 0.0, a = 0.5; for (int i = 0; i < 4; i++) { v += a * noise(p); p = p * 2.03 + 17.0; a *= 0.5; } return v; }
+    float aa(float x) { return clamp(x + 0.5, 0.0, 1.0); }
+    float stars(highp vec2 p, float cell, float prob, highp float t) {
+        highp vec2 c = floor(p / cell); float h = hash(c); if (h > prob) return 0.0;
+        highp vec2 pos = (c + vec2(hash(c + 3.0), hash(c + 7.0))) * cell; float r = 0.5 + 0.9 * hash(c + 1.0);
+        float tw = 0.55 + 0.45 * sin(t * (0.5 + 1.4 * hash(c + 9.0)) + h * 40.0);
+        return smoothstep(r + 0.9, r - 0.3, length(p - pos)) * tw;
+    }
+    vec3 moon(vec3 col, highp vec2 p, vec2 c, float r, vec3 tint) {
+        float d = length(p - c);
+        col += tint * 0.18 * exp(-max(d - r, 0.0) / (r * 1.2));
+        if (d > r + 1.0) return col;
+        float shade = 0.82 + 0.18 * fbm((p - c) / r * 3.0);
+        return mix(col, vec3(0.92, 0.93, 0.96) * shade, smoothstep(r + 1.0, r - 1.0, d));
+    }
+    vec3 sun(vec3 col, highp vec2 p, vec2 c, float r, vec3 tint) {
+        float d = length(p - c);
+        col += tint * (0.32 * exp(-max(d - r, 0.0) / (r * 1.4)) + 0.1 * exp(-d / (r * 9.0)));
+        return mix(col, vec3(1.0, 0.97, 0.88), smoothstep(r + 1.0, r - 1.0, d));
+    }
+    float clouds(highp vec2 p, highp float t, float y0, float y1, float k) {
+        if (p.y > y1 || p.y < y0 - 60.0) return 0.0;
+        float n = fbm(vec2(p.x * 0.0016 + t * 0.005 + k, p.y * 0.0055 + k * 3.0)) * 0.75 + fbm(vec2(p.x * 0.006 + t * 0.008, p.y * 0.014 + k)) * 0.25;
+        return smoothstep(0.52, 0.78, n) * smoothstep(y0 - 60.0, y0 + 40.0, p.y) * (1.0 - smoothstep(y1 - 80.0, y1, p.y));
+    }
+
+    // a layer of buildings: their outline (soft-edged, so they glide smoothly), from a column's width and a height range
+    float building(vec2 p, float w, float base, float lo, float hi, float seed, out vec2 cell, out float top, out float xf) {
+      float col = floor(p.x / w); float h = lo + (hi - lo) * pow(hash(vec2(col, seed)), 1.4);
+      float x0 = col * w; float inset = 1.5 + w * .08 * hash(vec2(col, seed + 2.));
+      top = base - h; cell = vec2(col, seed); xf = (p.x - x0 - inset) / (w - 2. * inset);
+      float inside = aa(p.y - top) * aa(p.x - x0 - inset) * aa(x0 + w - inset - p.x);
+      float mast = step(.8, hash(vec2(col, seed + 5.))) * aa(1.2 - abs(p.x - x0 - w * .5)) * aa(p.y - top + 26.) * aa(top - p.y + .5);
+      return max(inside, mast);
+    }
+    vec3 city(vec2 p, float D) {
+      float t = T, N = 1. - D; vec3 m = MOOD; float hz = 600.;
+      vec3 c = mix(mix(vec3(.02, .03, .08), vec3(.27, .50, .80), D), mix(vec3(.11, .08, .17), vec3(.74, .82, .90), D), smoothstep(0., hz, p.y));
+      c += mix(mix(vec3(1., .6, .4), m, .5) * .16, mix(vec3(1., .8, .6), m, .3) * .07, D) * exp(-abs(p.y - hz + 40.) / 140.);   // the glow over the city
+      c += vec3(.9, .92, 1.) * .35 * N * stars(p, 46., .3, t) * (1. - smoothstep(150., 420., p.y));
+      if (N > .01) c = mix(c, moon(c, p, vec2(1040., 130.), 26., m), N);
+      if (D > .01) c = mix(c, sun(c, p, vec2(1060., 120.), 30., vec3(1., .88, .65)), D);
+      c = mix(c, mix(vec3(.13, .12, .2), vec3(.98, .98, 1.), D), clouds(p, t, 60., 470., 1.) * mix(.35, .8, D));
+      // a plane crossing slowly (about every minute): its lights at night, a small dark speck by day
+      float px = mod(t * 28., 1700.) - 180.; vec2 pp = vec2(px, 118. + px * .03);
+      float blink = step(.82, fract(t * .9)); float pd = length(p - pp);
+      c += N * (vec3(1., .3, .3) * blink + vec3(.9) * .4) * smoothstep(2.6, .6, pd);
+      c = mix(c, vec3(.3, .33, .4), D * smoothstep(2.2, .8, pd));
+      // three layers, far to near, fading into haze; each drifts a little slower than the one in front
+      vec2 cell; float top, xf;
+      for (int L = 0; L < 3; L++) {
+        float fl = float(L);
+        float w = 44. + 26. * fl, base = hz + 28. * fl, lo = 90. - 20. * fl, hi = 330. - 70. * fl;
+        vec2 q = p + vec2(t * (1.2 + fl * .8), 0.);
+        float b = building(q, w, base, lo, hi, fl * 13. + 1., cell, top, xf);
+        if (b > 0.) {
+          vec3 sil = mix(mix(vec3(.10, .10, .18), vec3(.025, .025, .05), fl / 2.), mix(vec3(.56, .64, .76), vec3(.19, .25, .35), fl / 2.), D);
+          sil += mix(mix(vec3(1., .6, .4), m, .5) * .05 * (1. - fl / 2.) * exp(-(p.y - top) / 300.), vec3(.09, .08, .05) * smoothstep(.55, .62, xf), D);   // day: the sunlit side
+          // windows: a grid, each one lit or dark at night, fading over a moment when it changes; by day, glass catching the sky
+          vec2 g = vec2(9. - fl, 13. - fl);
+          vec2 wc = floor((q - vec2(0., top)) / g); vec2 wf = fract((q - vec2(0., top)) / g);
+          float win = aa((wf.x - .25) * g.x) * aa((.7 - wf.x) * g.x) * aa((wf.y - .3) * g.y) * aa((.75 - wf.y) * g.y) * aa(p.y - top - 10.);
+          float per = 6. + 9. * hash(wc + cell), ph = t / per + hash(wc * 1.7 + cell), slot = floor(ph);
+          float lit = mix(step(.72, hash(wc + cell + vec2(7., 3.) * (slot - 1.))), step(.72, hash(wc + cell + vec2(7., 3.) * slot)), smoothstep(0., .07, fract(ph)));
+          vec3 wcol = mix(mix(vec3(1., .82, .55), m, .3) * (.32 + .35 * fl / 2.) * lit, (vec3(.75, .85, .95) - sil) * (.18 + .12 * hash(wc + cell + 4.)), D);
+          c = mix(c, sil, b) + win * wcol * b;
+        }
+        c = mix(c, mix(vec3(.1, .09, .16), vec3(.72, .8, .88), D), .18 * (1. - fl / 2.) * smoothstep(hz - 150., hz + 60., p.y));   // haze
+      }
+      return c;
+    }
+
+    // a tall conifer (hemlock, spruce): tiers of drooping boughs narrowing to its tip; how much of the pixel it covers
+    float conifer(vec2 p, float x0, float base, float h, float w, float seed) {
+      float y = (p.y - (base - h)) / h; if (y < -.02 || y > 1.) return 0.;
+      // uneven tiers, each bough ragged and drooping, so it reads as a real tree rather than a cut-out
+      float ty = y * (9. + 5. * hash(vec2(seed, 1.))) + 1.3 * noise(vec2(y * 6., seed)) + .3 * hash(vec2(seed, 2.));
+      float tier = pow(fract(ty), .7);
+      float side = sign(p.x - x0);
+      float width = w * (.05 + .95 * pow(max(y, 0.), .85)) * (.5 + .5 * tier) * (.7 + .5 * noise(vec2(p.y * .16 + side * 7., seed))) * (.85 + .3 * noise(vec2(floor(ty) * 3.1 + side, seed)));
+      return aa(width - abs(p.x - x0)) * aa(p.y - (base - h)) + aa(w * .05 - abs(p.x - x0)) * step(.9, y);
+    }
+    // an Appalachian ridge: long rolling lines, its top a fringe of treetops (the nearer, the bigger they are)
+    float ridgeline(float x, float base, float amp, float fl) {
+      float r = base - amp * (fbm(vec2(x * .0018 + fl * 3.1, fl)) - .35) * 2.2;
+      float s = 1. + fl * .9;
+      return r - 3.5 * s * noise(vec2(x * .11 / s, fl * 7.)) - 9. * s * pow(noise(vec2(x * .05 / s, fl * 5.)), 2.5);
+    }
+    vec3 forest(vec2 p, float D) {
+      float t = T, N = 1. - D; vec3 m = MOOD;
+      // fog everywhere: pale and soft by day, deep blue at night
+      vec3 fog = mix(vec3(.11, .16, .2), vec3(.76, .8, .78), D);
+      vec3 c = mix(mix(vec3(.02, .035, .055), vec3(.56, .64, .67), D), fog, smoothstep(0., 330., p.y));
+      // the sun (or the moon) only a glow through the haze
+      vec2 lc = vec2(960., 150.);
+      float ld = length(p - lc);
+      c += mix(vec3(.6, .7, .8) * .12, vec3(1., .93, .75) * .14, D) * exp(-ld / 230.) + mix(vec3(.5, .6, .7) * .05, vec3(1., .9, .7) * .08, D) * exp(-ld / 700.);
+      if (N > .01) c = mix(c, mix(c, moon(c, p, lc, 26., vec3(.7, .8, .9)), .45), N);
+      c += vec3(.85, .9, 1.) * .25 * N * stars(p, 44., .2, t) * (1. - smoothstep(80., 260., p.y));
+      // ridges, far to near, each fading into the fog that fills the valley below it
+      for (int L = 0; L < 5; L++) {
+        float fl = float(L), k = fl / 4.;
+        float base = 330. + 78. * fl, h = ridgeline(p.x, base, 45. + 12. * fl, fl);
+        vec3 far = mix(vec3(.12, .17, .2), vec3(.58, .66, .66), D), near = mix(vec3(.012, .03, .032), vec3(.12, .22, .18), D);
+        vec3 rc = mix(far, near, k * k * .4 + k * .6);
+        rc = mix(rc, rc + mix(vec3(.02, .03, .03), vec3(.06, .07, .02), D), noise(vec2(p.x * .03, p.y * .03 + fl)) * (1. - k * .5));   // the woods, faintly
+        c = mix(c, mix(rc, fog, smoothstep(0., 150. - 30. * fl, p.y - h) * (.8 - .12 * fl)), aa(p.y - h));
+        // fog drifting along the valley in front of it
+        if (abs(p.y - base - 55.) > 230.) continue;
+        float f = fbm(vec2(p.x * .0028 - t * .009 * (1. + fl * .4) + fl * 5., p.y * .012 + fl * 2.));
+        c = mix(c, fog, smoothstep(.45, .85, f) * .55 * exp(-abs(p.y - base - 55.) / 55.));
+      }
+      // tall conifers at both sides, dark against the fog, the middle left open
+      vec3 dark = mix(vec3(.008, .018, .022), vec3(.07, .13, .11), D);
+      float tree = 0.;
+      tree = max(tree, conifer(p, 52., 790., 700., 92., 1.));
+      tree = max(tree, conifer(p, 178., 800., 560., 74., 2.));
+      tree = max(tree, conifer(p, 1290., 790., 720., 96., 3.));
+      tree = max(tree, conifer(p, 1168., 800., 520., 70., 4.));
+      float back = max(conifer(p, 300., 760., 380., 50., 5.), conifer(p, 1040., 760., 400., 52., 6.));
+      c = mix(c, mix(dark, fog, .45), back);
+      c = mix(c, dark, tree);
+      // low fog in front of everything, slowly rolling
+      float lf = fbm(vec2(p.x * .002 - t * .012, p.y * .006 + 9.));
+      c = mix(c, fog, smoothstep(.4, .8, lf) * .5 * smoothstep(520., 750., p.y));
+      // the near ground a little deeper by day, so Home's text stays easy to read over it
+      c *= 1. - .22 * D * smoothstep(560., 750., p.y);
+      // by day, faint shafts of light through the fog
+      vec2 v = p - lc; float ang = atan(v.y, v.x);
+      c += vec3(1., .95, .8) * .025 * D * smoothstep(.6, .95, noise(vec2(ang * 9., t * .03))) * smoothstep(60., 260., length(v)) * exp(-length(v) / 900.) * (1. - tree);
+      // at night, fireflies down in the valley flashing together, a slow wave crossing from left to right every few seconds
+      if (N > .01 && p.y > 480.) for (int i = 0; i < 22; i++) {
+        float fi = float(i); vec2 b = vec2(hash(vec2(fi, 1.)) * 1334., 520. + hash(vec2(fi, 2.)) * 220.);
+        vec2 pos = b + vec2(sin(t * (.12 + .08 * hash(vec2(fi, 3.))) + fi) * 40., cos(t * (.15 + .08 * hash(vec2(fi, 4.))) + fi * 2.) * 16.);
+        float ph = mod(t - pos.x / 1334. * 1.4 - .25 * hash(vec2(fi, 5.)), 7.);
+        float flash = exp(-pow((ph - .6) / .16, 2.)) + .8 * exp(-pow((ph - 1.15) / .16, 2.)) + .6 * exp(-pow((ph - 1.7) / .16, 2.));
+        float d = length(p - pos);
+        c += mix(vec3(.85, 1., .45), m, .2) * N * flash * (smoothstep(2.4, .4, d) + .22 * exp(-d / 10.));
+      }
+      return c;
+    }
+
+    vec3 ocean(vec2 p, float D) {
+      float t = T, N = 1. - D; vec3 m = MOOD; float hz = 470.;
+      vec2 mc = vec2(900., 170.); vec3 mt = mix(mix(vec3(.85, .9, 1.), m, .25), vec3(1., .92, .75), D);
+      if (p.y < hz) {
+        vec3 c = mix(mix(vec3(.01, .02, .07), vec3(.25, .52, .85), D), mix(vec3(.06, .09, .2), vec3(.80, .89, .95), D), smoothstep(0., hz, p.y));
+        c += vec3(.9, .93, 1.) * .55 * N * stars(p, 38., .38, t) * (1. - smoothstep(280., hz, p.y));
+        c += mt * mix(.08, .1, D) * exp(-abs(p.y - hz) / 60.);
+        if (N > .01) c = mix(c, moon(c, p, mc, 40., mt), N);
+        if (D > .01) c = mix(c, sun(c, p, mc, 36., mt), D);
+        c = mix(c, mix(vec3(.1, .12, .2), vec3(1.), D), clouds(p, t, 30., 400., 7.) * mix(.3, .85, D));
+        // an island far off
+        float isl = hz - 34. * exp(-pow((p.x - 230.) / 120., 2.)) - 16. * exp(-pow((p.x - 360.) / 70., 2.)) - 3. * noise(vec2(p.x * .05, 1.));
+        return mix(c, mix(vec3(.02, .03, .07), vec3(.36, .52, .6), D), aa(p.y - isl));
+      }
+      float dy = p.y - hz;
+      vec3 c = mix(mix(vec3(.03, .06, .14), vec3(.15, .50, .64), D), mix(vec3(.01, .02, .05), vec3(.03, .27, .44), D), smoothstep(0., 280., dy));
+      // the moon's (or the sun's) path on the water: thin lines that shimmer, wider nearer you
+      float spread = 30. + dy * .9;
+      float col = exp(-pow((p.x - mc.x) / spread, 2.));
+      float lines = smoothstep(.55, .85, noise(vec2(p.x * .025, dy * .55 - t * .5)) * .6 + noise(vec2(p.x * .06 + 3., dy * 1.3 - t * .9)) * .4);
+      c += mt * col * lines * (.7 - .4 * smoothstep(0., 280., dy));
+      // gentle ripples across the water, drifting slowly
+      float rip = smoothstep(.6, .9, noise(vec2(p.x * .006 + t * .01, dy * .35)));
+      c += mix(vec3(.25, .35, .5) * .05, vec3(.7, .9, 1.) * .12, D) * rip;
+      c += mt * .06 * exp(-dy / 12.);   // where sky meets sea
+      return c;
+    }
+
+    vec3 aurora(vec2 p, float D) {
+      float t = T; vec3 m = MOOD;
+      // by "day": the blue hour, a deep blue sky with a rosy glow along the horizon and a fainter aurora
+      vec3 c = mix(mix(vec3(.01, .015, .05), vec3(.07, .12, .30), D), mix(vec3(.03, .06, .1), vec3(.56, .40, .52), D), smoothstep(0., 620., p.y));
+      c += vec3(.9, .93, 1.) * mix(.6, .25, D) * stars(p, 32., .45, t);
+      for (int k = 0; k < 2; k++) {
+        float fk = float(k);
+        float edge = 260. + 80. * fk + 55. * sin(p.x * .0045 + t * .07 + fk * 2.) + 40. * (fbm(vec2(p.x * .003 + t * .02, fk)) - .5);
+        float above = edge - p.y;
+        float shape = (above > 0. ? exp(-above / (120. + 60. * fk)) : exp(-pow(-above / 45., 2.))) * (.55 + .45 * smoothstep(-40., 20., above));
+        float rays = .45 + .55 * noise(vec2(p.x * .035 + t * .25 + fk * 9., fk));
+        vec3 green = mix(vec3(.2, 1., .55), m, .3), top = mix(vec3(.6, .3, .9), m, .35);
+        c += mix(green, top, smoothstep(0., 170., above)) * shape * rays * (.55 - .2 * fk) * mix(1., .45, D);
+      }
+      float h1 = 600. + 30. * sin(p.x * .004 + 1.) + 18. * sin(p.x * .011);
+      float h2 = 660. + 22. * sin(p.x * .006 + 3.) + 12. * sin(p.x * .017 + 1.);
+      vec3 snow1 = mix(vec3(.16, .2, .27) + mix(vec3(.2, 1., .55), m, .3) * .06, vec3(.52, .58, .74), D), snow2 = mix(vec3(.09, .11, .16), vec3(.32, .37, .52), D);
+      c = mix(c, snow1 * (1. - .25 * smoothstep(h1, h1 + 80., p.y)), aa(p.y - h1));
+      c = mix(c, snow2, aa(p.y - h2));
+      return c;
+    }
+
+    vec3 desert(vec2 p, float D) {
+      float t = T, N = 1. - D; vec3 m = MOOD;
+      vec2 mc = vec2(1150., 118.);
+      vec3 c = mix(mix(vec3(.05, .06, .17), vec3(.36, .58, .86), D), mix(mix(vec3(.36, .24, .40), m, .2), vec3(.97, .86, .68), D), smoothstep(60., 520., p.y));
+      c += vec3(.95, .9, .85) * .5 * N * stars(p, 40., .38, t) * (1. - smoothstep(120., 380., p.y));
+      if (N > .01) c = mix(c, moon(c, p, mc, 46., vec3(1., .9, .8)), N);
+      if (D > .01) c = mix(c, sun(c, p, mc, 36., vec3(1., .85, .55)), D);
+      c = mix(c, mix(vec3(.2, .18, .3), vec3(1., .98, .95), D), clouds(p, t, 40., 300., 2.) * mix(.2, .55, D));
+      // dunes, far to near: a ridge each, its slopes facing the light catching it
+      for (int L = 0; L < 3; L++) {
+        float fl = float(L);
+        float base = 470. + 85. * fl, fq = .0035 + .001 * fl;
+        float ridge = base - 40. * sin(p.x * fq + fl * 2.) - 25. * sin(p.x * (.009 + .002 * fl) + fl) - 14. * fbm(vec2(p.x * .006, fl));
+        float slope = cos(p.x * fq + fl * 2.);
+        vec3 sand = mix(mix(vec3(.30, .22, .34), vec3(.11, .08, .15), fl / 2.), mix(vec3(.90, .70, .48), vec3(.52, .32, .18), fl / 2.), D);
+        sand += mix(vec3(.45, .4, .55) * .22, vec3(1., .82, .55) * .2, D) * clamp(slope, 0., 1.) * (1. - fl * .25) * exp(-(p.y - ridge) / 90.);
+        c = mix(c, sand, aa(p.y - ridge));
+        // sand drifting off the crest
+        if (abs(p.y - ridge + 8.) > 50.) continue;
+        float drift = fbm(vec2(p.x * .01 - t * .25 * (1. + fl), p.y * .05));
+        c += mix(vec3(1., .85, .7) * .05, vec3(1., .95, .85) * .08, D) * smoothstep(.55, .85, drift) * exp(-abs(p.y - ridge + 8.) / 10.);
+      }
+      return c;
+    }
+
+    vec3 stormy(vec2 p, float D) {
+      float t = T; vec3 m = MOOD;
+      vec3 c = mix(mix(vec3(.04, .05, .08), vec3(.30, .33, .38), D), mix(vec3(.13, .14, .18), vec3(.50, .52, .56), D), smoothstep(0., 750., p.y));
+      // clouds, rolling slowly: lit edges over darker bellies
+      float d1 = fbm(vec2(p.x * .0022 + t * .008, p.y * .0045 + t * .002));
+      float d2 = fbm(vec2(p.x * .0045 - t * .012, p.y * .008 + 5.));
+      float dens = smoothstep(.3, .8, d1 * .7 + d2 * .45);
+      vec3 cloud = mix(mix(vec3(.08, .09, .12), vec3(.24, .26, .30), D), mix(vec3(.27, .29, .35), vec3(.64, .66, .70), D), smoothstep(.35, .75, d2));
+      c = mix(c, cloud, dens * .9);
+      c += mix(vec3(.3, .32, .4), m, .25) * mix(.08, .05, D) * exp(-(750. - p.y) / 140.);
+      float hill = 655. + 28. * sin(p.x * .004 + 1.3) + 16. * sin(p.x * .011) + 20. * (fbm(vec2(p.x * .006, 3.)) - .5);
+      // lightning far off: now and then, a dim glow inside the clouds (two flickers), in the console's color
+      float env = FLASH.x; vec2 at = FLASH.yz;
+      vec3 bolt = mix(vec3(.7, .75, 1.), m, .45);
+      c += bolt * mix(.32, .18, D) * env * dens * exp(-length(p - at) / 260.);
+      c = mix(c, mix(vec3(.03, .035, .05), vec3(.16, .18, .19), D) + bolt * .1 * env * exp(-(p.y - hill) / 14.), aa(p.y - hill));
+      // a gentle rain, falling and slanting a little: a sparse nearer layer of longer streaks over a finer one
+      vec3 rc0 = mix(vec3(.7, .75, .85), vec3(.86, .89, .94), D);
+      for (int k = 0; k < 2; k++) {
+        float fk = float(k), cw = 15. - 6. * fk;
+        vec2 r = vec2(p.x + p.y * .12 + fk * 3.7, p.y);
+        vec2 cc = vec2(floor(r.x / cw), fk); float speed = (560. - 160. * fk) + 160. * hash(cc);
+        float y = fract((r.y - t * speed + hash(cc + 3.) * 750.) / (300. - 80. * fk));
+        float len = .14 - .04 * fk;
+        // brightest at its lower end, the drop leading the way down
+        float streak = smoothstep(0., len, y) * smoothstep(len, len - .012, y) * aa((.08 - abs(fract(r.x / cw) - .5)) * cw) * step(.74, hash(cc + 9.));
+        c += rc0 * mix(.34, .2, fk) * mix(1., .75, D) * streak;
+      }
+      return c;
+    }
+
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        highp vec2 v = getNormalizedViewportCoord().xy;
+        highp vec2 p = vec2(v.x * 1334.0, (1.0 - v.y) * 750.0);
+        float D = materialParams.day, th = materialParams.theme;
+        vec3 c;
+        if (th < 1.5) c = city(p, D);
+        else if (th < 2.5) c = forest(p, D);
+        else if (th < 3.5) c = ocean(p, D);
+        else if (th < 4.5) c = aurora(p, D);
+        else if (th < 5.5) c = desert(p, D);
+        else c = stormy(p, D);
+        material.baseColor = vec4(c, 1.0);
+    }
+}

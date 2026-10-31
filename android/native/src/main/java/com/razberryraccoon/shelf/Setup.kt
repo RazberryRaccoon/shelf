@@ -43,15 +43,15 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         fun chooseHomeApp()
     }
 
-    private enum class Step { WELCOME, WHO, GAMES, EMUS, DONE, HOME, LIBRARY, PAGES, LIGHT, MEDIA, SOURCE, SAVED, SYSTEM }
+    private enum class Step { WELCOME, WHO, THEME, GAMES, EMUS, DONE, HOME, SOUND, LIBRARY, PAGES, LIGHT, MEDIA, SOURCE, SAVED, SYSTEM }
     private var step = if (settings) Step.WHO else Step.WELCOME
-    private val flow = listOf(Step.WELCOME, Step.WHO, Step.GAMES, Step.EMUS, Step.DONE)
+    private val flow = listOf(Step.WELCOME, Step.WHO, Step.THEME, Step.GAMES, Step.EMUS, Step.DONE)
 
     // Settings is two panes in one frame: its sections down the left, the chosen section's settings on the right, which
     // change as you move down the sections (nothing replaces the whole screen). First-run setup uses the right pane alone.
     private class Section(val step: Step, val name: String)
     private val sections = listOf(Section(Step.WHO, "You"), Section(Step.GAMES, "Games"), Section(Step.EMUS, "Emulators"),
-        Section(Step.HOME, "Home"), Section(Step.LIBRARY, "Library"), Section(Step.PAGES, "Game pages"), Section(Step.LIGHT, "Lighting"), Section(Step.MEDIA, "Media"),
+        Section(Step.HOME, "Home"), Section(Step.SOUND, "Sound"), Section(Step.LIBRARY, "Library"), Section(Step.PAGES, "Game pages"), Section(Step.LIGHT, "Lighting"), Section(Step.MEDIA, "Media"),
         Section(Step.SAVED, "Saved colors"), Section(Step.SYSTEM, "System"))
     private val frame = android.widget.LinearLayout(ctx).apply { orientation = android.widget.LinearLayout.HORIZONTAL; background = round(Theme.panel, 33f, Theme.line)
         setPadding(if (settings) 30 else 48, 40, 48, 26); clipToPadding = false }
@@ -108,7 +108,9 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         panel.addView(options, android.widget.LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = 18; leftMargin = -30; rightMargin = -30 })   // the list fills what's left
         panel.addView(dots, android.widget.LinearLayout.LayoutParams(-1, 20).apply { topMargin = 6 })
         title.maxLines = 1; title.ellipsize = TextUtils.TruncateAt.END
-        options.onFocus = { refreshShowcase(); preview() }
+        options.onFocus = { refreshShowcase(); preview()
+            // first-run setup's places: each one shows (and plays) as you move to it
+            val r = options.current(); if (step == Step.THEME && r?.key == "env" && (r.tag as Int) != Theme.env) { setEnv(r.tag as Int); fill() } }
         show(step)
         focusSide(settings)
     }
@@ -146,6 +148,18 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         lead.maxLines = if (steps) 14 else 4; lead.setTextSize(TypedValue.COMPLEX_UNIT_PX, if (steps) 20f else 23f)
     }
 
+    /** A new theme: the sky changes behind at once, and the music follows if it matches the theme. */
+    private fun setEnv(k: Int) { games.theme = k; Theme.setEnv(k); backdrop.theme(); Music.apply() }
+
+    private fun musicName(k: String) = when (k) { "theme" -> "Matches the theme"; "own" -> "Your own"; "off" -> "Off"
+        else -> Music.TRACKS.firstOrNull { it.first == k }?.let { "${it.second} (${Theme.ENVS.firstOrNull { e -> e.id == k }?.name})" } ?: k }
+    private fun musicSub() = when (val k = games.music) {
+        "theme" -> Music.TRACKS.first { it.first == Theme.ENVS[Theme.env].id }.second.let { "Now: $it, ${Theme.ENVS[Theme.env].name}’s own track; it changes with the theme" }
+        "own" -> "${games.ownMusicName.ifEmpty { "Your file" }}, on a loop"
+        "off" -> "No music"
+        else -> TRACK_SUB[Music.TRACKS.indexOfFirst { it.first == k }.coerceAtLeast(0)]
+    }
+
     /** Fills the current page; called again whenever something on it changes. */
     fun fill() {
         val n = games.all.size
@@ -158,17 +172,24 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                 rows += Options.Row("next", "Get started", primary = true)
             }
             Step.WHO -> {
-                page(if (settings) "Settings" else "Step 1 of 3", "Who’s playing?", "Your name and color show at the top of the screen.")
+                page(if (settings) "Settings" else "Step 1 of 4", "Who’s playing?", "Your name and color show at the top of the screen.")
                 rows += Options.Row("name", "Your name", value = games.name.ifEmpty { "Choose" })
                 Theme.profile.forEachIndexed { k, _ -> rows += Options.Row("color", Theme.profileNames[k], avatar = k, check = games.color == k, tag = k) }
                 if (!settings) { rows += Options.Row("next", done, primary = true); rows += Options.Row("back", "Back") }
             }
+            Step.THEME -> {
+                page("Step 2 of 4", "Pick a place", "Your games float in front of it, and its music plays while you choose. Move through them to look; Settings › Home changes it any time.")
+                rows += Options.Row("next", done, primary = true)
+                Theme.ENVS.forEachIndexed { k, e -> rows += Options.Row("env", e.name, sub = e.note, check = Theme.env == k, tag = k) }
+                rows += Options.Row("timeofday", "Time of day", value = "‹  ${Theme.TIMES[Theme.timeMode]}  ›", sub = TIME_SUB[Theme.timeMode])
+                rows += Options.Row("back", "Back")
+            }
             Step.GAMES -> if (!host.hasStorage()) {
-                page(if (settings) "Settings" else "Step 2 of 3", "Let Shelf find your games", "Android asks you to allow access to all files. Switch it on for Shelf Native, then come back here.")
+                page(if (settings) "Settings" else "Step 3 of 4", "Let Shelf find your games", "Android asks you to allow access to all files. Switch it on for Shelf Native, then come back here.")
                 rows += Options.Row("storage", "Allow access to my files", primary = true)
                 if (!settings) { rows += Options.Row("next", "Skip for now"); rows += Options.Row("back", "Back") }
             } else {
-                page(if (settings) "Settings" else "Step 2 of 3", "Found ${shownCount.toInt()} ${if (n == 1) "game" else "games"}",
+                page(if (settings) "Settings" else "Step 3 of 4", "Found ${shownCount.toInt()} ${if (n == 1) "game" else "games"}",
                     "Shelf looks in ROMs folders on internal storage and SD cards. Pick the folder for any console it missed, or the one folder they’re all in.")
                 if (!settings) rows += Options.Row("next", done, primary = true)
                 val roots = games.roots
@@ -185,7 +206,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             Step.EMUS -> {
                 val counts = games.counts()
                 val list = Games.NAMES.keys.filter { it != "android" && (counts[it] ?: 0) > 0 }.ifEmpty { Games.NAMES.keys.filter { it != "android" } }   // Android games open on their own
-                page(if (settings) "Settings" else "Step 3 of 3", "How your games start",
+                page(if (settings) "Settings" else "Step 4 of 4", "How your games start",
                     if (games.installed.isEmpty()) "No emulators found yet. RetroArch, from the Play Store, plays most of these consoles; you can choose here any time."
                     else "Each console’s games open in an emulator. Shelf chose from what’s installed; press A to change one.")
                 if (!settings) rows += Options.Row("next", done, primary = true)
@@ -205,7 +226,8 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             Step.HOME -> {
                 page("Settings", "Home", "How your games line up, and the picture behind them. Left and right change a value; the picture shows behind as you go.")
                 rows += Options.Row("homeboxes", "Home shows", value = "‹  ${if (games.homeBoxes) "Boxes" else "Cartridges"}  ›", sub = "Your games as cartridges, or as their closed boxes")
-                rows += Options.Row("theme", "Theme", value = "‹  ${Theme.look.name}  ›", sub = Theme.look.note)
+                rows += Options.Row("theme", "Theme", value = "‹  ${Theme.ENVS[Theme.env].name}  ›", sub = Theme.ENVS[Theme.env].note)
+                rows += Options.Row("timeofday", "Time of day", value = "‹  ${Theme.TIMES[Theme.timeMode]}  ›", sub = TIME_SUB[Theme.timeMode])
                 rows += Options.Row("homescroll", "Scrolling", value = "‹  ${Home.STYLES[games.homeScroll.coerceIn(0, Home.STYLES.size - 1)]}  ›", sub = SCROLL_SUB[games.homeScroll.coerceIn(0, SCROLL_SUB.size - 1)])
                 rows += Options.Row(Options.HEAD, "The picture behind")
                 rows += Options.Row("art", "Picture", value = "‹  ${Art.KINDS.firstOrNull { it.first == games.artKind }?.second}  ›", sub = "Which picture of the selected game (another if it doesn’t have that one)", tag = "kind")
@@ -219,7 +241,9 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             Step.LIBRARY -> {
                 val cols = host.collections()
                 page("Settings", "Library", "Lists that fill themselves, and the games you've hidden.")
-                rows += Options.Row("smart", "Automatic collections", value = if (cols.smartOn) "On" else "Off", sub = "Recently added, Not played yet and Most played, in the Library's list")
+                for ((id, name, sub) in listOf(Triple(Collections.ADDED, "Recently added", "The 30 games that came onto the handheld last"),
+                        Triple(Collections.UNPLAYED, "Not played yet", "Every game you haven't started"), Triple(Collections.MOSTPLAYED, "Most played", "The 30 you've started most")))
+                    rows += Options.Row("smart", name, value = if (cols.smartOn(id)) "Shown" else "Hidden", sub = "$sub, in the Library's list", tag = id)
                 rows += Options.Row(Options.HEAD, "Hidden games")
                 val n = games.all.count { cols.hidden(it) }
                 rows += Options.Row("none", "Hidden", value = "$n ${if (n == 1) "game" else "games"}", sub = "Hide one with X on it, or in its Game settings; Library › Hidden shows them")
@@ -233,13 +257,26 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                 rows += Options.Row("labelfinish", "Label finish", value = "‹  ${Labels.NAMES[games.labelFinish]}  ›", sub = "Every game's label, unless one has its own (in its Customize shell)")
                 rows += Options.Row("launchfx", "Starting a game ends with", value = "‹  ${Curtain.NAMES[games.launchFx.coerceIn(0, Curtain.NAMES.size - 1)]}  ›", sub = "How the screen goes to black after the game goes in")
             }
-            Step.SYSTEM -> {
-                page("Settings", "System", "How smooth it runs, how it sounds, and starting over.")
-                rows += Options.Row("smooth", "Smoothness", value = "‹  ${SMOOTH[games.smoothness]}  ›", sub = SMOOTH_SUB[games.smoothness])
-                rows += Options.Row("fps", "Show frame rate", value = if (games.showFps) "On" else "Off", sub = "A small meter in the top left: frames per second, and which part is slow")
+            Step.SOUND -> {
+                page("Settings", "Sound", "Music while you choose, the theme’s own sounds under it, and the little clicks as you move. Left and right change a value.")
+                val theme = Theme.ENVS[Theme.env]
+                rows += Options.Row(Options.HEAD, "Music")
+                rows += Options.Row("music", "Music", value = "‹  ${musicName(games.music)}  ›", sub = musicSub())
+                rows += Options.Row("musicvol", "Music volume", value = "‹  ${games.musicVol}%  ›", sub = "How loud the music plays, on its own")
+                rows += Options.Row("ownmusic", "Your own music", value = if (Music.ownFile.exists()) "Change" else "Choose a file",
+                    sub = if (Music.ownFile.exists()) "${games.ownMusicName.ifEmpty { "Your file" }}: an MP3 or other sound file, played on a loop" else "An MP3 or other sound file of your own, played on a loop")
+                rows += Options.Row(Options.HEAD, "Ambient sounds")
+                rows += Options.Row("ambient", "Ambient sounds", value = if (games.ambient) "On" else "Off", sub = "${theme.name}: ${AMBIENT_SUB[Theme.env]}, quietly under the music")
+                rows += Options.Row("ambvol", "Ambient volume", value = "‹  ${games.ambientVol}%  ›", sub = "How loud they are, on their own, whatever the music’s volume")
+                rows += Options.Row(Options.HEAD, "Interface sounds")
                 rows += Options.Row("sounds", "Sounds", value = if (games.sounds) "On" else "Off", sub = "Soft clicks and chimes as you move around")
                 if (games.sounds) rows += Options.Row("soundpack", "Sound pack", value = "‹  ${Sounds.PACKS[games.soundPack.coerceIn(0, Sounds.PACKS.size - 1)]}  ›",
                     sub = PACK_SUB[games.soundPack.coerceIn(0, PACK_SUB.size - 1)])
+            }
+            Step.SYSTEM -> {
+                page("Settings", "System", "How smooth it runs, Shelf as the home screen, and starting over.")
+                rows += Options.Row("smooth", "Smoothness", value = "‹  ${SMOOTH[games.smoothness]}  ›", sub = SMOOTH_SUB[games.smoothness])
+                rows += Options.Row("fps", "Show frame rate", value = if (games.showFps) "On" else "Off", sub = "A small meter in the top left: frames per second, and which part is slow")
                 rows += Options.Row("homescreen", "Home screen", value = if (host.isHomeApp()) "Shelf" else "Choose", sub = "Make Shelf what the Home button opens: Android's own choice of home app")
                 rows += Options.Row("again", "Run first-time setup again")
                 rows += Options.Row("none", "Version", value = try { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName } catch (e: Exception) { "" })
@@ -320,9 +357,24 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             showcase.forEach { (sys, c) -> carts.refinish(c, Games.NAMES[sys] ?: "Android games", games.labelFinish) }; Sounds.play(Sounds.MOVE); return fill()
         }
         if (r?.key == "theme" && (a == "left" || a == "right" || a == "a")) {
-            val n = Theme.LOOKS.size; games.theme = (games.theme + (if (a == "left") n - 1 else 1)) % n
-            Theme.setLook(games.theme); backdrop.theme(); Sounds.play(Sounds.MOVE)   // the sky changes behind at once; panels as they next open
+            val n = Theme.ENVS.size; setEnv((games.theme + (if (a == "left") n - 1 else 1)) % n); Sounds.play(Sounds.MOVE)
             return fill()
+        }
+        if (r?.key == "timeofday" && (a == "left" || a == "right" || a == "a")) {
+            val n = Theme.TIMES.size; games.timeOfDay = (games.timeOfDay + (if (a == "left") n - 1 else 1)) % n
+            Theme.timeMode = games.timeOfDay; backdrop.theme(); Sounds.play(Sounds.MOVE)   // day eases into night (or back) behind
+            return fill()
+        }
+        if (r?.key == "music" && (a == "left" || a == "right" || a == "a")) {
+            val all = MUSICS.filter { it != "own" || Music.ownFile.exists() }
+            val i = all.indexOf(games.music).coerceAtLeast(0)
+            games.music = all[(i + (if (a == "left") all.size - 1 else 1)) % all.size]; Music.apply(); Sounds.play(Sounds.MOVE)
+            return fill()
+        }
+        if ((r?.key == "musicvol" || r?.key == "ambvol") && (a == "left" || a == "right")) {
+            val d = if (a == "left") -5 else 5
+            if (r.key == "musicvol") games.musicVol = (games.musicVol + d).coerceIn(0, 100) else games.ambientVol = (games.ambientVol + d).coerceIn(0, 100)
+            Music.volumes(); Sounds.play(Sounds.MOVE); return fill()
         }
         if (r?.key == "soundpack" && (a == "left" || a == "right" || a == "a")) {
             val n = Sounds.PACKS.size; games.soundPack = (games.soundPack + (if (a == "left") n - 1 else 1)) % n
@@ -334,7 +386,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         }
         if (r?.key == "smooth" && (a == "left" || a == "right" || a == "a")) {
             games.smoothness = (games.smoothness + (if (a == "left") 2 else 1)) % 3
-            stage.quality(games.smoothness); backdrop.lite = games.smoothness == 2; Sounds.play(Sounds.MOVE); return fill()
+            stage.quality(games.smoothness); backdrop.lite = games.smoothness == 2; backdrop.smooth = games.smoothness; Sounds.play(Sounds.MOVE); return fill()
         }
         if (r?.key == "pageview" && (a == "left" || a == "right" || a == "a")) { games.pageView = (games.pageView + (if (a == "left") 2 else 1)) % 3; Sounds.play(Sounds.MOVE); return fill() }
         when (a) {
@@ -404,12 +456,19 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             "del-shell" -> (r.tag as Shell).let { s -> confirmDelete(s.name) { carts.shells.delete(s.id) } }
             "del-look" -> (r.tag as ConsoleLook).let { l -> confirmDelete(l.name) { l.custom?.let { looks.delete(it) } } }
             "fps" -> { games.showFps = !games.showFps; fill() }
-            "smart" -> { host.collections().let { it.smartOn = !it.smartOn }; fill() }
+            "smart" -> { val id = r.tag as String; host.collections().let { it.setSmartOn(id, !it.smartOn(id)) }; fill() }
             "hiddenentry" -> { host.collections().let { it.hiddenEntry = !it.hiddenEntry }; fill() }
             "changecode" -> host.collections().let { c -> GameCard.askCode(ctx, c) { GameCard.chooseCode(ctx, c, "Choose a new code", "Four presses of the d-pad and A, B, X, Y.") { host.toast("Code changed"); fill() } } }
             "resetcode" -> host.collections().let { c -> GameCard.chooseCode(ctx, c, "Choose a new code", "Four presses of the d-pad and A, B, X, Y.") { host.toast("Code set"); fill() } }
             "homescreen" -> host.chooseHomeApp()
             "sounds" -> { games.sounds = !games.sounds; Sounds.enabled = games.sounds; Sounds.play(Sounds.PICK); fill() }
+            "env" -> { setEnv(r.tag as Int); Sounds.play(Sounds.PICK); fill() }
+            "ambient" -> { games.ambient = !games.ambient; Music.apply(); Sounds.play(Sounds.PICK); fill() }
+            "ownmusic" -> host.openDocument(arrayOf("audio/*")) { uri ->
+                if (uri == null) return@openDocument
+                if (Music.setOwn(uri)) { games.music = "own"; Music.apply(); host.toast("Playing your music") } else host.toast("That file couldn’t be played")
+                fill()
+            }
             "art-reset" -> { games.artKind = "shot"; games.artBright = Art.BRIGHT; games.artTop = Art.TOP; games.artFade = Art.FADE; games.artFadeType = Art.DOTS; games.artPan = Art.PAN; host.artChanged(); fill() }
             "light-reset" -> { games.lightEnv = Look.ENV; games.lightBright = Look.BRIGHT; games.lightKey = Look.KEY; applyLight(); fill() }
         }
@@ -638,6 +697,12 @@ class Dots(ctx: Context) : View(ctx) {
 /** The game page's three views, in order (Games.pageView). */
 val PAGE_VIEWS = listOf("Cartridge", "Open box", "Closed box")
 
+private val TIME_SUB = listOf("By the clock: day from 7 in the morning to 7 at night, easing between", "Always the daytime version", "Always the night version")
+private val MUSICS = listOf("theme") + Music.TRACKS.map { it.first } + listOf("own", "off")
+private val TRACK_SUB = listOf("Slow pads and glass bells, drifting", "A late-night electric piano, swung, soft brushes", "A kalimba pattern and a wooden flute",
+    "Rolling harp, a slow swell", "Glass bells over a wide, slow pad", "A plucked string over a drone, a hand drum", "A soft piano in the rain, a low cello")
+private val AMBIENT_SUB = listOf("a low, far-off hum", "the city far off, a car now and then", "birds by day, crickets at night", "waves breaking gently",
+    "a cold wind", "wind and drifting sand", "rain, and thunder after the lightning")
 private val PACK_SUB = listOf("Sine tones with a quiet octave: the first sounds", "Bell-like, the ring of a struck glass", "Warm and dry, like a marimba",
     "Each note glides up into place: a soft bloop")
 private val SMOOTH = listOf("Best looks", "Balanced", "Smoothest")

@@ -14,26 +14,36 @@ import android.widget.FrameLayout
 /** The prototype's colors (the Space theme), as Android colors. */
 object Theme {
     /**
-     * The themes (Settings › Home › Theme): the sky's background, a color the nebula and planet lean toward (and how
-     * far), and how bright the nebula is. Space is the first; the others keep its calm (tuned on a preview of the
-     * backdrop's own math). The panels take a little of the background, so they belong to it.
+     * The themes (Settings › Home › Theme; 0.31): environments, each by day and by night, each with its own music and
+     * ambient sound. Space is drawn by the backdrop itself (materials/backdrop.mat); the others by Sky.kt
+     * (materials/sky.mat). They replaced 0.29's recolored skies ("underwhelming").
      */
-    class Look(val name: String, val bg: Int, val tint: Int, val tintK: Float, val glow: Float, val note: String)
-    val LOOKS = listOf(
-        Look("Space", Color.rgb(7, 11, 30), Color.BLACK, 0f, 1f, "The night sky, in the selected console's color"),
-        Look("Midnight", Color.rgb(2, 3, 8), Color.rgb(90, 110, 200), .25f, .7f, "Darker and quieter, nearly black"),
-        Look("Aurora", Color.rgb(3, 16, 22), Color.rgb(80, 230, 190), .45f, 1f, "A teal sky, northern lights green"),
-        Look("Dusk", Color.rgb(18, 9, 26), Color.rgb(255, 140, 120), .4f, 1f, "Plum, with a warm sunset glow"),
-        Look("Deep sea", Color.rgb(2, 14, 32), Color.rgb(70, 170, 255), .45f, .95f, "Deep blue, like being underwater"),
-        Look("Ember", Color.rgb(15, 6, 5), Color.rgb(255, 150, 70), .5f, .9f, "Dark and warm, like coals"))
-    var look = LOOKS[0]; private set
-    fun setLook(k: Int) { look = LOOKS[k.coerceIn(0, LOOKS.size - 1)]; bg = look.bg
-        panel = Color.argb(184, (Color.red(look.bg) * 1.6f + 1).toInt().coerceAtMost(255), (Color.green(look.bg) * 1.5f + 1).toInt().coerceAtMost(255), (Color.blue(look.bg) * 1.45f + 1).toInt().coerceAtMost(255)) }
-    var bg = Color.parseColor("#070b1e"); private set
+    class Env(val id: String, val name: String, val note: String)
+    val ENVS = listOf(
+        Env("space", "Space", "The night sky and a planet in the console’s color; violet by day"),
+        Env("city", "City", "A skyline drifting slowly by: windows lighting up at night, glass and clouds by day"),
+        Env("forest", "Forest", "Rows of leafy trees: sunbeams by day, mist and fireflies at night"),
+        Env("ocean", "Ocean", "A calm sea and an island: the sun glittering by day, the moon at night"),
+        Env("aurora", "Aurora", "Northern lights over snowy hills; the blue hour by day"),
+        Env("desert", "Desert", "Dunes with sand drifting off their crests, golden by day, moonlit at night"),
+        Env("stormy", "Stormy", "Rolling clouds, rain, lightning far off (never a flash), then thunder"))
+    var env = 0; private set
+    fun setEnv(k: Int) { env = k.coerceIn(0, ENVS.size - 1) }
+    /** Time of day for the theme (Settings › Home › Time of day): by the clock, or always day, or always night. */
+    val TIMES = listOf("Automatic", "Day", "Night")
+    var timeMode = 0
+    /** How much it's day now (0 night .. 1 day): by the clock on Automatic, day from 7 to 19, easing over half an hour. */
+    fun dayTarget(): Float = when (timeMode) {
+        1 -> 1f; 2 -> 0f
+        else -> { val c = java.util.Calendar.getInstance(); val h = c.get(java.util.Calendar.HOUR_OF_DAY) + c.get(java.util.Calendar.MINUTE) / 60f
+            fun ramp(x: Float, a: Float) = ((x - a) / .5f).coerceIn(0f, 1f)
+            ramp(h, 6.75f) * (1 - ramp(h, 18.75f)) }
+    }
+    val bg = Color.parseColor("#070b1e")
     val fg = Color.parseColor("#eef1ff")
     val fg2 = Color.parseColor("#9aa2cc")
     val fg3 = Color.argb(140, 238, 241, 255)
-    var panel = Color.argb(184, 12, 17, 44); private set
+    val panel = Color.argb(184, 12, 17, 44)
     val line = Color.argb(31, 238, 241, 255)
     val chip = Color.argb(26, 238, 241, 255)
     val sel = Color.parseColor("#eef1ff")
