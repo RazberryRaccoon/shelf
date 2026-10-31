@@ -15,18 +15,21 @@ import kotlin.math.sin
 
 /**
  * Apps: every app on the handheld, as a grid of icons on soft plates, over the space backdrop (spec §10). It slides up
- * as a sheet from the top bar's Apps button, like the Library and the Museum. The apps you opened last come first
- * ("Recently opened"), then every app A to Z.
+ * as a sheet from the top bar's Apps button, like the Library and the Museum. Three tabs (L2 and R2): All (the apps you
+ * opened last, then every app A to Z; not the apps you made games, and not emulators while they're hidden), Emulators,
+ * and Games (the apps you made games, which have a cartridge and box of their own on Home and in the Library).
+ *
+ * What's an emulator is yours to say (Y › Mark as an emulator; the user, after 0.29: guessing "just doesn't detect
+ * what's actually an emulator very well"); the emulators Shelf knows start out marked, and can be unmarked.
  *
  * The chosen app's plate lifts a little and floats, with a thin ring and a soft glow in Android's green, and its full
  * name under it. A opens it: the plate presses in, the screen eases to black, and the app opens; coming back, Shelf
- * eases in again. X hides or shows the emulators (Shelf starts those for you from your games). Y: Open, Make it a game
- * (an Android game with its own cartridge, box and start animation, on Home and in the Library; spec §10), App info. L1
- * and R1 jump between the two groups; B closes the sheet.
+ * eases in again. X hides or shows the emulators in All. Y: Open, Make it a game, Mark as an emulator, App info. The
+ * buttons are named along the top, where there's room. B closes the sheet; L1 and R1 step to the next page.
  *
  * Icons are drawn on another thread, once each, at the size the grid shows them.
  */
-class Apps(private val ctx: Context, private val board: Board, private val games: Games, private val host: Host) {
+class Apps(private val ctx: Context, private val board: Board, private val backdrop: Backdrop, private val games: Games, private val host: Host) {
     interface Host {
         fun show(msg: String)
         /** An app became a game: Home shows it. */
@@ -37,7 +40,7 @@ class Apps(private val ctx: Context, private val board: Board, private val games
         fun closed(apps: Apps)
     }
 
-    private class App(val name: String, val pkg: String, val emulator: Boolean) { @Volatile var icon: Bitmap? = null }
+    private class App(val name: String, val pkg: String, val known: Boolean) { @Volatile var icon: Bitmap? = null }
     /** A tile in the grid: which app, its cell, and its group. */
     private class Cell(val app: App, val x: Float, val y: Float, val row: Int, val col: Int, val group: Int) {
         var lift = 0f   // 0 resting, 1 chosen (eased)
@@ -54,6 +57,7 @@ class Apps(private val ctx: Context, private val board: Board, private val games
         private const val PLATE = 112f       // the soft plate an icon sits on
         private const val ICON = 84f
         private val GREEN = Theme.accentOf("android")
+        private val TABS = listOf("All", "Emulators", "Games")
     }
 
     private val prefs = ctx.getSharedPreferences("shelf", Context.MODE_PRIVATE)
@@ -72,6 +76,13 @@ class Apps(private val ctx: Context, private val board: Board, private val games
     private val black = Curtain(ctx, Curtain.FADE)
     private val view = Grid(ctx)
     private var hideEmus: Boolean get() = prefs.getBoolean("apps:hideEmus", false); set(v) = prefs.edit().putBoolean("apps:hideEmus", v).apply()
+    private var tab = 0
+    /** Whether L1 and R1 may step to the next page (not while an app is opening). */
+    val canLeave get() = opening == null && !leaving
+    /** An emulator, by your say (Y), or else by Shelf's list of the emulators it knows. */
+    private fun emulator(a: App) = prefs.getString("app-kind:" + a.pkg, null)?.let { it == "emulator" } ?: a.known
+    private fun setEmulator(a: App, on: Boolean) = prefs.edit().putString("app-kind:" + a.pkg, if (on) "emulator" else "app").apply()
+    private fun isGame(a: App) = games.isAppGame(a.pkg)
 
     init {
         board.put(view, 0, 0, 1334, 750)
@@ -113,14 +124,20 @@ class Apps(private val ctx: Context, private val board: Board, private val games
 
     private fun opened(a: App) = prefs.getLong("app-opened:" + a.pkg, 0L)
 
-    /** The groups and their tiles: the apps opened lately (up to a row of them), then every app. */
+    /** What the tab shows: All (the apps opened lately, then every app but games and hidden emulators), Emulators, Games. */
+    private fun groupsFor(t: Int): List<Pair<String, List<App>>> = when (t) {
+        1 -> listOf("Emulators" to all.filter { emulator(it) && !isGame(it) })
+        2 -> listOf("Your Android games" to all.filter { isGame(it) })
+        else -> { val shown = all.filter { !isGame(it) && !(hideEmus && emulator(it)) }
+            listOf("Recently opened" to shown.filter { opened(it) > 0 }.sortedByDescending { opened(it) }.take(COLS), "All apps" to shown) }
+    }
+
+    /** The groups and their tiles, for the tab. */
     private fun layout() {
         val keep = cells.getOrNull(sel)?.app
-        val shown = all.filter { !(hideEmus && it.emulator) }
-        val recent = shown.filter { opened(it) > 0 }.sortedByDescending { opened(it) }.take(COLS)
         val out = ArrayList<Cell>(); val gs = ArrayList<Group>()
         var y = 0f; var row = -1
-        for ((name, list) in listOf("Recently opened" to recent, "All apps" to shown)) {
+        for ((name, list) in groupsFor(tab)) {
             if (list.isEmpty()) continue
             gs += Group(name, y); y += HEAD
             list.chunked(COLS).forEach { line -> row++; line.forEachIndexed { c, a -> out += Cell(a, GX + CW / 2 + c * CW, y + ROW / 2 - 14f, row, c, gs.size - 1) }; y += ROW }
@@ -136,6 +153,7 @@ class Apps(private val ctx: Context, private val board: Board, private val games
 
     fun tick(dt: Float) {
         time += dt
+        backdrop.shadows.clear()   // Home's cartridges' shadows don't show through
         shownK = if (leaving) max(0f, shownK - dt / .35f) else min(1f, shownK + dt / .45f)
         if (leaving && shownK == 0f) { destroy(); host.closed(this); return }
         // opening an app: to black, then open it (once); back from it: out of black
@@ -170,9 +188,9 @@ class Apps(private val ctx: Context, private val board: Board, private val games
             "right" -> if (c != null && cells.getOrNull(sel + 1)?.row == c.row) step(sel + 1) else Sounds.play(Sounds.BUMP)
             "up" -> vertical(-1)
             "down" -> vertical(1)
-            "lb", "rb" -> { val to = cells.indexOfFirst { it.group == (c?.group ?: 0) + if (a == "lb") -1 else 1 }; if (to >= 0) step(to) else Sounds.play(Sounds.BUMP) }
+            "lt", "rt" -> { tab = (tab + if (a == "lt") TABS.size - 1 else 1) % TABS.size; sel = 0; scroll = 0f; scrollTo = 0f; layout(); Sounds.play(Sounds.MOVE) }
             "a" -> c?.let { open(it.app) }
-            "x" -> { hideEmus = !hideEmus; Sounds.play(Sounds.CLICK); layout(); host.show(if (hideEmus) "Emulators hidden: Shelf opens those for you" else "Emulators shown") }
+            "x" -> if (tab == 0) { hideEmus = !hideEmus; Sounds.play(Sounds.CLICK); layout(); host.show(if (hideEmus) "Emulators hidden here: they're in the Emulators tab" else "Emulators shown") } else Sounds.play(Sounds.BUMP)
             "y" -> c?.let { menu(it.app) }
             "b" -> close()
         }
@@ -195,20 +213,23 @@ class Apps(private val ctx: Context, private val board: Board, private val games
     }
 
     private fun menu(a: App) {
-        Overlays.show(ListCard(ctx, a.name, if (a.emulator) "An emulator: Shelf opens it for your games" else null, {
+        val game = isGame(a); val emu = emulator(a)
+        Overlays.show(ListCard(ctx, a.name, when { game -> "One of your games: on Home and in the Library"; emu -> "An emulator"; else -> null }, {
             listOfNotNull(ListCard.Row("Open", icon = "grid", tag = "open"),
-                if (a.emulator) null else if (games.isAppGame(a.pkg)) ListCard.Row("One of your games", note = "On Home and in the Library", icon = "heart", tag = "isgame")
+                if (game) ListCard.Row("Not a game", note = "Back among your apps", icon = "bin", tag = "ungame")
                 else ListCard.Row("Make it a game", note = "A cartridge and box of its own", icon = "plus", tag = "game"),
-                ListCard.Row("App info", note = "Android's page for it", icon = "eye", tag = "info"),
-                ListCard.Row(if (hideEmus) "Show emulators" else "Hide emulators", icon = "move", tag = "emus"))
+                if (game) null else if (emu) ListCard.Row("Not an emulator", note = "Back among your apps", icon = "move", tag = "unemu")
+                else ListCard.Row("Mark as an emulator", note = "It goes in the Emulators tab", icon = "move", tag = "emu"),
+                ListCard.Row("App info", note = "Android's page for it", icon = "eye", tag = "info"))
         }) { _, r ->
             when (r.tag) {
                 "open" -> open(a)
                 "info" -> host.appInfo(a.pkg)
-                "game" -> { games.markApp(a.pkg, a.name); Sounds.play(Sounds.CHIME); host.gamesChanged()
+                "game" -> { games.markApp(a.pkg, a.name); Sounds.play(Sounds.CHIME); host.gamesChanged(); layout()
                     host.show("${a.name} is one of your games now: it has its own cartridge on Home and in the Library") }
-                "isgame" -> host.show("To make it just an app again: its game page › Settings › Move back to Apps")
-                "emus" -> { hideEmus = !hideEmus; layout() }
+                "ungame" -> { games.unmarkApp(a.pkg); host.gamesChanged(); layout(); host.show("${a.name} is back among your apps") }
+                "emu" -> { setEmulator(a, true); layout(); host.show("${a.name} is in the Emulators tab" + if (hideEmus) " (hidden from All)" else "") }
+                "unemu" -> { setEmulator(a, false); layout(); host.show("${a.name} is back among your apps") }
             }
             true
         })
@@ -229,12 +250,20 @@ class Apps(private val ctx: Context, private val board: Board, private val games
         private val dst = RectF()
 
         override fun onDraw(c: Canvas) {
-            // the heading and how many
+            // the heading, the tabs and how many; the buttons named along the top right, where there's room
             p.typeface = Fonts.display; p.textSize = 38f; p.color = Theme.fg; p.textAlign = Paint.Align.LEFT
             c.drawText("Apps", GX + 12f, 78f, p)
-            val shown = all.count { !(hideEmus && it.emulator) }
-            p.typeface = Fonts.body; p.textSize = 19f; p.color = Theme.fg2
-            c.drawText(if (loading) "Finding your apps…" else "$shown ${if (shown == 1) "app" else "apps"}" + (if (hideEmus) "  ·  emulators hidden" else ""), GX + 12f, 116f, p)
+            var x = GX + 12f
+            for ((k, name) in TABS.withIndex()) {
+                p.typeface = Fonts.bold; p.textSize = 18f; val w = p.measureText(name) + 36f; val on = k == tab
+                p.color = if (on) GREEN else Theme.chip; c.drawRoundRect(x, 98f, x + w, 136f, 19f, 19f, p)
+                p.color = if (on) Theme.selFg else Theme.fg2; c.drawText(name, x + 18f, 124f, p); x += w + 10f
+            }
+            val shown = cells.map { it.app }.distinct().size
+            p.typeface = Fonts.body; p.textSize = 18f; p.color = Theme.fg2
+            c.drawText(if (loading) "Finding your apps…" else "$shown ${if (shown == 1) "app" else "apps"}" + (if (tab == 0 && hideEmus) "  ·  emulators hidden" else ""), x + 12f, 124f, p)
+            var kx = GX + COLS * CW - 12f
+            for ((key, what) in listOfNotNull("Y" to "Options", if (tab == 0) "X" to (if (hideEmus) "Show emulators" else "Hide emulators") else null, "A" to "Open", "L2 R2" to "Tabs")) kx = keyHint(c, key, what, kx, 66f) - 26f
             c.save(); c.clipRect(0f, TOP - 30f, 1334f, 750f)
             for (g in groups) {
                 val y = TOP + g.y - scroll + 30f
@@ -246,7 +275,20 @@ class Apps(private val ctx: Context, private val board: Board, private val games
             }
             cells.forEachIndexed { i, cell -> val y = TOP + cell.y - scroll; if (y > TOP - 140 && y < 900) tile(c, cell, y, i == sel) }
             c.restore()
-            if (!loading && all.isEmpty()) { p.textAlign = Paint.Align.CENTER; p.typeface = Fonts.body; p.textSize = 22f; p.color = Theme.fg2; c.drawText("No apps found.", 667f, 400f, p); p.textAlign = Paint.Align.LEFT }
+            if (!loading && cells.isEmpty()) { p.textAlign = Paint.Align.CENTER; p.typeface = Fonts.body; p.textSize = 22f; p.color = Theme.fg2
+                c.drawText(when (tab) { 1 -> "No emulators yet. Y on an app › Mark as an emulator."; 2 -> "No Android games yet. Y on an app › Make it a game."; else -> "No apps found." }, 667f, 400f, p); p.textAlign = Paint.Align.LEFT }
+        }
+
+        /** A button and what it does, ending at `right`; returns where it starts. */
+        private fun keyHint(c: Canvas, key: String, what: String, right: Float, y: Float): Float {
+            p.typeface = Fonts.body; p.textSize = 17f; val tw = p.measureText(what)
+            p.typeface = Fonts.bold; p.textSize = 14f; val kw = maxOf(28f, p.measureText(key) + 16f)
+            val x0 = right - tw - 10f - kw
+            p.color = Theme.chip; c.drawRoundRect(x0, y - 15f, x0 + kw, y + 13f, 8f, 8f, p)
+            p.style = Paint.Style.STROKE; p.strokeWidth = 1f; p.color = Theme.line; c.drawRoundRect(x0, y - 15f, x0 + kw, y + 13f, 8f, 8f, p); p.style = Paint.Style.FILL
+            p.color = Theme.fg; p.textAlign = Paint.Align.CENTER; c.drawText(key, x0 + kw / 2, y + 4f, p); p.textAlign = Paint.Align.LEFT
+            p.typeface = Fonts.body; p.textSize = 17f; p.color = Theme.fg2; c.drawText(what, x0 + kw + 10f, y + 6f, p)
+            return x0
         }
 
         /** One app: its plate (lifted, ringed and glowing when chosen, pressed in as it opens), its icon, its name. */

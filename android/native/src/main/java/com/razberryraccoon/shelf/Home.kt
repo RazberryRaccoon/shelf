@@ -172,6 +172,8 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
      * Starting a game: Home (and the page, if it's open) steps aside, and the game's cartridge goes to the start
      * animation, with where it is now and where it comes back to.
      */
+    /** Whether L1 and R1 may step to the next page (the activity's page cycle): not while a game's page is open. */
+    val canLeave get() = page == null && picker == null
     /** The game's page is open with its box out (a game started from it waits for the box to slide away). */
     fun boxOut(g: Game) = page?.takeIf { it.game.path == g.path }?.boxOut == true
     fun takeForLaunch(g: Game): Triple<Cart?, FloatArray, FloatArray> {
@@ -321,10 +323,6 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         picker?.let { if (it.input(a)) return }
         page?.let { it.input(a); return }
         if (needsStorage) { if (a == "a") actions.allowStorage(); return }
-        // L1 and R1 step through Home's neighbours, in the top bar's order (spec §4): R1 the Library, L1 Settings (round
-        // the other way); inside a sheet they have jobs of their own
-        if (a == "rb") { Sounds.play(Sounds.PICK); return actions.openLibrary() }
-        if (a == "lb") { Sounds.play(Sounds.PICK); return actions.openSettings() }
         if (slots.isEmpty() && zone == "row") { if (a == "a") actions.openSettings() else if (a == "up") { zone = "top"; refreshTop() }; return }
         when (zone) {
             "row" -> when (a) {
@@ -469,7 +467,20 @@ class Chip(ctx: Context) : LinearLayout(ctx) {
     fun set(name: String, k: Int) { label.text = name; color = k; avatar.invalidate() }
 }
 
-/** A round button in the top bar, with its icon drawn as simple strokes (books, apps, a museum, the sun). */
+/** A gear's outline around (cx, cy), 30 across: eight square-ended teeth on a round body. */
+fun gear(cx: Float, cy: Float): Path = Path().apply {
+    val n = 8; val ro = 14.5f; val ri = 10.5f
+    for (i in 0 until n) {
+        val a = i * 2 * Math.PI / n; val w = Math.PI / n * .55; val g = Math.PI / n
+        fun pt(r: Float, t: Double) = (cx + r * Math.cos(t).toFloat()) to (cy + r * Math.sin(t).toFloat())
+        val p0 = pt(ri, a - g); val p1 = pt(ri, a - w); val p2 = pt(ro, a - w * .78); val p3 = pt(ro, a + w * .78); val p4 = pt(ri, a + w)
+        if (i == 0) moveTo(p0.first, p0.second) else lineTo(p0.first, p0.second)
+        lineTo(p1.first, p1.second); lineTo(p2.first, p2.second); lineTo(p3.first, p3.second); lineTo(p4.first, p4.second)
+    }
+    close()
+}
+
+/** A round button in the top bar, with its icon drawn as simple strokes (books, apps, a museum, a gear). */
 class DockButton(ctx: Context, private val kind: String) : View(ctx) {
     var focused = false; set(v) { field = v; animate().scaleX(if (v) 1.1f else 1f).scaleY(if (v) 1.1f else 1f).setDuration(220).start(); invalidate() }
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -484,7 +495,7 @@ class DockButton(ctx: Context, private val kind: String) : View(ctx) {
             "library" -> { c.drawRoundRect(RectF(4f, 6f, 10f, 28f), 1.5f, 1.5f, p); c.drawRoundRect(RectF(13f, 6f, 19f, 28f), 1.5f, 1.5f, p); c.save(); c.rotate(-14f, 26f, 28f); c.drawRoundRect(RectF(22f, 7f, 28f, 28f), 1.5f, 1.5f, p); c.restore() }
             "apps" -> for (x in 0..1) for (y in 0..1) c.drawRoundRect(RectF(5f + x * 14, 5f + y * 14, 15f + x * 14, 15f + y * 14), 3f, 3f, p)
             "museum" -> { val roof = Path().apply { moveTo(4f, 12f); lineTo(17f, 4f); lineTo(30f, 12f); close() }; c.drawPath(roof, p); for (x in listOf(8f, 14f, 20f, 26f)) c.drawLine(x, 15f, x, 26f, p); c.drawLine(4f, 30f, 30f, 30f, p) }
-            else -> { c.drawCircle(17f, 17f, 6f, p); for (k in 0 until 8) { val a = k * Math.PI / 4; c.drawLine(17 + 10 * Math.cos(a).toFloat(), 17 + 10 * Math.sin(a).toFloat(), 17 + 13 * Math.cos(a).toFloat(), 17 + 13 * Math.sin(a).toFloat(), p) } }
+            else -> { c.drawPath(gear(17f, 17f), p); c.drawCircle(17f, 17f, 4.6f, p) }   // a gear (the user: the sun read as a brightness control)
         }
         c.restore()
     }

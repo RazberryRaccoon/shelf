@@ -346,6 +346,8 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         }
     }
 
+    /** Settings (not the first-run setup) may step to the next page with L1 and R1. */
+    val canLeave get() = settings
     private fun back() = when {
         settings && step == Step.SOURCE -> { show(Step.MEDIA); options.focus(options.rows.indexOfFirst { it.key == "source" && it.tag == srcId }) }
         settings && !inSide -> { Sounds.play(Sounds.CLOSE); focusSide(true) }
