@@ -46,12 +46,14 @@ object Music {
         val m = when (val k = games.music) { "off" -> null; "theme" -> "music-$theme"; "own" -> if (ownFile.exists()) "own" else "music-$theme"; else -> "music-$k" }
         val a = if (!games.ambient) null else if (theme == "forest") (if (day) "amb-forest-day" else "amb-forest-night") else "amb-$theme"
         music = swap(music, m, curve(games.musicVol / 100f))
-        amb = swap(amb, a, curve(games.ambientVol / 100f) * .9f)
+        amb = swap(amb, a, curve(games.ambientVol / 100f) * AMB)
         if (music != null || amb != null) askFocus()
     }
 
     /** Volumes changed (Settings): the playing loops follow at once. */
-    fun volumes() { music?.want = curve(games.musicVol / 100f); amb?.want = curve(games.ambientVol / 100f) * .9f }
+    fun volumes() { music?.want = curve(games.musicVol / 100f); amb?.want = curve(games.ambientVol / 100f) * AMB }
+    /** Ambient sounds sit well under the music: rain and waves fill every frequency, so they sound louder than they measure. */
+    private const val AMB = .55f
 
     /** Stormy's lightning just flickered: thunder rolls in a moment later, if ambient sounds are on. */
     fun lightning() {
@@ -60,7 +62,7 @@ object Music {
             if (!active) return@postDelayed
             try {
                 val p = MediaPlayer(); p.setAudioAttributes(attrs); open(p, "thunder-${1 + (Math.random() * 3).toInt().coerceAtMost(2)}")
-                val v = curve(games.ambientVol / 100f) * .8f; p.setVolume(v, v); p.prepare(); p.setOnCompletionListener { it.release() }; p.start()
+                val v = curve(games.ambientVol / 100f) * AMB; p.setVolume(v, v); p.prepare(); p.setOnCompletionListener { it.release() }; p.start()
             } catch (e: Exception) { }
         }, 1200L + (Math.random() * 1600).toLong())
     }

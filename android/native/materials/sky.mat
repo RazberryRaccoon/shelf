@@ -102,56 +102,72 @@ fragment {
       return c;
     }
 
-    // a round, leafy treetop: a lumpy ellipse lit from the sun's side; x is how much of the pixel it covers, y how lit it is
-    vec2 crown(vec2 p, vec2 c, vec2 r, float seed, vec2 light) {
-      vec2 q = (p - c) / r; float d = length(q);
-      if (d > 1.45) return vec2(0.);   // far outside it: no need for its leafy edge
-      float edge = 1. - .24 * noise(p * .022 + seed) - .07 * noise(p * .055 + seed * 3.);
-      float cov = aa((edge - d) * min(r.x, r.y));
-      float lit = .5 + .5 * dot(q / max(d, .001), light) * smoothstep(.15, .95, d) + .3 * (noise(p * .04 + seed * 5.) - .5) - .25 * smoothstep(.3, 1., q.y);
-      return vec2(cov, clamp(lit, 0., 1.));
+    // a tall conifer (hemlock, spruce): tiers of drooping boughs narrowing to its tip; how much of the pixel it covers
+    float conifer(vec2 p, float x0, float base, float h, float w, float seed) {
+      float y = (p.y - (base - h)) / h; if (y < -.02 || y > 1.) return 0.;
+      // uneven tiers, each bough ragged and drooping, so it reads as a real tree rather than a cut-out
+      float ty = y * (9. + 5. * hash(vec2(seed, 1.))) + 1.3 * noise(vec2(y * 6., seed)) + .3 * hash(vec2(seed, 2.));
+      float tier = pow(fract(ty), .7);
+      float side = sign(p.x - x0);
+      float width = w * (.05 + .95 * pow(max(y, 0.), .85)) * (.5 + .5 * tier) * (.7 + .5 * noise(vec2(p.y * .16 + side * 7., seed))) * (.85 + .3 * noise(vec2(floor(ty) * 3.1 + side, seed)));
+      return aa(width - abs(p.x - x0)) * aa(p.y - (base - h)) + aa(w * .05 - abs(p.x - x0)) * step(.9, y);
+    }
+    // an Appalachian ridge: long rolling lines, its top a fringe of treetops (the nearer, the bigger they are)
+    float ridgeline(float x, float base, float amp, float fl) {
+      float r = base - amp * (fbm(vec2(x * .0018 + fl * 3.1, fl)) - .35) * 2.2;
+      float s = 1. + fl * .9;
+      return r - 3.5 * s * noise(vec2(x * .11 / s, fl * 7.)) - 9. * s * pow(noise(vec2(x * .05 / s, fl * 5.)), 2.5);
     }
     vec3 forest(vec2 p, float D) {
       float t = T, N = 1. - D; vec3 m = MOOD;
-      vec3 c = mix(mix(vec3(.02, .05, .09), vec3(.33, .60, .86), D), mix(vec3(.07, .14, .16), vec3(.82, .91, .90), D), smoothstep(0., 560., p.y));
-      c += vec3(.85, .95, 1.) * .4 * N * stars(p, 40., .35, t) * (1. - smoothstep(200., 460., p.y));
-      vec2 sp = vec2(250., 120.);
-      if (N > .01) c = mix(c, moon(c, p, vec2(980., 150.), 34., vec3(.8, .95, .9)), N);
-      if (D > .01) c = mix(c, sun(c, p, sp, 34., vec3(1., .9, .6)), D);
-      c = mix(c, mix(vec3(.1, .15, .18), vec3(1.), D), clouds(p, t, 40., 330., 4.) * mix(.25, .85, D));
-      vec2 light = D > .5 ? vec2(-.6, -.8) : vec2(.55, -.83);
-      for (int L = 0; L < 3; L++) {
-        float fl = float(L); float base = 520. + 85. * fl;
-        float sp2 = 120. + 40. * fl; float col = floor(p.x / sp2);
-        vec3 dark = mix(mix(vec3(.07, .13, .15), vec3(.01, .03, .035), fl / 2.), mix(vec3(.36, .55, .50), vec3(.08, .27, .10), fl / 2.), D);
-        vec3 bright = mix(dark * 1.5 + vec3(.02, .04, .04) * (1. - fl / 2.), dark + mix(vec3(.16, .2, .08), vec3(.22, .3, .06), fl / 2.), D);
-        for (int k = -2; k <= 2; k++) {
-          float cc = col + float(k); float x0 = (cc + .5 + .35 * (hash(vec2(cc, fl)) - .5)) * sp2;
-          float h = (190. + 120. * hash(vec2(cc, fl + 3.))) * (1. + .3 * fl), rx = sp2 * (.62 + .3 * hash(vec2(cc, fl + 7.)));
-          float b = base + 24. * hash(vec2(cc, fl + 5.));
-          vec2 cr = vec2(x0, b - h * .6), rr = vec2(rx, h * .42);
-          float trunk = aa(sp2 * .045 - abs(p.x - x0)) * aa(p.y - cr.y) * aa(b - p.y);
-          c = mix(c, dark * .7, trunk);
-          vec2 tr = crown(p, cr, rr, cc * 7.1 + fl * 31., light);
-          c = mix(c, mix(dark, bright, tr.y), tr.x);
-        }
-        float hill = base - 6. - 14. * sin(p.x * .004 + fl * 2.) - 8. * noise(vec2(p.x * .01, fl));
-        c = mix(c, dark, aa(p.y - hill));
-        // mist between the layers
-        if (abs(p.y - base + 40.) > 240.) continue;
-        float mist = fbm(vec2(p.x * .004 + t * .012 * (1. + fl), p.y * .012 + fl * 4.));
-        c += mix(vec3(.55, .7, .72) * .09, vec3(.9, .95, .9) * .06, D) * smoothstep(.45, .9, mist) * exp(-abs(p.y - base + 40.) / 70.) * (1. - fl * .3);
+      // fog everywhere: pale and soft by day, deep blue at night
+      vec3 fog = mix(vec3(.11, .16, .2), vec3(.76, .8, .78), D);
+      vec3 c = mix(mix(vec3(.02, .035, .055), vec3(.56, .64, .67), D), fog, smoothstep(0., 330., p.y));
+      // the sun (or the moon) only a glow through the haze
+      vec2 lc = vec2(960., 150.);
+      float ld = length(p - lc);
+      c += mix(vec3(.6, .7, .8) * .12, vec3(1., .93, .75) * .14, D) * exp(-ld / 230.) + mix(vec3(.5, .6, .7) * .05, vec3(1., .9, .7) * .08, D) * exp(-ld / 700.);
+      if (N > .01) c = mix(c, mix(c, moon(c, p, lc, 26., vec3(.7, .8, .9)), .45), N);
+      c += vec3(.85, .9, 1.) * .25 * N * stars(p, 44., .2, t) * (1. - smoothstep(80., 260., p.y));
+      // ridges, far to near, each fading into the fog that fills the valley below it
+      for (int L = 0; L < 5; L++) {
+        float fl = float(L), k = fl / 4.;
+        float base = 330. + 78. * fl, h = ridgeline(p.x, base, 45. + 12. * fl, fl);
+        vec3 far = mix(vec3(.12, .17, .2), vec3(.58, .66, .66), D), near = mix(vec3(.012, .03, .032), vec3(.12, .22, .18), D);
+        vec3 rc = mix(far, near, k * k * .4 + k * .6);
+        rc = mix(rc, rc + mix(vec3(.02, .03, .03), vec3(.06, .07, .02), D), noise(vec2(p.x * .03, p.y * .03 + fl)) * (1. - k * .5));   // the woods, faintly
+        c = mix(c, mix(rc, fog, smoothstep(0., 150. - 30. * fl, p.y - h) * (.8 - .12 * fl)), aa(p.y - h));
+        // fog drifting along the valley in front of it
+        if (abs(p.y - base - 55.) > 230.) continue;
+        float f = fbm(vec2(p.x * .0028 - t * .009 * (1. + fl * .4) + fl * 5., p.y * .012 + fl * 2.));
+        c = mix(c, fog, smoothstep(.45, .85, f) * .55 * exp(-abs(p.y - base - 55.) / 55.));
       }
-      // by day, soft shafts of light from the sun, in front of the trees
-      vec2 v = p - sp; float ang = atan(v.y, v.x);
-      c += vec3(1., .95, .7) * .07 * D * smoothstep(.55, .95, noise(vec2(ang * 22., t * .04))) * smoothstep(80., 300., length(v)) * exp(-length(v) / 900.);
-      // fireflies at night, drifting seeds catching the light by day
-      if (p.y > 420.) for (int i = 0; i < 18; i++) {
-        float fi = float(i); vec2 b = vec2(hash(vec2(fi, 1.)) * 1334., 470. + hash(vec2(fi, 2.)) * 260.);
-        vec2 pos = b + vec2(sin(t * (.15 + .1 * hash(vec2(fi, 3.))) + fi) * 60., cos(t * (.2 + .1 * hash(vec2(fi, 4.))) + fi * 2.) * 26.);
-        float pulse = mix(.5 + .5 * sin(t * (.7 + .6 * hash(vec2(fi, 5.))) + fi * 3.), .5 + .25 * sin(t * .5 + fi), D);
+      // tall conifers at both sides, dark against the fog, the middle left open
+      vec3 dark = mix(vec3(.008, .018, .022), vec3(.07, .13, .11), D);
+      float tree = 0.;
+      tree = max(tree, conifer(p, 52., 790., 700., 92., 1.));
+      tree = max(tree, conifer(p, 178., 800., 560., 74., 2.));
+      tree = max(tree, conifer(p, 1290., 790., 720., 96., 3.));
+      tree = max(tree, conifer(p, 1168., 800., 520., 70., 4.));
+      float back = max(conifer(p, 300., 760., 380., 50., 5.), conifer(p, 1040., 760., 400., 52., 6.));
+      c = mix(c, mix(dark, fog, .45), back);
+      c = mix(c, dark, tree);
+      // low fog in front of everything, slowly rolling
+      float lf = fbm(vec2(p.x * .002 - t * .012, p.y * .006 + 9.));
+      c = mix(c, fog, smoothstep(.4, .8, lf) * .5 * smoothstep(520., 750., p.y));
+      // the near ground a little deeper by day, so Home's text stays easy to read over it
+      c *= 1. - .22 * D * smoothstep(560., 750., p.y);
+      // by day, faint shafts of light through the fog
+      vec2 v = p - lc; float ang = atan(v.y, v.x);
+      c += vec3(1., .95, .8) * .025 * D * smoothstep(.6, .95, noise(vec2(ang * 9., t * .03))) * smoothstep(60., 260., length(v)) * exp(-length(v) / 900.) * (1. - tree);
+      // at night, fireflies down in the valley flashing together, a slow wave crossing from left to right every few seconds
+      if (N > .01 && p.y > 480.) for (int i = 0; i < 22; i++) {
+        float fi = float(i); vec2 b = vec2(hash(vec2(fi, 1.)) * 1334., 520. + hash(vec2(fi, 2.)) * 220.);
+        vec2 pos = b + vec2(sin(t * (.12 + .08 * hash(vec2(fi, 3.))) + fi) * 40., cos(t * (.15 + .08 * hash(vec2(fi, 4.))) + fi * 2.) * 16.);
+        float ph = mod(t - pos.x / 1334. * 1.4 - .25 * hash(vec2(fi, 5.)), 7.);
+        float flash = exp(-pow((ph - .6) / .16, 2.)) + .8 * exp(-pow((ph - 1.15) / .16, 2.)) + .6 * exp(-pow((ph - 1.7) / .16, 2.));
         float d = length(p - pos);
-        c += mix(mix(vec3(.85, 1., .5), m, .35), vec3(1., .97, .8) * .55, D) * pulse * (smoothstep(2.2, .4, d) * .9 + mix(.16, .05, D) * exp(-d / 9.));
+        c += mix(vec3(.85, 1., .45), m, .2) * N * flash * (smoothstep(2.4, .4, d) + .22 * exp(-d / 10.));
       }
       return c;
     }
@@ -247,16 +263,17 @@ fragment {
       vec3 bolt = mix(vec3(.7, .75, 1.), m, .45);
       c += bolt * mix(.32, .18, D) * env * dens * exp(-length(p - at) / 260.);
       c = mix(c, mix(vec3(.03, .035, .05), vec3(.16, .18, .19), D) + bolt * .1 * env * exp(-(p.y - hill) / 14.), aa(p.y - hill));
-      // rain, slanting: a nearer layer of longer, brighter streaks over a finer one
+      // a gentle rain, falling and slanting a little: a sparse nearer layer of longer streaks over a finer one
       vec3 rc0 = mix(vec3(.7, .75, .85), vec3(.86, .89, .94), D);
       for (int k = 0; k < 2; k++) {
-        float fk = float(k), cw = 9. - 3.5 * fk;
-        vec2 r = vec2(p.x + p.y * .2 + fk * 3.7, p.y);
-        vec2 cc = vec2(floor(r.x / cw), fk); float speed = (1100. - 300. * fk) + 400. * hash(cc);
-        float y = fract((r.y + t * speed + hash(cc + 3.) * 750.) / (150. - 40. * fk));
-        float len = .22 - .06 * fk;
-        float streak = smoothstep(0., .02, y) * smoothstep(len, .03, y) * aa((.11 - abs(fract(r.x / cw) - .5)) * cw) * step(.45, hash(cc + 9.));
-        c += rc0 * mix(.42, .26, fk) * mix(1., .7, D) * streak;
+        float fk = float(k), cw = 15. - 6. * fk;
+        vec2 r = vec2(p.x + p.y * .12 + fk * 3.7, p.y);
+        vec2 cc = vec2(floor(r.x / cw), fk); float speed = (560. - 160. * fk) + 160. * hash(cc);
+        float y = fract((r.y - t * speed + hash(cc + 3.) * 750.) / (300. - 80. * fk));
+        float len = .14 - .04 * fk;
+        // brightest at its lower end, the drop leading the way down
+        float streak = smoothstep(0., len, y) * smoothstep(len, len - .012, y) * aa((.08 - abs(fract(r.x / cw) - .5)) * cw) * step(.74, hash(cc + 9.));
+        c += rc0 * mix(.34, .2, fk) * mix(1., .75, D) * streak;
       }
       return c;
     }

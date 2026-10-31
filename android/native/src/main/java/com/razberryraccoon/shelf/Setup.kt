@@ -262,12 +262,12 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                 val theme = Theme.ENVS[Theme.env]
                 rows += Options.Row(Options.HEAD, "Music")
                 rows += Options.Row("music", "Music", value = "‹  ${musicName(games.music)}  ›", sub = musicSub())
-                if (games.music != "off") rows += Options.Row("musicvol", "Music volume", value = "‹  ${games.musicVol}%  ›", sub = "How loud the music plays")
+                rows += Options.Row("musicvol", "Music volume", value = "‹  ${games.musicVol}%  ›", sub = "How loud the music plays, on its own")
                 rows += Options.Row("ownmusic", "Your own music", value = if (Music.ownFile.exists()) "Change" else "Choose a file",
                     sub = if (Music.ownFile.exists()) "${games.ownMusicName.ifEmpty { "Your file" }}: an MP3 or other sound file, played on a loop" else "An MP3 or other sound file of your own, played on a loop")
                 rows += Options.Row(Options.HEAD, "Ambient sounds")
                 rows += Options.Row("ambient", "Ambient sounds", value = if (games.ambient) "On" else "Off", sub = "${theme.name}: ${AMBIENT_SUB[Theme.env]}, quietly under the music")
-                if (games.ambient) rows += Options.Row("ambvol", "Ambient volume", value = "‹  ${games.ambientVol}%  ›", sub = "How loud they are")
+                rows += Options.Row("ambvol", "Ambient volume", value = "‹  ${games.ambientVol}%  ›", sub = "How loud they are, on their own, whatever the music’s volume")
                 rows += Options.Row(Options.HEAD, "Interface sounds")
                 rows += Options.Row("sounds", "Sounds", value = if (games.sounds) "On" else "Off", sub = "Soft clicks and chimes as you move around")
                 if (games.sounds) rows += Options.Row("soundpack", "Sound pack", value = "‹  ${Sounds.PACKS[games.soundPack.coerceIn(0, Sounds.PACKS.size - 1)]}  ›",
@@ -372,7 +372,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             return fill()
         }
         if ((r?.key == "musicvol" || r?.key == "ambvol") && (a == "left" || a == "right")) {
-            val d = if (a == "left") -10 else 10
+            val d = if (a == "left") -5 else 5
             if (r.key == "musicvol") games.musicVol = (games.musicVol + d).coerceIn(0, 100) else games.ambientVol = (games.ambientVol + d).coerceIn(0, 100)
             Music.volumes(); Sounds.play(Sounds.MOVE); return fill()
         }

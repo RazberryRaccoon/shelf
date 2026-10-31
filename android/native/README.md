@@ -69,6 +69,10 @@ full size every frame. The look came from the viewer (`prototypes/shelf-themes.h
 waves, wind, rain with thunder a moment after the lightning. Every loop is two players handing over without a gap.
 The music fades out as a game goes in and back in when you return. The interface sounds moved to Settings › Sound.
 
+After the user's second look at the viewer: Forest is a foggy Appalachian forest (ridges fading into mist, hemlocks,
+fireflies flashing together at night), Stormy's rain falls (it rose before) and is gentle, and ambient sounds are
+quieter, with their own volume always in Settings › Sound next to the music's.
+
 Also: libretro matching says what really went wrong and has "Type a name…"; the three automatic collections can each
 be hidden (Settings › Library); the Museum says L2 and R2; the Library's and the Museum's side panels are taller;
 Home's text has a soft shadow, for the bright themes.

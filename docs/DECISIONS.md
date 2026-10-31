@@ -310,6 +310,10 @@ Summarized from the first part of the conversation; the full transcript is kept 
   awesome! But the rain is a little too difficult to see". And "all the themes should have a light/dark aka day/night
   version. You should be able to pick which one you want, or have it change automatically based on the system clock."
   Aurora's day is the blue hour. Ambient sounds start off; music starts on, matching the theme, at half volume.
+  Then, on the second viewer: Forest "should be more like a mysterious, like a foggy appalachian forest… This just
+  looks like central park… It should feel mysterious and beautiful"; Stormy's "rain looks like its going upwards. It's
+  also way too dense… a peaceful gentle rain storm"; "Great job on the music! The ambient sounds are too loud though;
+  you should be able to customize both the music and ambient sound volume separately".
 - After 0.30 (the user): built-in emulators: "VERY interested… down the line… I do eventually want to make money from
   this; maybe… two versions: one that works how it does now that I can sell, and then a personal 'better' version for
   me and my brother". Libretro matching said "check your internet" while connected; the three automatic collections

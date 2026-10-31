@@ -90,7 +90,7 @@ class Games(private val ctx: Context) {
     var ownMusicName: String get() = prefs.getString("own-music", "") ?: ""; set(v) = prefs.edit().putString("own-music", v).apply()
     /** The theme's ambient sounds (rain, waves, birds...), under the music. */
     var ambient: Boolean get() = prefs.getBoolean("ambient", false); set(v) = prefs.edit().putBoolean("ambient", v).apply()
-    var ambientVol: Int get() = prefs.getInt("ambient-vol", 70); set(v) = prefs.edit().putInt("ambient-vol", v).apply()
+    var ambientVol: Int get() = prefs.getInt("ambient-vol2", 35); set(v) = prefs.edit().putInt("ambient-vol2", v).apply()
     /** Which sound pack (Sounds.PACKS). */
     var soundPack: Int get() = prefs.getInt("sound-pack", 0); set(v) = prefs.edit().putInt("sound-pack", v).apply()
     var setupDone: Boolean get() = prefs.getBoolean("setup", false); set(v) = prefs.edit().putBoolean("setup", v).apply()
