@@ -216,7 +216,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
             override fun closed(library: Library, changed: Boolean) {
                 if (this@ShelfActivity.library === library) this@ShelfActivity.library = null
                 if (changed) home.setGames(games.recent())   // hidden games, plays
-                home.visible = true
+                pageClosed()
             }
         })
     }
@@ -225,7 +225,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
     override fun openApps() {
         if (apps != null) return
         home.visible = false
-        apps = Apps(this, board, games, object : Apps.Host {
+        apps = Apps(this, board, backdrop, games, object : Apps.Host {
             override fun show(msg: String) = home.show(msg)
             override fun gamesChanged() = home.setGames(games.recent())
             override fun openApp(pkg: String): Boolean = try {
@@ -235,7 +235,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
             override fun appInfo(pkg: String) {
                 try { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg"))) } catch (e: Exception) { home.show("Android's app info isn't available here") }
             }
-            override fun closed(apps: Apps) { if (this@ShelfActivity.apps === apps) this@ShelfActivity.apps = null; home.visible = true }
+            override fun closed(apps: Apps) { if (this@ShelfActivity.apps === apps) this@ShelfActivity.apps = null; pageClosed() }
         })
     }
 
@@ -246,7 +246,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
     override fun closed(museum: Museum, shellsChanged: Boolean) {
         this.museum = null
         if (shellsChanged) home.reshell()
-        home.visible = true
+        pageClosed()
     }
 
     override fun finished(setup: Setup) {
@@ -254,7 +254,8 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         if (!games.setupDone) { openSetup(settings = false); return }   // "run first-time setup again"
         home.refreshProfile()
         home.reshell()   // a shell you deleted in Settings comes off the cartridges wearing it
-        rescan { home.visible = true }
+        val next = nextPage
+        if (next != null) { rescan { }; pageClosed() } else rescan { home.visible = true }
     }
 
     override fun hasStorage() = Environment.isExternalStorageManager()
@@ -403,7 +404,36 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
     private var lastRepeat = 0L
     private val repeat = object : Runnable { override fun run() { held?.let { input(it); ui.postDelayed(this, 95) } } }
     /** Buttons go to whichever screen is showing. */
-    private fun input(a: String) { if (safeMode) return safeInput(a); launch?.let { return it.input(a) }; if (Overlays.input(a)) return; if (home.picker != null) home.input(a) else museum?.input(a) ?: library?.input(a) ?: apps?.input(a) ?: setup?.input(a) ?: home.input(a) }   // a game starting takes every button (any one skips); then a message over everything
+    // ---------- L1 and R1: from page to page ----------
+
+    /** The top bar's pages in order, Home first; L1 and R1 step through them (wrapping). */
+    private val PAGES = listOf("home", "library", "apps", "museum", "settings")
+    /** The page to open once the one closing has gone (stepping with L1 and R1). */
+    private var nextPage: String? = null
+    private fun currentPage(): String? = when {
+        museum != null -> "museum".takeIf { museum!!.canLeave }
+        library != null -> "library".takeIf { library!!.canLeave }
+        apps != null -> "apps".takeIf { apps!!.canLeave }
+        setup != null -> "settings".takeIf { setup!!.canLeave }
+        else -> "home".takeIf { home.canLeave }
+    }
+    /** L1 or R1: the page before or after this one. False when this page can't be left now (it keeps the button). */
+    private fun cycle(d: Int): Boolean {
+        if (nextPage != null) return true
+        val now = currentPage() ?: return false
+        val to = PAGES[(PAGES.indexOf(now) + d + PAGES.size) % PAGES.size]
+        Sounds.play(Sounds.MOVE)
+        if (now == "home") { openPage(to); return true }
+        nextPage = to
+        when (now) { "library" -> library?.close(); "apps" -> apps?.close(); "museum" -> museum?.close(); "settings" -> setup?.let { finished(it) } }
+        return true
+    }
+    private fun openPage(p: String) { when (p) { "library" -> openLibrary(); "apps" -> openApps(); "museum" -> openMuseum(null); "settings" -> openSettings(); else -> home.visible = true } }
+    /** A page has gone: the next one (L1 or R1) comes up, or Home shows again. */
+    private fun pageClosed() { val p = nextPage; nextPage = null; if (p != null) openPage(p) else home.visible = true }
+
+    private fun input(a: String) { if (safeMode) return safeInput(a); launch?.let { return it.input(a) }; if (Overlays.input(a)) return
+        if ((a == "lb" || a == "rb") && home.picker == null && cycle(if (a == "lb") -1 else 1)) return; if (home.picker != null) home.input(a) else museum?.input(a) ?: library?.input(a) ?: apps?.input(a) ?: setup?.input(a) ?: home.input(a) }   // a game starting takes every button (any one skips); then a message over everything
 
     private fun actionFor(code: Int) = when (code) {
         KeyEvent.KEYCODE_DPAD_UP -> "up"; KeyEvent.KEYCODE_DPAD_DOWN -> "down"

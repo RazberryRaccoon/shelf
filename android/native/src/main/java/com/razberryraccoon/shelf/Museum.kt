@@ -406,7 +406,7 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         }
         if (a == "y" && (zone == Zone.ROWS || zone == Zone.FACTS) && leaving < 0) { inspecting = true; inspZoomTo = 1f; panToX = 0f; panToY = 0f; Sounds.play(Sounds.OPEN); return }
         when (a) {
-            "lb", "rb" -> return if (zone != Zone.ROWS && zone != Zone.FACTS) Sounds.play(Sounds.BUMP) else switchTo(at + if (a == "lb") -1 else 1)   // a list is about this console
+            "lt", "rt" -> return if (zone != Zone.ROWS && zone != Zone.FACTS) Sounds.play(Sounds.BUMP) else switchTo(at + if (a == "lt") -1 else 1)   // a list is about this console (L1 and R1 step between pages)
             "x" -> { flipped = !flipped; vYaw = 0f; idle = 9f; Sounds.play(Sounds.TURN); return }
         }
         when (zone) {
@@ -644,6 +644,8 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         fillParts(consoles.info[ex().sys]?.parts?.indexOfFirst { it.first == paintRole } ?: 0)
     }
 
+    /** Whether L1 and R1 may step to the next page: on the Museum's lists, not looking closely or changing colors. */
+    val canLeave get() = !closing && !inspecting && (zone == Zone.ROWS || zone == Zone.FACTS)
     fun close() { if (!closing) { closing = true; Sounds.play(Sounds.CLOSE); board.postDelayed({ destroy(); host.closed(this, shellsChanged) }, 380) } }
 
     fun destroy() {

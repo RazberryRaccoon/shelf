@@ -29,7 +29,7 @@ import kotlin.math.sin
  *
  * The chosen box lifts toward you, turns a little more to face you, and glows in its console's color (Outline); its name
  * and how long ago you played it sit under it. A opens it (the Library slides away and the game's page opens from the
- * box), X brings up its collections card, Y makes it a favorite, L1 and R1 jump a group at a time, Start goes to the
+ * box), X brings up its collections card, Y makes it a favorite, L2 and R2 jump a group at a time (L1 and R1 step between pages), Start goes to the
  * pills. Y on a list on the left: what you can do with it.
  *
  * Boxes are made as they come near the screen and kept for reuse when they leave it (dressed again with the next game's
@@ -52,7 +52,7 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
         /** Each console's closed box, in millimetres (its model's size): the grid's cells and rows are made from these. */
         private val BOX_MM = mapOf("nes" to (127f to 182f), "snes" to (174f to 121f), "n64" to (174f to 121f), "genesis" to (128f to 197f),
             "gb" to (123f to 123f), "gbc" to (123f to 123f), "gba" to (123f to 123f), "ds" to (135f to 122f), "psp" to (104f to 177f),
-            "ps1" to (142f to 125f), "android" to (135f to 171f))
+            "ps1" to (142f to 125f), "android" to (120f to 180f))
         private const val S = 1.2f          // layout pixels per millimetre: every box at the same scale, real relative sizes
         private const val GX = 360f         // the grid's left edge
         private const val CW = 236f         // a column's width (four of them)
@@ -504,7 +504,7 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
             "right" -> if (c != null && c.col < COLS - 1 && cells.getOrNull(sel + 1)?.row == c.row) step(sel + 1) else Sounds.play(Sounds.BUMP)
             "up" -> if (c != null && c.row == 0 && pills().isNotEmpty()) { Sounds.play(Sounds.MOVE); focusOn("pills") } else vertical(-1)
             "down" -> vertical(1)
-            "lb", "rb" -> jumpGroup(if (a == "lb") -1 else 1)
+            "lt", "rt" -> jumpGroup(if (a == "lt") -1 else 1)   // L1 and R1 step between pages
             "start" -> if (pills().isNotEmpty()) { Sounds.play(Sounds.MOVE); focusOn("pills") }
             "a" -> c?.let { cell ->
                 val add = adding
@@ -729,6 +729,8 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
     }
 
     /** Starting a game from its page here: its cartridge goes to the start animation, and comes back to the page. */
+    /** Whether L1 and R1 may step to the next page: not from a game's page, nor while adding or arranging. */
+    val canLeave get() = page == null && adding == null && arranging == null && !leaving
     /** The game's page is open with its box out. */
     fun boxOut(g: Game) = page?.takeIf { it.game.path == g.path }?.boxOut == true
     fun takeForLaunch(g: Game): Triple<Cart?, FloatArray, FloatArray>? {

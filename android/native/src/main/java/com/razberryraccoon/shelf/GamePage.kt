@@ -998,15 +998,17 @@ class Tiles(ctx: Context) : View(ctx) {
             2 -> { p.style = Paint.Style.FILL; p.color = swatch; c.drawCircle(17f, 17f, 12f, p)
                 p.style = Paint.Style.STROKE; p.color = ink; c.drawCircle(17f, 17f, 13.5f, p) }
             3 -> {   // collections: three cards fanned, the front one with a heart when it's a favorite
+                // the two behind are drawn round the front one (cut out of where it is), so they never show through it,
+                // whatever the tile's color (a see-through fill let them show until the tile was chosen)
                 p.style = Paint.Style.STROKE
+                c.save(); c.clipOutRect(RectF(7.7f, 3.7f, 26.3f, 30.3f))
                 c.save(); c.rotate(-12f, 17f, 30f); c.drawRoundRect(RectF(7f, 6f, 23f, 28f), 3f, 3f, p); c.restore()
                 c.save(); c.rotate(12f, 17f, 30f); c.drawRoundRect(RectF(11f, 6f, 27f, 28f), 3f, 3f, p); c.restore()
-                p.style = Paint.Style.FILL; p.color = if (k == at && active) Theme.sel else Theme.chip; c.drawRoundRect(RectF(9f, 5f, 25f, 29f), 3f, 3f, p)
-                p.color = ink; p.style = Paint.Style.STROKE; c.drawRoundRect(RectF(9f, 5f, 25f, 29f), 3f, 3f, p)
+                c.restore()
+                c.drawRoundRect(RectF(9f, 5f, 25f, 29f), 3f, 3f, p)
                 if (fav) { p.style = Paint.Style.FILL; c.drawPath(Path().apply { moveTo(17f, 22f); cubicTo(10f, 17f, 11f, 11f, 14.5f, 11f); cubicTo(16f, 11f, 17f, 12.5f, 17f, 13.5f)
                     cubicTo(17f, 12.5f, 18f, 11f, 19.5f, 11f); cubicTo(23f, 11f, 24f, 17f, 17f, 22f); close() }, p) } }
-            4 -> { p.style = Paint.Style.STROKE   // three sliders
-                for ((j, kx) in listOf(10f, 22f, 14f).withIndex()) { val y = 9f + j * 8; c.drawLine(4f, y, 30f, y, p); p.style = Paint.Style.FILL; c.drawCircle(kx, y, 3.4f, p); p.style = Paint.Style.STROKE } }
+            4 -> { p.style = Paint.Style.STROKE; c.drawPath(gear(17f, 17f), p); c.drawCircle(17f, 17f, 4.6f, p) }   // a gear, as the top bar's Settings
             else -> { p.style = Paint.Style.STROKE; c.drawLine(8f, 17f, 27f, 17f, p); c.drawLine(8f, 17f, 15f, 10f, p); c.drawLine(8f, 17f, 15f, 24f, p) }
         }
     }

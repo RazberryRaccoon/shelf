@@ -592,6 +592,14 @@ opening edge, and a coloured test spine in the new render confirms the fix.
 **0.24, fixed:** the Library crashed as it opened: `byName`, a stored comparator declared below `init`, was still null
 when `init` sorted the first list (the init-order trap again; it's a getter now).
 
+**0.30: the user's notes on 0.29.** Apps: tabs (`groupsFor`), your own emulator marks (`app-kind:` prefs, the
+known list only as the start), games out of All, key hints, `backdrop.shadows.clear()`. The page cycle lives in the
+activity (`cycle`, `nextPage`, `pageClosed`): each page says whether it `canLeave`; the closing page's own close runs,
+then the next opens. Manuals: `rightToLeft` matched "(Japan" in "(Japan, USA)" (1080° Snowboarding's back cover);
+`SINGLE` had NES pages tall (they're wide), so every NES cover passed for a pair; the all-pairs rule now needs a
+seam. The android case is 120 × 180 (re-exporting the cases also carried the labels' black sheen onto the case art,
+which changes nothing seen). The Collections icon's back cards are clipped round the front card (`clipOutRect`).
+
 **0.29: an overnight round on my own** (the user asleep: "work on whatever you think would improve it"). Apps
 (`Apps.kt`, a Canvas grid; icons read on a thread at 126 px; the open fade is a `Curtain`); Android games
 (`Games.appGame`: path `app://<package>/<name>.app`, so Meta's folder name is the app's name; "android" joined

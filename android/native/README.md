@@ -52,6 +52,24 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
+## What's in version 0.30
+
+The user's notes on 0.29:
+1. **Apps names its buttons** along the top right: L2 R2 Tabs, A Open, X Hide emulators (in All), Y Options.
+2. **Three tabs** (L2 and R2): All, Emulators and Games. An app you make a game leaves All (it's in Games, and on Home
+   and in the Library); Not a game brings it back.
+3. **You say what's an emulator:** Y › Mark as an emulator (or Not an emulator). The emulators Shelf knows start out
+   marked. X hides emulators from All; they're always in the Emulators tab.
+4. **Android game boxes are 2:3** (120 × 180 mm), the shape of SteamGridDB's covers, so cover art isn't squeezed.
+5. **L1 and R1 step through the pages**: Home, Library, Apps, Museum, Settings, round and round (from any of them, at
+   its top level). What L1 and R1 did inside the Library (jump a group) and the Museum (change console) is on L2 and R2.
+6. **Settings is a gear,** in the top bar and on the game page.
+7. **The Collections tile's cards** no longer show through each other before it's chosen.
+8. **Manual covers:** a release for Japan and elsewhere ("(Japan, USA)") takes the English manual's front cover (the
+   right half); NES manual pages are wide, so their single covers stay whole (and lie sideways in the box); a manual
+   scanned in pairs throughout is halved only if a seam shows down the middle.
+9. **Home's shadows** no longer show through Apps.
+
 ## What's in version 0.29
 
 Made overnight on my own (the user: "work on whatever you think would improve it… pretend I'm here"), on top of 0.28:

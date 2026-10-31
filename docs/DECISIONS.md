@@ -300,6 +300,11 @@ Summarized from the first part of the conversation; the full transcript is kept 
   edited/changed/deleted like any other collection… a convenient way to save a sort+filter combo"). The start
   animations get their own round ("Really take some time and flesh these out"); the NES door should "hinge inward just
   like on the real console". Later: more themes, sound packs, better icons/fonts/style, the models (ROADMAP).
+- After 0.29 (the user): Apps needs button prompts at the top; tabs All, Emulators, Games; marking an app a game or an
+  emulator by hand ("Hide emulators… just doesn't detect whats actually an emulator very well. I want to do this
+  manually"); Android boxes at SteamGridDB's cover shape; "L and R to cycle through the four pages from the top, with
+  home at the 'beginning'"; a gear for Settings; the themes should be environments: "city, forest, ocean, aurora,
+  desert, and stormy… each with its own animations, colors… you don't have to do it in this round".
 - Overnight (the user, before 0.29): "Work on whatever you think would improve it… pretend I'm here. Test things in
   your environment. Add polish, fix issues, add some new features… I want to wake up to a better application that
   continues to surprise and delight." Chosen: Apps (spec §10, the web app had it), themes and sound packs (the
