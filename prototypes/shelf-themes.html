@@ -206,9 +206,10 @@ vec3 aurora(vec2 p) {
   // two curtains: a wavy lower edge, rays rising from it, rippling slowly
   for (int k = 0; k < 2; k++) {
     float fk = float(k);
-    float edge = 300. + 70. * fk + 55. * sin(p.x * .0045 + t * .07 + fk * 2.) + 40. * (fbm(vec2(p.x * .003 + t * .02, fk)) - .5);
+    float edge = 260. + 80. * fk + 55. * sin(p.x * .0045 + t * .07 + fk * 2.) + 40. * (fbm(vec2(p.x * .003 + t * .02, fk)) - .5);
     float above = edge - p.y;
-    float shape = smoothstep(-6., 10., above) * exp(-max(above, 0.) / (130. + 60. * fk));
+    // brightest just above its lower edge, fading up into the rays and softly down below it (no hard line)
+    float shape = (above > 0. ? exp(-above / (120. + 60. * fk)) : exp(-pow(-above / 45., 2.))) * (.55 + .45 * smoothstep(-40., 20., above));
     float rays = .45 + .55 * noise(vec2(p.x * .035 + t * .25 + fk * 9., fk));
     vec3 green = mix(vec3(.2, 1., .55), m, .3), top = mix(vec3(.6, .3, .9), m, .35);
     vec3 col = mix(green, top, smoothstep(0., 170., above));
@@ -248,24 +249,30 @@ vec3 desert(vec2 p) {
 
 vec3 stormy(vec2 p) {
   float t = uT; vec3 m = uMood;
-  vec3 c = mix(vec3(.05, .06, .09), vec3(.1, .11, .14), smoothstep(0., 750., p.y));
-  // clouds, rolling slowly
-  float d1 = fbm(vec2(p.x * .0025 + t * .008, p.y * .004 + t * .002));
-  float d2 = fbm(vec2(p.x * .005 - t * .012, p.y * .007 + 5.));
-  float dens = smoothstep(.35, .85, d1 * .7 + d2 * .45);
-  c = mix(c, vec3(.15, .16, .2), dens * .8);
-  c *= .8 + .35 * (d2 - .5);
+  vec3 c = mix(vec3(.04, .05, .08), vec3(.13, .14, .18), smoothstep(0., 750., p.y));
+  // clouds, rolling slowly: lit edges over darker bellies
+  float d1 = fbm(vec2(p.x * .0022 + t * .008, p.y * .0045 + t * .002));
+  float d2 = fbm(vec2(p.x * .0045 - t * .012, p.y * .008 + 5.));
+  float dens = smoothstep(.3, .8, d1 * .7 + d2 * .45);
+  vec3 cloud = mix(vec3(.08, .09, .12), vec3(.27, .29, .35), smoothstep(.35, .75, d2));
+  c = mix(c, cloud, dens * .9);
+  // a low glow at the horizon, under the clouds
+  c += mix(vec3(.3, .32, .4), m, .25) * .08 * exp(-(750. - p.y) / 140.);
+  // dark hills along the bottom, the lightning catching their tops
+  float hill = 655. + 28. * sin(p.x * .004 + 1.3) + 16. * sin(p.x * .011) + 20. * (fbm(vec2(p.x * .006, 3.)) - .5);
+  float ground = smoothstep(-1.5, 1.5, p.y - hill);
   // lightning far off: now and then, a dim glow inside the clouds (two flickers), in the console's color
   float period = 9.; float n = floor(t / period); float u = t - n * period - 2.5 * hash(vec2(n, 1.));
   vec2 at = vec2(200. + 900. * hash(vec2(n, 2.)), 160. + 160. * hash(vec2(n, 3.)));
   float env = (u > 0. ? exp(-u / .35) : 0.) + (u > .22 ? .7 * exp(-(u - .22) / .3) : 0.);
   c += mix(vec3(.7, .75, 1.), m, .45) * .32 * env * dens * exp(-length(p - at) / 260.);
+  c = mix(c, vec3(.03, .035, .05) + mix(vec3(.7, .75, 1.), m, .45) * .1 * env * exp(-(p.y - hill) / 14.), ground);
   // fine rain, slanting
   vec2 r = vec2(p.x + p.y * .18, p.y);
   vec2 rc = vec2(floor(r.x / 7.), 0.); float speed = 900. + 400. * hash(rc);
   float y = fract((r.y + t * speed + hash(rc + 3.) * 750.) / 120.);
   float streak = smoothstep(.0, .02, y) * smoothstep(.16, .02, y) * step(abs(fract(r.x / 7.) - .5), .07) * step(.55, hash(rc + 9.));
-  c += vec3(.6, .65, .75) * .1 * streak;
+  c += vec3(.65, .7, .8) * .2 * streak;
   return c;
 }
 
