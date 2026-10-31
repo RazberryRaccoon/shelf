@@ -198,6 +198,7 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
         Sorts.ZA -> compareByDescending { it.title.lowercase() }
         Sorts.RECENT -> compareByDescending<Game> { games.lastPlayed(it) }.then(byName)
         Sorts.MOST -> compareByDescending<Game> { games.timesPlayed(it) }.then(byName)
+        Sorts.TIME -> compareByDescending<Game> { games.playTime(it) }.then(byName)
         Sorts.ADDED -> compareByDescending<Game> { cols.added(it) }.then(byName)
         Sorts.NEWEST -> compareBy<Game> { year(it) == null }.thenByDescending { year(it) ?: 0 }.then(byName)
         Sorts.OLDEST -> compareBy<Game> { year(it) == null }.thenBy { year(it) ?: 0 }.then(byName)
@@ -314,6 +315,7 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
         if (f != null && f.count > 0) out += Pill("Clear", "clear")
         if (sh.id == "all" && f != null && f.count > 0) out += Pill("Save as a collection", "save")
         if (col != null && !col.live) { out += Pill("Add games", "add"); out += Pill("Arrange", "arrange") }
+        if (cells.size > 2) out += Pill("Surprise me", "surprise")
         return out
     }
 
@@ -331,6 +333,7 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
                 open(shelves.first { it.id == "c:" + c.id }); host.show("Saved ${c.name}: it keeps itself up to date")
             }
             "add" -> col?.let { startAdding(it) }
+            "surprise" -> surprise()
             "arrange" -> col?.let { startArranging(sh, it) }
         }
     }
@@ -547,6 +550,20 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
         cells.forEach { it.arrive = 0f }
     }
 
+    /**
+     * Surprise me: a game from this list, chosen at random (not the one you're on, and leaning toward games not played
+     * lately); the list glides to it and it lifts, glowing, with a chime.
+     */
+    private fun surprise() {
+        if (cells.size < 2) return Sounds.play(Sounds.BUMP)
+        val now = System.currentTimeMillis()
+        val weights = cells.mapIndexed { i, c -> if (i == sel) 0.0 else 1.0 + minOf(30.0, (now - games.lastPlayed(c.game)) / 86_400_000.0) / 10.0 }
+        var r = Math.random() * weights.sum(); var pick = 0
+        for ((i, w) in weights.withIndex()) { r -= w; if (r <= 0) { pick = i; break } }
+        sel = pick; focusOn("grid"); Sounds.play(Sounds.CHIME)
+        host.show("How about ${cells[pick].game.title}?")
+    }
+
     /** After something changed (a favorite, a collection, a hidden game): the counts and the list shown again. */
     private fun refresh() { fillList(); shelf?.let { open(it, quick = true) } }
 
@@ -712,6 +729,8 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
     }
 
     /** Starting a game from its page here: its cartridge goes to the start animation, and comes back to the page. */
+    /** The game's page is open with its box out. */
+    fun boxOut(g: Game) = page?.takeIf { it.game.path == g.path }?.boxOut == true
     fun takeForLaunch(g: Game): Triple<Cart?, FloatArray, FloatArray>? {
         val p = page?.takeIf { it.game.path == g.path } ?: return null
         val c = p.cart
@@ -809,7 +828,8 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
                     p.typeface = Fonts.bold; p.textSize = 21f; p.color = Theme.fg
                     c.drawText(TextUtils.ellipsize(cell.game.title, android.text.TextPaint(p), CW * 1.6f, TextUtils.TruncateAt.END).toString(), cell.x, ty, p)
                     val played = games.lastPlayed(cell.game)
-                    val note = (if (arranging != null && carrying) "Moving  ·  " else "") + if (played == 0L) "Not played yet" else "Played " + android.text.format.DateUtils.getRelativeTimeSpanString(played, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS)
+                    val note = (if (arranging != null && carrying) "Moving  ·  " else "") + if (played == 0L) "Not played yet" else "Played " + android.text.format.DateUtils.getRelativeTimeSpanString(played, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS) +
+                        (playTimeText(games.playTime(cell.game))?.let { "  ·  $it" } ?: "")
                     p.typeface = Fonts.body; p.textSize = 17f; p.color = Theme.fg2; c.drawText(note, cell.x, ty + 24, p)
                     p.textAlign = Paint.Align.LEFT
                 }

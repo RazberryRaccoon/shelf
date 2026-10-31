@@ -52,6 +52,49 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
+## What's in version 0.29
+
+Made overnight on my own (the user: "work on whatever you think would improve it… pretend I'm here"), on top of 0.28:
+1. **Apps** (the top bar's Apps button, which only said "later" before): every app on the handheld as icons on soft
+   plates, the ones you opened lately first, then A to Z. The chosen one lifts, floats and glows in Android green. A
+   opens it through a short fade (and Shelf fades back in when you return). X hides the emulators. Y: Open, Make it a
+   game, App info. L1 and R1 jump between the two groups.
+2. **Android games** (spec §10): Y › Make it a game turns an app into one of your games, with the Android cartridge
+   and box, the Android handheld's start animation, a place on Home and in the Library (Android), and art from the
+   art services where they have it. Game settings › Move back to Apps undoes it.
+3. **Shelf as your home screen:** Android now offers Shelf Native when you press Home; Settings › System › Home screen
+   opens Android's choice of home app.
+4. **Themes** (from the "eventually" list): Settings › Home › Theme: Space, Midnight, Aurora, Dusk, Deep sea, Ember.
+   Each is a background tone and a color the nebula and planet lean toward; panels take on the background.
+5. **Sound packs** (from the list): Settings › System › Sound pack: Soft (as before), Glass (bell-like), Wood
+   (marimba), Bubble (each note glides up into place). All made on the handheld from tones, as before.
+6. **Play time:** how long you've played each game (from the game starting to coming back) shows on its page and
+   under its box in the Library; a new order, Most time played.
+7. **Surprise me:** a pill in the Library that picks a game from the list at random (leaning toward ones you haven't
+   played lately) and glides to it.
+8. **L1 and R1 on Home** open the Library and Settings (spec §4).
+
+## What's in version 0.28
+
+The user's notes on 0.27:
+1. **Starting a game from the open box, choreographed instead of rushed.** The cartridge lifts out of its tray toward
+   you and moves to where it waits, beside where the console will stand, already the size it will be in the console;
+   the box slides away behind it at its usual pace; only then does the console rise. The waiting spot is measured
+   from every pose the console takes on its way up (its spring's overshoot included), so it never rises into the
+   cartridge. From Home the cartridge waits the same way.
+2. **Every frame checked.** A clip test in tools/lighting-rig (`cliptest.mjs`) runs every console, from Home and from
+   a page, every 20 ms: how deep any point of the cartridge gets inside the console, and whether the console hides
+   any of it on the way. None, for all of them.
+3. **No glow round the console** at the hit any more.
+4. **Coming back:** the cartridge stays on the screen where it floats; the box slides in behind it, and it slots in.
+5. **Shockwaves on every console:** level rings over a home console (half rings out of the NES's front, as before),
+   arcs over a handheld's top; they stay where they were made when a handheld turns round afterwards.
+6. **Long text in Settings and Game settings** starts at its beginning; on the chosen row it waits a moment, then
+   glides slowly to the end, waits, and fades back to the start. Other rows end in "…".
+7. **Manual covers:** the SNES's and N64's manual pages are upright (their front and back covers together fit the
+   wide box), so their cover pairs are now found and halved, and the cover lies sideways in the box. A first page
+   wider than one page should be is also checked for the seam where two pages meet.
+
 ## What's in version 0.27
 
 The user's four notes on 0.26:

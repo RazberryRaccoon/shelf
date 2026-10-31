@@ -110,6 +110,8 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     private val tearing get() = mode == Mode.SETTINGS && cart?.canOpen == true
     /** Starting the game: the start animation has the cartridge, and the page fades out of its way (and back after). */
     var launching = false
+    /** The box is out on the page (open or closed): starting a game waits for it to slide away first. */
+    val boxOut get() = case != null && flow.s > .5f
     private var launchK = 0f
     private var flipped = false
     // each view's resting angle: the cartridge's front a little turned so its side shows, the open box from a little
@@ -218,7 +220,8 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val about1 = listOfNotNull(f["releaseyear"], f["developer"] ?: f["publisher"], f["genre"]).joinToString(" · ")
         facts.text = listOfNotNull(
             about1.ifEmpty { null },
-            if (played == 0L) "Not played yet" else "Played " + DateUtils.getRelativeTimeSpanString(played, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS) + (if (n > 1) " · $n times" else ""),
+            if (played == 0L) "Not played yet" else "Played " + DateUtils.getRelativeTimeSpanString(played, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS) + (if (n > 1) " · $n times" else "") +
+                (playTimeText(games.playTime(game))?.let { " · $it in all" } ?: ""),
             "Plays with " + (games.emulatorFor(game)?.let { emuName(it) } ?: "nothing yet")).joinToString("\n")
         tiles.fav = games.favorite(game)
         tiles.swatch = carts.variantFor(game.sys, carts.shellFor(games, game))?.color ?: Theme.fg2
@@ -284,7 +287,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val pk = Backdrop.ease(((t - .3f) / .7f).coerceIn(0f, 1f))
         studioK = if (studio != null) min(1f, studioK + dt / .3f) else maxOf(0f, studioK - dt / .25f)
         val sk = Backdrop.ease(studioK)
-        launchK = if (launching) min(1f, launchK + dt / .22f) else maxOf(0f, launchK - dt / .4f)
+        launchK = if (launching) min(1f, launchK + dt / .3f) else maxOf(0f, launchK - dt / .4f)
         val lk = 1 - Backdrop.ease(launchK)
         val mk = 1 - Backdrop.ease(manualK)   // the panel steps back while the manual is out
         inspK = if (inspecting) min(1f, inspK + dt / .4f) else maxOf(0f, inspK - dt / .35f)
@@ -337,7 +340,9 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
             else -> when (view) { 1 -> 2f; 2 -> 3f; else -> 0f }
         }
         val was = flow.s
-        flow.tick(dt, boxedTo, if (closing) 1.3f else 1f)
+        // a game starting: the box slides away behind the lifted cartridge a little quicker than usual, before the
+        // console comes (Launch waits for it: boxOut, its lead)
+        flow.tick(dt, boxedTo, if (closing) 1.3f else if (launching) 1.6f else 1f)
         if (was < 2f && flow.s >= 2f) Sounds.play(Sounds.CLICK)        // the cartridge seats in its tray
         if (was < 3f && flow.s >= 3f && !closing) Sounds.play(Sounds.CLOSE)   // the cover shuts (closing the page already sounded once)
         cart?.teardown(tk)
@@ -459,6 +464,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
 
     /** This game's emulator: the same as its console's other games, or one of its own. */
     private fun chooseEmulator(then: Boolean) {
+        if (games.isApp(game)) { if (then) play() else host.show("${title.text} is an Android game: it opens on its own"); return }
         val console = Games.NAMES[game.sys] ?: game.sys
         val choices = games.emulatorChoices(game.sys)
         val own = games.ownEmulator(game)
@@ -783,7 +789,8 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val console = Games.NAMES[game.sys] ?: game.sys
         val own = games.ownEmulator(game)
         val rows = listOf(
-            Options.Row("emu", "Plays with", value = own?.let { emuName(it).substringBefore(",") } ?: "Same as $console", sub = games.emulatorFor(game)?.let { emuName(it) } ?: "Nothing chosen yet"),
+            if (games.isApp(game)) Options.Row("toapps", "Move back to Apps", sub = "Just an app again: off Home and out of the Library")
+            else Options.Row("emu", "Plays with", value = own?.let { emuName(it).substringBefore(",") } ?: "Same as $console", sub = games.emulatorFor(game)?.let { emuName(it) } ?: "Nothing chosen yet"),
             carts.variantFor(game.sys, carts.shellFor(games, game)).let { v -> Options.Row("shell", "Customize shell", value = v?.name ?: "", dot = v?.color) },
             Options.Row("home", "Show on Home", value = if (games.onHome(game)) "Yes" else "No", sub = "Off: it stays in the Library, out of your recent games"),
             Options.Row("hidegame", "Hide this game", sub = "Gone from Home and the Library until you open Library › Hidden with your code"),
@@ -807,6 +814,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
                 "shell" -> { hideList(); startColors(Mode.SETTINGS) }
                 "home" -> { games.setOnHome(game, !games.onHome(game)); homeChanged = true; Sounds.play(Sounds.PICK); fillSettings() }
                 "hidegame" -> host.hideGame(game) { homeChanged = true; close() }
+                "toapps" -> { games.unmarkApp(games.appPackage(game)); homeChanged = true; Sounds.play(Sounds.CLOSE); host.show("${title.text} is back in Apps"); close() }
                 "media" -> openMedia()
                 "done" -> { Sounds.play(Sounds.CLOSE); hideList() }
             }
@@ -883,10 +891,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val shift = maxOf(0f, -kotlin.math.cos(PI.toFloat() * .97f * c.open)) * c.half[0] * s * kotlin.math.cos(ry)
         val at = x + shift
         val bx = at - (1 - flow.boxIn) * (at + 4 * c.half[0] * s + 40f)   // off the left edge, the open cover and all
-        // a game starting: the box darts off to the left at once (fast, then slowing), out of the console's way as it
-        // springs up in the middle (it clipped into it while the box went through its own slower sequence)
-        val gone = 1 - (1 - launchK) * (1 - launchK) * (1 - launchK)
-        c.place(bx - gone * (at + 4 * c.half[0] * s + 300f), y, 50f, ry, rx, s * big)
+        c.place(bx, y, 50f, ry, rx, s * big)
         if (launching) return
         val ct = cart ?: return
         val tray = c.mediaMatrix()

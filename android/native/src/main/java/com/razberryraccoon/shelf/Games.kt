@@ -20,7 +20,8 @@ class Games(private val ctx: Context) {
         fun mediaName(sys: String) = when (sys) { "ps1" -> "CD"; "psp" -> "UMD"; "ds" -> "Game card"; "android" -> "App cartridge"; else -> "Cartridge" }
         /** Console names, from the prototype's PLAT table. */
         val NAMES = mapOf("nes" to "NES", "snes" to "Super Nintendo", "n64" to "Nintendo 64", "genesis" to "Sega Genesis", "gb" to "Game Boy",
-            "gbc" to "Game Boy Color", "gba" to "Game Boy Advance", "ps1" to "PlayStation", "ds" to "Nintendo DS", "psp" to "PlayStation Portable")
+            "gbc" to "Game Boy Color", "gba" to "Game Boy Advance", "ps1" to "PlayStation", "ds" to "Nintendo DS", "psp" to "PlayStation Portable",
+            "android" to "Android")   // Android games: apps you've added from Apps (no folder, no emulator)
         /** RetroArch cores and standalone emulators for each console (the prototype's list); `first` is preferred when installed. */
         private class Emus(val cores: List<String>, val apps: List<String>, val first: String? = null)
         private val EMUS = mapOf(
@@ -79,6 +80,10 @@ class Games(private val ctx: Context) {
     /** Settings › Home scrolling: Home.STYLES (0 classic, 1 centered, 2 cover flow, 3 spines, 4 carousel, 5 stack). */
     var homeScroll: Int get() = prefs.getInt("home-scroll", 0); set(v) = prefs.edit().putInt("home-scroll", v).apply()
     var sounds: Boolean get() = prefs.getBoolean("sounds", true); set(v) = prefs.edit().putBoolean("sounds", v).apply()
+    /** Which theme (Theme.LOOKS). */
+    var theme: Int get() = prefs.getInt("theme", 0); set(v) = prefs.edit().putInt("theme", v).apply()
+    /** Which sound pack (Sounds.PACKS). */
+    var soundPack: Int get() = prefs.getInt("sound-pack", 0); set(v) = prefs.edit().putInt("sound-pack", v).apply()
     var setupDone: Boolean get() = prefs.getBoolean("setup", false); set(v) = prefs.edit().putBoolean("setup", v).apply()
 
     /** Folders you chose: one per console, and main folders that hold a folder per console. */
@@ -98,6 +103,8 @@ class Games(private val ctx: Context) {
         val list = ArrayList<Game>()
         r.optJSONArray("games")?.let { a -> for (i in 0 until a.length()) a.getJSONObject(i).let { g -> if (g.optString("sys") in NAMES) list.add(Game(g.getString("sys"), g.getString("title"), g.getString("path"))) } }
         installed = r.optJSONArray("emus")?.let { a -> (0 until a.length()).map { a.getString(it) }.toSet() } ?: emptySet()
+        // the apps you made games of (Apps › Y), while they're still installed
+        for ((pkg, label) in appGames()) if (ctx.packageManager.getLaunchIntentForPackage(pkg) != null) list.add(appGame(pkg, label))
         all = list
     }
 
@@ -106,6 +113,9 @@ class Games(private val ctx: Context) {
 
     fun lastPlayed(g: Game) = prefs.getLong("played:" + g.path, 0L)
     fun timesPlayed(g: Game) = prefs.getInt("plays:" + g.path, 0)
+    /** How long you've played it in all, in seconds (each time from the game starting to Shelf coming back). */
+    fun playTime(g: Game) = prefs.getLong("time:" + g.path, 0L)
+    fun addPlayTime(g: Game, seconds: Long) = prefs.edit().putLong("time:" + g.path, playTime(g) + seconds).apply()
     fun favorite(g: Game) = prefs.getBoolean("fav:" + g.path, false)
     fun setFavorite(g: Game, on: Boolean) = prefs.edit().putBoolean("fav:" + g.path, on).apply()
     fun onHome(g: Game) = !prefs.getBoolean("hide:" + g.path, false)
@@ -149,12 +159,39 @@ class Games(private val ctx: Context) {
     fun emulator(sys: String): String? = prefs.getString("emu:$sys", null)
     fun setEmulator(sys: String, emu: String) = prefs.edit().putString("emu:$sys", emu).apply()
     /** This game's own emulator, if you chose one for it (the game page), otherwise its console's. */
-    fun emulatorFor(g: Game): String? = ownEmulator(g) ?: emulator(g.sys)
+    fun emulatorFor(g: Game): String? = if (isApp(g)) "Android" else ownEmulator(g) ?: emulator(g.sys)
     fun ownEmulator(g: Game): String? = prefs.getString("emu-game:" + g.path, null)
     fun setOwnEmulator(g: Game, emu: String?) = prefs.edit().apply { if (emu == null) remove("emu-game:" + g.path) else putString("emu-game:" + g.path, emu) }.apply()
 
+    // ---------- Android games: apps you made games of ----------
+
+    /** An app as a game: on the Android shelf, with its own cartridge and box. Its path names the app (and its title, for its art). */
+    fun appGame(pkg: String, label: String) = Game("android", label, "app://$pkg/" + label.replace(Regex("[/\\\\:*?\"<>|.]"), " ").trim() + ".app")
+    fun isApp(g: Game) = g.path.startsWith("app://")
+    fun appPackage(g: Game) = g.path.removePrefix("app://").substringBefore('/')
+    /** The apps you made games of: (package, name). */
+    fun appGames(): List<Pair<String, String>> = try { JSONArray(prefs.getString("app-games", "[]")).let { a -> (0 until a.length()).map { a.getJSONObject(it).let { o -> o.getString("pkg") to o.getString("name") } } } } catch (e: Exception) { emptyList() }
+    fun isAppGame(pkg: String) = appGames().any { it.first == pkg }
+    /** Makes an app a game (it joins your games at once). */
+    fun markApp(pkg: String, label: String): Game {
+        val list = appGames().filter { it.first != pkg } + (pkg to label)
+        prefs.edit().putString("app-games", JSONArray(list.map { JSONObject().put("pkg", it.first).put("name", it.second) }).toString()).apply()
+        val g = appGame(pkg, label); all = all.filter { it.path != g.path } + g; return g
+    }
+    /** Back to being only an app (Game settings › Move back to Apps). */
+    fun unmarkApp(pkg: String) {
+        prefs.edit().putString("app-games", JSONArray(appGames().filter { it.first != pkg }.map { JSONObject().put("pkg", it.first).put("name", it.second) }).toString()).apply()
+        all = all.filter { !(isApp(it) && appPackage(it) == pkg) }
+    }
+
     /** Starts the game. Returns "" when it opened, otherwise what went wrong in plain words. */
     fun launch(g: Game): String {
+        if (isApp(g)) {   // an Android game opens on its own
+            val i = ctx.packageManager.getLaunchIntentForPackage(appPackage(g)) ?: return "${g.title} isn't installed any more"
+            return try { ctx.startActivity(i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                prefs.edit().putLong("played:" + g.path, System.currentTimeMillis()).putInt("plays:" + g.path, timesPlayed(g) + 1).apply(); "" }
+            catch (e: Exception) { "${g.title} couldn't be opened" }
+        }
         val emu = emulatorFor(g) ?: return "Choose an emulator first"
         val ra = emu.startsWith(RA)
         val req = JSONObject().put("emu", if (ra) "RetroArch" else emu).put("core", if (ra) CORE_FILES[emu.removePrefix(RA)] ?: "" else "")
@@ -163,6 +200,13 @@ class Games(private val ctx: Context) {
         if (err.isEmpty()) prefs.edit().putLong("played:" + g.path, System.currentTimeMillis()).putInt("plays:" + g.path, timesPlayed(g) + 1).apply()
         return err
     }
+}
+
+/** A play time in a few words: "12 min", "4 h 12 min", "31 h"; null under a minute. */
+fun playTimeText(seconds: Long): String? {
+    val m = seconds / 60; if (m < 1) return null
+    val h = m / 60
+    return when { h == 0L -> "$m min"; h >= 10 || m % 60 == 0L -> "$h h"; else -> "$h h ${m % 60} min" }
 }
 
 /** "/storage/emulated/0/ROMs/gba" → "Internal storage › ROMs › gba" (as the prototype's prettyPath). */

@@ -347,18 +347,41 @@ class MediaPage(ctx: Context, private val game: Game, private val title: String,
                 val inner = (1 until minOf(r.pageCount, 6)).map { aspect(it) }.sorted()
                 val typical = inner.getOrNull(inner.size / 2)
                 val single = SINGLE[sys] ?: 1f
-                val pair = (typical != null && a0 > typical * 1.6f) || (a0 > single * 1.75f && (typical == null || typical > single * 1.4f))
+                val sure = (typical != null && a0 > typical * 1.6f) || (a0 > single * 1.75f && (typical == null || typical > single * 1.4f))
                 r.openPage(0).use { pg ->
-                    val full = if (pair) 2 * w else w
+                    val full = 2 * w
                     val h = (full * pg.height.toFloat() / pg.width).toInt().coerceAtLeast(1)
                     val b = Bitmap.createBitmap(full, h, Bitmap.Config.ARGB_8888).also { b -> b.eraseColor(Color.WHITE); pg.render(b, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY) }
-                    if (!pair) b else Bitmap.createBitmap(b, if (rightToLeft) 0 else full / 2, 0, full / 2, h).also { b.recycle() }
+                    // not sure from the shapes, but wider than one page should be: a pair shows a seam down its middle
+                    val pair = sure || (a0 > single * 1.3f && seam(b) > 3.5f)
+                    if (!pair) Bitmap.createScaledBitmap(b, w, maxOf(1, h / 2), true).also { if (it !== b) b.recycle() }
+                    else Bitmap.createBitmap(b, if (rightToLeft) 0 else full / 2, 0, full / 2, h).also { b.recycle() }
                 }
             }
         }
-        /** About how wide one page of each console's manuals is, to its height (North American and European ones; approximate). */
-        private val SINGLE = mapOf("nes" to .72f, "snes" to 1.4f, "n64" to 1.42f, "genesis" to .7f, "gb" to 1.38f, "gbc" to 1.38f, "gba" to 1.2f,
+        /**
+         * About how wide one page of each console's manuals is, to its height. The SNES's and N64's are upright (the
+         * user, after 0.27: their front and back covers together are what fit the wide box; 1.4 here before missed
+         * every pair); a Game Boy's are wide (a real scan: 1.39).
+         */
+        private val SINGLE = mapOf("nes" to .72f, "snes" to .72f, "n64" to .72f, "genesis" to .7f, "gb" to 1.38f, "gbc" to 1.38f, "gba" to 1.2f,
             "ds" to 1.12f, "psp" to .58f, "ps1" to 1f, "android" to .75f)
+        /**
+         * How strongly a picture changes from one column to the next at its middle (within 4% either side), against how
+         * much columns usually differ across it: two pages side by side meet in a sharp line there (the fold, or just two
+         * different pages), a single cover almost never does.
+         */
+        private fun seam(b: Bitmap): Float {
+            val w = b.width; val h = b.height; val step = maxOf(1, h / 120)
+            val d = FloatArray(w - 1); val px = IntArray(w)
+            fun lum(c: Int) = .3f * Color.red(c) + .59f * Color.green(c) + .11f * Color.blue(c)
+            var y = 0
+            while (y < h) { b.getPixels(px, 0, w, 0, y, w, 1); for (x in 0 until w - 1) d[x] += kotlin.math.abs(lum(px[x + 1]) - lum(px[x])); y += step }
+            val mid = d.copyOfRange((w * .46f).toInt(), (w * .54f).toInt()).maxOrNull() ?: 0f
+            val usual = d.sorted()[d.size / 2].coerceAtLeast(.5f)
+            return mid / usual
+        }
+
         /** A Japanese release: its manual opens from the right, so its front cover is the left half of a pair. */
         fun rightToLeft(g: Game) = Regex("\\(Japan").containsMatchIn(g.path)
 
