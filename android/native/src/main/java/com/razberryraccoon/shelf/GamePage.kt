@@ -220,7 +220,8 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val about1 = listOfNotNull(f["releaseyear"], f["developer"] ?: f["publisher"], f["genre"]).joinToString(" · ")
         facts.text = listOfNotNull(
             about1.ifEmpty { null },
-            if (played == 0L) "Not played yet" else "Played " + DateUtils.getRelativeTimeSpanString(played, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS) + (if (n > 1) " · $n times" else ""),
+            if (played == 0L) "Not played yet" else "Played " + DateUtils.getRelativeTimeSpanString(played, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS) + (if (n > 1) " · $n times" else "") +
+                (playTimeText(games.playTime(game))?.let { " · $it in all" } ?: ""),
             "Plays with " + (games.emulatorFor(game)?.let { emuName(it) } ?: "nothing yet")).joinToString("\n")
         tiles.fav = games.favorite(game)
         tiles.swatch = carts.variantFor(game.sys, carts.shellFor(games, game))?.color ?: Theme.fg2

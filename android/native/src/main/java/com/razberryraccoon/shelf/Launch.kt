@@ -78,6 +78,7 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
     private val black = Curtain(ctx, Curtain.pick(games.launchFx))
     private val sounded = HashSet<Int>()
     private var error = ""
+    private var startedAt = 0L   // when the game opened (play time)
 
     // ---------- the beats, in seconds ----------
 
@@ -143,6 +144,8 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
     /** Back from the game: the return animation, from black. */
     fun back() {
         if (phase != Phase.PLAYING) return
+        // how long it was played: from the game starting to coming back (not a moment's look, nor a handheld left on all night)
+        if (startedAt > 0L) { val s = (System.currentTimeMillis() - startedAt) / 1000; if (s in 20L..12 * 3600L) games.addPlayTime(game, s); startedAt = 0L }
         phase = Phase.OUT; t = 0f; sounded.clear(); quiet()
         black.kind = Curtain.FADE   // coming back: simply out of black (the transition is only for going in)
     }
@@ -156,6 +159,7 @@ class Launch(private val ctx: Context, private val stage: Stage, private val boa
                 if (t - lead >= darkT[1]) {
                     phase = Phase.PLAYING; black.k = 1f; quiet()
                     error = host.start(this)
+                    startedAt = if (error.isEmpty()) System.currentTimeMillis() else 0L
                     if (error.isNotEmpty()) back()   // it couldn't start: come straight back and say why
                 }
             }

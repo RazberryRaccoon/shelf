@@ -321,6 +321,10 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         picker?.let { if (it.input(a)) return }
         page?.let { it.input(a); return }
         if (needsStorage) { if (a == "a") actions.allowStorage(); return }
+        // L1 and R1 step through Home's neighbours, in the top bar's order (spec §4): R1 the Library, L1 Settings (round
+        // the other way); inside a sheet they have jobs of their own
+        if (a == "rb") { Sounds.play(Sounds.PICK); return actions.openLibrary() }
+        if (a == "lb") { Sounds.play(Sounds.PICK); return actions.openSettings() }
         if (slots.isEmpty() && zone == "row") { if (a == "a") actions.openSettings() else if (a == "up") { zone = "top"; refreshTop() }; return }
         when (zone) {
             "row" -> when (a) {

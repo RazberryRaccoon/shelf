@@ -113,6 +113,9 @@ class Games(private val ctx: Context) {
 
     fun lastPlayed(g: Game) = prefs.getLong("played:" + g.path, 0L)
     fun timesPlayed(g: Game) = prefs.getInt("plays:" + g.path, 0)
+    /** How long you've played it in all, in seconds (each time from the game starting to Shelf coming back). */
+    fun playTime(g: Game) = prefs.getLong("time:" + g.path, 0L)
+    fun addPlayTime(g: Game, seconds: Long) = prefs.edit().putLong("time:" + g.path, playTime(g) + seconds).apply()
     fun favorite(g: Game) = prefs.getBoolean("fav:" + g.path, false)
     fun setFavorite(g: Game, on: Boolean) = prefs.edit().putBoolean("fav:" + g.path, on).apply()
     fun onHome(g: Game) = !prefs.getBoolean("hide:" + g.path, false)
@@ -197,6 +200,13 @@ class Games(private val ctx: Context) {
         if (err.isEmpty()) prefs.edit().putLong("played:" + g.path, System.currentTimeMillis()).putInt("plays:" + g.path, timesPlayed(g) + 1).apply()
         return err
     }
+}
+
+/** A play time in a few words: "12 min", "4 h 12 min", "31 h"; null under a minute. */
+fun playTimeText(seconds: Long): String? {
+    val m = seconds / 60; if (m < 1) return null
+    val h = m / 60
+    return when { h == 0L -> "$m min"; h >= 10 || m % 60 == 0L -> "$h h"; else -> "$h h ${m % 60} min" }
 }
 
 /** "/storage/emulated/0/ROMs/gba" → "Internal storage › ROMs › gba" (as the prototype's prettyPath). */
