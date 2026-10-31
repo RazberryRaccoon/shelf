@@ -39,7 +39,9 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
                private val games: Games, private val carts: Carts, private val meta: Meta, val game: Game, var cart: Cart?,
                private val from: FloatArray, private val host: Host,
                /** Opened from a box on Home: it starts as that closed box, and goes back into it closing. */
-               private val fromBox: Boolean = false) {
+               private val fromBox: Boolean = false,
+               /** Nothing above it (opened from the Library, not Home with its top bar): the panel reaches nearly to the top. */
+               private val tall: Boolean = false) {
     companion object {
         // The box's pictures for the game Home has settled on, read from their files ahead of time on another thread, so
         // opening its page doesn't wait on them (they were most of the pause when a page opened)
@@ -141,7 +143,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
     private val picsHead = head("PICTURES")
     private val shots = Shots(ctx)
     private val aboutHead = head("ABOUT")
-    private val about = text(21f, Fonts.body, Theme.fg2).apply { setLineSpacing(0f, 1.45f); setPadding(18, 14, 18, 16); maxLines = 9; ellipsize = TextUtils.TruncateAt.END }
+    private val about = text(21f, Fonts.body, Theme.fg2).apply { setLineSpacing(0f, 1.45f); setPadding(18, 14, 18, 16); maxLines = if (tall) 14 else 9; ellipsize = TextUtils.TruncateAt.END }
     private val readMore = key("A", "Read the article").apply { alpha = 0f }
     // the manual: a wide button under the tiles (and the booklet itself, inside the open box)
     private val hasManuals = game.sys != "android"
@@ -200,7 +202,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         panel.addView(listHead, lp(0).apply { bottomMargin = 10 })
         panel.addView(list, LinearLayout.LayoutParams(-1, 0, 1f).apply { leftMargin = -30; rightMargin = -30 })
         listHead.visibility = View.GONE; list.visibility = View.GONE
-        board.put(panel, 704, 124, 596, 598)
+        if (tall) board.put(panel, 704, 30, 596, 692) else board.put(panel, 704, 124, 596, 598)
         fillHint()
         board.put(hint, 30, 664, 660)
         tiles.onMove = { refreshNote() }
@@ -755,7 +757,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         studioPanel.addView(head("STUDIO  ·  ${(carts.styles[game.sys]?.name ?: "").uppercase()} CARTRIDGE"))
         studioPanel.addView(text(34f, Fonts.display, Theme.fg).apply { this.text = edit?.name ?: "New shell"; maxLines = 1; ellipsize = TextUtils.TruncateAt.END }, lp(10))
         studioPanel.addView(v, LinearLayout.LayoutParams(StudioView.W, StudioView.H).apply { topMargin = 16; leftMargin = -12 })
-        if (studioPanel.parent == null) board.put(studioPanel, 694, 112, 610, 620)
+        if (studioPanel.parent == null) { if (tall) board.put(studioPanel, 694, 30, 610, 702) else board.put(studioPanel, 694, 112, 610, 620) }
         mode = Mode.STUDIO
         v.onChange = { color, material -> setVariant(Shell("", "", color, material).variant()) }
         v.onCancel = { closeStudio(saved = null) }
@@ -837,15 +839,22 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         media = v; board.put(v, 0, 0, 1334, 750)
     }
 
-    private fun whichGame() {
+    /** Which game is this? The closest names in libretro's list, or ones closest to a name you type. */
+    private fun whichGame(query: String = game.title) {
         Sounds.play(Sounds.PICK)
         host.show("Looking through libretro’s list…")
-        meta.loadCandidates(game) { names ->
+        meta.loadCandidates(game, query) { names, why ->
             if (closing) return@loadCandidates
-            if (names.isEmpty()) return@loadCandidates host.show("Couldn’t get libretro’s list. Check the internet connection.")
-            val rows = listOf(Picker.Row("Let Shelf find it", "By the file’s checksum, or the closest name")) + names.map { Picker.Row(ArtIndex.stripTags(it).trim(), it) }
+            if (names.isEmpty() && game.sys == "android") return@loadCandidates host.show(why ?: "")
+            val rows = listOf(Picker.Row("Let Shelf find it", "By the file’s checksum, or the closest name")) + names.map { Picker.Row(ArtIndex.stripTags(it).trim(), it) } +
+                Picker.Row("Type a name…", "Search libretro’s list for it")
+            if (why != null) host.show(why)
             host.pick(Picker(ctx, "Which game is this?", rows, start = names.indexOf(games.match(game)) + 1) { k ->
-                games.setMatch(game, if (k == 0) null else names[k - 1]); lookUpAgain(keepMatch = true)
+                when (k) {
+                    0 -> { games.setMatch(game, null); lookUpAgain(keepMatch = true) }
+                    rows.size - 1 -> host.askText("The game’s name", ArtIndex.searchName(query)) { t -> if (t.isNotBlank()) whichGame(t.trim()) }
+                    else -> { games.setMatch(game, names[k - 1]); lookUpAgain(keepMatch = true) }
+                }
             })
         }
     }

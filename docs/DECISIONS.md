@@ -300,6 +300,11 @@ Summarized from the first part of the conversation; the full transcript is kept 
   edited/changed/deleted like any other collection… a convenient way to save a sort+filter combo"). The start
   animations get their own round ("Really take some time and flesh these out"); the NES door should "hinge inward just
   like on the real console". Later: more themes, sound packs, better icons/fonts/style, the models (ROADMAP).
+- After 0.30 (the user): built-in emulators: "VERY interested… down the line… I do eventually want to make money from
+  this; maybe… two versions: one that works how it does now that I can sell, and then a personal 'better' version for
+  me and my brother". Libretro matching said "check your internet" while connected; the three automatic collections
+  each switchable ("kinda clog up the list"); the Museum's hints say L2 and R2; taller panels in the Library's pages and
+  the Museum (they have no top bar to leave room for). Themes: a web viewer first, then one install with these.
 - After 0.29 (the user): Apps needs button prompts at the top; tabs All, Emulators, Games; marking an app a game or an
   emulator by hand ("Hide emulators… just doesn't detect whats actually an emulator very well. I want to do this
   manually"); Android boxes at SteamGridDB's cover shape; "L and R to cycle through the four pages from the top, with

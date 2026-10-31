@@ -169,13 +169,16 @@ final class ArtIndex {
     static final class Hit { final Entry e; final double score; Hit(Entry e, double s) { this.e = e; this.score = s; } }
 
     /** The closest names to a search, best first. A file name with region tags ranks that region first. */
-    List<Hit> search(String query, int max) {
+    List<Hit> search(String query, int max) { return search(query, max, .3); }
+
+    /** The same, keeping names that share at least `least` of their words (Dice) with the search. */
+    List<Hit> search(String query, int max, double least) {
         String q = norm(stripTags(query)), tags = query.toLowerCase(Locale.ROOT);
         String[] qw = q.isEmpty() ? new String[0] : q.split(" ");
         List<Hit> hits = new ArrayList<>();
         for (Entry e : entries) {
             double s = dice(qw, e.words);
-            if (s < .3) continue;
+            if (s < least) continue;
             if (e.base.equals(q)) s += .3;
             String n = e.name.toLowerCase(Locale.ROOT);
             for (String region : new String[] { "usa", "europe", "japan", "world" }) if (tags.contains(region) && n.contains(region)) s += .08;

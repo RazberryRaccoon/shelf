@@ -219,7 +219,9 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             Step.LIBRARY -> {
                 val cols = host.collections()
                 page("Settings", "Library", "Lists that fill themselves, and the games you've hidden.")
-                rows += Options.Row("smart", "Automatic collections", value = if (cols.smartOn) "On" else "Off", sub = "Recently added, Not played yet and Most played, in the Library's list")
+                for ((id, name, sub) in listOf(Triple(Collections.ADDED, "Recently added", "The 30 games that came onto the handheld last"),
+                        Triple(Collections.UNPLAYED, "Not played yet", "Every game you haven't started"), Triple(Collections.MOSTPLAYED, "Most played", "The 30 you've started most")))
+                    rows += Options.Row("smart", name, value = if (cols.smartOn(id)) "Shown" else "Hidden", sub = "$sub, in the Library's list", tag = id)
                 rows += Options.Row(Options.HEAD, "Hidden games")
                 val n = games.all.count { cols.hidden(it) }
                 rows += Options.Row("none", "Hidden", value = "$n ${if (n == 1) "game" else "games"}", sub = "Hide one with X on it, or in its Game settings; Library › Hidden shows them")
@@ -404,7 +406,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             "del-shell" -> (r.tag as Shell).let { s -> confirmDelete(s.name) { carts.shells.delete(s.id) } }
             "del-look" -> (r.tag as ConsoleLook).let { l -> confirmDelete(l.name) { l.custom?.let { looks.delete(it) } } }
             "fps" -> { games.showFps = !games.showFps; fill() }
-            "smart" -> { host.collections().let { it.smartOn = !it.smartOn }; fill() }
+            "smart" -> { val id = r.tag as String; host.collections().let { it.setSmartOn(id, !it.smartOn(id)) }; fill() }
             "hiddenentry" -> { host.collections().let { it.hiddenEntry = !it.hiddenEntry }; fill() }
             "changecode" -> host.collections().let { c -> GameCard.askCode(ctx, c) { GameCard.chooseCode(ctx, c, "Choose a new code", "Four presses of the d-pad and A, B, X, Y.") { host.toast("Code changed"); fill() } } }
             "resetcode" -> host.collections().let { c -> GameCard.chooseCode(ctx, c, "Choose a new code", "Four presses of the d-pad and A, B, X, Y.") { host.toast("Code set"); fill() } }

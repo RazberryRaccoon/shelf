@@ -115,9 +115,9 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
         panel.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f).apply { leftMargin = -EDGE; rightMargin = -EDGE })
         panel.addView(listHead, lp(0).apply { bottomMargin = 10 })
         panel.addView(list, LinearLayout.LayoutParams(-1, 0, 1f).apply { leftMargin = -30; rightMargin = -30 })
-        board.put(panel, 704, 104, 596, 618)
+        board.put(panel, 704, 30, 596, 692)   // the whole height: the Museum has no top bar over it
         board.put(timeline, 40, 590, 640, 70)
-        hint.addView(key("L", "Previous console")); hint.addView(key("R", "Next console").apply { setPadding(24, 0, 0, 0) }); hint.addView(key("X", "Flip it over").apply { setPadding(24, 0, 0, 0) })
+        hint.addView(key("L2", "Previous console")); hint.addView(key("R2", "Next console").apply { setPadding(24, 0, 0, 0) }); hint.addView(key("X", "Flip it over").apply { setPadding(24, 0, 0, 0) })
         hint.addView(key("Y", "Look closer").apply { setPadding(24, 0, 0, 0) })
         board.put(hint, 40, 676, 640)
         lookHint.addView(key("L1 R1", "Zoom")); lookHint.addView(key("R", "Turn").apply { setPadding(24, 0, 0, 0) })

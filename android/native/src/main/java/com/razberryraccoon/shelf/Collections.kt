@@ -135,7 +135,9 @@ class Collections(ctx: Context, private val games: Games, private val mediaRoot:
         MOSTPLAYED -> visible().filter { games.timesPlayed(it) > 0 }.sortedByDescending { games.timesPlayed(it) }.take(30)
         else -> emptyList()
     }
-    var smartOn: Boolean get() = prefs.getBoolean("smartCollections", true); set(v) = prefs.edit().putBoolean("smartCollections", v).apply()
+    /** Whether one of the three that fill themselves is in the Library's list (each on its own; all three were one switch). */
+    fun smartOn(id: String) = prefs.getBoolean("smart:$id", prefs.getBoolean("smartCollections", true))
+    fun setSmartOn(id: String, on: Boolean) = prefs.edit().putBoolean("smart:$id", on).apply()
 
     /** The order for a list that isn't one of yours (All games, a console, Favorites…), remembered per list. */
     fun sortFor(id: String) = prefs.getInt("libsort:$id", if (id == ADDED) RECENT else if (id == MOSTPLAYED) MOST else AZ)

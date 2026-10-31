@@ -131,7 +131,7 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
         val s = ArrayList<Shelf>()
         s += Shelf("all", "All games")
         s += Shelf(Collections.FAVORITES, "Favorites")
-        if (cols.smartOn) { s += Shelf(Collections.ADDED, "Recently added"); s += Shelf(Collections.UNPLAYED, "Not played yet"); s += Shelf(Collections.MOSTPLAYED, "Most played") }
+        for ((id, name) in listOf(Collections.ADDED to "Recently added", Collections.UNPLAYED to "Not played yet", Collections.MOSTPLAYED to "Most played")) if (cols.smartOn(id)) s += Shelf(id, name)
         val mine = cols.all.map { Shelf("c:" + it.id, (if (it.live) "✦ " else "") + it.name, dot = it.color) }
         val consoles = Games.NAMES.keys.filter { k -> v.any { it.sys == k } }.map { Shelf("sys:$it", Games.NAMES[it] ?: it, dot = Theme.accentOf(it)) }
         val rows = ArrayList<Options.Row>()
@@ -724,7 +724,7 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
         val g = c.game
         val cart = carts.make(g.sys, g.title, carts.shellFor(games, g))?.also { carts.refinish(it, g.title, games.finishFor(g)); it.place(-2000f, 0f, 0f, 0f, 0f, 1f) }
         pageCart = cart; pageGame = g
-        page = GamePage(ctx, board, backdrop, stage, games, carts, meta, g, cart, floatArrayOf(c.x, sy(c), max(c.w, c.h) * (1 + .06f * c.lift), RY * (1 - .5f * c.lift)), this, fromBox = true)
+        page = GamePage(ctx, board, backdrop, stage, games, carts, meta, g, cart, floatArrayOf(c.x, sy(c), max(c.w, c.h) * (1 + .06f * c.lift), RY * (1 - .5f * c.lift)), this, fromBox = true, tall = true)
         case.hide()
     }
 

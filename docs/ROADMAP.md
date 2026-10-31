@@ -42,6 +42,12 @@ published by GitHub Actions. Next, in order:
 - **Theme environments** (the user, after 0.29: the recolored themes are "kind of lame"): each theme its own
   environment with its own animation and colors: city, forest, ocean, aurora, desert, stormy. Not this round.
 - **Pinned collections on Home:** wanted, place not decided.
+- **Backburner: emulators built in** (the user, after 0.30: "VERY interested… it would come down the line once I'm
+  happy with Shelf"): libretro cores inside Shelf through LibretroDroid (GPL-3, as Lemuroid), cores downloaded from
+  libretro's build server; NES to N64 (PS1 maybe; PSP and DS stay outside). Would give suspend to Home, saves and
+  states Shelf owns, filter presets, the live game on the handheld's screen, later rewind and RetroAchievements. The
+  user may sell Shelf one day: then two editions, one to sell as Shelf works now, one personal with cores built in
+  (GPL-3 and the non-commercial cores, Snes9x and Genesis Plus GX, rule them out of a sold edition).
 - **The Library's Spines view,** once there's real spine art.
 - **Eventually** (the user: "things I'm generally not happy with and want to … tackle eventually, so don't forget
   these"):
