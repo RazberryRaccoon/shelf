@@ -34,6 +34,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
     private var museum: Museum? = null
     private var launch: Launch? = null   // a game starting, being played, or coming back
     private var library: Library? = null
+    private var apps: Apps? = null
     private var fromLibrary = false        // the game playing now was started from the Library (it comes back there)
     private lateinit var cols: Collections
     private lateinit var meta: Meta
@@ -59,6 +60,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         // Some emulators still take a plain file:// path; without this Android refuses to hand one over.
         StrictMode.setVmPolicy(StrictMode.VmPolicy.Builder().build())
         Fonts.load(this)
+        Theme.setLook(getSharedPreferences("shelf", MODE_PRIVATE).getInt("theme", 0))   // before anything takes the theme's colors (Games.theme)
         val root = FrameLayout(this)
         val surface = SurfaceView(this)
         board = Board(this)
@@ -72,7 +74,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         games = Games(this)
         stage.setLook(games.lightEnv, games.lightBright, games.lightKey)
         stage.quality(games.smoothness); backdrop.lite = games.smoothness == 2
-        Sounds.init(this, games.sounds)
+        Sounds.init(this, games.sounds, games.soundPack)
         carts = Carts(stage, Shells(this))
         meta = Meta(this, games)
         consoles = Consoles(this, stage)
@@ -86,7 +88,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
             val s = minOf((r - l) / Stage.W, (b - t) / Stage.H); val ox = ((r - l) - Stage.W * s) / 2; val oy = ((b - t) - Stage.H * s) / 2
             board.fit(s, ox, oy)
         }
-        stage.onFrame = { dt -> home.lookK = museum?.lookK ?: 0f; home.tick(dt); setup?.tick(dt); museum?.tick(dt); library?.tick(dt); launch?.tick(dt); backdrop.tick(dt); if (++frames == 90) booting.delete()   // started fine
+        stage.onFrame = { dt -> home.lookK = museum?.lookK ?: 0f; home.tick(dt); setup?.tick(dt); museum?.tick(dt); library?.tick(dt); apps?.tick(dt); launch?.tick(dt); backdrop.tick(dt); if (++frames == 90) booting.delete()   // started fine
             meterLeft -= dt; if (meterLeft <= 0) { meterLeft = .5f; showMeter() } }
     }
 
@@ -145,6 +147,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         stage.start()
         home.needsStorage = !Environment.isExternalStorageManager()
         launch?.back()   // back from a game: the return animation
+        apps?.back()     // back from an app: Shelf eases in again
         rescan { setup?.fill() }   // back from Android's settings, a game, or the folder picker
     }
 
@@ -217,6 +220,25 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
             }
         })
     }
+    // ---------- Apps ----------
+
+    override fun openApps() {
+        if (apps != null) return
+        home.visible = false
+        apps = Apps(this, board, games, object : Apps.Host {
+            override fun show(msg: String) = home.show(msg)
+            override fun gamesChanged() = home.setGames(games.recent())
+            override fun openApp(pkg: String): Boolean = try {
+                val i = packageManager.getLaunchIntentForPackage(pkg) ?: throw IllegalStateException("no launcher")
+                startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true
+            } catch (e: Exception) { false }
+            override fun appInfo(pkg: String) {
+                try { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg"))) } catch (e: Exception) { home.show("Android's app info isn't available here") }
+            }
+            override fun closed(apps: Apps) { if (this@ShelfActivity.apps === apps) this@ShelfActivity.apps = null; home.visible = true }
+        })
+    }
+
     override fun collectionsCard(g: Game, changed: (Boolean) -> Unit) = GameCard.show(this, games, cols, g, ::askText, home::show, changed)
     override fun hideGame(g: Game, then: () -> Unit) = GameCard.hide(this, cols, g, home::show, then)
     override fun collectionNames(g: Game) = cols.of(g).map { it.name }
@@ -376,7 +398,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
     private var lastRepeat = 0L
     private val repeat = object : Runnable { override fun run() { held?.let { input(it); ui.postDelayed(this, 95) } } }
     /** Buttons go to whichever screen is showing. */
-    private fun input(a: String) { if (safeMode) return safeInput(a); launch?.let { return it.input(a) }; if (Overlays.input(a)) return; if (home.picker != null) home.input(a) else museum?.input(a) ?: library?.input(a) ?: setup?.input(a) ?: home.input(a) }   // a game starting takes every button (any one skips); then a message over everything
+    private fun input(a: String) { if (safeMode) return safeInput(a); launch?.let { return it.input(a) }; if (Overlays.input(a)) return; if (home.picker != null) home.input(a) else museum?.input(a) ?: library?.input(a) ?: apps?.input(a) ?: setup?.input(a) ?: home.input(a) }   // a game starting takes every button (any one skips); then a message over everything
 
     private fun actionFor(code: Int) = when (code) {
         KeyEvent.KEYCODE_DPAD_UP -> "up"; KeyEvent.KEYCODE_DPAD_DOWN -> "down"

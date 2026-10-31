@@ -13,11 +13,27 @@ import android.widget.FrameLayout
 
 /** The prototype's colors (the Space theme), as Android colors. */
 object Theme {
-    val bg = Color.parseColor("#070b1e")
+    /**
+     * The themes (Settings › Home › Theme): the sky's background, a color the nebula and planet lean toward (and how
+     * far), and how bright the nebula is. Space is the first; the others keep its calm (tuned on a preview of the
+     * backdrop's own math). The panels take a little of the background, so they belong to it.
+     */
+    class Look(val name: String, val bg: Int, val tint: Int, val tintK: Float, val glow: Float, val note: String)
+    val LOOKS = listOf(
+        Look("Space", Color.rgb(7, 11, 30), Color.BLACK, 0f, 1f, "The night sky, in the selected console's color"),
+        Look("Midnight", Color.rgb(2, 3, 8), Color.rgb(90, 110, 200), .25f, .7f, "Darker and quieter, nearly black"),
+        Look("Aurora", Color.rgb(3, 16, 22), Color.rgb(80, 230, 190), .45f, 1f, "A teal sky, northern lights green"),
+        Look("Dusk", Color.rgb(18, 9, 26), Color.rgb(255, 140, 120), .4f, 1f, "Plum, with a warm sunset glow"),
+        Look("Deep sea", Color.rgb(2, 14, 32), Color.rgb(70, 170, 255), .45f, .95f, "Deep blue, like being underwater"),
+        Look("Ember", Color.rgb(15, 6, 5), Color.rgb(255, 150, 70), .5f, .9f, "Dark and warm, like coals"))
+    var look = LOOKS[0]; private set
+    fun setLook(k: Int) { look = LOOKS[k.coerceIn(0, LOOKS.size - 1)]; bg = look.bg
+        panel = Color.argb(184, (Color.red(look.bg) * 1.6f + 1).toInt().coerceAtMost(255), (Color.green(look.bg) * 1.5f + 1).toInt().coerceAtMost(255), (Color.blue(look.bg) * 1.45f + 1).toInt().coerceAtMost(255)) }
+    var bg = Color.parseColor("#070b1e"); private set
     val fg = Color.parseColor("#eef1ff")
     val fg2 = Color.parseColor("#9aa2cc")
     val fg3 = Color.argb(140, 238, 241, 255)
-    val panel = Color.argb(184, 12, 17, 44)
+    var panel = Color.argb(184, 12, 17, 44); private set
     val line = Color.argb(31, 238, 241, 255)
     val chip = Color.argb(26, 238, 241, 255)
     val sel = Color.parseColor("#eef1ff")

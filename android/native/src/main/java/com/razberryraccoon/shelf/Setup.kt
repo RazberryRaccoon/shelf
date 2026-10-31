@@ -172,6 +172,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                 rows += Options.Row("root", "My main games folder", value = if (roots.isEmpty()) "Choose" else "Change", sub = roots.firstOrNull()?.let { prettyPath(it) } ?: "One folder with a folder for each console inside")
                 val counts = games.counts()
                 for ((k, name) in Games.NAMES) {
+                    if (k == "android") continue   // Android games come from Apps, not a folder
                     val c = counts[k] ?: 0
                     rows += Options.Row("folder", name, value = if (c == 0) "None yet" else "$c ${if (c == 1) "game" else "games"}",
                         sub = games.folder(k)?.let { prettyPath(it) } ?: if (c > 0) "Found on its own" else "Choose its folder", tag = k, dot = Theme.accentOf(k))
@@ -180,7 +181,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             }
             Step.EMUS -> {
                 val counts = games.counts()
-                val list = Games.NAMES.keys.filter { (counts[it] ?: 0) > 0 }.ifEmpty { Games.NAMES.keys.toList() }
+                val list = Games.NAMES.keys.filter { it != "android" && (counts[it] ?: 0) > 0 }.ifEmpty { Games.NAMES.keys.filter { it != "android" } }   // Android games open on their own
                 page(if (settings) "Settings" else "Step 3 of 3", "How your games start",
                     if (games.installed.isEmpty()) "No emulators found yet. RetroArch, from the Play Store, plays most of these consoles; you can choose here any time."
                     else "Each console’s games open in an emulator. Shelf chose from what’s installed; press A to change one.")
@@ -201,6 +202,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             Step.HOME -> {
                 page("Settings", "Home", "How your games line up, and the picture behind them. Left and right change a value; the picture shows behind as you go.")
                 rows += Options.Row("homeboxes", "Home shows", value = "‹  ${if (games.homeBoxes) "Boxes" else "Cartridges"}  ›", sub = "Your games as cartridges, or as their closed boxes")
+                rows += Options.Row("theme", "Theme", value = "‹  ${Theme.look.name}  ›", sub = Theme.look.note)
                 rows += Options.Row("homescroll", "Scrolling", value = "‹  ${Home.STYLES[games.homeScroll.coerceIn(0, Home.STYLES.size - 1)]}  ›", sub = SCROLL_SUB[games.homeScroll.coerceIn(0, SCROLL_SUB.size - 1)])
                 rows += Options.Row(Options.HEAD, "The picture behind")
                 rows += Options.Row("art", "Picture", value = "‹  ${Art.KINDS.firstOrNull { it.first == games.artKind }?.second}  ›", sub = "Which picture of the selected game (another if it doesn’t have that one)", tag = "kind")
@@ -233,6 +235,8 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                 rows += Options.Row("smooth", "Smoothness", value = "‹  ${SMOOTH[games.smoothness]}  ›", sub = SMOOTH_SUB[games.smoothness])
                 rows += Options.Row("fps", "Show frame rate", value = if (games.showFps) "On" else "Off", sub = "A small meter in the top left: frames per second, and which part is slow")
                 rows += Options.Row("sounds", "Sounds", value = if (games.sounds) "On" else "Off", sub = "Soft clicks and chimes as you move around")
+                if (games.sounds) rows += Options.Row("soundpack", "Sound pack", value = "‹  ${Sounds.PACKS[games.soundPack.coerceIn(0, Sounds.PACKS.size - 1)]}  ›",
+                    sub = PACK_SUB[games.soundPack.coerceIn(0, PACK_SUB.size - 1)])
                 rows += Options.Row("again", "Run first-time setup again")
                 rows += Options.Row("none", "Version", value = try { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName } catch (e: Exception) { "" })
             }
@@ -310,6 +314,16 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
         if (r?.key == "labelfinish" && (a == "left" || a == "right" || a == "a")) {
             val n = Labels.NAMES.size; games.labelFinish = (games.labelFinish + (if (a == "left") n - 1 else 1)) % n
             showcase.forEach { (sys, c) -> carts.refinish(c, Games.NAMES[sys] ?: "Android games", games.labelFinish) }; Sounds.play(Sounds.MOVE); return fill()
+        }
+        if (r?.key == "theme" && (a == "left" || a == "right" || a == "a")) {
+            val n = Theme.LOOKS.size; games.theme = (games.theme + (if (a == "left") n - 1 else 1)) % n
+            Theme.setLook(games.theme); backdrop.theme(); Sounds.play(Sounds.MOVE)   // the sky changes behind at once; panels as they next open
+            return fill()
+        }
+        if (r?.key == "soundpack" && (a == "left" || a == "right" || a == "a")) {
+            val n = Sounds.PACKS.size; games.soundPack = (games.soundPack + (if (a == "left") n - 1 else 1)) % n
+            Sounds.setPack(ctx, games.soundPack); board.postDelayed({ Sounds.play(Sounds.OPEN) }, 260)   // a taste of it, once it's loaded
+            return fill()
         }
         if (r?.key == "launchfx" && (a == "left" || a == "right" || a == "a")) {
             val n = Curtain.NAMES.size; games.launchFx = (games.launchFx + (if (a == "left") n - 1 else 1)) % n; Sounds.play(Sounds.MOVE); return fill()
@@ -617,6 +631,8 @@ class Dots(ctx: Context) : View(ctx) {
 /** The game page's three views, in order (Games.pageView). */
 val PAGE_VIEWS = listOf("Cartridge", "Open box", "Closed box")
 
+private val PACK_SUB = listOf("Sine tones with a quiet octave: the first sounds", "Bell-like, the ring of a struck glass", "Warm and dry, like a marimba",
+    "Each note glides up into place: a soft bloop")
 private val SMOOTH = listOf("Best looks", "Balanced", "Smoothest")
 private val SMOOTH_SUB = listOf("The smoothest edges; the most work for the handheld", "Softer edges, less work for the 3D",
     "Lightest: the sky's stars hold still, edges smoothed more cheaply")

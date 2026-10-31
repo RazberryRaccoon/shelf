@@ -82,12 +82,15 @@ class Backdrop(ctx: Context, private val stage: Stage) {
 
     init {
         sky.setParameter("stars", starTexture(), clamp)
-        sky.setParameter("bg", Color.red(Theme.bg) / 255f, Color.green(Theme.bg) / 255f, Color.blue(Theme.bg) / 255f)
+        theme()
         RenderableManager.Builder(1).boundingBox(Box(1000f, 0f, 0f, 5000f, 5000f, 1f)).culling(false).priority(0)
             .geometry(0, RenderableManager.PrimitiveType.TRIANGLES, quad.vb, quad.ib).material(0, sky).build(engine, skyEntity)
         stage.backScene.addEntity(skyEntity)
         tick(0f)
     }
+
+    /** The theme's background (after Theme.setLook). */
+    fun theme() = sky.setParameter("bg", Color.red(Theme.bg) / 255f, Color.green(Theme.bg) / 255f, Color.blue(Theme.bg) / 255f)
 
     fun tick(dt: Float) {
         time += dt
@@ -95,7 +98,10 @@ class Backdrop(ctx: Context, private val stage: Stage) {
         panT += dt * pan
         picT = minOf(1f, picT + dt / .45f)
         // the sky
-        sky.setParameter("mood", Color.red(mood) / 255f, Color.green(mood) / 255f, Color.blue(mood) / 255f)
+        // the theme leans the console's color toward its own, and sets how bright the nebula is
+        val l = Theme.look
+        fun ch(c: Int, t: Int) = (c / 255f * (1 - l.tintK) + t / 255f * l.tintK) * l.glow
+        sky.setParameter("mood", ch(Color.red(mood), Color.red(l.tint)), ch(Color.green(mood), Color.green(l.tint)), ch(Color.blue(mood), Color.blue(l.tint)))
         sky.setParameter("twinkle", if (lite) -1f else time * .6f)
         sky.setParameter("shade", shade)
         // the picture, panning diagonally from its top left to its bottom right: there and back, about 28 seconds each

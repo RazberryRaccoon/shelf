@@ -75,6 +75,13 @@ final class Emulators {
 
     static Iterable<String> names() { return EMUS.keySet(); }
 
+    /** Every package any known emulator comes in (installed or not), for telling emulators apart from other apps. */
+    static java.util.Set<String> packages(Context ctx) {
+        java.util.Set<String> out = new java.util.HashSet<>();
+        for (Emu e : EMUS.values()) for (String c : e.components) { ComponentName cn = ComponentName.unflattenFromString(c); if (cn != null) out.add(cn.getPackageName()); }
+        return out;
+    }
+
     private static ComponentName installed(Context ctx, Emu e) {
         PackageManager pm = ctx.getPackageManager();
         for (String c : e.components) {

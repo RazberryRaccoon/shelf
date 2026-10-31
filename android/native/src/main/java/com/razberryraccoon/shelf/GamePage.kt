@@ -463,6 +463,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
 
     /** This game's emulator: the same as its console's other games, or one of its own. */
     private fun chooseEmulator(then: Boolean) {
+        if (games.isApp(game)) { if (then) play() else host.show("${title.text} is an Android game: it opens on its own"); return }
         val console = Games.NAMES[game.sys] ?: game.sys
         val choices = games.emulatorChoices(game.sys)
         val own = games.ownEmulator(game)
@@ -787,7 +788,8 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
         val console = Games.NAMES[game.sys] ?: game.sys
         val own = games.ownEmulator(game)
         val rows = listOf(
-            Options.Row("emu", "Plays with", value = own?.let { emuName(it).substringBefore(",") } ?: "Same as $console", sub = games.emulatorFor(game)?.let { emuName(it) } ?: "Nothing chosen yet"),
+            if (games.isApp(game)) Options.Row("toapps", "Move back to Apps", sub = "Just an app again: off Home and out of the Library")
+            else Options.Row("emu", "Plays with", value = own?.let { emuName(it).substringBefore(",") } ?: "Same as $console", sub = games.emulatorFor(game)?.let { emuName(it) } ?: "Nothing chosen yet"),
             carts.variantFor(game.sys, carts.shellFor(games, game)).let { v -> Options.Row("shell", "Customize shell", value = v?.name ?: "", dot = v?.color) },
             Options.Row("home", "Show on Home", value = if (games.onHome(game)) "Yes" else "No", sub = "Off: it stays in the Library, out of your recent games"),
             Options.Row("hidegame", "Hide this game", sub = "Gone from Home and the Library until you open Library › Hidden with your code"),
@@ -811,6 +813,7 @@ class GamePage(private val ctx: Context, private val board: Board, private val b
                 "shell" -> { hideList(); startColors(Mode.SETTINGS) }
                 "home" -> { games.setOnHome(game, !games.onHome(game)); homeChanged = true; Sounds.play(Sounds.PICK); fillSettings() }
                 "hidegame" -> host.hideGame(game) { homeChanged = true; close() }
+                "toapps" -> { games.unmarkApp(games.appPackage(game)); homeChanged = true; Sounds.play(Sounds.CLOSE); host.show("${title.text} is back in Apps"); close() }
                 "media" -> openMedia()
                 "done" -> { Sounds.play(Sounds.CLOSE); hideList() }
             }

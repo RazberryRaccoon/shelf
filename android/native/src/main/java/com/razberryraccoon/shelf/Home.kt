@@ -31,6 +31,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     interface Actions { fun play(g: Game); fun allowStorage(); fun openSettings(); fun openMuseum(sys: String?); fun askText(title: String, value: String, then: (String) -> Unit)
         fun openDocument(mimes: Array<String>, then: (android.net.Uri?) -> Unit)
         fun openLibrary()
+        fun openApps()
         /** The collections card for a game; `changed` true if it was hidden. */
         fun collectionsCard(g: Game, changed: (Boolean) -> Unit)
         fun hideGame(g: Game, then: () -> Unit)
@@ -335,7 +336,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
                 "left" -> if (topI > 0) { topI--; refreshTop(); Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
                 "right" -> if (topI < dock.size) { topI++; refreshTop(); Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
                 "down", "b" -> { zone = "row"; refreshTop(); Sounds.play(Sounds.MOVE) }
-                "a" -> if (topI == 0 || topI == dock.size) actions.openSettings() else if (topI == 3) actions.openMuseum(current()?.sys) else if (topI == 1) actions.openLibrary() else show("${dockNames[topI - 1]} comes to Shelf Native in a later version. The web Shelf has it today.")
+                "a" -> if (topI == 0 || topI == dock.size) actions.openSettings() else if (topI == 3) actions.openMuseum(current()?.sys) else if (topI == 1) actions.openLibrary() else actions.openApps()
             }
         }
     }
