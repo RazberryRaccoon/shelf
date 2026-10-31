@@ -39,8 +39,9 @@ published by GitHub Actions. Next, in order:
   clips, power switches and buttons, framing; 0.26 springs and the hit; 0.27 the glow and shockwave in place of sparks; 0.28 the cartridge waits clear of the console, checked by a clip test. Waiting on the user's notes.
 - **Done overnight (0.29):** Apps (with Make it a game), Shelf as the home screen, themes and sound packs (the first
   two of the "eventually" list), play time, Surprise me.
-- **Theme environments** (the user, after 0.29: the recolored themes are "kind of lame"): each theme its own
-  environment with its own animation and colors: city, forest, ocean, aurora, desert, stormy. Not this round.
+- **Done in 0.31:** theme environments (city, forest, ocean, aurora, desert, stormy, and Space), each by day and by
+  night, with music for each and ambient sounds. Waiting on the user's notes on the device (smoothness on the Retroid
+  especially).
 - **Pinned collections on Home:** wanted, place not decided.
 - **Backburner: emulators built in** (the user, after 0.30: "VERY interested… it would come down the line once I'm
   happy with Shelf"): libretro cores inside Shelf through LibretroDroid (GPL-3, as Lemuroid), cores downloaded from

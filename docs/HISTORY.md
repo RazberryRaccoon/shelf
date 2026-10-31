@@ -592,6 +592,23 @@ opening edge, and a coloured test spine in the new render confirms the fix.
 **0.24, fixed:** the Library crashed as it opened: `byName`, a stored comparator declared below `init`, was still null
 when `init` sorted the first list (the init-order trap again; it's a getter now).
 
+**0.31: theme environments, music, ambient sounds; fixes after 0.30.** Designed in a web viewer first
+(`prototypes/shelf-themes.html`, one WebGL 1 shader with a branch per theme; the user's notes: Forest and Ocean "not
+all night-themed", leafy trees, Desert's moon out from behind the cartridges, City's stutter, Stormy's rain; then
+"all the themes should have a light/dark version"). City stuttered because its buildings had hard pixel edges sliding
+at 1 to 3 px a second: every edge is soft now (`aa`), so they glide. In the app, sky.mat draws into a texture by a view
+of its own (like the glow), at three quarters of the screen (half on Smoothest), every other frame unless Best looks;
+its random numbers and noise come from a 256 × 256 texture instead of `sin` (a handheld's GPU is slow at that), with
+early exits around treetops, mist, fireflies and drifting sand. Checked through Filament's web build
+(`tools/lighting-rig/sky.html`: sky.filamat into its texture, backdrop.filamat laying it down; the right way up).
+Music: `tools/music/compose.py` (numpy): each track scored as notes and chords, played on small synthesized
+instruments (FM electric piano and bells, additive pads, piano, harp, kalimba, a plucked string, a flute, soft drums),
+a convolution reverb, and the tail folded onto the start so the loop has no seam; checked by numbers (loudness each
+second, peaks, the seam), since Claude can't listen. City's quiet bars went near-silent (a soft pad under it now).
+`Music.kt` chains two MediaPlayers per loop (`setNextMediaPlayer`) for gapless loops. Fixes after 0.30: libretro
+matching (`Meta.candidates` gives the real reason; a looser second search; Type a name), `Collections.smartOn`, the
+Museum's L2/R2 hints, `GamePage(tall)`. Nothing this round was run on the device before the build.
+
 **0.30: the user's notes on 0.29.** Apps: tabs (`groupsFor`), your own emulator marks (`app-kind:` prefs, the
 known list only as the start), games out of All, key hints, `backdrop.shadows.clear()`. The page cycle lives in the
 activity (`cycle`, `nextPage`, `pageClosed`): each page says whether it `canLeave`; the closing page's own close runs,

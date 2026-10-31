@@ -300,6 +300,16 @@ Summarized from the first part of the conversation; the full transcript is kept 
   edited/changed/deleted like any other collection… a convenient way to save a sort+filter combo"). The start
   animations get their own round ("Really take some time and flesh these out"); the NES door should "hinge inward just
   like on the real console". Later: more themes, sound packs, better icons/fonts/style, the models (ROADMAP).
+- Themes (after the viewer, October 2026): "Space should stay the default, but during the setup process the user should
+  be able to choose"; "get rid of those color themes. They were underwhelming"; ambient sounds yes, and "menu music:
+  write a simple track for each theme that auto sets when you change the theme. But the music should also be a separate
+  setting: you should be able to mix and match themes and music, and also add your own .mp3 file that loops". Notes:
+  City "kind of stuttery… I want the scrolling… to be smooth"; Forest "too dark… brighter, natural feeling, with lots of
+  green. The trees… should be more lush"; Ocean "brighter and not all night-themed"; Aurora "no notes. That one makes
+  sense to be dark"; Desert's moon "top right instead of right behind the cartridges. Also, too dark"; Stormy "looks
+  awesome! But the rain is a little too difficult to see". And "all the themes should have a light/dark aka day/night
+  version. You should be able to pick which one you want, or have it change automatically based on the system clock."
+  Aurora's day is the blue hour. Ambient sounds start off; music starts on, matching the theme, at half volume.
 - After 0.30 (the user): built-in emulators: "VERY interested… down the line… I do eventually want to make money from
   this; maybe… two versions: one that works how it does now that I can sell, and then a personal 'better' version for
   me and my brother". Libretro matching said "check your internet" while connected; the three automatic collections

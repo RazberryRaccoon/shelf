@@ -49,8 +49,29 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Sounds.kt` | The quiet interface sounds, synthesized on the device. |
 | `Setup.kt` | First-run setup (welcome, your name and color, games folders, emulators, done); its pages are also Settings. |
 | `Backdrop.kt` | Everything behind the 3D layer. |
+| `Sky.kt` | The theme environments other than Space, drawn into a texture of their own (`materials/sky.mat`). |
+| `Music.kt` | Menu music, your own music, and the themes' ambient sounds, looping without gaps (`assets/sound`, made by `tools/music/compose.py`). |
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
+
+## What's in version 0.31
+
+**Themes are places now** (the user: the recolored themes were "kind of lame… each like a different environment"):
+Space (still the default), City, Forest, Ocean, Aurora, Desert and Stormy, each by day and by night. Settings › Home
+› Time of day: Automatic (by the clock, day from 7 to 7, easing between), Day or Night. First-time setup has a step
+for choosing one. Space is drawn by the backdrop as before; the others by `Sky.kt` (`materials/sky.mat`) into a
+smaller texture of its own, every other frame except on Best looks, so a forest costs a fraction of drawing it
+full size every frame. The look came from the viewer (`prototypes/shelf-themes.html`) and the user's notes on it.
+
+**Music and ambient sounds** (`Music.kt`): a track for each theme, written note by note and synthesized
+(`tools/music/compose.py`, no samples), which follows the theme unless you choose another, your own file, or none
+(Settings › Sound). Ambient sounds under it (off to start): the city far off, birds by day and crickets at night,
+waves, wind, rain with thunder a moment after the lightning. Every loop is two players handing over without a gap.
+The music fades out as a game goes in and back in when you return. The interface sounds moved to Settings › Sound.
+
+Also: libretro matching says what really went wrong and has "Type a name…"; the three automatic collections can each
+be hidden (Settings › Library); the Museum says L2 and R2; the Library's and the Museum's side panels are taller;
+Home's text has a soft shadow, for the bright themes.
 
 ## What's in version 0.30
 

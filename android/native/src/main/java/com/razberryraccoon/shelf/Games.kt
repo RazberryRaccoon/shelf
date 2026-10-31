@@ -80,8 +80,17 @@ class Games(private val ctx: Context) {
     /** Settings › Home scrolling: Home.STYLES (0 classic, 1 centered, 2 cover flow, 3 spines, 4 carousel, 5 stack). */
     var homeScroll: Int get() = prefs.getInt("home-scroll", 0); set(v) = prefs.edit().putInt("home-scroll", v).apply()
     var sounds: Boolean get() = prefs.getBoolean("sounds", true); set(v) = prefs.edit().putBoolean("sounds", v).apply()
-    /** Which theme (Theme.LOOKS). */
-    var theme: Int get() = prefs.getInt("theme", 0); set(v) = prefs.edit().putInt("theme", v).apply()
+    /** Which theme environment (Theme.ENVS; 0.31: a new key, so 0.29's recolored skies don't turn into other places). */
+    var theme: Int get() = prefs.getInt("env", 0); set(v) = prefs.edit().putInt("env", v).apply()
+    /** The theme's time of day (Theme.TIMES: 0 automatic, by the clock; 1 day; 2 night). */
+    var timeOfDay: Int get() = prefs.getInt("time-of-day", 0); set(v) = prefs.edit().putInt("time-of-day", v).apply()
+    /** Menu music (Music): "theme" (the theme's own track), a theme's id for its track, "own" (your file), or "off". */
+    var music: String get() = prefs.getString("music", "theme") ?: "theme"; set(v) = prefs.edit().putString("music", v).apply()
+    var musicVol: Int get() = prefs.getInt("music-vol", 50); set(v) = prefs.edit().putInt("music-vol", v).apply()
+    var ownMusicName: String get() = prefs.getString("own-music", "") ?: ""; set(v) = prefs.edit().putString("own-music", v).apply()
+    /** The theme's ambient sounds (rain, waves, birds...), under the music. */
+    var ambient: Boolean get() = prefs.getBoolean("ambient", false); set(v) = prefs.edit().putBoolean("ambient", v).apply()
+    var ambientVol: Int get() = prefs.getInt("ambient-vol", 70); set(v) = prefs.edit().putInt("ambient-vol", v).apply()
     /** Which sound pack (Sounds.PACKS). */
     var soundPack: Int get() = prefs.getInt("sound-pack", 0); set(v) = prefs.edit().putInt("sound-pack", v).apply()
     var setupDone: Boolean get() = prefs.getBoolean("setup", false); set(v) = prefs.edit().putBoolean("setup", v).apply()

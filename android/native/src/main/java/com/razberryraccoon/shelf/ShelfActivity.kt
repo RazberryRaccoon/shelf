@@ -60,7 +60,6 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         // Some emulators still take a plain file:// path; without this Android refuses to hand one over.
         StrictMode.setVmPolicy(StrictMode.VmPolicy.Builder().build())
         Fonts.load(this)
-        Theme.setLook(getSharedPreferences("shelf", MODE_PRIVATE).getInt("theme", 0))   // before anything takes the theme's colors (Games.theme)
         val root = FrameLayout(this)
         val surface = SurfaceView(this)
         board = Board(this)
@@ -73,8 +72,12 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         backdrop = Backdrop(this, stage)
         games = Games(this)
         stage.setLook(games.lightEnv, games.lightBright, games.lightKey)
-        stage.quality(games.smoothness); backdrop.lite = games.smoothness == 2
+        stage.quality(games.smoothness); backdrop.lite = games.smoothness == 2; backdrop.smooth = games.smoothness
+        Theme.setEnv(games.theme); Theme.timeMode = games.timeOfDay; backdrop.theme(snap = true)
         Sounds.init(this, games.sounds, games.soundPack)
+        // menu music and the theme's ambient sounds; Forest's change with the time of day, Stormy's thunder follows its lightning
+        Music.init(this, games); Music.day(backdrop.day > .5f)
+        backdrop.onDayChange = { Music.day(it) }; backdrop.scenery.onLightning = { Music.lightning() }
         carts = Carts(stage, Shells(this))
         meta = Meta(this, games)
         consoles = Consoles(this, stage)
@@ -145,6 +148,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         immersive()
         if (safeMode) return
         stage.start()
+        Music.active(true)
         home.needsStorage = !Environment.isExternalStorageManager()
         launch?.back()   // back from a game: the return animation
         apps?.back()     // back from an app: Shelf eases in again
@@ -153,7 +157,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
 
     override fun onPause() {
         if (safeMode) return super.onPause()
-        stage.stop()
+        stage.stop(); Music.active(false)
         held = null; ui.removeCallbacks(repeat)
         super.onPause()
     }
@@ -331,6 +335,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         fromLibrary = fromLib != null
         val (cart, from, back) = fromLib ?: home.takeForLaunch(g)
         launch = Launch(this, stage, board, backdrop, carts, consoles, games, meta, g, cart, from, this, back, lead)
+        Music.active(false, 1.6f)   // the music fades out as the game goes in
     }
     // Settings › Show frame rate: the meter, over everything in the top left corner
     private var meterLeft = 0f
@@ -374,6 +379,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
     override fun start(l: Launch): String = games.launch(l.game)
     override fun done(l: Launch) {
         launch = null
+        Music.active(true)   // back (or the game didn't start): the music comes back in
         if (fromLibrary) { fromLibrary = false; library?.landed(l.game) } else home.landed(l.game)
         if (l.problem.isNotEmpty()) home.show(l.problem)
     }
