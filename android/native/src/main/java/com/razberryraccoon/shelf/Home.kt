@@ -230,6 +230,9 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         if (k == tab) return
         tab = k; strip.sel = k; i = 0; f = 0f; riseT = 0f
         setGames(rowList()); refreshInfo(); Sounds.play(Sounds.MOVE)
+        // every cartridge starts where it belongs in the new row and only grows in there: a game in both tabs would
+        // otherwise glide sideways from its old place (the user: the cartridges "jerk to the left or right")
+        slots.forEachIndexed { n, s -> val q = pose(games.homeScroll, n - f, n == i); s.x = q[0]; s.y = q[1]; s.z = q[2]; s.ry = q[3]; s.px = q[4]; s.bright = q[5] }
     }
     private fun cycleTab(d: Int) { if (tabIds.size < 2) { Sounds.play(Sounds.BUMP); return }; showTab((tab + d + tabIds.size) % tabIds.size) }
     /** A picked-up tab: one place earlier or later (Recent stays first). */

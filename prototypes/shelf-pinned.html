@@ -203,8 +203,9 @@ function draw(dt) {
     });
     x.font = '600 14px system-ui'; x.fillStyle = 'rgba(154,162,204,.8)'; x.fillText('L2', 28, 172); x.fillText('R2', end + 12, 172);
     if (focused) { x.fillStyle = '#9aa2cc'; x.fillText(st.moving ? '◀ ▶  move it      A  put it down' : st.tab > 0 ? 'Y  move this tab' : '', end + 54, 172); }
-    const e = ease(anim.slide), dx = (1 - e) * 160 * anim.slideDir;
-    x.save(); x.globalAlpha = e; row(items, anim.sel, 340, 1, 1, true, dx); x.restore();
+    // a new tab's games come in where they belong, fading in and settling down a little; nothing slides sideways
+    const e = ease(anim.slide);
+    x.save(); x.globalAlpha = e; row(items, anim.sel, 340 - (1 - e) * 16, 1, 1, true, 0); x.restore();
     title(items, st.sel, 546);
   }
   if (msgT > 0) { msgT -= dt; x.save(); x.globalAlpha = Math.min(1, msgT * 2); x.fillStyle = 'rgba(8,10,28,.8)'; x.beginPath(); x.roundRect(1334 / 2 - 160, 660, 320, 44, 22); x.fill();
