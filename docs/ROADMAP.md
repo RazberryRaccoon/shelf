@@ -42,7 +42,8 @@ published by GitHub Actions. Next, in order:
 - **Done in 0.31:** theme environments (city, forest, ocean, aurora, desert, stormy, and Space), each by day and by
   night, with music for each and ambient sounds. Waiting on the user's notes on the device (smoothness on the Retroid
   especially).
-- **Pinned collections on Home:** wanted, place not decided.
+- **Done in 0.33: pinned collections on Home** as tabs over the row (the user chose option C of
+  `prototypes/shelf-pinned.html`), with reordering on Home and in Settings › Home.
 - **Backburner: emulators built in** (the user, after 0.30: "VERY interested… it would come down the line once I'm
   happy with Shelf"): libretro cores inside Shelf through LibretroDroid (GPL-3, as Lemuroid), cores downloaded from
   libretro's build server; NES to N64 (PS1 maybe; PSP and DS stay outside). Would give suspend to Home, saves and
@@ -53,7 +54,7 @@ published by GitHub Actions. Next, in order:
 - **Eventually** (the user: "things I'm generally not happy with and want to … tackle eventually, so don't forget
   these"):
   1. More themes.
-  2. More sound effect packs.
+  2. More sound effect packs (0.32 added Felt, Kalimba and Air).
   3. Better icons, fonts and style.
   4. The cartridge and console models still need work: a larger project, perhaps bringing back the Cartridge Studio
      for testing lighting and the models together.

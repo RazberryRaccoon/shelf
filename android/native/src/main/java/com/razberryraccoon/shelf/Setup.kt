@@ -228,6 +228,11 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                 rows += Options.Row("homeboxes", "Home shows", value = "‹  ${if (games.homeBoxes) "Boxes" else "Cartridges"}  ›", sub = "Your games as cartridges, or as their closed boxes")
                 rows += Options.Row("theme", "Theme", value = "‹  ${Theme.ENVS[Theme.env].name}  ›", sub = Theme.ENVS[Theme.env].note)
                 rows += Options.Row("timeofday", "Time of day", value = "‹  ${Theme.TIMES[Theme.timeMode]}  ›", sub = TIME_SUB[Theme.timeMode])
+                val cols = host.collections(); val pins = cols.pinned()
+                rows += Options.Row(Options.HEAD, "Pinned to Home")
+                if (pins.isEmpty()) rows += Options.Row("none", "None yet", sub = "Pin a collection from its menu (Y) in the Library: it becomes a tab over Home's row")
+                pins.forEachIndexed { k, id -> rows += Options.Row("pin", cols.pinName(id) ?: id, value = "‹  ${k + 1} of ${pins.size}  ›", sub = "Left and right move it along Home's tabs; A unpins it", dot = cols.pinColor(id), tag = id) }
+                rows += Options.Row(Options.HEAD, "The row")
                 rows += Options.Row("homescroll", "Scrolling", value = "‹  ${Home.STYLES[games.homeScroll.coerceIn(0, Home.STYLES.size - 1)]}  ›", sub = SCROLL_SUB[games.homeScroll.coerceIn(0, SCROLL_SUB.size - 1)])
                 rows += Options.Row(Options.HEAD, "The picture behind")
                 rows += Options.Row("art", "Picture", value = "‹  ${Art.KINDS.firstOrNull { it.first == games.artKind }?.second}  ›", sub = "Which picture of the selected game (another if it doesn’t have that one)", tag = "kind")
@@ -360,6 +365,10 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             val n = Theme.ENVS.size; setEnv((games.theme + (if (a == "left") n - 1 else 1)) % n); Sounds.play(Sounds.MOVE)
             return fill()
         }
+        if (r?.key == "pin" && (a == "left" || a == "right")) {
+            if (host.collections().movePin(r.tag as String, if (a == "left") -1 else 1)) { Sounds.play(Sounds.MOVE); fill(); options.move(if (a == "left") -1 else 1) } else Sounds.play(Sounds.BUMP)
+            return
+        }
         if (r?.key == "timeofday" && (a == "left" || a == "right" || a == "a")) {
             val n = Theme.TIMES.size; games.timeOfDay = (games.timeOfDay + (if (a == "left") n - 1 else 1)) % n
             Theme.timeMode = games.timeOfDay; backdrop.theme(); Sounds.play(Sounds.MOVE)   // day eases into night (or back) behind
@@ -463,6 +472,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             "homescreen" -> host.chooseHomeApp()
             "sounds" -> { games.sounds = !games.sounds; Sounds.enabled = games.sounds; Sounds.play(Sounds.PICK); fill() }
             "env" -> { setEnv(r.tag as Int); Sounds.play(Sounds.PICK); fill() }
+            "pin" -> { host.collections().setPinned(r.tag as String, false); Sounds.play(Sounds.CLOSE); host.toast("Unpinned from Home"); fill() }
             "ambient" -> { games.ambient = !games.ambient; Music.apply(); Sounds.play(Sounds.PICK); fill() }
             "ownmusic" -> host.openDocument(arrayOf("audio/*")) { uri ->
                 if (uri == null) return@openDocument
@@ -704,7 +714,8 @@ private val TRACK_SUB = listOf("Slow pads and glass bells, drifting", "A late-ni
 private val AMBIENT_SUB = listOf("a low, far-off hum", "the city far off, a car now and then", "birds by day, crickets at night", "waves breaking gently",
     "a cold wind", "wind and drifting sand", "rain, and thunder after the lightning")
 private val PACK_SUB = listOf("Sine tones with a quiet octave: the first sounds", "Bell-like, the ring of a struck glass", "Warm and dry, like a marimba",
-    "Each note glides up into place: a soft bloop")
+    "Each note glides up into place: a soft bloop", "A felt-hammered piano, hushed and warm", "A thumb piano: a round note with a bright little ping",
+    "A breath of air around each note, like a modern console")
 private val SMOOTH = listOf("Best looks", "Balanced", "Smoothest")
 private val SMOOTH_SUB = listOf("The smoothest edges; the most work for the handheld", "Softer edges, less work for the 3D",
     "Lightest: the sky's stars hold still, edges smoothed more cheaply")

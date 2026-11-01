@@ -20,6 +20,9 @@ import kotlin.math.sin
  * Sound packs (Settings › System › Sound pack): the same notes in four voices. Soft (the first: a sine with a quiet
  * octave), Glass (bell-like, with the inharmonic partials of a struck glass, ringing a little longer), Wood (an octave
  * lower, dry and woody, like a marimba bar), and Bubble (each note glides up into its pitch, a soft "bloop").
+ * Added in 0.32: Felt (a piano's hammer muffled in felt: a few warm partials, the upper ones fading fast, a touch of
+ * thump), Kalimba (a thumb piano's tine: a round sine with its bright, quickly-gone 5.4× partial), and Air (a soft tone
+ * wrapped in a breath of noise smoothed toward the note's pitch, like a current console's interface).
  */
 object Sounds {
     const val MOVE = 0; const val BUMP = 1; const val OPEN = 2; const val CLOSE = 3; const val PICK = 4; const val TURN = 5
@@ -29,7 +32,7 @@ object Sounds {
     private var lastMove = 0L
     var enabled = true
     /** The sound packs, by name, in the order Settings offers them. */
-    val PACKS = listOf("Soft", "Glass", "Wood", "Bubble")
+    val PACKS = listOf("Soft", "Glass", "Wood", "Bubble", "Felt", "Kalimba", "Air")
     var pack = 0; private set
 
     fun init(ctx: Context, on: Boolean, pack: Int = 0) {
@@ -86,12 +89,12 @@ object Sounds {
      * up into the note over its first few hundredths of a second.
      */
     private fun synth(notes: List<FloatArray>, gain: Float, pack: Int = 0): ShortArray {
-        val ring = when (pack) { 1 -> 1.6f; 2 -> .7f; else -> 1f }   // how long each note lasts, against Soft
+        val ring = when (pack) { 1 -> 1.6f; 2 -> .7f; 4 -> 1.3f; 5 -> 1.5f; 6 -> .9f; else -> 1f }   // how long each note lasts, against Soft
         val len = notes.maxOf { it[1] + it[2] * ring } + .02f
         val out = FloatArray((len * RATE).toInt())
         for (n in notes) {
             val f = if (pack == 2) n[0] / 2 else n[0]; val start = (n[1] * RATE).toInt(); val d = n[2] * ring; val count = (d * RATE).toInt()
-            var phase = 0.0
+            var phase = 0.0; var lp = 0f; var lp2 = 0f; val rnd = java.util.Random((f * 1000).toLong())
             for (i in 0 until count) {
                 val t = i.toFloat() / RATE
                 val w = 2 * PI * f
@@ -102,6 +105,15 @@ object Sounds {
                         env * (sin(w * t).toFloat() + .55f * sin(w * 4 * t).toFloat() * exp(-t * 14f / d) + .25f * sin(w * 9.8 * t).toFloat() * exp(-t * 25f / d)) * 1.1f }
                     3 -> { phase += w * (1 - .45 * kotlin.math.exp(-t * 38.0)) / RATE; val env = min(1f, t / .004f) * exp(-t * 6f / d)
                         env * sin(phase).toFloat() }
+                    4 -> { val env = min(1f, t / .006f) * exp(-t * 4f / d)
+                        val thump = sin(w * .5 * t).toFloat() * exp(-t * 60f) * .25f
+                        env * (sin(w * t).toFloat() + .35f * sin(w * 2 * t).toFloat() * exp(-t * 9f / d) + .12f * sin(w * 3 * t).toFloat() * exp(-t * 16f / d)) * .72f + thump }
+                    5 -> { val env = min(1f, t / .002f) * exp(-t * 3.5f / d)
+                        env * (sin(w * t).toFloat() + .3f * sin(w * 5.4 * t).toFloat() * exp(-t * 40f)) * .68f }
+                    6 -> { // noise, smoothed twice toward the note's pitch, around a quiet tone; the breath fades before the tone
+                        val k = min(1f, f * 6f / RATE); lp += (rnd.nextGaussian().toFloat() - lp) * k; lp2 += (lp - lp2) * k
+                        val env = min(1f, t / .01f) * exp(-t * 5f / d)
+                        env * (1.1f * sin(w * t).toFloat() + 2.8f * lp2 * exp(-t * 9f / d)) }
                     else -> { val env = min(1f, t / .004f) * exp(-t * 5f / d)
                         env * (sin(w * t).toFloat() + .18f * sin(2 * w * t).toFloat()) }
                 }

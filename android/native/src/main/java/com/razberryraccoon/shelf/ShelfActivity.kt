@@ -83,7 +83,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         consoles = Consoles(this, stage)
         cols = Collections(this, games) { meta.root.takeIf { it.isDirectory || it.mkdirs() } }
         Overlays.board = board
-        home = Home(this, stage, board, backdrop, games, carts, meta, this)
+        home = Home(this, stage, board, backdrop, games, carts, meta, cols, this)
         home.refreshPicture()   // Home picture's look from Settings
         if (!games.setupDone) openSetup(settings = false)
         // the interface follows the 3D layer's fit, so the two line up
@@ -183,7 +183,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
             val list = games.recent()
             runOnUiThread {
                 scanning = false
-                if (setup == null) home.setGames(list)
+                if (setup == null) home.refreshRow()   // its tab's games: the recent ones, or a pinned collection's
                 val done = afterScan.toList(); afterScan.clear(); done.forEach { it() }
             }
         }.start()
@@ -219,7 +219,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
             override fun show(msg: String) = home.show(msg)
             override fun closed(library: Library, changed: Boolean) {
                 if (this@ShelfActivity.library === library) this@ShelfActivity.library = null
-                if (changed) home.setGames(games.recent())   // hidden games, plays
+                if (changed) home.refreshRow()   // hidden games, plays, pins
                 pageClosed()
             }
         })
@@ -231,7 +231,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         home.visible = false
         apps = Apps(this, board, backdrop, games, object : Apps.Host {
             override fun show(msg: String) = home.show(msg)
-            override fun gamesChanged() = home.setGames(games.recent())
+            override fun gamesChanged() = home.refreshRow()
             override fun openApp(pkg: String): Boolean = try {
                 val i = packageManager.getLaunchIntentForPackage(pkg) ?: throw IllegalStateException("no launcher")
                 startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true

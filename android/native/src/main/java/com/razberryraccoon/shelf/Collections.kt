@@ -146,6 +146,46 @@ class Collections(ctx: Context, private val games: Games, private val mediaRoot:
     fun filterFor(id: String): Filter = Filter.from(try { JSONObject(prefs.getString("libfilter:$id", "{}") ?: "{}") } catch (_: Exception) { null })
     fun setFilterFor(id: String, f: Filter) = prefs.edit().putString("libfilter:$id", f.json().toString()).apply()
 
+    // ---------- pinned on Home ----------
+
+    /**
+     * The collections pinned to Home (0.33), in their order: the Library's list ids, "favorites", "added", "unplayed",
+     * "mostplayed" or "c:<id>" for one of yours. Home shows them as tabs over its row, after Recent.
+     */
+    fun pinned(): List<String> = (prefs.getString("pins", "") ?: "").split(",").filter { it.isNotEmpty() && pinName(it) != null }
+    private fun setPins(l: List<String>) = prefs.edit().putString("pins", l.joinToString(",")).apply()
+    fun isPinned(id: String) = id in pinned()
+    fun pinnable(id: String) = id in listOf(FAVORITES, ADDED, UNPLAYED, MOSTPLAYED) || id.startsWith("c:")
+    fun setPinned(id: String, on: Boolean) { val l = pinned().toMutableList(); l.remove(id); if (on) l += id; setPins(l) }
+    /** Moves a pin one place earlier (-1) or later (1); false at either end. */
+    fun movePin(id: String, d: Int): Boolean {
+        val l = pinned().toMutableList(); val i = l.indexOf(id); val j = i + d
+        if (i < 0 || j !in l.indices) return false
+        l.removeAt(i); l.add(j, id); setPins(l); return true
+    }
+    /** A pin's name, or null if it's gone (a deleted collection). */
+    fun pinName(id: String): String? = when (id) {
+        FAVORITES -> "Favorites"; ADDED -> "Recently added"; UNPLAYED -> "Not played yet"; MOSTPLAYED -> "Most played"
+        else -> if (id.startsWith("c:")) byId(id.removePrefix("c:"))?.name else null
+    }
+    fun pinColor(id: String): Int? = if (id.startsWith("c:")) byId(id.removePrefix("c:"))?.color else null
+    /** A pinned collection's games for Home's row: in its own order (as the Library's, without the console groups). */
+    fun forHome(id: String): List<Game> {
+        val c = if (id.startsWith("c:")) byId(id.removePrefix("c:")) else null
+        val list = if (c != null) gamesOf(c) else smart(id)
+        val sort = when (id) { ADDED -> Sorts.ADDED; MOSTPLAYED -> Sorts.MOST; else -> c?.sort ?: sortFor(id) }
+        val name = compareBy<Game> { it.title.lowercase() }
+        return list.sortedWith(when (sort) {
+            Sorts.ZA -> compareByDescending { it.title.lowercase() }
+            Sorts.RECENT -> compareByDescending<Game> { games.lastPlayed(it) }.then(name)
+            Sorts.MOST -> compareByDescending<Game> { games.timesPlayed(it) }.then(name)
+            Sorts.TIME -> compareByDescending<Game> { games.playTime(it) }.then(name)
+            Sorts.ADDED -> compareByDescending<Game> { added(it) }.then(name)
+            Sorts.MINE -> if (c != null) compareBy { g -> c.entries.indexOfFirst { matches(it, g) } } else name
+            else -> name
+        })
+    }
+
     // ---------- hidden games ----------
 
     fun hidden(g: Game) = prefs.getBoolean("hidden:" + g.path, false)
