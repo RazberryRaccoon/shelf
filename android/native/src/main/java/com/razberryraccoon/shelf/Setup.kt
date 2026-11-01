@@ -704,7 +704,8 @@ private val TRACK_SUB = listOf("Slow pads and glass bells, drifting", "A late-ni
 private val AMBIENT_SUB = listOf("a low, far-off hum", "the city far off, a car now and then", "birds by day, crickets at night", "waves breaking gently",
     "a cold wind", "wind and drifting sand", "rain, and thunder after the lightning")
 private val PACK_SUB = listOf("Sine tones with a quiet octave: the first sounds", "Bell-like, the ring of a struck glass", "Warm and dry, like a marimba",
-    "Each note glides up into place: a soft bloop")
+    "Each note glides up into place: a soft bloop", "A felt-hammered piano, hushed and warm", "A thumb piano: a round note with a bright little ping",
+    "A breath of air around each note, like a modern console")
 private val SMOOTH = listOf("Best looks", "Balanced", "Smoothest")
 private val SMOOTH_SUB = listOf("The smoothest edges; the most work for the handheld", "Softer edges, less work for the 3D",
     "Lightest: the sky's stars hold still, edges smoothed more cheaply")

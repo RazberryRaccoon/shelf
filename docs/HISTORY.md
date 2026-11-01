@@ -592,6 +592,12 @@ opening edge, and a coloured test spine in the new render confirms the fix.
 **0.24, fixed:** the Library crashed as it opened: `byName`, a stored comparator declared below `init`, was still null
 when `init` sorted the first list (the init-order trap again; it's a getter now).
 
+**0.32: three more sound packs** (Felt, Kalimba, Air: `Sounds.synth` voices 4 to 6), made while the user was away
+from the device, after a read-through of 0.31's new code that found nothing to fix. Each pack's sounds were rendered
+on the JVM through the real `synth` (by reflection) and measured: none clips; Kalimba was a little loud and Air half
+as loud as the rest, so both were evened out. Also a mockup for pinned collections on Home
+(`prototypes/shelf-pinned.html`: rows, stacks at the end of the row, or tabs over the row), for the user to choose.
+
 **0.31: theme environments, music, ambient sounds; fixes after 0.30.** Designed in a web viewer first
 (`prototypes/shelf-themes.html`, one WebGL 1 shader with a branch per theme; the user's notes: Forest and Ocean "not
 all night-themed", leafy trees, Desert's moon out from behind the cartridges, City's stutter, Stormy's rain; then

@@ -54,6 +54,12 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
+## What's in version 0.32
+
+Three more sound packs (Settings › Sound › Sound pack), from the user's "eventually" list: **Felt** (a piano with its
+hammers muffled in felt), **Kalimba** (a thumb piano: a round note with a bright little ping) and **Air** (a breath of
+soft noise around each note, like a current console). Measured against the first four so none is louder or clips.
+
 ## What's in version 0.31
 
 **Themes are places now** (the user: the recolored themes were "kind of lame… each like a different environment"):

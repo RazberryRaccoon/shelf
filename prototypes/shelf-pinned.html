@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pinned Collections</title>
+<style>
+  :root { --bg: #04060f; --fg: #eef1ff; --fg2: #9aa2cc; --line: rgba(238,241,255,.14); --chip: rgba(238,241,255,.08); --sel: #eef1ff; --selfg: #0b1030; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1334px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 22px; margin: 4px 0 2px; font-weight: 650; }
+  p.lead { margin: 0 0 14px; color: var(--fg2); max-width: 820px; }
+  .stage { position: relative; width: 100%; aspect-ratio: 1334 / 750; border-radius: 18px; overflow: hidden; border: 1px solid var(--line); background: #070b1e; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 14px 0 6px; }
+  .bar .label { color: var(--fg2); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; margin-right: 6px; min-width: 64px; }
+  button.pill { border: 1px solid var(--line); background: var(--chip); color: var(--fg); border-radius: 999px; padding: 7px 16px; font: inherit; cursor: pointer; }
+  button.pill[aria-pressed="true"] { background: var(--sel); color: var(--selfg); border-color: var(--sel); font-weight: 600; }
+  .about { color: var(--fg2); margin: 10px 0 0; max-width: 900px; }
+  .about b { color: var(--fg); font-weight: 600; }
+  .about ul { margin: 6px 0 0; padding-left: 20px; }
+  kbd { border: 1px solid var(--line); border-radius: 6px; padding: 0 6px; font: 13px ui-monospace, monospace; color: var(--fg); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Pinned collections on Home: three places to put them</h1>
+  <p class="lead">A mock of Home (flat cards stand in for the 3D cartridges) with your recent games and three pinned collections. Try each option with the buttons below or the keyboard; the text under it says how it works on the handheld and what it costs.</p>
+  <div class="stage"><canvas id="c" width="1334" height="750"></canvas></div>
+  <div class="bar" id="opts"><span class="label">Option</span></div>
+  <div class="bar"><span class="label">Buttons</span>
+    <button class="pill" data-k="left">◀ Left</button><button class="pill" data-k="right">Right ▶</button>
+    <button class="pill" data-k="up">▲ Up</button><button class="pill" data-k="down">▼ Down</button>
+    <button class="pill" data-k="l2">L2</button><button class="pill" data-k="r2">R2</button>
+    <button class="pill" data-k="a">A</button><button class="pill" data-k="b">B</button>
+  </div>
+  <div class="about" id="about"></div>
+  <p class="about">Keyboard: arrows, <kbd>Q</kbd>/<kbd>E</kbd> for L2/R2, <kbd>Enter</kbd> for A, <kbd>Backspace</kbd> for B, <kbd>1</kbd>–<kbd>3</kbd> to switch option.</p>
+</main>
+<script>
+// ---------- the games (invented) ----------
+const G = (t, c, sys) => ({ t, c, sys });
+const RECENT = [G('Star Voyage', '#4466c0', 'Game Boy Advance'), G('Moss Kingdom', '#3f8a52', 'Super Nintendo'), G('Turbo Lane', '#c04a3a', 'Genesis'),
+  G('Lantern Keep', '#8a5ac0', 'Nintendo 64'), G('Tide Pool', '#2f9aa8', 'Game Boy Color'), G('Iron Orchard', '#a8823a', 'PlayStation')];
+const COLS = [
+  { name: 'Favorites', games: [G('Moss Kingdom', '#3f8a52', 'Super Nintendo'), G('Paper Comet', '#c0a03a', 'Game Boy'), G('Star Voyage', '#4466c0', 'Game Boy Advance'), G('Velvet Run', '#b0487a', 'Nintendo DS'), G('Hollow Bell', '#5a6ac0', 'PSP'), G('Quiet Harbor', '#3a8aa8', 'NES'), G('Ember Isle', '#c0703a', 'Genesis')] },
+  { name: 'Cozy RPGs', games: [G('Lantern Keep', '#8a5ac0', 'Nintendo 64'), G('Willow Road', '#5a9a5a', 'Super Nintendo'), G('Amber Crown', '#c09040', 'PlayStation'), G('Small Giants', '#4a7ac0', 'Game Boy Advance'), G('Fern Hollow', '#3a8a6a', 'Nintendo DS')] },
+  { name: 'Couch co-op', games: [G('Turbo Lane', '#c04a3a', 'Genesis'), G('Pillow Fort', '#c06a9a', 'Nintendo 64'), G('Two Moons', '#6a5ac0', 'Super Nintendo'), G('Kite Day', '#3aa0c0', 'NES')] },
+];
+const ACC = '#ab98ff';
+
+// ---------- the three options ----------
+const OPTIONS = [
+  { name: 'A · Rows', about: `<b>A · A row for each.</b> Recent games stay the first row; each pinned collection is a row under it, its name above it. Down moves to the next row: the page glides up so the row you're on is always in the same place, and the next one peeks in at the bottom.
+    <ul><li>Everything is one press away, and you can see there's more below.</li><li>Home gets busier: the peeking row sits under the game's name, and the Home picture has less room.</li><li>Like a TV app or a big console's home; the most "browse everything" of the three.</li></ul>` },
+  { name: 'B · Stacks in the row', about: `<b>B · Stacks at the end of the row.</b> After your recent games, each pinned collection sits in the row as a small stack of its games, fanned like the Collections card. A opens it: its games fill the row, its name at the top; B goes back to the stacks.
+    <ul><li>Home stays one calm row; collections feel like physical things, which fits Shelf.</li><li>A collection is a few presses away (to the end of the row, then A).</li><li>The row's end is where you'd look for "more", like a shelf's last few boxes.</li></ul>` },
+  { name: 'C · Tabs over the row', about: `<b>C · Tabs over the row.</b> A line of names over the row: Recent, then each pinned collection. L2 and R2 change it, and the row's games slide across to the next collection's.
+    <ul><li>The least added to the screen: one line of small text, and Home keeps its single row.</li><li>Quick to reach any collection without leaving Home's place.</li><li>L2 and R2 are free on Home (L1 and R1 change pages); the tabs say which press does what by where they are.</li></ul>` },
+];
+
+// ---------- state ----------
+let opt = 0;
+const st = { sel: 0, row: 0, open: -1, tab: 0 };
+const anim = { sel: 0, row: 0, slide: 0, slideDir: 0, openK: 0, tabX: 0 };
+let msg = '', msgT = 0;
+function reset() { st.sel = 0; st.row = 0; st.open = -1; st.tab = 0; anim.sel = 0; anim.row = 0; anim.openK = 0; anim.slide = 1; }
+function rowItems() {
+  if (opt === 0) return st.row === 0 ? RECENT : COLS[st.row - 1].games;
+  if (opt === 1) return st.open >= 0 ? COLS[st.open].games : [...RECENT, ...COLS.map(c => ({ stack: c }))];
+  return st.tab === 0 ? RECENT : COLS[st.tab - 1].games;
+}
+function press(k) {
+  const items = rowItems();
+  if (k === 'left' && st.sel > 0) st.sel--;
+  else if (k === 'right' && st.sel < items.length - 1) st.sel++;
+  else if (opt === 0 && k === 'down' && st.row < COLS.length) { st.row++; st.sel = 0; }
+  else if (opt === 0 && k === 'up' && st.row > 0) { st.row--; st.sel = 0; }
+  else if (opt === 1 && k === 'a' && st.open < 0 && items[st.sel].stack) { st.open = COLS.indexOf(items[st.sel].stack); st.sel = 0; anim.sel = 0; anim.slide = 0; anim.slideDir = 1; }
+  else if (opt === 1 && k === 'b' && st.open >= 0) { const back = RECENT.length + st.open; st.open = -1; st.sel = back; anim.sel = back; anim.slide = 0; anim.slideDir = -1; }
+  else if (opt === 2 && (k === 'l2' || k === 'r2')) { const n = COLS.length + 1, d = k === 'r2' ? 1 : n - 1; st.tab = (st.tab + d) % n; st.sel = 0; anim.sel = 0; anim.slide = 0; anim.slideDir = k === 'r2' ? 1 : -1; }
+  else if (k === 'a') { const g = items[st.sel]; msg = g.stack ? '' : 'A starts ' + g.t; msgT = 1.6; }
+}
+
+// ---------- drawing ----------
+const cv = document.getElementById('c'), x = cv.getContext('2d');
+const ease = t => t * t * (3 - 2 * t);
+function bg() {
+  const g = x.createLinearGradient(0, 0, 0, 750); g.addColorStop(0, '#070b1e'); g.addColorStop(1, '#0c1030'); x.fillStyle = g; x.fillRect(0, 0, 1334, 750);
+  const r = x.createRadialGradient(300, 160, 0, 300, 160, 700); r.addColorStop(0, 'rgba(171,152,255,.25)'); r.addColorStop(1, 'rgba(171,152,255,0)'); x.fillStyle = r; x.fillRect(0, 0, 1334, 750);
+  let s = 7; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  x.fillStyle = 'rgba(238,241,255,.6)'; for (let i = 0; i < 160; i++) { x.beginPath(); x.arc(rnd() * 1334, rnd() * 750, .5 + rnd(), 0, 7); x.fill(); }
+  x.save(); x.beginPath(); x.arc(1190, -175, 390, 0, 7); const p = x.createRadialGradient(1050, 40, 20, 1190, -175, 480); p.addColorStop(0, '#e6defc'); p.addColorStop(.55, '#6b5cae'); p.addColorStop(1, '#0a0c22'); x.fillStyle = p; x.fill(); x.restore();
+}
+function topBar() {
+  x.fillStyle = 'rgba(238,241,255,.9)'; x.beginPath(); x.arc(64, 62, 24, 0, 7); x.fill();
+  ['Library', 'Apps', 'Museum', 'Settings'].forEach((n, i) => { const cx = 520 + i * 98; x.fillStyle = 'rgba(12,16,40,.35)'; x.beginPath(); x.arc(cx, 62, 38, 0, 7); x.fill(); x.strokeStyle = 'rgba(238,241,255,.18)'; x.lineWidth = 1; x.stroke(); });
+  x.fillStyle = '#eef1ff'; x.font = '600 22px system-ui'; x.textAlign = 'right'; x.fillText('9:41', 1270, 70); x.textAlign = 'left';
+}
+function card(cx, cy, w, h, col, glow, a = 1, rot = 0) {
+  x.save(); x.globalAlpha = a; x.translate(cx, cy); x.rotate(rot);
+  if (glow) { x.shadowColor = ACC; x.shadowBlur = 34; }
+  x.fillStyle = glow ? '#c8c3d4' : '#8a8794'; x.beginPath(); x.roundRect(-w / 2, -h / 2, w, h, w * .07); x.fill(); x.shadowBlur = 0;
+  x.fillStyle = col; x.beginPath(); x.roundRect(-w * .38, -h * .4, w * .76, h * .55, 8); x.fill();
+  x.restore();
+  if (!rot) { x.save(); x.globalAlpha = a * .35; x.fillStyle = '#000'; x.beginPath(); x.ellipse(cx, cy + h / 2 + 24, w * .42, 8, 0, 0, 7); x.fill(); x.restore(); }
+}
+function stack(cx, cy, w, h, c, glow, a) {
+  const g = c.games;
+  card(cx + 10, cy - 4, w * .92, h * .92, g[2].c, false, a * .8, .1);
+  card(cx - 8, cy - 2, w * .94, h * .94, g[1].c, false, a * .9, -.08);
+  card(cx, cy, w, h, g[0].c, glow, a);
+  x.save(); x.globalAlpha = a; x.fillStyle = 'rgba(8,10,28,.75)'; x.beginPath(); x.roundRect(cx - 34, cy + h / 2 - 34, 68, 26, 13); x.fill();
+  x.fillStyle = '#eef1ff'; x.font = '600 15px system-ui'; x.textAlign = 'center'; x.fillText(g.length + ' games', cx, cy + h / 2 - 16); x.textAlign = 'left'; x.restore();
+}
+// a row: the chosen one big on the left, the rest following; s is the (eased) selection, y its middle, k its size
+function row(items, s, y, k, a, focused, dx = 0) {
+  items.forEach((it, i) => {
+    const d = i - s; if (d < -1.2 || d > 7) return;
+    const big = Math.max(0, 1 - Math.abs(d)) * (focused ? 1 : 0);
+    const w = (170 + 80 * big) * k, h = (184 + 86 * big) * k;
+    const cx = dx + 150 * k + (d < 0 ? d * 260 * k : d * 205 * k + (d > 0 && focused ? 85 * k * Math.min(1, d) : 0));
+    const fade = a * (d < 0 ? Math.max(0, 1 + d) : 1);
+    const cy = y + (big ? -12 * big * k : 12 * k * (focused ? 1 : 0));
+    if (it.stack) stack(cx, cy, w, h, it.stack, focused && Math.abs(d) < .5, fade);
+    else card(cx, cy, w, h, it.c, focused && Math.abs(d) < .5, fade);
+  });
+}
+function title(items, i, y) {
+  const it = items[Math.round(i)]; if (!it) return;
+  x.save(); x.shadowColor = 'rgba(0,0,0,.5)'; x.shadowBlur = 12;
+  x.fillStyle = '#eef1ff'; x.font = '700 38px system-ui'; x.fillText(it.stack ? it.stack.name : it.t, 60, y);
+  x.fillStyle = '#c9cfee'; x.font = '20px system-ui'; x.fillText(it.stack ? `Pinned collection  ·  ${it.stack.games.length} games  ·  A opens it` : `${it.sys}  ·  Played 2 hours ago`, 60, y + 40); x.restore();
+}
+function label(t, y, a, bright) { x.save(); x.globalAlpha = a; x.fillStyle = bright ? '#eef1ff' : '#9aa2cc'; x.font = (bright ? '700 ' : '600 ') + '20px system-ui'; x.fillText(t, 60, y); x.restore(); }
+
+function draw(dt) {
+  anim.sel += (st.sel - anim.sel) * Math.min(1, dt * 9);
+  anim.row += (st.row - anim.row) * Math.min(1, dt * 7);
+  anim.slide = Math.min(1, anim.slide + dt * 3);
+  bg(); topBar();
+  const items = rowItems();
+  if (opt === 0) {
+    // rows: the one you're on at Home's usual place, the next peeking in at the bottom
+    const all = [{ name: 'Recent', games: RECENT }, ...COLS];
+    all.forEach((r, k) => {
+      const off = k - anim.row; if (off < -1 || off > 1.6) return;
+      const y = 330 + off * 400, a = off < 0 ? Math.max(0, 1 + off * 1.6) : 1;
+      const focused = Math.abs(off) < .5;
+      label(r.name, focused ? y - 172 : y - 82, a, focused);
+      row(r.games, focused ? anim.sel : 0, y, focused ? 1 : .62, a, focused);
+    });
+    title(items, st.sel, 540);
+  } else if (opt === 1) {
+    const e = ease(anim.slide), dx = (1 - e) * 120 * anim.slideDir;
+    if (st.open >= 0) { x.save(); x.globalAlpha = e; x.fillStyle = 'rgba(12,16,40,.55)'; x.beginPath(); x.roundRect(46, 120, 230, 40, 20); x.fill();
+      x.fillStyle = '#eef1ff'; x.font = '600 19px system-ui'; x.fillText('‹  ' + COLS[st.open].name, 66, 147); x.restore(); }
+    x.save(); x.globalAlpha = .4 + .6 * e; row(items, anim.sel, 324, 1, 1, true, dx); x.restore();
+    title(items, st.sel, 530);
+  } else {
+    // tabs: Recent, then each pinned collection
+    const names = ['Recent', ...COLS.map(c => c.name)]; let tx = 60; let selX = 0, selW = 0;
+    x.font = '600 19px system-ui';
+    names.forEach((n, i) => { const w = x.measureText(n).width; if (i === st.tab) { selX = tx; selW = w; } tx += w + 34; });
+    anim.tabX += (selX - anim.tabX) * Math.min(1, dt * 10);
+    x.fillStyle = 'rgba(238,241,255,.12)'; x.beginPath(); x.roundRect(anim.tabX - 14, 148, selW + 28, 36, 18); x.fill();
+    tx = 60; names.forEach((n, i) => { x.fillStyle = i === st.tab ? '#eef1ff' : '#9aa2cc'; x.fillText(n, tx, 173); tx += x.measureText(n).width + 34; });
+    x.font = '600 14px system-ui'; x.fillStyle = 'rgba(154,162,204,.8)'; x.fillText('L2', 28, 172); x.fillText('R2', tx - 10, 172);
+    const e = ease(anim.slide), dx = (1 - e) * 160 * anim.slideDir;
+    x.save(); x.globalAlpha = e; row(items, anim.sel, 340, 1, 1, true, dx); x.restore();
+    title(items, st.sel, 546);
+  }
+  if (msgT > 0) { msgT -= dt; x.save(); x.globalAlpha = Math.min(1, msgT * 2); x.fillStyle = 'rgba(8,10,28,.8)'; x.beginPath(); x.roundRect(1334 / 2 - 160, 660, 320, 44, 22); x.fill();
+    x.fillStyle = '#eef1ff'; x.font = '600 18px system-ui'; x.textAlign = 'center'; x.fillText(msg, 667, 688); x.textAlign = 'left'; x.restore(); }
+}
+
+// ---------- controls ----------
+const ob = document.getElementById('opts');
+OPTIONS.forEach((o, i) => { const b = document.createElement('button'); b.className = 'pill'; b.textContent = o.name; b.onclick = () => setOpt(i); ob.appendChild(b); });
+function setOpt(i) { opt = i; reset(); [...ob.querySelectorAll('button')].forEach((b, k) => b.setAttribute('aria-pressed', k === i)); document.getElementById('about').innerHTML = OPTIONS[i].about; }
+document.querySelectorAll('[data-k]').forEach(b => b.onclick = () => press(b.dataset.k));
+addEventListener('keydown', e => {
+  const m = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', q: 'l2', Q: 'l2', e: 'r2', E: 'r2', Enter: 'a', Backspace: 'b' }[e.key];
+  if (m) { e.preventDefault(); press(m); } else if ('123'.includes(e.key)) setOpt(+e.key - 1);
+});
+setOpt(0);
+// for testing: ?opt=n&keys=right,down… presses those keys and lets the motion settle
+const q = new URLSearchParams(location.search);
+if (q.has('opt')) setOpt(+q.get('opt'));
+if (q.has('keys')) for (const k of q.get('keys').split(',')) { press(k); for (let i = 0; i < 40; i++) draw(.05); }
+let last = performance.now();
+function loop(now) { draw(Math.max(0, Math.min(.05, (now - last) / 1000))); last = now; window.drawn = (window.drawn || 0) + 1; requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
