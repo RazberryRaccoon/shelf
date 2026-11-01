@@ -68,7 +68,7 @@ let opt = 0;
 const st = { sel: 0, row: 0, open: -1, tab: 0, zone: 'row', moving: false };
 const anim = { sel: 0, row: 0, slide: 0, slideDir: 0, openK: 0, tabX: 0 };
 let msg = '', msgT = 0;
-function reset() { st.sel = 0; st.row = 0; st.open = -1; st.tab = 0; st.zone = 'row'; st.moving = false; anim.sel = 0; anim.row = 0; anim.openK = 0; anim.slide = 1; }
+function reset() { anim.first = 0; st.sel = 0; st.row = 0; st.open = -1; st.tab = 0; st.zone = 'row'; st.moving = false; anim.sel = 0; anim.row = 0; anim.openK = 0; anim.slide = 1; }
 function rowItems() {
   if (opt === 0) return st.row === 0 ? RECENT : COLS[st.row - 1].games;
   if (opt === 1) return st.open >= 0 ? COLS[st.open].games : [...RECENT, ...COLS.map(c => ({ stack: c }))];
@@ -181,7 +181,11 @@ function draw(dt) {
     const names = ['Recent', ...COLS.map(c => c.name)], X0 = 64, GAP = 34, PEEK = 64, SHOWN = 4;
     x.font = '600 19px system-ui';
     const ws = names.map(n => x.measureText(n).width), xs = []; let at = X0; ws.forEach((w, i) => { xs.push(at); at += w + GAP; });
-    const first = Math.max(0, Math.min(st.tab - (SHOWN - 1), names.length - SHOWN)), last = Math.min(names.length - 1, first + SHOWN - 1);
+    // the tabs scroll only when the chosen one would leave the four in view: the cursor moves freely within them, the same both ways
+    let first = anim.first ?? 0;
+    if (st.tab < first) first = st.tab; else if (st.tab > first + SHOWN - 1) first = st.tab - (SHOWN - 1);
+    first = Math.max(0, Math.min(first, Math.max(0, names.length - SHOWN))); anim.first = first;
+    const last = Math.min(names.length - 1, first + SHOWN - 1);
     anim.off = anim.off ?? 0; anim.off += ((xs[first] - X0) - anim.off) * Math.min(1, dt * 10);
     anim.tabX += (xs[st.tab] - anim.tabX) * Math.min(1, dt * 10); anim.tabW = anim.tabW ?? ws[0]; anim.tabW += (ws[st.tab] - anim.tabW) * Math.min(1, dt * 10);
     const end = xs[last] + ws[last] + 14 - (xs[first] - X0) + (last < names.length - 1 ? PEEK : 0);
@@ -193,7 +197,7 @@ function draw(dt) {
       const tx = xs[i] - anim.off; if (tx > end || tx + ws[i] < 40) return;
       const base = i === st.tab ? '238,241,255' : '154,162,204';
       const g = x.createLinearGradient(40, 0, end, 0);   // fading out over the peek, and in at the left once scrolled
-      const L = anim.off > 1 ? Math.min(.5, 44 / (end - 40)) : 0, R = last < names.length - 1 ? 1 - PEEK / (end - 40) : 1;
+      const L = anim.off > 1 ? Math.min(.5, (X0 - 6 - 40) / (end - 40)) : 0, R = last < names.length - 1 ? 1 - PEEK / (end - 40) : 1;   // the left fade stays clear of the first full tab
       g.addColorStop(0, `rgba(${base},${anim.off > 1 ? 0 : 1})`); g.addColorStop(L, `rgba(${base},1)`); g.addColorStop(R, `rgba(${base},1)`); g.addColorStop(1, `rgba(${base},${R < 1 ? 0 : 1})`);
       x.fillStyle = g; x.fillText(n, tx, 173);
     });

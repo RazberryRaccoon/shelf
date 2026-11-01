@@ -626,8 +626,8 @@ class Battery(ctx: Context) : View(ctx) {
  * (Up from the row), Y picks the chosen tab up to move it: left and right carry it, A or Y puts it down.
  */
 class TabStrip(ctx: Context) : View(ctx) {
-    var names: List<String> = emptyList(); set(v) { field = v; invalidate() }
-    var sel = 0; set(v) { field = v; invalidate() }
+    var names: List<String> = emptyList(); set(v) { field = v; follow(); invalidate() }
+    var sel = 0; set(v) { field = v; follow(); invalidate() }
     var focused = false; set(v) { field = v; invalidate() }
     var moving = false; set(v) { field = v; invalidate() }
     private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Fonts.bold; textSize = 21f }
@@ -642,8 +642,17 @@ class TabStrip(ctx: Context) : View(ctx) {
         var at = X0; for (k in names.indices) { x[k] = at; at += w[k] + GAP + 2 * PAD }
         return x to w
     }
-    /** The first tab in view: the chosen one stays among the four shown, with the next one peeking after them. */
-    private fun firstShown() = (sel - (SHOWN - 1)).coerceIn(0, maxOf(0, names.size - SHOWN))
+    /**
+     * The first tab in view. It moves only when the chosen tab would leave the four shown: the cursor moves freely within
+     * them and the tabs scroll at either end, so going back is the mirror of going forward (until the user's note,
+     * the chosen tab was pinned to the fourth place, and going back scrolled every tab under a cursor that stood still).
+     */
+    private var shownFrom = 0
+    private fun follow() {
+        if (sel < shownFrom) shownFrom = sel else if (sel > shownFrom + SHOWN - 1) shownFrom = sel - (SHOWN - 1)
+        shownFrom = shownFrom.coerceIn(0, maxOf(0, names.size - SHOWN))
+    }
+    private fun firstShown() = shownFrom
 
     /** Each frame: the scroll and the chosen tab's pill glide to where they belong. */
     fun step(dt: Float) {
@@ -677,7 +686,7 @@ class TabStrip(ctx: Context) : View(ctx) {
         }
         // the one peeking in fades out toward the edge; the left edge softens too once the first tabs scroll away
         if (last < names.size - 1) { fadeP.shader = android.graphics.LinearGradient(end - PEEK, 0f, end, 0f, Color.BLACK, Color.TRANSPARENT, android.graphics.Shader.TileMode.CLAMP); c.drawRect(end - PEEK, 0f, end + 2f, h, fadeP) }
-        if (off > 1f) { fadeP.shader = android.graphics.LinearGradient(28f, 0f, 72f, 0f, Color.TRANSPARENT, Color.BLACK, android.graphics.Shader.TileMode.CLAMP); c.drawRect(28f, 0f, 72f, h, fadeP) }
+        if (off > 1f) { fadeP.shader = android.graphics.LinearGradient(28f, 0f, X0 - 4f, 0f, Color.TRANSPARENT, Color.BLACK, android.graphics.Shader.TileMode.CLAMP); c.drawRect(28f, 0f, X0 - 4f, h, fadeP) }   // only the tab before peeks, fading; the first full one stays clear
         c.restore()
         c.drawText("R2", end + 12f, mid + 5.5f, small)
         // what Y does here, after the tabs
