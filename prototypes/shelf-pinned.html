@@ -33,7 +33,7 @@
     <button class="pill" data-k="left">◀ Left</button><button class="pill" data-k="right">Right ▶</button>
     <button class="pill" data-k="up">▲ Up</button><button class="pill" data-k="down">▼ Down</button>
     <button class="pill" data-k="l2">L2</button><button class="pill" data-k="r2">R2</button>
-    <button class="pill" data-k="a">A</button><button class="pill" data-k="b">B</button>
+    <button class="pill" data-k="a">A</button><button class="pill" data-k="b">B</button><button class="pill" data-k="y">Y</button>
   </div>
   <div class="about" id="about"></div>
   <p class="about">Keyboard: arrows, <kbd>Q</kbd>/<kbd>E</kbd> for L2/R2, <kbd>Enter</kbd> for A, <kbd>Backspace</kbd> for B, <kbd>1</kbd>–<kbd>3</kbd> to switch option.</p>
@@ -47,6 +47,9 @@ const COLS = [
   { name: 'Favorites', games: [G('Moss Kingdom', '#3f8a52', 'Super Nintendo'), G('Paper Comet', '#c0a03a', 'Game Boy'), G('Star Voyage', '#4466c0', 'Game Boy Advance'), G('Velvet Run', '#b0487a', 'Nintendo DS'), G('Hollow Bell', '#5a6ac0', 'PSP'), G('Quiet Harbor', '#3a8aa8', 'NES'), G('Ember Isle', '#c0703a', 'Genesis')] },
   { name: 'Cozy RPGs', games: [G('Lantern Keep', '#8a5ac0', 'Nintendo 64'), G('Willow Road', '#5a9a5a', 'Super Nintendo'), G('Amber Crown', '#c09040', 'PlayStation'), G('Small Giants', '#4a7ac0', 'Game Boy Advance'), G('Fern Hollow', '#3a8a6a', 'Nintendo DS')] },
   { name: 'Couch co-op', games: [G('Turbo Lane', '#c04a3a', 'Genesis'), G('Pillow Fort', '#c06a9a', 'Nintendo 64'), G('Two Moons', '#6a5ac0', 'Super Nintendo'), G('Kite Day', '#3aa0c0', 'NES')] },
+  { name: 'Short and sweet', games: [G('Paper Comet', '#c0a03a', 'Game Boy'), G('Kite Day', '#3aa0c0', 'NES'), G('Velvet Run', '#b0487a', 'Nintendo DS')] },
+  { name: 'Not played yet', games: [G('Glass Harbor', '#4a9ac0', 'PSP'), G('Copper Moth', '#b0703a', 'PlayStation'), G('Snow Lantern', '#8aa0d0', 'Game Boy Advance'), G('Rook & Ivy', '#6a8a4a', 'Super Nintendo')] },
+  { name: 'Shmups', games: [G('Ember Isle', '#c0703a', 'Genesis'), G('Night Swarm', '#7a4ac0', 'Super Nintendo')] },
 ];
 const ACC = '#ab98ff';
 
@@ -56,30 +59,45 @@ const OPTIONS = [
     <ul><li>Everything is one press away, and you can see there's more below.</li><li>Home gets busier: the peeking row sits under the game's name, and the Home picture has less room.</li><li>Like a TV app or a big console's home; the most "browse everything" of the three.</li></ul>` },
   { name: 'B · Stacks in the row', about: `<b>B · Stacks at the end of the row.</b> After your recent games, each pinned collection sits in the row as a small stack of its games, fanned like the Collections card. A opens it: its games fill the row, its name at the top; B goes back to the stacks.
     <ul><li>Home stays one calm row; collections feel like physical things, which fits Shelf.</li><li>A collection is a few presses away (to the end of the row, then A).</li><li>The row's end is where you'd look for "more", like a shelf's last few boxes.</li></ul>` },
-  { name: 'C · Tabs over the row', about: `<b>C · Tabs over the row.</b> A line of names over the row: Recent, then each pinned collection. L2 and R2 change it, and the row's games slide across to the next collection's.
+  { name: 'C · Tabs over the row', about: `<b>C · Tabs over the row (chosen).</b> A line of names over the row: Recent, then each pinned collection. Four show in full and only the start of the next one peeks in, fading out; L2 and R2 change tab, and the tabs scroll along to reveal more. Up from the row puts the cursor on the tabs: Y picks the chosen one up, left and right carry it, A puts it down. Settings › Home lists them in order too, and a collection's menu (Y) in the Library pins it.
     <ul><li>The least added to the screen: one line of small text, and Home keeps its single row.</li><li>Quick to reach any collection without leaving Home's place.</li><li>L2 and R2 are free on Home (L1 and R1 change pages); the tabs say which press does what by where they are.</li></ul>` },
 ];
 
 // ---------- state ----------
 let opt = 0;
-const st = { sel: 0, row: 0, open: -1, tab: 0 };
+const st = { sel: 0, row: 0, open: -1, tab: 0, zone: 'row', moving: false };
 const anim = { sel: 0, row: 0, slide: 0, slideDir: 0, openK: 0, tabX: 0 };
 let msg = '', msgT = 0;
-function reset() { st.sel = 0; st.row = 0; st.open = -1; st.tab = 0; anim.sel = 0; anim.row = 0; anim.openK = 0; anim.slide = 1; }
+function reset() { st.sel = 0; st.row = 0; st.open = -1; st.tab = 0; st.zone = 'row'; st.moving = false; anim.sel = 0; anim.row = 0; anim.openK = 0; anim.slide = 1; }
 function rowItems() {
   if (opt === 0) return st.row === 0 ? RECENT : COLS[st.row - 1].games;
   if (opt === 1) return st.open >= 0 ? COLS[st.open].games : [...RECENT, ...COLS.map(c => ({ stack: c }))];
   return st.tab === 0 ? RECENT : COLS[st.tab - 1].games;
 }
+function showTab(t, dir) { if (t === st.tab) return; st.tab = t; st.sel = 0; anim.sel = 0; anim.slide = 0; anim.slideDir = dir; }
 function press(k) {
   const items = rowItems();
+  if (opt === 2) {
+    const n = COLS.length + 1;
+    if (st.zone === 'tabs') {
+      // on the tabs: left and right change tab; Y picks one up, and then left and right carry it; A, Y or B put it down
+      if (k === 'left' || k === 'right' || k === 'l2' || k === 'r2') { const d = (k === 'left' || k === 'l2') ? -1 : 1;
+        if (st.moving) { const j = st.tab + d; if (j >= 1 && j < n) { const c = COLS.splice(st.tab - 1, 1)[0]; COLS.splice(j - 1, 0, c); st.tab = j; } }
+        else if (st.tab + d >= 0 && st.tab + d < n) showTab(st.tab + d, d); }
+      else if (k === 'y' && st.tab > 0) st.moving = !st.moving;
+      else if (k === 'a' || k === 'b') { if (st.moving) st.moving = false; else st.zone = 'row'; }
+      else if (k === 'down') { st.moving = false; st.zone = 'row'; }
+      return;
+    }
+    if (k === 'up') { st.zone = 'tabs'; return; }
+    if (k === 'l2' || k === 'r2') { const d = k === 'r2' ? 1 : -1; showTab((st.tab + d + n) % n, d); return; }
+  }
   if (k === 'left' && st.sel > 0) st.sel--;
   else if (k === 'right' && st.sel < items.length - 1) st.sel++;
   else if (opt === 0 && k === 'down' && st.row < COLS.length) { st.row++; st.sel = 0; }
   else if (opt === 0 && k === 'up' && st.row > 0) { st.row--; st.sel = 0; }
   else if (opt === 1 && k === 'a' && st.open < 0 && items[st.sel].stack) { st.open = COLS.indexOf(items[st.sel].stack); st.sel = 0; anim.sel = 0; anim.slide = 0; anim.slideDir = 1; }
   else if (opt === 1 && k === 'b' && st.open >= 0) { const back = RECENT.length + st.open; st.open = -1; st.sel = back; anim.sel = back; anim.slide = 0; anim.slideDir = -1; }
-  else if (opt === 2 && (k === 'l2' || k === 'r2')) { const n = COLS.length + 1, d = k === 'r2' ? 1 : n - 1; st.tab = (st.tab + d) % n; st.sel = 0; anim.sel = 0; anim.slide = 0; anim.slideDir = k === 'r2' ? 1 : -1; }
   else if (k === 'a') { const g = items[st.sel]; msg = g.stack ? '' : 'A starts ' + g.t; msgT = 1.6; }
 }
 
@@ -159,14 +177,28 @@ function draw(dt) {
     x.save(); x.globalAlpha = .4 + .6 * e; row(items, anim.sel, 324, 1, 1, true, dx); x.restore();
     title(items, st.sel, 530);
   } else {
-    // tabs: Recent, then each pinned collection
-    const names = ['Recent', ...COLS.map(c => c.name)]; let tx = 60; let selX = 0, selW = 0;
+    // tabs: Recent, then each pinned collection; four in full, the next one peeking in and fading out
+    const names = ['Recent', ...COLS.map(c => c.name)], X0 = 64, GAP = 34, PEEK = 64, SHOWN = 4;
     x.font = '600 19px system-ui';
-    names.forEach((n, i) => { const w = x.measureText(n).width; if (i === st.tab) { selX = tx; selW = w; } tx += w + 34; });
-    anim.tabX += (selX - anim.tabX) * Math.min(1, dt * 10);
-    x.fillStyle = 'rgba(238,241,255,.12)'; x.beginPath(); x.roundRect(anim.tabX - 14, 148, selW + 28, 36, 18); x.fill();
-    tx = 60; names.forEach((n, i) => { x.fillStyle = i === st.tab ? '#eef1ff' : '#9aa2cc'; x.fillText(n, tx, 173); tx += x.measureText(n).width + 34; });
-    x.font = '600 14px system-ui'; x.fillStyle = 'rgba(154,162,204,.8)'; x.fillText('L2', 28, 172); x.fillText('R2', tx - 10, 172);
+    const ws = names.map(n => x.measureText(n).width), xs = []; let at = X0; ws.forEach((w, i) => { xs.push(at); at += w + GAP; });
+    const first = Math.max(0, Math.min(st.tab - (SHOWN - 1), names.length - SHOWN)), last = Math.min(names.length - 1, first + SHOWN - 1);
+    anim.off = anim.off ?? 0; anim.off += ((xs[first] - X0) - anim.off) * Math.min(1, dt * 10);
+    anim.tabX += (xs[st.tab] - anim.tabX) * Math.min(1, dt * 10); anim.tabW = anim.tabW ?? ws[0]; anim.tabW += (ws[st.tab] - anim.tabW) * Math.min(1, dt * 10);
+    const end = xs[last] + ws[last] + 14 - (xs[first] - X0) + (last < names.length - 1 ? PEEK : 0);
+    const focused = st.zone === 'tabs';
+    x.fillStyle = st.moving ? 'rgba(171,152,255,.3)' : focused ? 'rgba(238,241,255,.18)' : 'rgba(238,241,255,.11)';
+    x.beginPath(); x.roundRect(anim.tabX - anim.off - 14, 148, anim.tabW + 28, 36, 18); x.fill();
+    if (focused) { x.strokeStyle = st.moving ? '#ab98ff' : '#eef1ff'; x.lineWidth = 2; x.stroke(); }
+    names.forEach((n, i) => {
+      const tx = xs[i] - anim.off; if (tx > end || tx + ws[i] < 40) return;
+      const base = i === st.tab ? '238,241,255' : '154,162,204';
+      const g = x.createLinearGradient(40, 0, end, 0);   // fading out over the peek, and in at the left once scrolled
+      const L = anim.off > 1 ? Math.min(.5, 44 / (end - 40)) : 0, R = last < names.length - 1 ? 1 - PEEK / (end - 40) : 1;
+      g.addColorStop(0, `rgba(${base},${anim.off > 1 ? 0 : 1})`); g.addColorStop(L, `rgba(${base},1)`); g.addColorStop(R, `rgba(${base},1)`); g.addColorStop(1, `rgba(${base},${R < 1 ? 0 : 1})`);
+      x.fillStyle = g; x.fillText(n, tx, 173);
+    });
+    x.font = '600 14px system-ui'; x.fillStyle = 'rgba(154,162,204,.8)'; x.fillText('L2', 28, 172); x.fillText('R2', end + 12, 172);
+    if (focused) { x.fillStyle = '#9aa2cc'; x.fillText(st.moving ? '◀ ▶  move it      A  put it down' : st.tab > 0 ? 'Y  move this tab' : '', end + 54, 172); }
     const e = ease(anim.slide), dx = (1 - e) * 160 * anim.slideDir;
     x.save(); x.globalAlpha = e; row(items, anim.sel, 340, 1, 1, true, dx); x.restore();
     title(items, st.sel, 546);
@@ -181,7 +213,7 @@ OPTIONS.forEach((o, i) => { const b = document.createElement('button'); b.classN
 function setOpt(i) { opt = i; reset(); [...ob.querySelectorAll('button')].forEach((b, k) => b.setAttribute('aria-pressed', k === i)); document.getElementById('about').innerHTML = OPTIONS[i].about; }
 document.querySelectorAll('[data-k]').forEach(b => b.onclick = () => press(b.dataset.k));
 addEventListener('keydown', e => {
-  const m = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', q: 'l2', Q: 'l2', e: 'r2', E: 'r2', Enter: 'a', Backspace: 'b' }[e.key];
+  const m = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', q: 'l2', Q: 'l2', e: 'r2', E: 'r2', Enter: 'a', Backspace: 'b', y: 'y', Y: 'y' }[e.key];
   if (m) { e.preventDefault(); press(m); } else if ('123'.includes(e.key)) setOpt(+e.key - 1);
 });
 setOpt(0);

@@ -54,6 +54,19 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
+## What's in version 0.33
+
+**Pinned collections on Home** (the user chose tabs over the row, "but I don't want it to get too much more crowded…
+show only the first little bit of the next collection… as you cycle through it scrolls through and reveals more", and
+"you should also somehow be able to change the order"):
+- Pin any collection (yours, Favorites, Recently added, Not played yet, Most played) from its menu (Y) in the
+  Library: **Pin to Home**. It becomes a tab over Home's row, after Recent.
+- **L2 and R2** on Home change tab; the row's games fly in. Four tabs show in full, the next one peeks in and fades
+  out, and the tabs scroll along as you go.
+- **Up** from the row puts the cursor on the tabs: **Y** picks one up, left and right carry it, **A** puts it down.
+  **Settings › Home › Pinned to Home** lists them in order too: left and right move one, A unpins it.
+- A game played from Not played yet keeps its cartridge until the return animation is done, then leaves the tab.
+
 ## What's in version 0.32
 
 Three more sound packs (Settings › Sound › Sound pack), from the user's "eventually" list: **Felt** (a piano with its

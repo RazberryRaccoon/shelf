@@ -27,7 +27,7 @@ import kotlin.math.sin
  * Positions follow the prototype's drawHome. Library, Apps, Museum and Settings come to the native app in later versions.
  */
 class Home(private val ctx: Context, private val stage: Stage, private val board: Board, private val backdrop: Backdrop,
-           private val games: Games, private val carts: Carts, private val lookup: Meta, private val actions: Actions) : GamePage.Host {
+           private val games: Games, private val carts: Carts, private val lookup: Meta, private val cols: Collections, private val actions: Actions) : GamePage.Host {
     interface Actions { fun play(g: Game); fun allowStorage(); fun openSettings(); fun openMuseum(sys: String?); fun askText(title: String, value: String, then: (String) -> Unit)
         fun openDocument(mimes: Array<String>, then: (android.net.Uri?) -> Unit)
         fun openLibrary()
@@ -110,7 +110,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     var page: GamePage? = null; private set
     var needsStorage = false
     /** Home hides while setup or settings are open; coming back, the cartridges rise into place one after another. */
-    var visible = true; set(v) { if (v && !field) { rise = 0f; riseT = 0f; zone = "row"; refreshTop() }; field = v }   // back on Home, the cursor's on the games
+    var visible = true; set(v) { if (v && !field) { rise = 0f; riseT = 0f; zone = "row"; moving = false; if (refreshTabs()) setGames(rowList()); refreshTop() }; field = v }   // back on Home, the cursor's on the games
     private var rise = 0f
     private var riseT = 0f
     // starting a game: its cartridge belongs to the start animation (Launch) until it's back; then Home shows that game
@@ -131,12 +131,20 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     private val dock = listOf("library", "apps", "museum", "settings").map { DockButton(ctx, it) }
     private val dockNames = listOf("Library", "Apps", "Museum", "Settings")
     private val dockLabel = text(20f, Fonts.bold, Theme.fg).apply { gravity = Gravity.CENTER; alpha = 0f }
+    // the tabs over the row (0.33): Recent, then the collections pinned to Home
+    private val strip = TabStrip(ctx)
+    private var tabIds = listOf("recent")
+    private var tab = 0
+    private var moving = false   // a tab picked up (Y), to move it
+    private var tabsK = 1f
 
     init {
         // the top bar
         board.put(profile, 32, 20, h = 72)
         dock.forEachIndexed { k, b -> board.put(b, 667 - 2 * 76 - 45 + k * 106 - 6, 12, 88, 88) }   // 6 px of room round the 76 px circle
         board.put(dockLabel, 0, 104, 1334)
+        board.put(strip, 24, 106, 1290, 44)
+        refreshTabs()
         board.put(clock, 1334 - 36 - 260, 38, 260); clock.gravity = Gravity.END
         board.put(battery, 1334 - 36 - 260, 40, 44, 24)
         // Android tells every change in the battery (its level, and whether a charger is plugged in) the moment it
@@ -196,13 +204,47 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         slots.indexOfFirst { it.game.path == g.path }.takeIf { it >= 0 }?.let { i = it; f = it.toFloat() }
         focusPath = null
         visible = true
+        if (rowList().none { it.path == g.path }) setGames(rowList())   // played, it left this tab's list (Not played yet)
         refreshInfo()
+    }
+
+    // ---------- the tabs: Recent and the pinned collections ----------
+
+    /** This tab's games: the recent ones, or a pinned collection's in its own order. */
+    private fun rowList(): List<Game> = if (tab == 0) games.recent() else cols.forHome(tabIds[tab])
+    /** The row and the tabs as they should be now (pins, plays, hidden games…). */
+    fun refreshRow() { refreshTabs(); setGames(rowList()) }
+    /** Reads the pins again; true if the tab that was showing has gone (it's back on Recent). */
+    private fun refreshTabs(): Boolean {
+        val was = tabIds.getOrNull(tab)
+        tabIds = listOf("recent") + cols.pinned()
+        strip.names = listOf("Recent") + cols.pinned().map { cols.pinName(it) ?: it }
+        strip.visibility = if (tabIds.size > 1) View.VISIBLE else View.GONE
+        val now = tabIds.indexOf(was)
+        tab = if (now >= 0) now else 0; strip.sel = tab
+        if (tabIds.size < 2 && zone == "tabs") zone = "row"
+        return now < 0
+    }
+    /** Another tab: its games fly in, one after another, as when Home comes back. */
+    private fun showTab(k: Int) {
+        if (k == tab) return
+        tab = k; strip.sel = k; i = 0; f = 0f; riseT = 0f
+        setGames(rowList()); refreshInfo(); Sounds.play(Sounds.MOVE)
+    }
+    private fun cycleTab(d: Int) { if (tabIds.size < 2) { Sounds.play(Sounds.BUMP); return }; showTab((tab + d + tabIds.size) % tabIds.size) }
+    /** A picked-up tab: one place earlier or later (Recent stays first). */
+    private fun moveTab(d: Int) {
+        val id = tabIds[tab]
+        if (tab + d < 1 || !cols.movePin(id, d)) { Sounds.play(Sounds.BUMP); return }
+        refreshTabs(); tab = tabIds.indexOf(id); strip.sel = tab; Sounds.play(Sounds.MOVE)
     }
 
     // ---------- games in the row ----------
 
     fun setGames(list: List<Game>) {
-        val keep = list.take(15)
+        val keep = list.take(if (tab == 0) 15 else 24).toMutableList()
+        // a game being played keeps its cartridge here until it's back (it may have left this list: Not played yet)
+        launchingPath?.let { lp -> if (keep.none { it.path == lp }) slots.firstOrNull { it.game.path == lp }?.let { keep.add(minOf(slots.indexOf(it), keep.size), it.game) } }
         page?.let { p -> if (keep.none { it.path == p.game.path }) { p.destroy(); page = null } }   // its game is gone
         val old = slots.associateBy { it.game.path }
         slots.filter { s -> keep.none { it.path == s.game.path } }.forEach { it.cart?.destroy(); it.case?.destroy() }
@@ -251,6 +293,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         if (g != null) { chipText.text = Games.NAMES[g.sys]; dot.background = round(Theme.accentOf(g.sys), 6.5f); backdrop.mood(Theme.accentOf(g.sys)) }
         message.text = when {
             needsStorage -> "Shelf Native needs permission to see your games folders.\n\nPress A to allow it in Android’s settings."
+            slots.isEmpty() && tab > 0 -> "Nothing in ${strip.names.getOrNull(tab) ?: "this collection"} yet.\n\nAdd games to it in the Library."
             slots.isEmpty() -> "No games found yet.\n\nPress A to choose your games folders."
             else -> ""
         }
@@ -274,6 +317,9 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         for (v in listOf(clock, battery, profile) + dock) v.alpha = topK
         for (v in listOf(title, meta, message)) v.alpha = shownK * (1 - pageK)
         dockLabel.alpha = minOf(dockLabel.alpha, shownK)
+        // the tabs step aside while the top bar has the focus (its labels go where they are) and while a page is open
+        tabsK += ((if (zone == "top") 0f else 1f) - tabsK) * min(1f, dt * 10f)
+        strip.alpha = shownK * (1 - pageK) * tabsK * (1 - lookK); strip.step(dt)
         backdrop.picVisible = shownK * (1 - pageK)
         if (!visible && rise == 0f) { slots.forEach { it.case?.hide(); if (it.game.path != launchingPath) it.cart?.place(-2000f, 0f, 0f, 0f, 0f, 1f) }; page?.tick(dt); return }
         if (visible) backdrop.shadows.clear()
@@ -323,21 +369,30 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         picker?.let { if (it.input(a)) return }
         page?.let { it.input(a); return }
         if (needsStorage) { if (a == "a") actions.allowStorage(); return }
-        if (slots.isEmpty() && zone == "row") { if (a == "a") actions.openSettings() else if (a == "up") { zone = "top"; refreshTop() }; return }
+        if (slots.isEmpty() && zone == "row" && tab == 0) { if (a == "a") actions.openSettings() else if (a == "up") { zone = if (tabIds.size > 1) "tabs" else "top"; refreshTop() } else if (a == "lt" || a == "rt") cycleTab(if (a == "lt") -1 else 1); return }
         when (zone) {
             "row" -> when (a) {
                 "left" -> if (i > 0) { i--; refreshInfo(); Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
                 "right" -> if (i < slots.size - 1) { i++; refreshInfo(); Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
-                "up" -> { zone = "top"; refreshTop(); Sounds.play(Sounds.MOVE) }
+                "up" -> { zone = if (tabIds.size > 1) "tabs" else "top"; refreshTop(); Sounds.play(Sounds.MOVE) }
+                "lt", "rt" -> cycleTab(if (a == "lt") -1 else 1)
                 "down" -> openPage()
                 "a" -> current()?.let { g -> Sounds.play(Sounds.PICK); if (games.emulatorFor(g) == null) chooseEmulator(g, then = true) else actions.play(g) }
                 "y" -> if (current() != null) { openPage(); page?.customize() }   // straight to Customize shell
-                "x" -> current()?.let { g -> actions.collectionsCard(g) { hidden -> if (hidden) setGames(games.recent()) } }
+                "x" -> current()?.let { g -> actions.collectionsCard(g) { _ -> refreshRow() } }   // hidden, or in or out of this tab's collection
+            }
+            "tabs" -> when (a) {
+                "left", "right", "lt", "rt" -> { val d = if (a == "left" || a == "lt") -1 else 1
+                    if (moving) moveTab(d) else if (tab + d in tabIds.indices) showTab(tab + d) else Sounds.play(Sounds.BUMP) }
+                "y" -> if (tab > 0) { moving = !moving; refreshTop(); Sounds.play(if (moving) Sounds.PICK else Sounds.CLOSE) } else Sounds.play(Sounds.BUMP)
+                "a" -> if (moving) { moving = false; refreshTop(); Sounds.play(Sounds.CLOSE) } else { zone = "row"; refreshTop(); Sounds.play(Sounds.MOVE) }
+                "down", "b" -> { moving = false; zone = "row"; refreshTop(); Sounds.play(Sounds.MOVE) }
+                "up" -> { moving = false; zone = "top"; refreshTop(); Sounds.play(Sounds.MOVE) }
             }
             "top" -> when (a) {
                 "left" -> if (topI > 0) { topI--; refreshTop(); Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
                 "right" -> if (topI < dock.size) { topI++; refreshTop(); Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
-                "down", "b" -> { zone = "row"; refreshTop(); Sounds.play(Sounds.MOVE) }
+                "down", "b" -> { zone = if (tabIds.size > 1 && a == "down") "tabs" else "row"; refreshTop(); Sounds.play(Sounds.MOVE) }
                 "a" -> if (topI == 0 || topI == dock.size) actions.openSettings() else if (topI == 3) actions.openMuseum(current()?.sys) else if (topI == 1) actions.openLibrary() else actions.openApps()
             }
         }
@@ -382,12 +437,13 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     override fun closed(page: GamePage, homeChanged: Boolean) {
         if (this.page === page) this.page = null
         slots.firstOrNull { it.game == page.game }?.let { it.cart?.brightness(it.bright) }
-        if (homeChanged) setGames(games.recent())   // shown on Home or hidden, in its Game settings
+        if (homeChanged) refreshRow()   // shown on Home or hidden, in its Game settings
         picFor = null; picTimer = .1f
         refreshInfo()
     }
 
     private fun refreshTop() {
+        strip.focused = zone == "tabs"; strip.moving = moving && zone == "tabs"
         val on = zone == "top"
         profile.focused = on && topI == 0
         dock.forEachIndexed { k, b -> b.focused = on && topI == k + 1 }
@@ -561,5 +617,70 @@ class Battery(ctx: Context) : View(ctx) {
             p.style = Paint.Style.STROKE; p.strokeWidth = 2.6f; p.strokeJoin = Paint.Join.ROUND; p.color = Theme.bg; c.drawPath(bolt, p)
             p.style = Paint.Style.FILL; p.color = Theme.fg; c.drawPath(bolt, p)
         }
+    }
+}
+
+/**
+ * Home's tabs (0.33): Recent, then each pinned collection, over the row. Four show in full and the next one peeks in,
+ * fading out at the edge; moving along scrolls them so the chosen one stays in view with the next one peeking. Focused
+ * (Up from the row), Y picks the chosen tab up to move it: left and right carry it, A or Y puts it down.
+ */
+class TabStrip(ctx: Context) : View(ctx) {
+    var names: List<String> = emptyList(); set(v) { field = v; invalidate() }
+    var sel = 0; set(v) { field = v; invalidate() }
+    var focused = false; set(v) { field = v; invalidate() }
+    var moving = false; set(v) { field = v; invalidate() }
+    private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Fonts.bold; textSize = 21f }
+    private val small = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Fonts.bold; textSize = 15f; color = Theme.fg3 }
+    private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val fadeP = Paint().apply { xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DST_IN) }
+    private var off = 0f; private var pillX = 0f; private var pillW = 0f; private var first = true
+    private val X0 = 40f; private val GAP = 30f; private val PAD = 15f; private val PEEK = 64f; private val SHOWN = 4
+
+    private fun xs(): Pair<FloatArray, FloatArray> {
+        val w = FloatArray(names.size) { p.measureText(names[it]) }; val x = FloatArray(names.size)
+        var at = X0; for (k in names.indices) { x[k] = at; at += w[k] + GAP + 2 * PAD }
+        return x to w
+    }
+    /** The first tab in view: the chosen one stays among the four shown, with the next one peeking after them. */
+    private fun firstShown() = (sel - (SHOWN - 1)).coerceIn(0, maxOf(0, names.size - SHOWN))
+
+    /** Each frame: the scroll and the chosen tab's pill glide to where they belong. */
+    fun step(dt: Float) {
+        if (names.isEmpty()) return
+        val (x, w) = xs(); val s = sel.coerceIn(0, names.size - 1)
+        val toOff = x[firstShown()] - X0; val toX = x[s] - PAD; val toW = w[s] + 2 * PAD
+        if (first) { off = toOff; pillX = toX; pillW = toW; first = false }
+        val k = minOf(1f, dt * 10f)
+        val moved = abs(toOff - off) + abs(toX - pillX) + abs(toW - pillW)
+        off += (toOff - off) * k; pillX += (toX - pillX) * k; pillW += (toW - pillW) * k
+        if (moved > .2f) invalidate()
+    }
+
+    override fun onDraw(c: Canvas) {
+        if (names.isEmpty()) return
+        val (x, w) = xs(); val h = height.toFloat(); val mid = h / 2
+        val f0 = firstShown(); val last = minOf(names.size - 1, f0 + SHOWN - 1)
+        val end = x[last] + w[last] + PAD - off + (if (last < names.size - 1) PEEK else 0f)   // where the tabs stop showing
+        small.textAlign = Paint.Align.LEFT; c.drawText("L2", 2f, mid + 5.5f, small)
+        c.saveLayer(28f, 0f, end + 2f, h, null)
+        // the chosen one's pill: lighter when the tabs have the focus, the console color's ring while it's moved
+        val pr = android.graphics.RectF(pillX - off, mid - 19f, pillX - off + pillW, mid + 19f)
+        fill.style = Paint.Style.FILL; fill.color = if (moving) Color.argb(70, 171, 152, 255) else if (focused) Color.argb(46, 238, 241, 255) else Color.argb(28, 238, 241, 255)
+        c.drawRoundRect(pr, 19f, 19f, fill)
+        if (focused) { fill.style = Paint.Style.STROKE; fill.strokeWidth = 2.2f; fill.color = if (moving) Theme.accentOf(null) else Theme.fg; c.drawRoundRect(pr, 19f, 19f, fill) }
+        for (k in names.indices) {
+            val tx = x[k] - off; if (tx > end || tx + w[k] < 28f) continue
+            p.color = if (k == sel) Theme.fg else Theme.fg2
+            p.setShadowLayer(8f, 0f, 1.5f, Color.argb(110, 0, 0, 0))
+            c.drawText(names[k], tx, mid + 7.5f, p)
+        }
+        // the one peeking in fades out toward the edge; the left edge softens too once the first tabs scroll away
+        if (last < names.size - 1) { fadeP.shader = android.graphics.LinearGradient(end - PEEK, 0f, end, 0f, Color.BLACK, Color.TRANSPARENT, android.graphics.Shader.TileMode.CLAMP); c.drawRect(end - PEEK, 0f, end + 2f, h, fadeP) }
+        if (off > 1f) { fadeP.shader = android.graphics.LinearGradient(28f, 0f, 72f, 0f, Color.TRANSPARENT, Color.BLACK, android.graphics.Shader.TileMode.CLAMP); c.drawRect(28f, 0f, 72f, h, fadeP) }
+        c.restore()
+        c.drawText("R2", end + 12f, mid + 5.5f, small)
+        // what Y does here, after the tabs
+        if (focused) { small.color = Theme.fg2; c.drawText(if (moving) "◀ ▶  move it      A  put it down" else if (sel > 0) "Y  move this tab" else "", end + 54f, mid + 5.5f, small); small.color = Theme.fg3 }
     }
 }

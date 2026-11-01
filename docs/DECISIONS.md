@@ -314,6 +314,11 @@ Summarized from the first part of the conversation; the full transcript is kept 
   looks like central park… It should feel mysterious and beautiful"; Stormy's "rain looks like its going upwards. It's
   also way too dense… a peaceful gentle rain storm"; "Great job on the music! The ambient sounds are too loud though;
   you should be able to customize both the music and ambient sound volume separately".
+- Pinned collections (after the mockup, November 2026): "I like layout C. However I don't want it to get too much more
+  crowded than it is. I want it to show only the first little bit of the next collection in line, after the four it
+  shows in the mockup. Then as you cycle through it scrolls through and reveals more. But you should also somehow be able
+  to change the order that they show in - idk where that could go, but you'll figure it out." Built: Y on a tab to
+  move it (on Home), and Settings › Home › Pinned to Home; pinning from a collection's menu in the Library.
 - After 0.30 (the user): built-in emulators: "VERY interested… down the line… I do eventually want to make money from
   this; maybe… two versions: one that works how it does now that I can sell, and then a personal 'better' version for
   me and my brother". Libretro matching said "check your internet" while connected; the three automatic collections

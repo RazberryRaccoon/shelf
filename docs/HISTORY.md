@@ -592,6 +592,13 @@ opening edge, and a coloured test spine in the new render confirms the fix.
 **0.24, fixed:** the Library crashed as it opened: `byName`, a stored comparator declared below `init`, was still null
 when `init` sorted the first list (the init-order trap again; it's a getter now).
 
+**0.33: pinned collections on Home** (option C of the mockup, with the user's notes). `Collections.pinned`/`movePin`/
+`forHome` (pins are the Library's list ids, kept in order in the `pins` preference), `TabStrip` (in Home.kt: four tabs
+in full, the next one peeking in through a DST_IN gradient, scrolled so the chosen one stays in view), Home's `tabs`
+zone (up from the row; Y to move a tab), `refreshRow` in place of every `setGames(games.recent())`. The start
+animation's cartridge is kept in the row while it's out (a game played from Not played yet leaves that list), and
+dropped once it lands. The mockup was brought in line with what was built.
+
 **0.32: three more sound packs** (Felt, Kalimba, Air: `Sounds.synth` voices 4 to 6), made while the user was away
 from the device, after a read-through of 0.31's new code that found nothing to fix. Each pack's sounds were rendered
 on the JVM through the real `synth` (by reflection) and measured: none clips; Kalimba was a little loud and Air half

@@ -101,6 +101,7 @@ class ListCard(ctx: Context, private val heading: String, private val sub: Strin
                 cubicTo(cx, cy - 7, cx + 2, cy - 10, cx + 5, cy - 10); cubicTo(cx + 11, cy - 10, cx + 13, cy, cx, cy + 9); close() }, p)
             "lock" -> { c.drawRoundRect(RectF(cx - 9, cy - 2, cx + 9, cy + 11), 3f, 3f, p); c.drawArc(RectF(cx - 6, cy - 11, cx + 6, cy + 1), 180f, 180f, false, p) }
             "plus" -> { c.drawLine(cx - 9, cy, cx + 9, cy, p); c.drawLine(cx, cy - 9, cx, cy + 9, p) }
+            "house" -> { c.drawPath(Path().apply { moveTo(cx - 10, cy - 1); lineTo(cx, cy - 10); lineTo(cx + 10, cy - 1) }, p); c.drawRoundRect(RectF(cx - 7, cy - 3, cx + 7, cy + 9), 2f, 2f, p) }
             "pencil" -> { c.drawLine(cx - 8, cy + 8, cx + 7, cy - 7, p); c.drawLine(cx - 9, cy + 9, cx - 5, cy + 9, p) }
             "bin" -> { c.drawLine(cx - 9, cy - 7, cx + 9, cy - 7, p); c.drawRoundRect(RectF(cx - 7, cy - 7, cx + 7, cy + 10), 2f, 2f, p); c.drawLine(cx - 3, cy - 10, cx + 3, cy - 10, p) }
             "sort" -> { c.drawLine(cx - 9, cy - 7, cx + 9, cy - 7, p); c.drawLine(cx - 9, cy, cx + 4, cy, p); c.drawLine(cx - 9, cy + 7, cx - 1, cy + 7, p) }
