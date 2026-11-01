@@ -110,7 +110,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     var page: GamePage? = null; private set
     var needsStorage = false
     /** Home hides while setup or settings are open; coming back, the cartridges rise into place one after another. */
-    var visible = true; set(v) { if (v && !field) { rise = 0f; riseT = 0f; zone = "row"; moving = false; if (refreshTabs()) setGames(rowList()); refreshTop() }; field = v }   // back on Home, the cursor's on the games
+    var visible = true; set(v) { if (v && !field) { rise = 0f; riseT = 0f; zone = "row"; moving = false; side.open = false; if (refreshTabs()) setGames(rowList()); refreshTop() }; field = v }   // back on Home, the cursor's on the games
     private var rise = 0f
     private var riseT = 0f
     // starting a game: its cartridge belongs to the start animation (Launch) until it's back; then Home shows that game
@@ -131,20 +131,22 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     private val dock = listOf("library", "apps", "museum", "settings").map { DockButton(ctx, it) }
     private val dockNames = listOf("Library", "Apps", "Museum", "Settings")
     private val dockLabel = text(20f, Fonts.bold, Theme.fg).apply { gravity = Gravity.CENTER; alpha = 0f }
-    // the tabs over the row (0.33): Recent, then the collections pinned to Home
-    private val strip = TabStrip(ctx)
+    // which list the row shows (0.33): Recent, or a collection pinned to Home, chosen in the panel from the left edge (0.34)
+    private val side = CollectionsPanel(ctx).apply { visibility = View.INVISIBLE }
+    private val dim = View(ctx).apply { setBackgroundColor(Color.BLACK); alpha = 0f }
+    private val edge = text(40f, Fonts.bold, Theme.fg3).apply { text = "‹"; alpha = 0f }   // on the first game: there's more to the left
+    private val caption = text(18f, Fonts.bold, Theme.fg2).apply { letterSpacing = .1f; alpha = 0f }   // the collection showing, when it isn't Recent
     private var tabIds = listOf("recent")
     private var tab = 0
-    private var moving = false   // a tab picked up (Y), to move it
-    private var tabsK = 1f
+    private var moving = false   // a collection picked up (Y) in the panel, to move it
 
     init {
         // the top bar
         board.put(profile, 32, 20, h = 72)
         dock.forEachIndexed { k, b -> board.put(b, 667 - 2 * 76 - 45 + k * 106 - 6, 12, 88, 88) }   // 6 px of room round the 76 px circle
         board.put(dockLabel, 0, 104, 1334)
-        board.put(strip, 24, 106, 1290, 44)
-        refreshTabs()
+        board.put(caption, 64, 120, 700)
+        board.put(edge, 14, 318, 40, 60)
         board.put(clock, 1334 - 36 - 260, 38, 260); clock.gravity = Gravity.END
         board.put(battery, 1334 - 36 - 260, 40, 44, 24)
         // Android tells every change in the battery (its level, and whether a charger is plugged in) the moment it
@@ -165,6 +167,9 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         board.put(meta, 64, 608)
         board.put(message, 167, 300, 1000)
         board.put(toast, 0, 640); toast.layoutParams = (toast.layoutParams as android.widget.FrameLayout.LayoutParams).apply { width = -2; gravity = Gravity.CENTER_HORIZONTAL }
+        board.put(dim, 0, 0, 1334, 750)
+        board.put(side, 0, 0, 480, 750)
+        refreshTabs()
         refreshTop(); clockTick(); refreshProfile()
     }
 
@@ -181,7 +186,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
      * animation, with where it is now and where it comes back to.
      */
     /** Whether L1 and R1 may step to the next page (the activity's page cycle): not while a game's page is open. */
-    val canLeave get() = page == null && picker == null
+    val canLeave get() = page == null && picker == null && zone != "side"
     /** The game's page is open with its box out (a game started from it waits for the box to slide away). */
     fun boxOut(g: Game) = page?.takeIf { it.game.path == g.path }?.boxOut == true
     fun takeForLaunch(g: Game): Triple<Cart?, FloatArray, FloatArray> {
@@ -218,17 +223,16 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     private fun refreshTabs(): Boolean {
         val was = tabIds.getOrNull(tab)
         tabIds = listOf("recent") + cols.pinned()
-        strip.names = listOf("Recent") + cols.pinned().map { cols.pinName(it) ?: it }
-        strip.visibility = if (tabIds.size > 1) View.VISIBLE else View.GONE
         val now = tabIds.indexOf(was)
-        tab = if (now >= 0) now else 0; strip.sel = tab
-        if (tabIds.size < 2 && zone == "tabs") zone = "row"
+        tab = if (now >= 0) now else 0
+        caption.text = if (tab == 0) "" else nameOf(tab).uppercase()
         return now < 0
     }
     /** Another tab: its games fly in, one after another, as when Home comes back. */
     private fun showTab(k: Int) {
         if (k == tab) return
-        tab = k; strip.sel = k; i = 0; f = 0f; riseT = 0f
+        tab = k; i = 0; f = 0f; riseT = 0f
+        caption.text = if (tab == 0) "" else nameOf(tab).uppercase()
         setGames(rowList()); refreshInfo(); Sounds.play(Sounds.MOVE)
         // every cartridge starts where it belongs in the new row and only grows in there: a game in both tabs would
         // otherwise glide sideways from its old place (the user: the cartridges "jerk to the left or right")
@@ -239,7 +243,32 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     private fun moveTab(d: Int) {
         val id = tabIds[tab]
         if (tab + d < 1 || !cols.movePin(id, d)) { Sounds.play(Sounds.BUMP); return }
-        refreshTabs(); tab = tabIds.indexOf(id); strip.sel = tab; Sounds.play(Sounds.MOVE)
+        refreshTabs(); tab = tabIds.indexOf(id); Sounds.play(Sounds.MOVE)
+    }
+    private fun nameOf(k: Int) = if (k == 0) "Recent" else cols.pinName(tabIds[k]) ?: tabIds[k]
+
+    // ---------- the collections panel, from the left edge ----------
+
+    private fun panelRows() = tabIds.mapIndexed { k, id -> CollectionsPanel.Row(nameOf(k), if (k == 0) games.recent().size else cols.forHome(id).size, if (k == 0) null else cols.pinColor(id)) }
+    private fun openPanel() {
+        refreshTabs()
+        side.rows = panelRows(); side.sel = tab; side.current = tab; side.moving = false; moving = false
+        side.open = true; zone = "side"; refreshTop(); Sounds.play(Sounds.OPEN)
+    }
+    private fun closePanel() { side.open = false; moving = false; side.moving = false; zone = "row"; refreshTop(); Sounds.play(Sounds.CLOSE) }
+    private fun panelInput(a: String) {
+        when (a) {
+            "up", "down" -> { val d = if (a == "up") -1 else 1
+                if (moving) {   // carrying a collection: it moves among the pins (Recent stays first)
+                    val id = tabIds[side.sel]; val showing = tabIds[tab]
+                    if (side.sel + d < 1 || !cols.movePin(id, d)) { Sounds.play(Sounds.BUMP); return }
+                    refreshTabs(); tab = tabIds.indexOf(showing); side.rows = panelRows(); side.sel = tabIds.indexOf(id); side.current = tab; Sounds.play(Sounds.MOVE)
+                } else if (side.sel + d in tabIds.indices) { side.sel += d; Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP) }
+            "a" -> if (moving) { moving = false; side.moving = false; Sounds.play(Sounds.CLOSE) } else { val k = side.sel; closePanel(); showTab(k) }
+            "y" -> if (side.sel > 0) { moving = !moving; side.moving = moving; Sounds.play(if (moving) Sounds.PICK else Sounds.CLOSE) } else Sounds.play(Sounds.BUMP)
+            "b", "right" -> if (moving) { moving = false; side.moving = false; Sounds.play(Sounds.CLOSE) } else closePanel()
+            "left" -> Sounds.play(Sounds.BUMP)
+        }
     }
 
     // ---------- games in the row ----------
@@ -296,7 +325,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         if (g != null) { chipText.text = Games.NAMES[g.sys]; dot.background = round(Theme.accentOf(g.sys), 6.5f); backdrop.mood(Theme.accentOf(g.sys)) }
         message.text = when {
             needsStorage -> "Shelf Native needs permission to see your games folders.\n\nPress A to allow it in Android’s settings."
-            slots.isEmpty() && tab > 0 -> "Nothing in ${strip.names.getOrNull(tab) ?: "this collection"} yet.\n\nAdd games to it in the Library."
+            slots.isEmpty() && tab > 0 -> "Nothing in ${nameOf(tab)} yet.\n\nAdd games to it in the Library, or press left for another list."
             slots.isEmpty() -> "No games found yet.\n\nPress A to choose your games folders."
             else -> ""
         }
@@ -321,8 +350,9 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         for (v in listOf(title, meta, message)) v.alpha = shownK * (1 - pageK)
         dockLabel.alpha = minOf(dockLabel.alpha, shownK)
         // the tabs step aside while the top bar has the focus (its labels go where they are) and while a page is open
-        tabsK += ((if (zone == "top") 0f else 1f) - tabsK) * min(1f, dt * 10f)
-        strip.alpha = shownK * (1 - pageK) * tabsK * (1 - lookK); strip.step(dt)
+        side.step(dt); dim.alpha = .35f * Backdrop.ease(side.k)
+        caption.alpha += ((if (caption.text.isNotEmpty()) shownK * (1 - pageK) * (1 - lookK) * (1 - side.k) else 0f) - caption.alpha) * min(1f, dt * 8f)
+        edge.alpha += ((if (zone == "row" && i == 0 && page == null && visible) .55f * shownK else 0f) - edge.alpha) * min(1f, dt * 8f)
         backdrop.picVisible = shownK * (1 - pageK)
         if (!visible && rise == 0f) { slots.forEach { it.case?.hide(); if (it.game.path != launchingPath) it.cart?.place(-2000f, 0f, 0f, 0f, 0f, 1f) }; page?.tick(dt); return }
         if (visible) backdrop.shadows.clear()
@@ -372,30 +402,23 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
         picker?.let { if (it.input(a)) return }
         page?.let { it.input(a); return }
         if (needsStorage) { if (a == "a") actions.allowStorage(); return }
-        if (slots.isEmpty() && zone == "row" && tab == 0) { if (a == "a") actions.openSettings() else if (a == "up") { zone = if (tabIds.size > 1) "tabs" else "top"; refreshTop() } else if (a == "lt" || a == "rt") cycleTab(if (a == "lt") -1 else 1); return }
+        if (zone == "side") return panelInput(a)
+        if (slots.isEmpty() && zone == "row" && tab == 0) { if (a == "a") actions.openSettings() else if (a == "up") { zone = "top"; refreshTop() } else if (a == "left") openPanel() else if (a == "lt" || a == "rt") cycleTab(if (a == "lt") -1 else 1); return }
         when (zone) {
             "row" -> when (a) {
-                "left" -> if (i > 0) { i--; refreshInfo(); Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
+                "left" -> if (i > 0) { i--; refreshInfo(); Sounds.play(Sounds.MOVE) } else openPanel()   // past the first game: the collections panel
                 "right" -> if (i < slots.size - 1) { i++; refreshInfo(); Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
-                "up" -> { zone = if (tabIds.size > 1) "tabs" else "top"; refreshTop(); Sounds.play(Sounds.MOVE) }
+                "up" -> { zone = "top"; refreshTop(); Sounds.play(Sounds.MOVE) }
                 "lt", "rt" -> cycleTab(if (a == "lt") -1 else 1)
                 "down" -> openPage()
                 "a" -> current()?.let { g -> Sounds.play(Sounds.PICK); if (games.emulatorFor(g) == null) chooseEmulator(g, then = true) else actions.play(g) }
                 "y" -> if (current() != null) { openPage(); page?.customize() }   // straight to Customize shell
                 "x" -> current()?.let { g -> actions.collectionsCard(g) { _ -> refreshRow() } }   // hidden, or in or out of this tab's collection
             }
-            "tabs" -> when (a) {
-                "left", "right", "lt", "rt" -> { val d = if (a == "left" || a == "lt") -1 else 1
-                    if (moving) moveTab(d) else if (tab + d in tabIds.indices) showTab(tab + d) else Sounds.play(Sounds.BUMP) }
-                "y" -> if (tab > 0) { moving = !moving; refreshTop(); Sounds.play(if (moving) Sounds.PICK else Sounds.CLOSE) } else Sounds.play(Sounds.BUMP)
-                "a" -> if (moving) { moving = false; refreshTop(); Sounds.play(Sounds.CLOSE) } else { zone = "row"; refreshTop(); Sounds.play(Sounds.MOVE) }
-                "down", "b" -> { moving = false; zone = "row"; refreshTop(); Sounds.play(Sounds.MOVE) }
-                "up" -> { moving = false; zone = "top"; refreshTop(); Sounds.play(Sounds.MOVE) }
-            }
             "top" -> when (a) {
                 "left" -> if (topI > 0) { topI--; refreshTop(); Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
                 "right" -> if (topI < dock.size) { topI++; refreshTop(); Sounds.play(Sounds.MOVE) } else Sounds.play(Sounds.BUMP)
-                "down", "b" -> { zone = if (tabIds.size > 1 && a == "down") "tabs" else "row"; refreshTop(); Sounds.play(Sounds.MOVE) }
+                "down", "b" -> { zone = "row"; refreshTop(); Sounds.play(Sounds.MOVE) }
                 "a" -> if (topI == 0 || topI == dock.size) actions.openSettings() else if (topI == 3) actions.openMuseum(current()?.sys) else if (topI == 1) actions.openLibrary() else actions.openApps()
             }
         }
@@ -446,7 +469,6 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     }
 
     private fun refreshTop() {
-        strip.focused = zone == "tabs"; strip.moving = moving && zone == "tabs"
         val on = zone == "top"
         profile.focused = on && topI == 0
         dock.forEachIndexed { k, b -> b.focused = on && topI == k + 1 }
@@ -624,75 +646,71 @@ class Battery(ctx: Context) : View(ctx) {
 }
 
 /**
- * Home's tabs (0.33): Recent, then each pinned collection, over the row. Four show in full and the next one peeks in,
- * fading out at the edge; moving along scrolls them so the chosen one stays in view with the next one peeking. Focused
- * (Up from the row), Y picks the chosen tab up to move it: left and right carry it, A or Y puts it down.
+ * The collections panel (0.34; it replaced 0.33's tabs over the row, which stood in the way of the top bar): it slides
+ * out from the left edge when you press left on the first game in Home's row. Recent, then each collection pinned to
+ * Home, each with its game count; the one showing is marked. A shows one in the row, Y picks one up to move it (up and
+ * down carry it, A puts it down), B or right closes.
  */
-class TabStrip(ctx: Context) : View(ctx) {
-    var names: List<String> = emptyList(); set(v) { field = v; follow(); invalidate() }
-    var sel = 0; set(v) { field = v; follow(); invalidate() }
-    var focused = false; set(v) { field = v; invalidate() }
+class CollectionsPanel(ctx: Context) : View(ctx) {
+    class Row(val name: String, val count: Int, val color: Int?)
+    var rows: List<Row> = emptyList(); set(v) { field = v; invalidate() }
+    var sel = 0; set(v) { field = v; invalidate() }
+    var current = 0; set(v) { field = v; invalidate() }
     var moving = false; set(v) { field = v; invalidate() }
-    private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Fonts.bold; textSize = 21f }
-    private val small = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Fonts.bold; textSize = 15f; color = Theme.fg3 }
-    private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val fadeP = Paint().apply { xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DST_IN) }
-    private var off = 0f; private var pillX = 0f; private var pillW = 0f; private var first = true
-    private val X0 = 40f; private val GAP = 30f; private val PAD = 15f; private val PEEK = 64f; private val SHOWN = 4
+    var open = false
+    /** How far out it is (0 hidden .. 1 out), eased in step. */
+    var k = 0f; private set
+    private val W = 412f; private val TOP = 120f; private val RH = 66f
+    private val p = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val label = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Fonts.bold; textSize = 18f; letterSpacing = .1f; color = Theme.accentOf(null) }
+    private val name = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Fonts.bold; textSize = 25f }
+    private val small = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Fonts.body; textSize = 19f }
+    private var scroll = 0f
 
-    private fun xs(): Pair<FloatArray, FloatArray> {
-        val w = FloatArray(names.size) { p.measureText(names[it]) }; val x = FloatArray(names.size)
-        var at = X0; for (k in names.indices) { x[k] = at; at += w[k] + GAP + 2 * PAD }
-        return x to w
-    }
-    /**
-     * The first tab in view. It moves only when the chosen tab would leave the four shown: the cursor moves freely within
-     * them and the tabs scroll at either end, so going back is the mirror of going forward (until the user's note,
-     * the chosen tab was pinned to the fourth place, and going back scrolled every tab under a cursor that stood still).
-     */
-    private var shownFrom = 0
-    private fun follow() {
-        if (sel < shownFrom) shownFrom = sel else if (sel > shownFrom + SHOWN - 1) shownFrom = sel - (SHOWN - 1)
-        shownFrom = shownFrom.coerceIn(0, maxOf(0, names.size - SHOWN))
-    }
-    private fun firstShown() = shownFrom
-
-    /** Each frame: the scroll and the chosen tab's pill glide to where they belong. */
     fun step(dt: Float) {
-        if (names.isEmpty()) return
-        val (x, w) = xs(); val s = sel.coerceIn(0, names.size - 1)
-        val toOff = x[firstShown()] - X0; val toX = x[s] - PAD; val toW = w[s] + 2 * PAD
-        if (first) { off = toOff; pillX = toX; pillW = toW; first = false }
-        val k = minOf(1f, dt * 10f)
-        val moved = abs(toOff - off) + abs(toX - pillX) + abs(toW - pillW)
-        off += (toOff - off) * k; pillX += (toX - pillX) * k; pillW += (toW - pillW) * k
-        if (moved > .2f) invalidate()
+        val to = if (open) 1f else 0f
+        if (k == to) return
+        k += (to - k) * min(1f, dt * 9f); if (abs(to - k) < .002f) k = to
+        val e = Backdrop.ease(k)
+        translationX = -(1 - e) * (W + 40f); alpha = min(1f, k * 1.6f)
+        visibility = if (k > 0f) VISIBLE else INVISIBLE
+        invalidate()
     }
 
     override fun onDraw(c: Canvas) {
-        if (names.isEmpty()) return
-        val (x, w) = xs(); val h = height.toFloat(); val mid = h / 2
-        val f0 = firstShown(); val last = minOf(names.size - 1, f0 + SHOWN - 1)
-        val end = x[last] + w[last] + PAD - off + (if (last < names.size - 1) PEEK else 0f)   // where the tabs stop showing
-        small.textAlign = Paint.Align.LEFT; c.drawText("L2", 2f, mid + 5.5f, small)
-        c.saveLayer(28f, 0f, end + 2f, h, null)
-        // the chosen one's pill: lighter when the tabs have the focus, the console color's ring while it's moved
-        val pr = android.graphics.RectF(pillX - off, mid - 19f, pillX - off + pillW, mid + 19f)
-        fill.style = Paint.Style.FILL; fill.color = if (moving) Color.argb(70, 171, 152, 255) else if (focused) Color.argb(46, 238, 241, 255) else Color.argb(28, 238, 241, 255)
-        c.drawRoundRect(pr, 19f, 19f, fill)
-        if (focused) { fill.style = Paint.Style.STROKE; fill.strokeWidth = 2.2f; fill.color = if (moving) Theme.accentOf(null) else Theme.fg; c.drawRoundRect(pr, 19f, 19f, fill) }
-        for (k in names.indices) {
-            val tx = x[k] - off; if (tx > end || tx + w[k] < 28f) continue
-            p.color = if (k == sel) Theme.fg else Theme.fg2
-            p.setShadowLayer(8f, 0f, 1.5f, Color.argb(110, 0, 0, 0))
-            c.drawText(names[k], tx, mid + 7.5f, p)
+        // the frame: a panel like the Library's and Settings', from the left edge
+        val r = RectF(24f, 24f, 24f + W, 726f)
+        p.style = Paint.Style.FILL; p.color = Theme.panel; c.drawRoundRect(r, 33f, 33f, p)
+        p.style = Paint.Style.STROKE; p.strokeWidth = 1.5f; p.color = Theme.line; c.drawRoundRect(r, 33f, 33f, p)
+        c.drawText("ON HOME", 60f, 82f, label)
+        // the list, scrolled so the chosen one is in view
+        val shown = ((726f - 100f - TOP) / RH).toInt()
+        val want = ((sel - shown + 1).coerceAtLeast(0) * RH).coerceAtMost(maxOf(0f, (rows.size - shown) * RH))
+        scroll += (want - scroll) * .35f; if (abs(want - scroll) > .5f) postInvalidateOnAnimation() else scroll = want
+        c.save(); c.clipRect(24f, TOP - 8f, 24f + W, 726f - 92f)
+        rows.forEachIndexed { n, row ->
+            val y = TOP + n * RH - scroll
+            if (y < TOP - RH || y > 726f) return@forEachIndexed
+            val on = n == sel; val rr = RectF(40f, y, 24f + W - 16f, y + RH - 10f)
+            if (on) {
+                p.style = Paint.Style.FILL; p.color = if (moving) Color.argb(80, 171, 152, 255) else Theme.sel; c.drawRoundRect(rr, 28f, 28f, p)
+                if (moving) { p.style = Paint.Style.STROKE; p.strokeWidth = 2.2f; p.color = Theme.accentOf(null); c.drawRoundRect(rr, 28f, 28f, p) }
+            }
+            val fg = if (on && !moving) Theme.selFg else Theme.fg
+            // its color (a collection's own; Recent and the automatic ones a quiet one)
+            p.style = Paint.Style.FILL; p.color = row.color ?: (if (on && !moving) Color.argb(120, 11, 16, 48) else Theme.fg3); c.drawCircle(70f, rr.centerY(), 7f, p)
+            name.color = fg
+            val nm = android.text.TextUtils.ellipsize(row.name, android.text.TextPaint(name), W - 190f, android.text.TextUtils.TruncateAt.END).toString()
+            c.drawText(nm, 92f, rr.centerY() + 9f, name)
+            small.color = if (on && !moving) Color.argb(170, 11, 16, 48) else Theme.fg2; small.textAlign = Paint.Align.RIGHT
+            c.drawText(if (moving && on) "▲▼" else "${row.count}", rr.right - 22f, rr.centerY() + 7f, small); small.textAlign = Paint.Align.LEFT
+            // the one showing in the row: a small mark at its left
+            if (n == current) { p.color = if (on && !moving) Theme.selFg else Theme.accentOf(null); c.drawRoundRect(RectF(46f, rr.centerY() - 13f, 50f, rr.centerY() + 13f), 2f, 2f, p) }
         }
-        // the one peeking in fades out toward the edge; the left edge softens too once the first tabs scroll away
-        if (last < names.size - 1) { fadeP.shader = android.graphics.LinearGradient(end - PEEK, 0f, end, 0f, Color.BLACK, Color.TRANSPARENT, android.graphics.Shader.TileMode.CLAMP); c.drawRect(end - PEEK, 0f, end + 2f, h, fadeP) }
-        if (off > 1f) { fadeP.shader = android.graphics.LinearGradient(28f, 0f, X0 - 4f, 0f, Color.TRANSPARENT, Color.BLACK, android.graphics.Shader.TileMode.CLAMP); c.drawRect(28f, 0f, X0 - 4f, h, fadeP) }   // only the tab before peeks, fading; the first full one stays clear
         c.restore()
-        c.drawText("R2", end + 12f, mid + 5.5f, small)
-        // what Y does here, after the tabs
-        if (focused) { small.color = Theme.fg2; c.drawText(if (moving) "◀ ▶  move it      A  put it down" else if (sel > 0) "Y  move this tab" else "", end + 54f, mid + 5.5f, small); small.color = Theme.fg3 }
+        // what the buttons do, and how to add more
+        small.color = Theme.fg2
+        if (rows.size < 2) Fonts.wrap(small, "Pin a collection from its menu (Y) in the Library, and it shows up here.", W - 72f).forEachIndexed { n, l -> c.drawText(l, 60f, TOP + RH + 24f + n * 27f, small) }
+        c.drawText(if (moving) "▲ ▼  Move it     A  Done" else if (sel > 0) "A  Show     Y  Move     B  Close" else "A  Show     B  Close", 60f, 726f - 44f, small)
     }
 }

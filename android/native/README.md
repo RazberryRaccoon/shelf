@@ -54,6 +54,15 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
+## What's in version 0.34
+
+The user's note on 0.33: the tabs over the row were in the way of the top bar. They're gone; Up from the row goes
+straight to the top bar again. **Press left on the first game** and a panel slides out from the left edge: Recent and
+every collection pinned to Home, with how many games each has and a mark on the one showing. **A** shows one in the
+row (its games grow in where they belong, as before), **Y** picks one up to move it (up and down, A to put it down),
+**B** or right closes it. L2 and R2 still step through them without opening the panel. A small ‹ at the left edge
+shows when there's somewhere to go, and the collection showing (other than Recent) is named quietly over the row.
+
 ## What's in version 0.33
 
 **Pinned collections on Home** (the user chose tabs over the row, "but I don't want it to get too much more crowded…

@@ -15,7 +15,7 @@ android {
         minSdk = 30          // Android 11, the Retroid Pocket 3+
         targetSdk = 34
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
-        versionName = "0.33." + (System.getenv("GITHUB_RUN_NUMBER") ?: "dev")
+        versionName = "0.34." + (System.getenv("GITHUB_RUN_NUMBER") ?: "dev")
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }   // handhelds; leaves out the emulator-only builds
     }
 

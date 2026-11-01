@@ -596,8 +596,8 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
         if (col != null && !col.live) { rows += ListCard.Row("Add games", icon = "grid", tag = "add"); rows += ListCard.Row("Arrange", note = "Your own order", icon = "move", tag = "arrange") }
         if (col != null && col.live) rows += ListCard.Row("Filters", note = col.filter.count.let { if (it == 0) "None" else "$it" }, icon = "eye", tag = "filter")
         if (sortsFor(sh).isNotEmpty()) rows += ListCard.Row("Order", note = Sorts.NAMES[sortOf(sh)], icon = "sort", tag = "sort")
-        // pinned, it's a tab over Home's row (0.33); Settings › Home puts the tabs in order
-        if (cols.pinnable(sh.id)) rows += ListCard.Row(if (cols.isPinned(sh.id)) "Unpin from Home" else "Pin to Home", note = if (cols.isPinned(sh.id)) "A tab over Home's row" else "", icon = "house", tag = "pin")
+        // pinned, Home's row can show it (0.33), chosen in the panel left of the first game (0.34)
+        if (cols.pinnable(sh.id)) rows += ListCard.Row(if (cols.isPinned(sh.id)) "Unpin from Home" else "Pin to Home", note = if (cols.isPinned(sh.id)) "In Home's list, left of the first game" else "", icon = "house", tag = "pin")
         if (col != null) {
             rows += ListCard.Row("Rename", icon = "pencil", tag = "rename"); rows += ListCard.Row("Color", dot = col.color, tag = "color")
             rows += ListCard.Row("Move up the list", icon = "move", tag = "up"); rows += ListCard.Row("Move down the list", icon = "move", tag = "down")
@@ -611,7 +611,7 @@ class Library(private val ctx: Context, private val stage: Stage, private val bo
                 "filter" -> { filterCard(sh); true }
                 "sort" -> { chooseSort(sh); true }
                 "pin" -> { val on = !cols.isPinned(sh.id); cols.setPinned(sh.id, on); changed = true
-                    host.show(if (on) "${sh.name.removePrefix("✦ ")} is on Home: L2 and R2 there" else "Unpinned from Home"); true }
+                    host.show(if (on) "${sh.name.removePrefix("✦ ")} is on Home: press left past the first game" else "Unpinned from Home"); true }
                 "rename" -> { host.askText("Rename the collection", col!!.name) { n -> if (n.isNotBlank()) { col.name = n.trim().take(40); cols.save(); changed = true; fillList(); open(shelves.first { it.id == sh.id }, quick = true) } }; true }
                 "color" -> { chooseColor(col!!); true }
                 "up", "down" -> { cols.move(col!!, if (r.tag == "up") -1 else 1); changed = true; fillList(); false }

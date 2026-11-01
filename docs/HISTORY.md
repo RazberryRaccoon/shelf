@@ -592,6 +592,11 @@ opening edge, and a coloured test spine in the new render confirms the fix.
 **0.24, fixed:** the Library crashed as it opened: `byName`, a stored comparator declared below `init`, was still null
 when `init` sorted the first list (the init-order trap again; it's a getter now).
 
+**0.34: the collections panel.** 0.33's tabs (`TabStrip`) went: on the device they sat in the way between the row and
+the top bar. `CollectionsPanel` (Home.kt) slides out from the left edge on Left at the first game; Home's "tabs" zone
+became "side". Reordering moved into the panel (Y, then up and down). A quiet caption names the collection showing,
+and a ‹ at the left edge appears on the first game.
+
 **0.33: pinned collections on Home** (option C of the mockup, with the user's notes). `Collections.pinned`/`movePin`/
 `forHome` (pins are the Library's list ids, kept in order in the `pins` preference), `TabStrip` (in Home.kt: four tabs
 in full, the next one peeking in through a DST_IN gradient, scrolled so the chosen one stays in view), Home's `tabs`
