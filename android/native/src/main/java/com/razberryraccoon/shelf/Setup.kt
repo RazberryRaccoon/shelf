@@ -230,8 +230,8 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                 rows += Options.Row("timeofday", "Time of day", value = "‹  ${Theme.TIMES[Theme.timeMode]}  ›", sub = TIME_SUB[Theme.timeMode])
                 val cols = host.collections(); val pins = cols.pinned()
                 rows += Options.Row(Options.HEAD, "Pinned to Home")
-                if (pins.isEmpty()) rows += Options.Row("none", "None yet", sub = "Pin a collection from its menu (Y) in the Library: it becomes a tab over Home's row")
-                pins.forEachIndexed { k, id -> rows += Options.Row("pin", cols.pinName(id) ?: id, value = "‹  ${k + 1} of ${pins.size}  ›", sub = "Left and right move it along Home's tabs; A unpins it", dot = cols.pinColor(id), tag = id) }
+                if (pins.isEmpty()) rows += Options.Row("none", "None yet", sub = "Pin a collection from its menu (Y) in the Library: Home's row can show it (press left past the first game)")
+                pins.forEachIndexed { k, id -> rows += Options.Row("pin", cols.pinName(id) ?: id, value = "‹  ${k + 1} of ${pins.size}  ›", sub = "Left and right move it in Home's list; A unpins it", dot = cols.pinColor(id), tag = id) }
                 rows += Options.Row(Options.HEAD, "The row")
                 rows += Options.Row("homescroll", "Scrolling", value = "‹  ${Home.STYLES[games.homeScroll.coerceIn(0, Home.STYLES.size - 1)]}  ›", sub = SCROLL_SUB[games.homeScroll.coerceIn(0, SCROLL_SUB.size - 1)])
                 rows += Options.Row(Options.HEAD, "The picture behind")

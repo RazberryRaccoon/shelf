@@ -314,6 +314,12 @@ Summarized from the first part of the conversation; the full transcript is kept 
   looks like central park… It should feel mysterious and beautiful"; Stormy's "rain looks like its going upwards. It's
   also way too dense… a peaceful gentle rain storm"; "Great job on the music! The ambient sounds are too loud though;
   you should be able to customize both the music and ambient sound volume separately".
+- Pinned collections, after testing 0.33 (November 2026): "I don't like the horizontal pill bar… It gets in the way
+  trying to go up to the four buttons at the top. Going up should bring you to those buttons… going to the right
+  begins scrolling through the list, and going down opens the game page… I want a menu to pop out from the left edge
+  when you press left from the first cartridge in the home list, and that lets you select which pinned collection is
+  displayed in the home row. Make it work exactly how it does now, I like everything else about it except how you swap
+  between pinned collections." Built in 0.34 (`CollectionsPanel`); L2/R2 kept as a shortcut.
 - Pinned collections (after the mockup, November 2026): "I like layout C. However I don't want it to get too much more
   crowded than it is. I want it to show only the first little bit of the next collection in line, after the four it
   shows in the mockup. Then as you cycle through it scrolls through and reveals more. But you should also somehow be able

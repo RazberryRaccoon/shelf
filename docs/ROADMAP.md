@@ -43,7 +43,8 @@ published by GitHub Actions. Next, in order:
   night, with music for each and ambient sounds. Waiting on the user's notes on the device (smoothness on the Retroid
   especially).
 - **Done in 0.33: pinned collections on Home** as tabs over the row (the user chose option C of
-  `prototypes/shelf-pinned.html`), with reordering on Home and in Settings › Home.
+  `prototypes/shelf-pinned.html`), with reordering on Home and in Settings › Home. 0.34: on the user's note, the
+  tabs became a panel from the left edge (left past the first game).
 - **Backburner: emulators built in** (the user, after 0.30: "VERY interested… it would come down the line once I'm
   happy with Shelf"): libretro cores inside Shelf through LibretroDroid (GPL-3, as Lemuroid), cores downloaded from
   libretro's build server; NES to N64 (PS1 maybe; PSP and DS stay outside). Would give suspend to Home, saves and
