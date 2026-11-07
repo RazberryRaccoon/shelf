@@ -126,7 +126,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     private val toast = text(23f, Fonts.bold, Theme.fg).apply { background = round(Theme.panel, 27f, Theme.line); setPadding(30, 14, 30, 14); alpha = 0f }
     private val clock = text(24.5f, Fonts.bold, Theme.fg2)
     private val battery = Battery(ctx)
-    private var pct = 100; private var plugged = false   // above init: the battery's news arrives while it runs
+    private var pct = 100; private var plugged = false; private var hasBattery = true   // above init: the battery's news arrives while it runs
     private val profile = Chip(ctx)
     private val dock = listOf("library", "apps", "museum", "settings").map { DockButton(ctx, it) }
     private val dockNames = listOf("Library", "Apps", "Museum", "Settings")
@@ -505,6 +505,7 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     private var clockLeft = 0f
     /** The battery's level and whether it's plugged in, from Android's battery news. */
     private fun batteryFrom(i: android.content.Intent) {
+        hasBattery = i.getBooleanExtra(BatteryManager.EXTRA_PRESENT, true)
         val level = i.getIntExtra(BatteryManager.EXTRA_LEVEL, -1); val scale = i.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
         if (level >= 0 && scale > 0) pct = level * 100 / scale
         plugged = i.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0   // charging, or full and still on the charger
@@ -513,7 +514,9 @@ class Home(private val ctx: Context, private val stage: Stage, private val board
     private fun clockTick() {
         clockLeft = 20f
         battery.set(pct, plugged)
-        clock.text = "$pct%   ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date())}"
+        battery.visibility = if (hasBattery) View.VISIBLE else View.GONE
+        val time = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date())
+        clock.text = if (hasBattery) "$pct%   $time" else time
         // the battery icon sits just left of the percentage
         val w = clock.paint.measureText(clock.text.toString()); battery.translationX = 260f - w - 52f
     }
@@ -666,6 +669,7 @@ class CollectionsPanel(ctx: Context) : View(ctx) {
     private val name = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Fonts.bold; textSize = 25f }
     private val small = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Fonts.body; textSize = 19f }
     private var scroll = 0f
+    private val glide = Glide()
 
     fun step(dt: Float) {
         val to = if (open) 1f else 0f
@@ -686,7 +690,7 @@ class CollectionsPanel(ctx: Context) : View(ctx) {
         // the list, scrolled so the chosen one is in view
         val shown = ((726f - 100f - TOP) / RH).toInt()
         val want = ((sel - shown + 1).coerceAtLeast(0) * RH).coerceAtMost(maxOf(0f, (rows.size - shown) * RH))
-        scroll += (want - scroll) * .35f; if (abs(want - scroll) > .5f) postInvalidateOnAnimation() else scroll = want
+        scroll += (want - scroll) * glide.k(.35f); if (abs(want - scroll) > .5f) postInvalidateOnAnimation() else scroll = want
         c.save(); c.clipRect(24f, TOP - 8f, 24f + W, 726f - 92f)
         rows.forEachIndexed { n, row ->
             val y = TOP + n * RH - scroll

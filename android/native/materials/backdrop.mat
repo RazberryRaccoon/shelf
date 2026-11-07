@@ -28,7 +28,8 @@ material {
         { type : float2, name : picBox },    // the picture's top and height, in layout pixels
         { type : float, name : day },        // Space by day (1) or night (0)
         { type : float, name : skyOn },      // 1: another theme's environment, drawn into `sky` (Sky.kt, sky.mat), in place of Space
-        { type : sampler2d, name : sky }
+        { type : sampler2d, name : sky },
+        { type : float4, name : skyArea }    // the layout area `sky` covers: left, top, width, height
     ]
 }
 
@@ -50,16 +51,17 @@ fragment {
         float D = materialParams.day;
         if (materialParams.skyOn > 0.5) {
             // another theme: its environment, drawn smaller into its own texture (y up there, as the views count)
-            c = texture(materialParams_sky, vec2(p.x / 1334.0, 1.0 - p.y / 750.0)).rgb;
+            highp vec4 ar = materialParams.skyArea;
+            c = texture(materialParams_sky, vec2((p.x - ar.x) / ar.z, 1.0 - (p.y - ar.y) / ar.w)).rgb;
         } else {
         // Space by day: a lighter violet sky, the nebula brighter and wider
         c = mix(c, mix(vec3(0.15, 0.17, 0.38), vec3(0.30, 0.27, 0.52), clamp(p.y / 750.0, 0.0, 1.0)), D);
-        if (inside) {
+        {   // the nebula and the stars reach past the layout on a screen that isn't 16:9 (the star field repeats)
             // the nebula: two soft glows
             c = glow(c, m, mix(70.0, 130.0, D) / 255.0, length(p - vec2(300.0, 160.0)) / mix(700.0, 820.0, D));
             c = glow(c, m, mix(40.0, 90.0, D) / 255.0, length(p - vec2(1100.0, 700.0)) / 600.0);
             // stars
-            vec2 s = texture(materialParams_stars, p / vec2(1334.0, 750.0)).rg;
+            vec2 s = texture(materialParams_stars, fract(p / vec2(1334.0, 750.0))).rg;
             float tw = materialParams.twinkle;
             float sa = tw < 0.0 ? 150.0 / 255.0 : (90.0 + 110.0 * (0.5 + 0.5 * sin(tw + s.g * 6.3))) / 255.0;
             c = over(c, vec3(238.0, 241.0, 255.0) / 255.0, sa * s.r * mix(1.0, 0.6, D));

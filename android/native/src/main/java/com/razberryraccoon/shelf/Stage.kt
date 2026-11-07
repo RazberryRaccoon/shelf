@@ -73,6 +73,8 @@ class Stage(private val ctx: Context, private val surface: SurfaceView) : Choreo
     val preViews = LinkedHashMap<View, () -> Unit>()
     /** The 3D's size on the screen, in pixels (for views drawn to match it). */
     var pixels = intArrayOf(W.toInt(), H.toInt()); private set
+    /** The whole screen in layout pixels (left, top, width, height): wider or taller than 0..1334 × 0..750 on a screen that isn't 16:9. */
+    var screenArea = floatArrayOf(0f, 0f, W, H); private set
     private var last = 0L
     private var running = false
 
@@ -178,6 +180,7 @@ class Stage(private val ctx: Context, private val surface: SurfaceView) : Choreo
         // Filament's viewport counts up from the bottom
         view.viewport = Viewport(ox.toInt(), (height - oy - H * scale).toInt(), (W * scale).toInt(), (H * scale).toInt())
         pixels = intArrayOf((W * scale).toInt().coerceAtLeast(2), (H * scale).toInt().coerceAtLeast(2))
+        screenArea = floatArrayOf(-ox / scale, -oy / scale, width / scale, height / scale)
         // the backdrop fills the whole screen, the layout's part of it lined up with the 3D
         backView.viewport = Viewport(0, 0, width, height)
         backCamera.setProjection(Camera.Projection.ORTHO, (-ox / scale).toDouble(), ((width - ox) / scale).toDouble(),
@@ -203,7 +206,7 @@ class Stage(private val ctx: Context, private val surface: SurfaceView) : Choreo
         if (ui.isReadyToRender && renderer.beginFrame(sc, now)) {
             // a view drawn into a texture first, when something needs one (the glow's silhouette, Outline)
             for ((v, after) in preViews) { renderer.render(v); after() }
-            renderer.render(backView); renderer.render(view); renderer.endFrame(); drawn++
+            renderer.render(backView); renderer.render(view); renderer.endFrame(); drawn++; drawnTotal++
         } else skipped++
         // the meter (Settings › Show frame rate): each half second, how many frames came and how long each part took
         ticks++; uiNs += t1 - t0; drawNs += System.nanoTime() - t1; worst = maxOf(worst, dt)
@@ -214,6 +217,8 @@ class Stage(private val ctx: Context, private val surface: SurfaceView) : Choreo
             ticks = 0; drawn = 0; skipped = 0; uiNs = 0; drawNs = 0; worst = 0f; statFrom = now
         }
     }
+    /** Every frame drawn since Shelf started (the first-run check of how smoothly this handheld runs it). */
+    var drawnTotal = 0L; private set
     private var ticks = 0; private var drawn = 0; private var skipped = 0; private var uiNs = 0L; private var drawNs = 0L; private var worst = 0f; private var statFrom = 0L
     /** The last half second's frame rate and timings, for the meter. */
     var stats = ""; private set

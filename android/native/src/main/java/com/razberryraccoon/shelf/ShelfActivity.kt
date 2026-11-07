@@ -91,7 +91,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
             val s = minOf((r - l) / Stage.W, (b - t) / Stage.H); val ox = ((r - l) - Stage.W * s) / 2; val oy = ((b - t) - Stage.H * s) / 2
             board.fit(s, ox, oy)
         }
-        stage.onFrame = { dt -> home.lookK = museum?.lookK ?: 0f; home.tick(dt); setup?.tick(dt); museum?.tick(dt); library?.tick(dt); apps?.tick(dt); launch?.tick(dt); backdrop.tick(dt); if (++frames == 90) booting.delete()   // started fine
+        stage.onFrame = { dt -> home.lookK = museum?.lookK ?: 0f; home.tick(dt); setup?.tick(dt); museum?.tick(dt); library?.tick(dt); apps?.tick(dt); launch?.tick(dt); backdrop.tick(dt); checkSmoothness(dt); if (++frames == 90) booting.delete()   // started fine
             meterLeft -= dt; if (meterLeft <= 0) { meterLeft = .5f; showMeter() } }
     }
 
@@ -444,8 +444,11 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
     private fun actionFor(code: Int) = when (code) {
         KeyEvent.KEYCODE_DPAD_UP -> "up"; KeyEvent.KEYCODE_DPAD_DOWN -> "down"
         KeyEvent.KEYCODE_DPAD_LEFT -> "left"; KeyEvent.KEYCODE_DPAD_RIGHT -> "right"
-        KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> "a"
-        KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> "b"
+        // Settings › System › Swap A and B, for controllers labeled the other way round (Back and Enter stay put)
+        KeyEvent.KEYCODE_BUTTON_A -> if (::games.isInitialized && games.swapAB) "b" else "a"
+        KeyEvent.KEYCODE_BUTTON_B -> if (::games.isInitialized && games.swapAB) "a" else "b"
+        KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> "a"
+        KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> "b"
         KeyEvent.KEYCODE_BUTTON_X -> "x"; KeyEvent.KEYCODE_BUTTON_Y -> "y"
         KeyEvent.KEYCODE_BUTTON_L1 -> "lb"; KeyEvent.KEYCODE_BUTTON_R1 -> "rb"
         KeyEvent.KEYCODE_BUTTON_L2 -> "lt"; KeyEvent.KEYCODE_BUTTON_R2 -> "rt"
@@ -455,6 +458,7 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
 
     override fun dispatchKeyEvent(e: KeyEvent): Boolean {
         val a = actionFor(e.keyCode) ?: return super.dispatchKeyEvent(e)
+        if (a == "lt" || a == "rt") triggerKeyAt = android.os.SystemClock.uptimeMillis()   // this controller sends its triggers as buttons too
         if (e.action == KeyEvent.ACTION_DOWN) {
             if (e.repeatCount == 0) input(a)
             else if (a in DIRECTIONS) { val now = System.currentTimeMillis(); if (now - lastRepeat >= 110) { lastRepeat = now; input(a) } }
@@ -465,6 +469,14 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
     override fun onGenericMotionEvent(e: MotionEvent): Boolean {
         val pad = e.source and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK || e.source and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD
         if (!pad || e.action != MotionEvent.ACTION_MOVE) return super.onGenericMotionEvent(e)
+        // analog triggers (many controllers send L2 and R2 only as axes, not buttons): a press past halfway, let go
+        // below a third; ignored on controllers that send them as buttons too, so a press never counts twice
+        if (android.os.SystemClock.uptimeMillis() - triggerKeyAt > 2000) {
+            val lt = maxOf(e.getAxisValue(MotionEvent.AXIS_LTRIGGER), e.getAxisValue(MotionEvent.AXIS_BRAKE))
+            val rt = maxOf(e.getAxisValue(MotionEvent.AXIS_RTRIGGER), e.getAxisValue(MotionEvent.AXIS_GAS))
+            if (!ltDown && lt > .5f) { ltDown = true; input("lt") } else if (ltDown && lt < .33f) ltDown = false
+            if (!rtDown && rt > .5f) { rtDown = true; input("rt") } else if (rtDown && rt < .33f) rtDown = false
+        }
         // the right stick turns the cartridge on a game's page
         if (!safeMode && launch == null) { val x = e.getAxisValue(MotionEvent.AXIS_Z); val y = e.getAxisValue(MotionEvent.AXIS_RZ); museum?.stick(x, y) ?: library?.stick(x, y) ?: home.stick(x, y) }
         // the left stick moves a model smoothly while you look at it closely (and isn't a D-pad then)
@@ -481,5 +493,25 @@ class ShelfActivity : Activity(), Home.Actions, Setup.Host, Museum.Host, Launch.
         return true
     }
 
+    /**
+     * Once, on a handheld Shelf hasn't run on before (and only if Smoothness was never chosen): after Home has been up
+     * four seconds, it counts the frames actually drawn over the next six. Clearly struggling (under 42 a second, where
+     * the Retroid Pocket 3+ draws 60), it moves to Smoothest and says so; Settings › System › Smoothness changes it back.
+     */
+    private var perfT = 0f; private var perfFrom = 0L
+    private fun checkSmoothness(dt: Float) {
+        if (games.smoothChecked || games.smoothChosen || games.smoothness == 2) return
+        if (launch != null || !home.visible || setup != null || library != null || museum != null || apps != null) { perfT = 0f; return }
+        perfT += dt
+        if (perfT < 4f) { perfFrom = stage.drawnTotal; return }
+        if (perfT < 10f) return
+        games.smoothChecked = true
+        val fps = (stage.drawnTotal - perfFrom) / (perfT - 4f)
+        if (fps < 42f) {
+            games.smoothness = 2; stage.quality(2); backdrop.lite = true; backdrop.smooth = 2
+            home.show("Shelf moved to Smoothest, which suits this handheld · Settings › System")
+        }
+    }
+    private var triggerKeyAt = 0L; private var ltDown = false; private var rtDown = false
     companion object { private val DIRECTIONS = setOf("up", "down", "left", "right"); private const val PICK_FOLDER = 7; private const val PICK_DOC = 8; private const val MAKE_DOC = 9 }
 }

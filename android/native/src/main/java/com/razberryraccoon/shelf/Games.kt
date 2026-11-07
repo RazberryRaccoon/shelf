@@ -67,6 +67,12 @@ class Games(private val ctx: Context) {
     var smoothness: Int get() = prefs.getInt("smoothness2", 1); set(v) = prefs.edit().putInt("smoothness2", v).apply()
     /** Settings › Show frame rate: the meter in the top left corner. */
     var showFps: Boolean get() = prefs.getBoolean("show-fps", false); set(v) = prefs.edit().putBoolean("show-fps", v).apply()
+    /** Settings › System › Swap A and B: for controllers labeled the other way round (0.35, other handhelds). */
+    var swapAB: Boolean get() = prefs.getBoolean("swap-ab", false); set(v) = prefs.edit().putBoolean("swap-ab", v).apply()
+    /** Whether the user has chosen a Smoothness themselves (if not, Shelf may pick a lighter one for a slower handheld). */
+    var smoothChosen: Boolean get() = prefs.getBoolean("smooth-chosen", false); set(v) = prefs.edit().putBoolean("smooth-chosen", v).apply()
+    /** The once-only check of how smoothly this handheld runs Shelf has been done. */
+    var smoothChecked: Boolean get() = prefs.getBoolean("smooth-checked", false); set(v) = prefs.edit().putBoolean("smooth-checked", v).apply()
     /** Settings › Starting a game: how the screen goes to black (Curtain.NAMES; the last is a different one each time). */
     var launchFx: Int get() = prefs.getInt("launch-fx", Curtain.IRIS); set(v) = prefs.edit().putInt("launch-fx", v).apply()
     /** The label finish for every game that doesn't have its own (Labels.NAMES). */

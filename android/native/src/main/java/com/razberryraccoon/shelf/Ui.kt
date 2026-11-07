@@ -67,6 +67,18 @@ object Theme {
     }
 }
 
+/**
+ * A glide's step that takes the same time at any refresh rate: `rate` is how much of the way it goes in a 60 Hz frame,
+ * so on a 120 Hz screen each frame goes a little less (0.35 at 60 Hz). Lists that glide as they're drawn use one each.
+ */
+class Glide {
+    private var last = 0L
+    fun k(rate: Float): Float {
+        val now = System.nanoTime(); val dt = if (last == 0L) 1 / 60f else ((now - last) / 1e9f).coerceIn(0f, .1f); last = now
+        return 1f - Math.pow((1f - rate).toDouble(), (dt * 60f).toDouble()).toFloat()
+    }
+}
+
 /** Manrope for text and Unbounded for titles, as in the prototype (both SIL Open Font License, in assets/fonts). */
 object Fonts {
     lateinit var body: Typeface; lateinit var bold: Typeface; lateinit var display: Typeface; lateinit var displayBold: Typeface

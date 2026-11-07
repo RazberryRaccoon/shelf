@@ -54,6 +54,28 @@ Three layers, the same way the prototype stacks a WebGL canvas and a page:
 | `Games.kt` | Your games, what you've played, each game's shell color, each console's emulator, launching. |
 | `Ui.kt` | Colors, fonts, Shelf's own label art, and the 1334 × 750 board. |
 
+## What's in version 0.35
+
+Ready for handhelds other than the Retroid Pocket 3+ (the user: "make sure it works well on different devices with
+different processors and screen sizes"):
+- **Analog triggers count as L2 and R2.** Many controllers send their triggers only as axes; a press past halfway is
+  L2 or R2 (and a controller that sends both is only counted once).
+- **Settings › System › Swap A and B**, for controllers labeled the other way round.
+- **Any screen shape:** the theme scenes and Space's stars and nebula now reach every edge of a screen wider or taller
+  than 16:9 (the layout stays centred, as before). The scenes' texture follows the layout, not the screen's pixels,
+  so a 1080p or larger screen costs the same as the Retroid's.
+- **Slower handhelds:** once, on a handheld where Smoothness was never chosen, Shelf counts the frames it draws on
+  Home for a few seconds; well under 60 (below 42 a second), it moves to Smoothest and says so.
+- **90 and 120 Hz screens:** the last few lists that glided by the frame (the collections panel, the Museum's shelves,
+  the Studio's chips) now glide by time, so they move at the same speed on any screen.
+- **No battery** (a TV box or a dock): the battery and its percentage don't show.
+
+## On other handhelds
+
+Shelf Native runs on Android 11 or later, on ARM processors (64-bit and 32-bit), with a controller (there's no touch
+control yet). Any screen size or shape works: the interface keeps its 16:9 layout, scaled to fit, and the backdrop
+fills the rest. Shelf picks its own Smoothness the first time on a slower handheld.
+
 ## What's in version 0.34
 
 The user's note on 0.33: the tabs over the row were in the way of the top bar. They're gone; Up from the row goes

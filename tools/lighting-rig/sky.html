@@ -1,14 +1,15 @@
 <!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Sky check</title>
 <style>html, body { margin: 0; background: #000; } canvas { display: block; width: 1334px; height: 750px; }</style></head>
-<body><canvas id="c" width="1334" height="750"></canvas>
+<body><canvas id="c" width="1334" height="750"></canvas><script>{ const w = new URLSearchParams(location.search).get('w'); if (w) { const c = document.getElementById('c'); c.width = +w; c.style.width = w + 'px'; } }</script>
 <script src="filament.js"></script>
 <script>
 // The app's theme pipeline, as Sky.kt and Backdrop.kt build it: sky.filamat drawn into a smaller texture by a view of
 // its own, then backdrop.filamat laying that texture over the screen. ?theme=1..6&day=0..1&t=seconds&k=texture scale
 // node shot.mjs "sky.html?theme=2&day=1" out.png
 const q = new URLSearchParams(location.search);
-const W = 1334, H = 750, K = +(q.get('k') ?? .75), SW = Math.round(W * K), SH = Math.round(H * K);
+// ?w= a wider screen than 16:9, in layout pixels (1666 is a 20:9 phone): the scene covers all of it, as Sky.kt does
+const W = +(q.get('w') ?? 1334), H = 750, K = +(q.get('k') ?? .75), SW = Math.round(W * K), SH = Math.round(H * K), X0 = -(W - 1334) / 2;
 Filament.init(['sky.filamat', 'backdrop.filamat'], () => {
   const canvas = document.getElementById('c'); canvas.getContext('webgl2', { antialias: false });
   const engine = Filament.Engine.create(canvas), renderer = engine.createRenderer(), swap = engine.createSwapChain();
@@ -45,11 +46,11 @@ Filament.init(['sky.filamat', 'backdrop.filamat'], () => {
   const sm = engine.createMaterial('sky.filamat').createInstance();
   sm.setFloatParameter('theme', +(q.get('theme') ?? 2)); sm.setFloatParameter('day', +(q.get('day') ?? 1)); sm.setFloatParameter('time', +(q.get('t') ?? 46));
   sm.setFloat3Parameter('mood', [.67, .6, 1]); sm.setFloat3Parameter('flash', [+(q.get('flash') ?? 0), 600, 220]);
-  sm.setTextureParameter('noise', noise, repeat);
+  sm.setTextureParameter('noise', noise, repeat); sm.setFloat4Parameter('area', [X0, 0, W, H]);
   skyScene.addEntity(quad(sm, [[0, 0], [1, 0], [0, 1], [1, 1]], [[0, 0], [1, 0], [0, 1], [1, 1]]));
   // the backdrop on the screen, as Backdrop.kt: layout pixels, y down (so world y is minus layout y)
   const backScene = engine.createScene(), backCam = engine.createCamera(EM.create()), backView = engine.createView();
-  backCam.setProjection(Filament.Camera$Projection.ORTHO, 0, W, -H, 0, 0, 10); backCam.lookAt([0, 0, 5], [0, 0, 0], [0, 1, 0]);
+  backCam.setProjection(Filament.Camera$Projection.ORTHO, X0, X0 + W, -H, 0, 0, 10); backCam.lookAt([0, 0, 5], [0, 0, 0], [0, 1, 0]);
   backView.setScene(backScene); backView.setCamera(backCam); backView.setViewport([0, 0, W, H]); backView.setPostProcessingEnabled(false);
   const bm = engine.createMaterial('backdrop.filamat').createInstance();
   const blank = tex(1, 1, Filament.Texture$InternalFormat.RGBA8, Filament.PixelDataFormat.RGBA, new Uint8Array(4));
@@ -59,7 +60,7 @@ Filament.init(['sky.filamat', 'backdrop.filamat'], () => {
   bm.setTextureParameter('stars', blankRG, clampS); bm.setTextureParameter('pic', blank, clampS); bm.setTextureParameter('picFrom', blank, clampS); bm.setTextureParameter('mask', blankR, clampS);
   bm.setFloat4Parameter('picUv', [0, 0, 0, 0]); bm.setFloat4Parameter('fromUv', [0, 0, 0, 0]); bm.setFloat2Parameter('picA', [0, 0]); bm.setFloat3Parameter('dim', [1, 1, 1]); bm.setFloat2Parameter('picBox', [424, 326]);
   const theme = +(q.get('theme') ?? 2);
-  bm.setFloatParameter('day', +(q.get('day') ?? 1)); bm.setFloatParameter('skyOn', theme > 0 ? 1 : 0); bm.setTextureParameter('sky', skyTex, clampS);
+  bm.setFloatParameter('day', +(q.get('day') ?? 1)); bm.setFloatParameter('skyOn', theme > 0 ? 1 : 0); bm.setTextureParameter('sky', skyTex, clampS); bm.setFloat4Parameter('skyArea', [X0, 0, W, H]);
   const L = [[-4000, -4000], [6000, -4000], [-4000, 6000], [6000, 6000]];
   backScene.addEntity(quad(bm, L.map(([x, y]) => [x, -y]), L));
   let n = 0;

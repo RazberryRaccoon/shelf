@@ -592,6 +592,15 @@ opening edge, and a coloured test spine in the new render confirms the fix.
 **0.24, fixed:** the Library crashed as it opened: `byName`, a stored comparator declared below `init`, was still null
 when `init` sorted the first list (the init-order trap again; it's a getter now).
 
+**0.35: other handhelds.** An audit for devices other than the Retroid Pocket 3+: L2/R2 only arrived as key codes
+(many controllers send triggers as AXIS_LTRIGGER/RTRIGGER or BRAKE/GAS: now read with hysteresis, ignored when the
+controller also sends the keys); Swap A and B (`Games.swapAB`); the sky texture covered only the 16:9 layout and was
+sampled clamped, so its edges would smear on a 20:9 or 4:3 screen (`Stage.screenArea`; sky.mat's `area`, backdrop's
+`skyArea`; checked in the rig at 20:9); Space's stars and nebula stopped at the layout (the star field now repeats);
+three list glides stepped per frame (`Glide`, by time); a once-only frame count on Home picks Smoothest on a slow
+handheld (`checkSmoothness`); no battery hides the battery. Left as they were: Android 11 at the least (Android 10
+would need the old storage permission), ARM only, a controller required.
+
 **0.34: the collections panel.** 0.33's tabs (`TabStrip`) went: on the device they sat in the way between the row and
 the top bar. `CollectionsPanel` (Home.kt) slides out from the left edge on Left at the first game; Home's "tabs" zone
 became "side". Reordering moved into the panel (Y, then up and down). A quiet caption names the collection showing,

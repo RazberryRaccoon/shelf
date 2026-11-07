@@ -118,6 +118,7 @@ class Backdrop(ctx: Context, private val stage: Stage) {
         // another theme: its scene, drawn into its own texture (Sky); Space is drawn here
         val env = scenery.frame(dt, Theme.env, day, mf, smooth)
         sky.setParameter("skyOn", if (env != null) 1f else 0f); sky.setParameter("sky", env ?: blank, clamp)
+        stage.screenArea.let { sky.setParameter("skyArea", it[0], it[1], it[2], it[3]) }
         sky.setParameter("twinkle", if (lite) -1f else time * .6f)
         sky.setParameter("shade", shade)
         // the picture, panning diagonally from its top left to its bottom right: there and back, about 28 seconds each
