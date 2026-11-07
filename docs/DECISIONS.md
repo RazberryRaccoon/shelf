@@ -314,6 +314,9 @@ Summarized from the first part of the conversation; the full transcript is kept 
   looks like central park… It should feel mysterious and beautiful"; Stormy's "rain looks like its going upwards. It's
   also way too dense… a peaceful gentle rain storm"; "Great job on the music! The ambient sounds are too loud though;
   you should be able to customize both the music and ambient sound volume separately".
+- Other devices (November 2026): "I know we've been developing this specifically for the Retroid Pocket 3+, so is
+  there anything you need to do on the backend to make sure it works well on different devices with different
+  processors and screen sizes? If so, do it." Built in 0.35.
 - Pinned collections, after testing 0.33 (November 2026): "I don't like the horizontal pill bar… It gets in the way
   trying to go up to the four buttons at the top. Going up should bring you to those buttons… going to the right
   begins scrolling through the list, and going down opens the game page… I want a menu to pop out from the left edge

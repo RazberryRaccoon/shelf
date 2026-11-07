@@ -685,11 +685,11 @@ class Museum(private val ctx: Context, private val stage: Stage, private val boa
 class Timeline(ctx: Context) : View(ctx) {
     var names: List<String> = emptyList()
     var at = 0
-    private var shownAt = 0f
+    private var shownAt = 0f; private val glide = Glide()
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     override fun onDraw(c: Canvas) {
         if (names.isEmpty()) return
-        shownAt += (at - shownAt) * .25f; if (abs(at - shownAt) > .01f) postInvalidateOnAnimation() else shownAt = at.toFloat()
+        shownAt += (at - shownAt) * glide.k(.25f); if (abs(at - shownAt) > .01f) postInvalidateOnAnimation() else shownAt = at.toFloat()
         val l = 30f; val r = width - 30f; val y = 46f; val step = (r - l) / maxOf(1, names.size - 1)
         p.color = Theme.line; p.strokeWidth = 2f; c.drawLine(l, y, r, y, p)
         p.color = Theme.accentOf(null); c.drawLine(l, y, l + step * shownAt, y, p)   // the line lights up to here

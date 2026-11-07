@@ -282,6 +282,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
                 page("Settings", "System", "How smooth it runs, Shelf as the home screen, and starting over.")
                 rows += Options.Row("smooth", "Smoothness", value = "‹  ${SMOOTH[games.smoothness]}  ›", sub = SMOOTH_SUB[games.smoothness])
                 rows += Options.Row("fps", "Show frame rate", value = if (games.showFps) "On" else "Off", sub = "A small meter in the top left: frames per second, and which part is slow")
+                rows += Options.Row("swapab", "Swap A and B", value = if (games.swapAB) "On" else "Off", sub = "For controllers whose A and B are the other way round: confirm with the other button")
                 rows += Options.Row("homescreen", "Home screen", value = if (host.isHomeApp()) "Shelf" else "Choose", sub = "Make Shelf what the Home button opens: Android's own choice of home app")
                 rows += Options.Row("again", "Run first-time setup again")
                 rows += Options.Row("none", "Version", value = try { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName } catch (e: Exception) { "" })
@@ -394,7 +395,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             val n = Curtain.NAMES.size; games.launchFx = (games.launchFx + (if (a == "left") n - 1 else 1)) % n; Sounds.play(Sounds.MOVE); return fill()
         }
         if (r?.key == "smooth" && (a == "left" || a == "right" || a == "a")) {
-            games.smoothness = (games.smoothness + (if (a == "left") 2 else 1)) % 3
+            games.smoothness = (games.smoothness + (if (a == "left") 2 else 1)) % 3; games.smoothChosen = true
             stage.quality(games.smoothness); backdrop.lite = games.smoothness == 2; backdrop.smooth = games.smoothness; Sounds.play(Sounds.MOVE); return fill()
         }
         if (r?.key == "pageview" && (a == "left" || a == "right" || a == "a")) { games.pageView = (games.pageView + (if (a == "left") 2 else 1)) % 3; Sounds.play(Sounds.MOVE); return fill() }
@@ -470,6 +471,7 @@ class Setup(private val ctx: Context, private val stage: Stage, private val boar
             "changecode" -> host.collections().let { c -> GameCard.askCode(ctx, c) { GameCard.chooseCode(ctx, c, "Choose a new code", "Four presses of the d-pad and A, B, X, Y.") { host.toast("Code changed"); fill() } } }
             "resetcode" -> host.collections().let { c -> GameCard.chooseCode(ctx, c, "Choose a new code", "Four presses of the d-pad and A, B, X, Y.") { host.toast("Code set"); fill() } }
             "homescreen" -> host.chooseHomeApp()
+            "swapab" -> { games.swapAB = !games.swapAB; Sounds.play(Sounds.PICK); fill() }
             "sounds" -> { games.sounds = !games.sounds; Sounds.enabled = games.sounds; Sounds.play(Sounds.PICK); fill() }
             "env" -> { setEnv(r.tag as Int); Sounds.play(Sounds.PICK); fill() }
             "pin" -> { host.collections().setPinned(r.tag as String, false); Sounds.play(Sounds.CLOSE); host.toast("Unpinned from Home"); fill() }

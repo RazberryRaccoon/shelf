@@ -95,7 +95,7 @@ class StudioView(ctx: Context, startColor: Int, startMaterial: String, private v
     private var gridAt = cell.coerceAtLeast(0)
     private val hsv = FloatArray(3).also { Color.colorToHSV(startColor, it) }
     private var button = 0   // 0 Save, 1 Cancel
-    private var chipScroll = 0f; private var chipScrollTo = 0f
+    private var chipScroll = 0f; private var chipScrollTo = 0f; private val glide = Glide()
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
 
     val color get() = Color.HSVToColor(hsv)
@@ -164,7 +164,7 @@ class StudioView(ctx: Context, startColor: Int, startMaterial: String, private v
         c.drawText("COLOR  ·  ${colorName.uppercase()}", X0, GRID_Y - 18f, p)
         p.letterSpacing = 0f
         drawChips(c); drawGrid(c); drawBars(c); drawButtons(c)
-        if (abs(chipScrollTo - chipScroll) > .5f) { chipScroll += (chipScrollTo - chipScroll) * .25f; postInvalidateOnAnimation() } else chipScroll = chipScrollTo
+        if (abs(chipScrollTo - chipScroll) > .5f) { chipScroll += (chipScrollTo - chipScroll) * glide.k(.25f); postInvalidateOnAnimation() } else chipScroll = chipScrollTo
     }
 
     private fun drawChips(c: Canvas) {

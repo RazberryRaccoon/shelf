@@ -17,6 +17,7 @@ material {
         { type : float, name : time },       // seconds (wrapped every two hours)
         { type : float3, name : mood },      // the selected console's color
         { type : float3, name : flash },     // the lightning: how bright, and where (x, y)
+        { type : float4, name : area },      // the part of the layout the texture covers: left, top, width, height (the whole screen)
         { type : sampler2d, name : noise }   // 256 × 256 random values, repeating
     ]
 }
@@ -281,7 +282,9 @@ fragment {
     void material(inout MaterialInputs material) {
         prepareMaterial(material);
         highp vec2 v = getNormalizedViewportCoord().xy;
-        highp vec2 p = vec2(v.x * 1334.0, (1.0 - v.y) * 750.0);
+        // the whole screen, in layout pixels: past 0..1334 and 0..750 on screens that aren't 16:9, so nothing smears
+        highp vec4 ar = materialParams.area;
+        highp vec2 p = vec2(ar.x + v.x * ar.z, ar.y + (1.0 - v.y) * ar.w);
         float D = materialParams.day, th = materialParams.theme;
         vec3 c;
         if (th < 1.5) c = city(p, D);

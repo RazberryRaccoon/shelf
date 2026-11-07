@@ -74,8 +74,12 @@ class Sky(private val stage: Stage) {
         time = (time + dt) % 7200f   // the scenes' clock, wrapped every two hours (the shader's numbers stay precise)
         if (theme <= 0) { stage.preViews.remove(view); drawnTheme = -1; return null }
         // the texture: three quarters of the screen's size, or half on Smoothest; made again if that changes
+        // the texture covers the whole screen (any shape), at three quarters of a texel per layout pixel (half on
+        // Smoothest): the same work on a 1080p or larger screen as on the Retroid's, since these scenes are soft anyway
         val k = if (smooth == 2) .5f else .75f
-        val w = (stage.pixels[0] * k).toInt().coerceAtLeast(16); val h = (stage.pixels[1] * k).toInt().coerceAtLeast(16)
+        val area = stage.screenArea
+        val w = (area[2] * k).toInt().coerceAtLeast(16); val h = (area[3] * k).toInt().coerceAtLeast(16)
+        mi.setParameter("area", area[0], area[1], area[2], area[3])
         if (tex == null || size[0] != w || size[1] != h) {
             val t = tex; val rt = target; if (t != null && rt != null) old += t to rt
             tex = Texture.Builder().width(w).height(h).levels(1).sampler(Texture.Sampler.SAMPLER_2D).format(Texture.InternalFormat.RGBA8)
